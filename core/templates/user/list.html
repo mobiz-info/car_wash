@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Country Master Classification - Car Wash Admin{% endblock %}
-{% block page_title %}Country Master{% endblock %}
-{% block breadcrumb_active %}Country Management{% endblock %}
+{% block title %}Users List - Car Wash Admin{% endblock %}
+{% block page_title %}System Users{% endblock %}
+{% block breadcrumb_active %}Users List{% endblock %}
 
 {% block content %}
 <style>
@@ -88,18 +88,6 @@
     .premium-table tr:hover {
         background-color: #f8fafc;
     }
-    .action-btn {
-        padding: 6px;
-        border-radius: 6px;
-        color: #64748b;
-        transition: all 0.2s;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .action-btn.edit:hover { background-color: #eff6ff; color: #3b82f6; }
-    .action-btn.delete:hover { background-color: #fef2f2; color: #ef4444; }
     
     .pagination {
         padding: 16px 24px;
@@ -130,12 +118,12 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search countries..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search username or email..." class="search-input">
             <button type="submit" style="display: none;"></button>
         </form>
 
-        <a href="{% url 'country_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Country
+        <a href="{% url 'user_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add User
         </a>
     </div>
 
@@ -145,8 +133,11 @@
             <thead>
                 <tr>
                     <th style="width: 80px;">#</th>
-                    <th>Country Name</th>
-                    <th style="width: 120px; text-align: right;">Action</th>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Company</th>
+                    
                 </tr>
             </thead>
             <tbody>
@@ -156,27 +147,26 @@
                     <td style="font-weight: 600; color: #1e293b;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div style="width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b;">
-                                <i class="ph-fill ph-flag"></i>
+                                <i class="ph-fill ph-user"></i>
                             </div>
-                            {{ obj.name }}
+                            <div>
+                                <div style="color: #1e293b;">{{ obj.username }}</div>
+                                {% if obj.first_name or obj.last_name %}
+                                <div style="font-size: 0.75rem; color: #64748b; font-weight: 400;">{{ obj.first_name }} {{ obj.last_name }}</div>
+                                {% endif %}
+                            </div>
                         </div>
                     </td>
-                    <td style="text-align: right;">
-                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                            <a href="{% url 'country_edit' obj.pk %}" class="action-btn edit" title="Edit">
-                                <i class="ph ph-pencil-simple" style="font-size: 1.2rem;"></i>
-                            </a>
-                            <a href="{% url 'country_delete' obj.pk %}" onclick="return confirm('Delete this country?')" class="action-btn delete" title="Delete">
-                                <i class="ph ph-trash" style="font-size: 1.2rem;"></i>
-                            </a>
-                        </div>
-                    </td>
+                    <td>{{ obj.email|default:"-" }}</td>
+                    <td>{{ obj.profile.role.name|default:"-" }}</td>
+                    <td>{{ obj.profile.company.company_name|default:"-" }}</td>
+                    
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" style="text-align:center; padding: 40px; color: #94a3b8;">
+                    <td colspan="6" style="text-align:center; padding: 40px; color: #94a3b8;">
                         <i class="ph ph-folder-open" style="font-size: 3rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
-                        No countries found matching your criteria.
+                        No users found matching your criteria.
                     </td>
                 </tr>
                 {% endfor %}

@@ -256,16 +256,42 @@
             <!-- User Management -->
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
-                    <i class="ph ph-users"></i>
-                    User Management
-                    <span class="nav-badge">3</span>
+                    <i class="ph ph-users"></i> User Management
+                </div>
+                <i class="ph ph-caret-down dropdown-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'user_list' %}" class="nav-item submenu-item">Users List</a>
+                <a href="{% url 'user_create' %}" class="nav-item submenu-item">Add Users</a>
+                <a href="{% url 'role_list' %}" class="nav-item submenu-item">Roles</a>
+                <a href="#" class="nav-item submenu-item">Permissions</a>
+            </div>
+
+            <!-- Client Management Section -->
+            <!-- <li class="sidebar-item">
+                <div class="sidebar-item-header" onclick="toggleSubmenu(this)">
+                    <div class="flex-center" style="gap:12px;">
+                        <i class="ph ph-users-three"></i> Client Management
+                    </div>
+                    <i class="ph ph-caret-down caret"></i>
+                </div>
+                <ul class="sub-menu">
+                    <li><a href="{% url 'client_list' %}">Clients</a></li>
+                    <li><a href="{% url 'client_create' %}">Add Client</a></li>
+                </ul>
+            </li> -->
+
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-globe"></i>
+                    Client Management
+                    <span class="nav-badge">5</span>
                 </div>
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                <a href="#">Users</a>
-                <a href="#">Roles</a>
-                <a href="#">Permissions</a>
+                <li><a href="{% url 'client_list' %}">Clients</a></li>
+                <li><a href="{% url 'client_create' %}">Add Client</a></li>
             </div>
 
             <!-- Master Settings -->
@@ -390,9 +416,17 @@
                 <div class="navbar-right">
                     <i class="ph ph-moon"></i>
                     <div class="flex-center" style="gap: 8px;">
-                        <span style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">A</span>
-                        <span>admin</span>
+                        <span style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">{{ request.user.username|make_list|first|upper|default:"A" }}</span>
+                        <span>{{ request.user.username|default:"admin" }}</span>
                     </div>
+                    {% if request.user.is_authenticated %}
+                    <form method="post" action="{% url 'logout' %}" style="margin-left: 12px; display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s;">
+                            <i class="ph ph-sign-out"></i> Logout
+                        </button>
+                    </form>
+                    {% endif %}
                 </div>
             </div>
             

@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Country Master Classification - Car Wash Admin{% endblock %}
-{% block page_title %}Country Master{% endblock %}
-{% block breadcrumb_active %}Country Management{% endblock %}
+{% block title %}Clients Classification - Car Wash Admin{% endblock %}
+{% block page_title %}Clients Master{% endblock %}
+{% block breadcrumb_active %}Client Management{% endblock %}
 
 {% block content %}
 <style>
@@ -88,6 +88,21 @@
     .premium-table tr:hover {
         background-color: #f8fafc;
     }
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .status-active {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+    .status-inactive {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
     .action-btn {
         padding: 6px;
         border-radius: 6px;
@@ -130,12 +145,12 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search countries..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search by company or owner..." class="search-input">
             <button type="submit" style="display: none;"></button>
         </form>
 
-        <a href="{% url 'country_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Country
+        <a href="{% url 'client_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Client
         </a>
     </div>
 
@@ -145,7 +160,10 @@
             <thead>
                 <tr>
                     <th style="width: 80px;">#</th>
-                    <th>Country Name</th>
+                    <th>Company Name</th>
+                    <th>Owner Name</th>
+                    <th>Phone</th>
+                    <th>Status</th>
                     <th style="width: 120px; text-align: right;">Action</th>
                 </tr>
             </thead>
@@ -156,17 +174,26 @@
                     <td style="font-weight: 600; color: #1e293b;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div style="width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b;">
-                                <i class="ph-fill ph-flag"></i>
+                                <i class="ph-fill ph-buildings"></i>
                             </div>
-                            {{ obj.name }}
+                            {{ obj.company_name }}
                         </div>
+                    </td>
+                    <td>{{ obj.owner_name }}</td>
+                    <td>{{ obj.phone|default:"-" }}</td>
+                    <td>
+                        {% if obj.status %}
+                            <span class="status-badge status-active">Active</span>
+                        {% else %}
+                            <span class="status-badge status-inactive">Inactive</span>
+                        {% endif %}
                     </td>
                     <td style="text-align: right;">
                         <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                            <a href="{% url 'country_edit' obj.pk %}" class="action-btn edit" title="Edit">
+                            <a href="{% url 'client_edit' obj.pk %}" class="action-btn edit" title="Edit">
                                 <i class="ph ph-pencil-simple" style="font-size: 1.2rem;"></i>
                             </a>
-                            <a href="{% url 'country_delete' obj.pk %}" onclick="return confirm('Delete this country?')" class="action-btn delete" title="Delete">
+                            <a href="{% url 'client_delete' obj.pk %}" onclick="return confirm('Delete this client?')" class="action-btn delete" title="Delete">
                                 <i class="ph ph-trash" style="font-size: 1.2rem;"></i>
                             </a>
                         </div>
@@ -174,9 +201,9 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" style="text-align:center; padding: 40px; color: #94a3b8;">
+                    <td colspan="6" style="text-align:center; padding: 40px; color: #94a3b8;">
                         <i class="ph ph-folder-open" style="font-size: 3rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
-                        No countries found matching your criteria.
+                        No clients found matching your criteria.
                     </td>
                 </tr>
                 {% endfor %}
