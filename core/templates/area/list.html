@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}District Master - Car Wash Admin{% endblock %}
-{% block page_title %}District Master{% endblock %}
-{% block breadcrumb_active %}District Management{% endblock %}
+{% block title %}Area Master - Car Wash Admin{% endblock %}
+{% block page_title %}Area Master{% endblock %}
+{% block breadcrumb_active %}Area Management{% endblock %}
 
 {% block content %}
 
@@ -12,11 +12,11 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search districts..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search areas..." class="search-input">
         </form>
 
-        <a href="{% url 'district_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add District
+        <a href="{% url 'area_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Area
         </a>
     </div>
 
@@ -29,7 +29,8 @@
                     <th>Country</th>
                     <th>State</th>
                     <th>District</th>
-                    <th style="text-align: right;">Action</th>
+                    <th>Area</th>
+                    <th style="text-align:right;">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -43,7 +44,7 @@
                             <div style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">
                                 <i class="ph-fill ph-globe"></i>
                             </div>
-                            {{ obj.state.country.name }}
+                            {{ obj.district.state.country.name }}
                         </div>
                     </td>
 
@@ -53,11 +54,21 @@
                             <div style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">
                                 <i class="ph-fill ph-map-pin"></i>
                             </div>
-                            {{ obj.state.name }}
+                            {{ obj.district.state.name }}
                         </div>
                     </td>
 
                     <!-- District -->
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">
+                                <i class="ph-fill ph-map-trifold"></i>
+                            </div>
+                            {{ obj.district.name }}
+                        </div>
+                    </td>
+
+                    <!-- Area -->
                     <td style="font-weight:600; color:#1e293b;">
                         {{ obj.name }}
                     </td>
@@ -65,10 +76,10 @@
                     <!-- Actions -->
                     <td style="text-align:right;">
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
-                            <a href="{% url 'district_edit' obj.pk %}" class="action-btn edit">
+                            <a href="{% url 'area_edit' obj.pk %}" class="action-btn edit">
                                 <i class="ph ph-pencil-simple"></i>
                             </a>
-                            <a href="{% url 'district_delete' obj.pk %}" onclick="return confirm('Delete this district?')" class="action-btn delete">
+                            <a href="{% url 'area_delete' obj.pk %}" onclick="return confirm('Delete this area?')" class="action-btn delete">
                                 <i class="ph ph-trash"></i>
                             </a>
                         </div>
@@ -76,9 +87,9 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" style="text-align:center; padding:40px; color:#94a3b8;">
-                        <i class="ph ph-map-trifold" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
-                        No districts found.
+                    <td colspan="6" style="text-align:center; padding:40px; color:#94a3b8;">
+                        <i class="ph ph-map-pin-line" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+                        No areas found.
                     </td>
                 </tr>
                 {% endfor %}

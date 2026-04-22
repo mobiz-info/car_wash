@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block title %}Client Form - Car Wash Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Form{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container {
+        max-width: 800px;
+        background: white;
+        padding: 32px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        margin: 0 auto;
+    }
+    .premium-form-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+    .form-group label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+    .form-group input[type="text"],
+    .form-group input[type="email"],
+    .form-group input[type="number"],
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: all 0.2s;
+        outline: none;
+        font-family: 'Inter', sans-serif;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #f8fafc;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid #f1f5f9;
+    }
+    .btn-secondary {
+        background: white;
+        color: #475569;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.9rem;
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s;
+    }
+    .btn-secondary:hover {
+        background: #f8fafc;
+        color: #1e293b;
+    }
+    .btn-primary {
+        background: #3b82f6;
+        color: white;
+        padding: 10px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-primary:hover {
+        background: #2563eb;
+    }
+    .error-text {
+        color: #ef4444;
+        font-size: 0.8rem;
+        margin-top: 4px;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-buildings" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="{{ form.company_name.id_for_label }}">Company Name <span style="color:red">*</span></label>
+                {{ form.company_name }}
+                {% if form.company_name.errors %}<div class="error-text">{{ form.company_name.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.owner_name.id_for_label }}">Owner Name <span style="color:red">*</span></label>
+                {{ form.owner_name }}
+                {% if form.owner_name.errors %}<div class="error-text">{{ form.owner_name.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.email.id_for_label }}">Email Address</label>
+                {{ form.email }}
+                {% if form.email.errors %}<div class="error-text">{{ form.email.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.phone.id_for_label }}">Phone Number</label>
+                {{ form.phone }}
+                {% if form.phone.errors %}<div class="error-text">{{ form.phone.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.gst_number.id_for_label }}">GST Number</label>
+                {{ form.gst_number }}
+                {% if form.gst_number.errors %}<div class="error-text">{{ form.gst_number.errors.0 }}</div>{% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label>Status</label>
+                <div class="checkbox-wrapper">
+                    {{ form.status }}
+                    <span style="font-size: 0.9rem; font-weight: 500; color: #334155;">Active Client</span>
+                </div>
+                {% if form.status.errors %}<div class="error-text">{{ form.status.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group full-width">
+                <label for="{{ form.address.id_for_label }}">Full Address</label>
+                {{ form.address }}
+                {% if form.address.errors %}<div class="error-text">{{ form.address.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.city.id_for_label }}">City</label>
+                {{ form.city }}
+                {% if form.city.errors %}<div class="error-text">{{ form.city.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.state.id_for_label }}">State</label>
+                {{ form.state }}
+                {% if form.state.errors %}<div class="error-text">{{ form.state.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.country.id_for_label }}">Country</label>
+                {{ form.country }}
+                {% if form.country.errors %}<div class="error-text">{{ form.country.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'client_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Client
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

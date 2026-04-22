@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Car Wash Admin{% endblock %}
+
+{% block content %}
+<style>
+    /* We don't want the sidebar or top banner for the login page */
+    .sidebar { display: none !important; }
+    .main-wrapper { margin-left: 0 !important; }
+    .top-banner { display: none !important; }
+    .content-area { 
+        padding: 0 !important; 
+        margin-top: 0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100vh - 50px);
+        background-color: var(--bg-body);
+    }
+    
+    .login-container {
+        background: white;
+        width: 100%;
+        max-width: 440px;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .login-header i {
+        font-size: 3.5rem;
+        color: var(--bg-banner);
+        margin-bottom: 16px;
+    }
+
+    .login-header h1 {
+        font-size: 1.5rem;
+        color: #1e293b;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .login-header p {
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+
+    .login-form .form-group {
+        margin-bottom: 20px;
+    }
+
+    .login-form label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 8px;
+    }
+
+    .login-form input[type="text"],
+    .login-form input[type="password"] {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        outline: none;
+        transition: all 0.2s;
+        font-family: inherit;
+        color: #1e293b;
+    }
+
+    .login-form input:focus {
+        border-color: var(--bg-banner);
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+
+    .login-btn {
+        width: 100%;
+        background-color: var(--bg-banner);
+        color: white;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+        margin-top: 12px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .login-btn:hover {
+        background-color: #6d28d9;
+    }
+
+    .error-container {
+        background-color: #fef2f2;
+        color: #ef4444;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin-bottom: 20px;
+        border: 1px solid #fecaca;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+
+<div class="login-container">
+    <div class="login-header">
+        
+        <h1>Welcome Back</h1>
+        <p>Sign in to your CarWash Admin account</p>
+    </div>
+
+    {% if form.errors %}
+    <div class="error-container">
+        <i class="ph-bold ph-warning-circle" style="font-size: 1.1rem;"></i>
+        Invalid username or password. Please try again.
+    </div>
+    {% endif %}
+
+    <form method="POST" class="login-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="id_username">Username</label>
+            <input type="text" name="username" id="id_username" placeholder="Enter your username" required autofocus>
+        </div>
+        
+        <div class="form-group">
+            <div style="display: flex; justify-content: space-between;">
+                <label for="id_password">Password</label>
+                <a href="#" style="font-size: 0.8rem; color: var(--bg-banner); text-decoration: none; font-weight: 500;">Forgot password?</a>
+            </div>
+            <input type="password" name="password" id="id_password" placeholder="Enter your password" required>
+        </div>
+
+        <button type="submit" class="login-btn">
+            Sign In <i class="ph-bold ph-arrow-right"></i>
+        </button>
+        <input type="hidden" name="next" value="{{ next }}">
+    </form>
+</div>
+
+<!-- Extra blocks injected to avoid leaking layout text into login page -->
+{% block page_title %}{% endblock %}
+{% block breadcrumb_active %}{% endblock %}
+
+{% endblock %}

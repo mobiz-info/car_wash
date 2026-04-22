@@ -1,36 +1,36 @@
 {% extends 'base.html' %}
 
-{% block title %}District - Car Wash Admin{% endblock %}
+{% block title %}Area - Car Wash Admin{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
-{% block breadcrumb_active %}District{% endblock %}
+{% block breadcrumb_active %}Area{% endblock %}
 
 {% block content %}
 
 <div class="premium-form-container">
     <div class="premium-form-title">
-        <i class="ph ph-map-trifold" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        <i class="ph ph-map-pin-line" style="color: #3b82f6; font-size: 1.5rem;"></i>
         {{ title }}
     </div>
 
     <form method="POST">
         {% csrf_token %}
 
-        <!-- State -->
+        <!-- District -->
         <div class="form-group">
-            <label for="{{ form.state.id_for_label }}">State</label>
-            {{ form.state }}
-            {% if form.state.errors %}
+            <label for="{{ form.district.id_for_label }}">District</label>
+            {{ form.district }}
+            {% if form.district.errors %}
                 <div class="error-text">
-                    {% for error in form.state.errors %}
+                    {% for error in form.district.errors %}
                         {{ error }}
                     {% endfor %}
                 </div>
             {% endif %}
         </div>
 
-        <!-- District -->
+        <!-- Area -->
         <div class="form-group">
-            <label for="{{ form.name.id_for_label }}">District Name</label>
+            <label for="{{ form.name.id_for_label }}">Area Name</label>
             {{ form.name }}
             {% if form.name.errors %}
                 <div class="error-text">
@@ -42,9 +42,9 @@
         </div>
 
         <div class="form-actions">
-            <a href="{% url 'district_list' %}" class="btn-secondary">Cancel</a>
+            <a href="{% url 'area_list' %}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary">
-                <i class="ph ph-check-circle"></i> Save District
+                <i class="ph ph-check-circle"></i> Save Area
             </button>
         </div>
     </form>

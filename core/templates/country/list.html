@@ -1,69 +1,83 @@
 {% extends 'base.html' %}
 
-{% block title %}Country - Car Wash Admin{% endblock %}
+{% block title %}Country Master Classification - Car Wash Admin{% endblock %}
 {% block page_title %}Country Master{% endblock %}
-{% block breadcrumb_active %}Country{% endblock %}
+{% block breadcrumb_active %}Country Management{% endblock %}
 
 {% block content %}
 
-<div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-
+<div class="list-container">
     <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <form method="GET" style="display: flex; gap: 10px;">
-            <input type="text" name="search" value="{{search}}" placeholder="Search..."
-                   style="padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px;">Search</button>
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{search}}" placeholder="Search countries..." class="search-input">
+            <button type="submit" style="display: none;"></button>
         </form>
 
-        <a href="{% url 'country_create' %}" 
-           style="background: #10b981; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none;">
-            + Add Country
+        <a href="{% url 'country_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Country
         </a>
     </div>
 
     <!-- Table -->
-    <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-            <tr style="background: #f8fafc; text-align: left;">
-                <th style="padding: 12px;">#</th>
-                <th style="padding: 12px;">Country Name</th>
-                <th style="padding: 12px;">Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for obj in page_obj %}
-            <tr style="border-top: 1px solid #e2e8f0;">
-                <td style="padding: 12px;">{{ forloop.counter }}</td>
-                <td style="padding: 12px;">{{ obj.name }}</td>
-                <td style="padding: 12px;">
-                    <a href="{% url 'country_edit' obj.pk %}" style="color: #3b82f6;">Edit</a> |
-                    <a href="{% url 'country_delete' obj.pk %}" 
-                       onclick="return confirm('Delete this item?')" 
-                       style="color: #ef4444;">Delete</a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="4" style="text-align:center; padding:20px;">No data found</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <!-- Pagination -->
-    <div style="margin-top: 20px; display: flex; justify-content: center;">
-        {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}" style="margin-right: 10px;">Prev</a>
-        {% endif %}
-
-        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-
-        {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}" style="margin-left: 10px;">Next</a>
-        {% endif %}
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">#</th>
+                    <th>Country Name</th>
+                    <th style="width: 120px; text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in page_obj %}
+                <tr>
+                    <td style="font-weight: 500; color: #94a3b8;">{{ forloop.counter }}</td>
+                    <td style="font-weight: 600; color: #1e293b;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                                <i class="ph-fill ph-flag"></i>
+                            </div>
+                            {{ obj.name }}
+                        </div>
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                            <a href="{% url 'country_edit' obj.pk %}" class="action-btn edit" title="Edit">
+                                <i class="ph ph-pencil-simple" style="font-size: 1.2rem;"></i>
+                            </a>
+                            <a href="{% url 'country_delete' obj.pk %}" onclick="return confirm('Delete this country?')" class="action-btn delete" title="Delete">
+                                <i class="ph ph-trash" style="font-size: 1.2rem;"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" style="text-align:center; padding: 40px; color: #94a3b8;">
+                        <i class="ph ph-folder-open" style="font-size: 3rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
+                        No countries found matching your criteria.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
-</div>
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}" class="page-link">Previous</a>
+        {% endif %}
 
+        <span style="font-weight: 500;">Page <span style="color: #1e293b;">{{ page_obj.number }}</span> of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
 {% endblock %}
