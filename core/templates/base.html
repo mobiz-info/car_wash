@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Car Wash Super Admin{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        :root {
+            /* Colors matching the reference image */
+            --bg-sidebar: #1e293b; /* Dark Slate */
+            --bg-body: #f3f4f6; /* Light gray */
+            --bg-banner: #7c3aed; /* Vibrant purple-blue */
+            --text-sidebar: #cbd5e1;
+            --text-sidebar-hover: #ffffff;
+            --sidebar-border: #334155;
+            --badge-bg: #d97706; /* Yellow/Orange badge */
+            --badge-text: #ffffff;
+            --sidebar-width: 260px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: #1e293b;
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        /* Custom Scrollbar for sidebar */
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background-color: var(--sidebar-border); border-radius: 4px; }
+
+        .sidebar-header {
+            padding: 16px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            border-bottom: 1px solid var(--sidebar-border);
+            height: 60px; /* Aligns with top navbar */
+        }
+
+        .sidebar-content {
+            padding: 16px 0;
+        }
+
+        .nav-section-title {
+            color: #64748b;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+            margin: 16px 16px 8px 16px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            color: var(--text-sidebar);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            color: var(--text-sidebar-hover);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-item i.ph {
+            font-size: 1.1rem;
+        }
+
+        .nav-badge {
+            background-color: var(--badge-bg);
+            color: var(--badge-text);
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 12px;
+            margin-left: 8px;
+        }
+
+        .nav-right-icon {
+            font-size: 0.8rem;
+            transition: transform 0.2s;
+        }
+        
+        .nav-item.open .nav-right-icon {
+            transform: rotate(90deg);
+        }
+
+        .nav-submenu {
+            background-color: rgba(0,0,0,0.1);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .nav-submenu.open {
+            max-height: 500px; /* Arbitrary large number for expansion */
+        }
+
+        .nav-submenu a {
+            display: block;
+            padding: 10px 16px 10px 45px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 400;
+        }
+
+        .nav-submenu a:hover {
+            color: white;
+        }
+
+        /* Main Content */
+        .main-wrapper {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Top Banner Container */
+        .top-banner {
+            background-color: var(--bg-banner);
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Navbar */
+        .top-navbar {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .navbar-right span {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* Banner Header Area */
+        .banner-header {
+            padding: 32px 24px 48px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .banner-title {
+            font-size: 1.75rem;
+            font-weight: 500;
+        }
+
+        .banner-breadcrumbs {
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.9;
+        }
+
+        .banner-breadcrumbs a {
+            color: white;
+            text-decoration: none;
+        }
+
+        /* Content Area inside Main Wrapper */
+        .content-area {
+            padding: 0 24px 24px 24px;
+            margin-top: -24px; /* Pull content up over the purple banner slightly */
+            flex: 1;
+        }
+
+        /* Utility */
+        .flex-center {
+            display: flex;
+            align-items: center;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            
+            <span>CarWash Admin</span>
+        </div>
+        <div class="sidebar-content">
+            
+            <a href="#" class="nav-item">
+                <div class="nav-item-left">
+                    <i class="ph ph-squares-four"></i>
+                    Dashboard
+                </div>
+            </a>
+
+            <div class="nav-section-title">MAIN</div>
+
+            <!-- User Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-users"></i>
+                    User Management
+                    <span class="nav-badge">3</span>
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="#">Users</a>
+                <a href="#">Roles</a>
+                <a href="#">Permissions</a>
+            </div>
+
+            <!-- Master Settings -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-globe"></i>
+                    Master Settings
+                    <span class="nav-badge">5</span>
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="#">Country</a>
+                <a href="#">State</a>
+                <a href="#">District</a>
+                <a href="#">Area</a>
+                <a href="#">Branch</a>
+            </div>
+
+            <!-- Service Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-wrench"></i>
+                    Service Management
+                    <span class="nav-badge">4</span>
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="#">Service Types</a>
+                <a href="#">Services</a>
+                <a href="#">Packages</a>
+                <a href="#">Add-ons</a>
+            </div>
+
+            <div class="nav-section-title">OPERATIONS</div>
+
+            <!-- Booking Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-calendar-plus"></i>
+                    Booking Management
+                    <span class="nav-badge">3</span>
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="#">New Booking</a>
+                <a href="#">Booking List</a>
+                <a href="#">Calendar View</a>
+            </div>
+
+            <!-- Finance -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-file-text"></i>
+                    Finance
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="#">Invoice</a>
+                <a href="#">Payments</a>
+                <a href="#">Transactions</a>
+            </div>
+
+            <div class="nav-section-title">ADMINISTRATION</div>
+
+            <!-- Staff -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-user-list"></i>
+                    Staff
+                    <span class="nav-badge">2</span>
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="#">Employees</a>
+                <a href="#">Attendance</a>
+            </div>
+
+            <!-- Reports -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-chart-line-up"></i>
+                    Reports
+                    <span class="nav-badge">3</span>
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="#">Sales</a>
+                <a href="#">Bookings</a>
+                <a href="#">Revenue</a>
+            </div>
+
+            <!-- Settings -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-gear"></i>
+                    Settings
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="#">Taxes</a>
+                <a href="#">Tariff</a>
+                <a href="#">Logs</a>
+            </div>
+            
+        </div>
+    </aside>
+
+    <div class="main-wrapper">
+        <!-- Purple Banner Area -->
+        <div class="top-banner">
+            <div class="top-navbar">
+                <div class="navbar-left">
+                    <i class="ph ph-list"></i>
+                </div>
+                <div class="navbar-right">
+                    <i class="ph ph-moon"></i>
+                    <div class="flex-center" style="gap: 8px;">
+                        <span style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">A</span>
+                        <span>admin</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="banner-header">
+                <div class="banner-title">{% block page_title %}Dashboard{% endblock %}</div>
+                <div class="banner-breadcrumbs">
+                    <a href="#">Dashboards</a>
+                    <i class="ph-bold ph-caret-right"></i>
+                    <span style="font-weight: 600;">{% block breadcrumb_active %}Admin Dashboard{% endblock %}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content inside Container -->
+        <div class="content-area">
+            {% block content %}{% endblock %}
+        </div>
+        
+        <!-- Footer -->
+        <div style="margin-top:auto; padding: 16px; text-align: center; color: #94a3b8; font-size: 0.75rem;">
+            Copyright © 2026 Admin. All rights reserved.
+        </div>
+    </div>
+
+    <script>
+        // Toggle Sidebar Dropdowns
+        document.querySelectorAll('.dropdown-toggle').forEach(item => {
+            item.addEventListener('click', event => {
+                // Toggle the 'open' class on the clicked item
+                item.classList.toggle('open');
+                // Toggle the 'open' class on the adjoining submenu
+                const submenu = item.nextElementSibling;
+                submenu.classList.toggle('open');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Car Wash Admin{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb_active %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 24px;">
+    <div style="background-color: white; padding: 8px 16px; border-radius: 8px; border: 1px solid #e2e8f0; color: #475569; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <i class="ph ph-calendar-blank"></i> {% now "jS F Y" %}
+    </div>
+</div>
+
+<div class="dashboard-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-bottom: 32px;">
+    
+    <!-- Active Users -->
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden;">
+        <div style="position: absolute; top:0; left:0; width: 4px; height: 100%; background-color: #3b82f6;"></div>
+        <div style="display: flex; justify-content: space-between; color: #64748b;">
+            <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Active Users</span>
+            <i class="ph-fill ph-user-check" style="font-size: 1.8rem; color: #3b82f6; opacity: 0.8;"></i>
+        </div>
+        <div style="font-size: 2.2rem; font-weight: 700; color: #1e293b;">1,200</div>
+    </div>
+
+    <!-- Inactive Users -->
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden;">
+        <div style="position: absolute; top:0; left:0; width: 4px; height: 100%; background-color: #ef4444;"></div>
+        <div style="display: flex; justify-content: space-between; color: #64748b;">
+            <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Inactive Users</span>
+            <i class="ph-fill ph-user-minus" style="font-size: 1.8rem; color: #ef4444; opacity: 0.8;"></i>
+        </div>
+        <div style="font-size: 2.2rem; font-weight: 700; color: #1e293b;">28</div>
+    </div>
+
+    <!-- AMC Pending -->
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden;">
+        <div style="position: absolute; top:0; left:0; width: 4px; height: 100%; background-color: #f59e0b;"></div>
+        <div style="display: flex; justify-content: space-between; color: #64748b;">
+            <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">AMC Pending</span>
+            <i class="ph-fill ph-clock-counter-clockwise" style="font-size: 1.8rem; color: #f59e0b; opacity: 0.8;"></i>
+        </div>
+        <div style="font-size: 2.2rem; font-weight: 700; color: #1e293b;">9</div>
+    </div>
+
+    <!-- AMC Next 30 Days -->
+    <div style="background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden;">
+        <div style="position: absolute; top:0; left:0; width: 4px; height: 100%; background-color: #10b981;"></div>
+        <div style="display: flex; justify-content: space-between; color: #64748b;">
+            <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">AMC (30 Days)</span>
+            <i class="ph-fill ph-calendar-plus" style="font-size: 1.8rem; color: #10b981; opacity: 0.8;"></i>
+        </div>
+        <div style="font-size: 2.2rem; font-weight: 700; color: #1e293b;">29</div>
+    </div>
+
+</div>
+
+{% endblock %}
