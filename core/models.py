@@ -22,7 +22,7 @@ class BaseModel(models.Model):
 class Country(BaseModel):
     name = models.CharField(max_length=100)
 
-    def _str_(self):
+    def __str__(self):
         return self.name
 
 
@@ -30,7 +30,7 @@ class State(BaseModel):
     country = models.ForeignKey(Country, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
 
-    def _str_(self):
+    def __str__(self):
         return self.name
 
 

@@ -231,7 +231,22 @@
             display: flex;
             align-items: center;
         }
-        
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 15px 0px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #1e293b;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+        }
     </style>
 </head>
 <body>
@@ -279,10 +294,9 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'country_list' %}">Country</a>
-                <a href="#">State</a>
-                <a href="#">District</a>
-                <a href="#">Area</a>
-                <a href="#">Branch</a>
+                <a href="{% url 'state_list' %}">State</a>
+                <a href="{% url 'district_list' %}">District</a>
+                <a href="{% url 'state_list' %}">Area</a>
             </div>
 
             <!-- Service Management -->

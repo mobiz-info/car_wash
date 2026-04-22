@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}District - Car Wash Admin{% endblock %}
+{% block page_title %}District Master{% endblock %}
+{% block breadcrumb_active %}District{% endblock %}
+
+{% block content %}
+
+<div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <form method="GET" style="display: flex; gap: 10px;">
+            <input type="text" name="search" value="{{search}}" placeholder="Search..."
+                   style="padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px;">Search</button>
+        </form>
+
+        <a href="{% url 'district_create' %}" 
+           style="background: #10b981; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none;">
+            + Add District
+        </a>
+    </div>
+
+    <!-- Table -->
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f8fafc; text-align: left;">
+                <th style="padding: 12px;">#</th>
+                <th style="padding: 12px;">Country Name</th>
+                <th style="padding: 12px;">State Name</th>
+                <th style="padding: 12px;">District Name</th>
+                <th style="padding: 12px;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for obj in page_obj %}
+            <tr style="border-top: 1px solid #e2e8f0;">
+                <td style="padding: 12px;">{{ forloop.counter }}</td>
+                <td style="padding: 12px;">{{ obj.state.country }}</td>
+                <td style="padding: 12px;">{{ obj.state }}</td>
+                <td style="padding: 12px;">{{ obj.name }}</td>
+                <td style="padding: 12px;">
+                    <a href="{% url 'district_edit' obj.pk %}" style="color: #3b82f6;">Edit</a> |
+                    <a href="{% url 'district_delete' obj.pk %}" 
+                       onclick="return confirm('Delete this item?')" 
+                       style="color: #ef4444;">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align:center; padding:20px;">No data found</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div style="margin-top: 20px; display: flex; justify-content: center;">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" style="margin-right: 10px;">Prev</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" style="margin-left: 10px;">Next</a>
+        {% endif %}
+    </div>
+
+</div>
+
+{% endblock %}

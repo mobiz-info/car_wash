@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}District - Car Wash Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}District{% endblock %}
+
+{% block content %}
+
+<div style="max-width: 600px; margin: auto; background: white; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+
+    <h3 style="margin-bottom: 20px;">{{ title }}</h3>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <!-- State Dropdown -->
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 600;">State</label>
+            {{ form.state }}
+            {% if form.state.errors %}
+                <div style="color:red;">{{ form.state.errors }}</div>
+            {% endif %}
+        </div>
+
+        <!-- District Name -->
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 600;">District Name</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div style="color:red;">{{ form.name.errors }}</div>
+            {% endif %}
+        </div>
+
+        <!-- Buttons -->
+        <div style="display: flex; justify-content: space-between;">
+            <a href="{% url 'district_list' %}" 
+               style="background: #64748b; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none;">
+                Back
+            </a>
+
+            <button type="submit" 
+                    style="background: #3b82f6; color: white; padding: 10px 16px; border: none; border-radius: 8px;">
+                Save
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}
