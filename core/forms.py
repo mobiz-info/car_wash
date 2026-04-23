@@ -7,7 +7,7 @@ from client_management.models import Client
 class UserCreationAdminForm(forms.ModelForm):
     """Custom form to handle User creation specifically for the super admin portal"""
     password_confirm = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Retype password'}),
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm password'}),
         label="Confirm Password"
     )
 
