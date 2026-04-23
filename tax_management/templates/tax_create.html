@@ -30,6 +30,19 @@
 
         <div class="form-separator"></div>
 
+        <!-- Tax Type -->
+        <div class="form-group">
+            <label for="{{ form.tax_type.id_for_label }}">Tax Type</label>
+            {{ form.tax_type }}
+            {% if form.tax_type.errors %}
+                <div class="error-text">
+                    {% for error in form.tax_type.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
         <!-- Tax Name -->
         <div class="form-group">
             <label for="{{ form.name.id_for_label }}">Tax Name</label>
@@ -50,19 +63,6 @@
             {% if form.percent.errors %}
                 <div class="error-text">
                     {% for error in form.percent.errors %}
-                        {{ error }}
-                    {% endfor %}
-                </div>
-            {% endif %}
-        </div>
-
-        <!-- Tax Type -->
-        <div class="form-group">
-            <label for="{{ form.tax_type.id_for_label }}">Tax Type</label>
-            {{ form.tax_type }}
-            {% if form.tax_type.errors %}
-                <div class="error-text">
-                    {% for error in form.tax_type.errors %}
                         {{ error }}
                     {% endfor %}
                 </div>
@@ -90,5 +90,42 @@
         </div>
     </form>
 </div>
+
+<!-- ✅ JS for Tax Logic -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const taxType = document.getElementById("id_tax_type");
+    const taxName = document.getElementById("id_name");
+    const taxPercent = document.getElementById("id_percent");
+
+    function handleTaxType() {
+        if (taxType.value === "tax_on_tax") {
+            taxName.value = "Cess";
+            taxPercent.value = "1";
+
+            taxName.readOnly = true;
+            taxPercent.readOnly = true;
+        } else {
+            taxName.readOnly = false;
+            taxPercent.readOnly = false;
+
+            // Optional: clear only if it was auto-set
+            if (taxName.value === "Cess") {
+                taxName.value = "";
+            }
+            if (taxPercent.value === "1") {
+                taxPercent.value = "";
+            }
+        }
+    }
+
+    // Run on page load (important for edit)
+    handleTaxType();
+
+    // Run on change
+    taxType.addEventListener("change", handleTaxType);
+});
+</script>
 
 {% endblock %}

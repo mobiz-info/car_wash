@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 
 from core.functions import get_auto_id
 from .forms import TaxForm
@@ -12,13 +13,14 @@ from .models import Tax
 def tax_list(request):
     queryset = Tax.objects.filter(is_deleted=False).order_by('-id')
 
-    search = request.GET.get('q')
+    search = request.GET.get('search')  
     if search:
         queryset = queryset.filter(name__icontains=search)
 
     return render(request, 'tax_list.html', {
         'title': 'Tax List',
-        'taxes': queryset
+        'taxes': queryset,
+        'search': search, 
     })
     
 @login_required    

@@ -12,7 +12,7 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search taxes..." class="search-input">
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search taxes..." class="search-input">
         </form>
 
         <a href="{% url 'tax_create' %}" class="btn-create">
