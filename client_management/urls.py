@@ -6,4 +6,6 @@ urlpatterns = [
     path('client/create/', views.client_create, name='client_create'),
     path('client/edit/<uuid:id>/', views.client_edit, name='client_edit'),
     path('client/delete/<uuid:id>/', views.client_delete, name='client_delete'),
+    path('ajax/states/', views.ajax_get_states, name='ajax_get_states'),
+    path('ajax/areas/', views.ajax_get_areas, name='ajax_get_areas'),
 ]

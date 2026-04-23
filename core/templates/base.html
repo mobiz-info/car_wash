@@ -476,7 +476,7 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'user_list' %}" class="nav-item submenu-item">Users List</a>
-                <a href="{% url 'user_create' %}" class="nav-item submenu-item">Add Users</a>
+                <!-- <a href="{% url 'user_create' %}" class="nav-item submenu-item">Add Users</a> -->
                 <a href="{% url 'role_list' %}" class="nav-item submenu-item">Roles</a>
                 <a href="#" class="nav-item submenu-item">Permissions</a>
             </div>
@@ -519,9 +519,9 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'country_list' %}">Country</a>
-                <a href="#">State</a>
-                <a href="#">District</a>
-                <a href="#">Area</a>
+                <a href="{% url 'state_list' %}">State</a>
+                <a href="{% url 'district_list' %}">District</a>
+                <a href="{% url 'area_list' %}">Area</a>
                 <a href="#">Branch</a>
             </div>
 

@@ -4,11 +4,11 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth import authenticate, login
-from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
+from django.http import JsonResponse
 from .models import Client
 from .forms import ClientForm
+from master.models import State, Area
 from core.functions import get_auto_id
 @login_required
 def client_list(request):
@@ -65,3 +65,14 @@ def client_delete(request, id):
     messages.success(request, "Client deleted successfully")
     return redirect('client_list')
 
+
+def ajax_get_states(request):
+    country_id = request.GET.get('country_id')
+    states = State.objects.filter(country_id=country_id, is_deleted=False).values('id', 'name')
+    return JsonResponse({'states': list(states)})
+
+
+def ajax_get_areas(request):
+    state_id = request.GET.get('state_id')
+    areas = Area.objects.filter(district__state_id=state_id, is_deleted=False).values('id', 'name')
+    return JsonResponse({'areas': list(areas)})
