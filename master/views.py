@@ -7,9 +7,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
+
 from .models import Country, State, District, Area
-from .forms import CountryForm
+from .forms import *
 from core.functions import get_auto_id
+
+
 @login_required
 def country_list(request):
     search = request.GET.get('search', '')
