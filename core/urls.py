@@ -13,4 +13,6 @@ urlpatterns = [
     path('roles/create/', views.role_create, name='role_create'),
     path('roles/edit/<uuid:pk>/', views.role_edit, name='role_edit'),
     path('roles/delete/<uuid:pk>/', views.role_delete, name='role_delete'),
+    
+    path('logs/', views.log_list, name='log_list'),
 ]

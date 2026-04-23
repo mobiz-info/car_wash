@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 
-from core.functions import get_auto_id
+from core.functions import get_auto_id, log_activity
 from .forms import TaxForm
 from .models import Tax
 
@@ -16,7 +16,14 @@ def tax_list(request):
     search = request.GET.get('search')  
     if search:
         queryset = queryset.filter(name__icontains=search)
-
+    
+    # LOG
+    username = request.user.username
+    log_activity(
+        created_by=request.user,
+        description=f"{username} viewed tax list."
+    )
+    
     return render(request, 'tax_list.html', {
         'title': 'Tax List',
         'taxes': queryset,
@@ -35,7 +42,13 @@ def tax_create(request):
             instance.creator = request.user
 
             instance.save()
-
+            
+            # LOG
+            username = request.user.username
+            log_activity(
+                created_by=request.user,
+                description=f"{username} created tax '{instance.name}' ({instance.percent}%)."
+            )
             messages.success(request, "Tax created successfully")
             return redirect('tax_list')
 
@@ -58,6 +71,12 @@ def tax_edit(request, id):
 
             instance.save()
             
+            # LOG
+            username = request.user.username
+            log_activity(
+                created_by=request.user,
+                description=f"{username} updated tax '{instance.name}' to {instance.percent}%."
+            )
             messages.success(request, "Tax updated successfully")
             return redirect('tax_list')
 
@@ -72,6 +91,15 @@ def tax_delete(request, id):
     instance = get_object_or_404(Tax, id=id, is_deleted=False)
     instance.is_deleted = True
     instance.save()
+
+    # LOG
+    tax_name = instance.name
+    username = request.user.username
+    log_activity(
+        created_by=request.user,
+        description=f"{username} deleted tax '{tax_name}'."
+    )
+
 
     messages.success(request, "Tax deleted successfully")
     return redirect('tax_list')

@@ -30,3 +30,18 @@ class UserProfile(BaseModel):
     
     def __str__(self):
         return self.user.username
+
+
+
+class Processing_Log(models.Model):
+    created_by = models.CharField(max_length=20,  blank=True)
+    created_date = models.DateTimeField(auto_now_add=True,blank=True, null=True)
+   
+    description = models.CharField(null=True,max_length=1024)
+    
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return f"Processing Log - {self.created_date}"
+    

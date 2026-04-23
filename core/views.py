@@ -7,7 +7,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
-from .models import UserProfile, Role
+import datetime
+from datetime import date
+
+from .models import *
 from .forms import UserCreationAdminForm, UserProfileForm, RoleForm
 from core.functions import get_auto_id
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -130,4 +133,28 @@ def role_delete(request, pk):
     role.save()
     messages.success(request, 'Role deleted successfully.')
     return redirect('role_list')
+
+
+@login_required
+def log_list(request):
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    # Use today's date as the default if no date is provided
+    if not start_date:
+        start_date = date.today()
+    else:
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+
+    if not end_date:
+        end_date = date.today()
+    else:
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    logs = Processing_Log.objects.filter(created_date__date__range=(start_date, end_date)).order_by("-created_date")
+    
+    context = {
+        'logs': logs,
+    }
+    
+    return render(request, 'log_list.html', context)
 

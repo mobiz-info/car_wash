@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %} Logs - Car Wash Admin{% endblock %}
+{% block page_title %} Logs{% endblock %}
+{% block breadcrumb_active %}Activity Logs{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+
+        <!-- Date Filter -->
+        <form method="GET" class="search-wrapper" style="gap:10px;">
+            <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" class="search-input">
+            <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" class="search-input">
+
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-funnel"></i>
+            </button>
+
+            <a href="{% url 'log_list' %}" class="btn-secondary">
+                <i class="ph ph-x"></i>
+            </a>
+        </form>
+
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Created By</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <!-- User -->
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">
+                                <i class="ph-fill ph-user"></i>
+                            </div>
+                            {{ log.created_by }}
+                        </div>
+                    </td>
+
+                    <!-- Date -->
+                    <td>
+                        {{ log.created_date|date:"d M Y H:i" }}
+                    </td>
+
+                    <!-- Description -->
+                    <td style="color:#334155;">
+                        {{ log.description }}
+                    </td>
+                </tr>
+
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align:center; padding:40px; color:#94a3b8;">
+                        <i class="ph ph-clock-counter-clockwise" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+                        No activity logs found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination (Simple Version) -->
+    {% if logs.has_other_pages %}
+    <div class="pagination">
+        {% if logs.has_previous %}
+            <a href="?page={{ logs.previous_page_number }}&start_date={{start_date}}&end_date={{end_date}}" class="page-link">Previous</a>
+        {% endif %}
+
+        <span>Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
+
+        {% if logs.has_next %}
+            <a href="?page={{ logs.next_page_number }}&start_date={{start_date}}&end_date={{end_date}}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}
