@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}Tax Master - Car Wash Admin{% endblock %}
+{% block page_title %}Tax Master{% endblock %}
+{% block breadcrumb_active %}Tax Management{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{search}}" placeholder="Search taxes..." class="search-input">
+        </form>
+
+        <a href="{% url 'tax_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Tax
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Country</th>
+                    <th>Tax Name</th>
+                    <th>Type</th>
+                    <th>%</th>
+                    <th>Mode</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <!-- Country -->
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">
+                                <i class="ph-fill ph-globe"></i>
+                            </div>
+                            {{ obj.country.name }}
+                        </div>
+                    </td>
+
+                    <!-- Tax Name -->
+                    <td style="font-weight:600; color:#1e293b;">
+                        {{ obj.name }}
+                    </td>
+
+                    <!-- Type -->
+                    <td>
+                        <span class="badge" style="background:#e0f2fe; color:#0369a1;">
+                            {{ obj.get_tax_type_display }}
+                        </span>
+                    </td>
+
+                    <!-- Percentage -->
+                    <td>
+                        <span style="font-weight:600;">{{ obj.percent }}%</span>
+                    </td>
+
+                    <!-- Mode -->
+                    <td>
+                        <span class="badge" style="background:#f1f5f9; color:#475569;">
+                            {{ obj.get_mode_display }}
+                        </span>
+                    </td>
+
+                    <!-- Actions -->
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'tax_edit' obj.pk %}" class="action-btn edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'tax_delete' obj.pk %}" onclick="return confirm('Delete this tax?')" class="action-btn delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align:center; padding:40px; color:#94a3b8;">
+                        <i class="ph ph-receipt" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+                        No taxes found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{search}}" class="page-link">Previous</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{search}}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

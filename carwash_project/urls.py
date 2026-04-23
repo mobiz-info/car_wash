@@ -23,4 +23,5 @@ urlpatterns = [
     path('', include('master.urls')),
     path('', include('client_management.urls')),
     path('', include('service_management.urls')),
+    path('', include('tax_management.urls')),
 ]

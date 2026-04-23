@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Tax - Car Wash Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Tax{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-receipt" style="color: #10b981; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <!-- Country -->
+        <div class="form-group">
+            <label for="{{ form.country.id_for_label }}">Country</label>
+            {{ form.country }}
+            {% if form.country.errors %}
+                <div class="error-text">
+                    {% for error in form.country.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-separator"></div>
+
+        <!-- Tax Name -->
+        <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Tax Name</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div class="error-text">
+                    {% for error in form.name.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Percentage -->
+        <div class="form-group">
+            <label for="{{ form.percent.id_for_label }}">Tax %</label>
+            {{ form.percent }}
+            {% if form.percent.errors %}
+                <div class="error-text">
+                    {% for error in form.percent.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Tax Type -->
+        <div class="form-group">
+            <label for="{{ form.tax_type.id_for_label }}">Tax Type</label>
+            {{ form.tax_type }}
+            {% if form.tax_type.errors %}
+                <div class="error-text">
+                    {% for error in form.tax_type.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Mode -->
+        <div class="form-group">
+            <label for="{{ form.mode.id_for_label }}">Mode</label>
+            {{ form.mode }}
+            {% if form.mode.errors %}
+                <div class="error-text">
+                    {% for error in form.mode.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'tax_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Tax
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

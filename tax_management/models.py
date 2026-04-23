@@ -2,19 +2,17 @@ from django.db import models
 
 from master.models import Country
 from core.models import BaseModel
+
 # Create your models here.
-
-
 class Tax(BaseModel):
     TAX_TYPE = (
         ('direct', 'Direct'),
-        ('extra', 'Extra'),  # instead of tax_on_tax
+        ('tax_on_tax', 'Tax on Tax'), 
     )
 
     MODE = (
         ('interstate', 'Interstate'),
         ('intrastate', 'Intrastate'),
-        ('both', 'Both'),
     )
 
     country = models.ForeignKey(Country, on_delete=models.CASCADE)
