@@ -6,68 +6,14 @@
 
 {% block content %}
 <style>
-    .premium-form-container {
-        max-width: 800px;
-        background: white;
-        padding: 32px;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        margin: 0 auto;
-    }
-    .premium-form-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1e293b;
-        margin-bottom: 24px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid #f1f5f9;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
+    .premium-form-container { max-width: 800px; }
     .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 24px;
         margin-bottom: 24px;
     }
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .form-group.full-width {
-        grid-column: 1 / -1;
-    }
-    .form-group label {
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: #475569;
-        text-transform: uppercase;
-        letter-spacing: 0.02em;
-    }
-    .form-group input[type="text"],
-    .form-group input[type="email"],
-    .form-group input[type="number"],
-    .form-group select,
-    .form-group textarea {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        color: #1e293b;
-        transition: all 0.2s;
-        outline: none;
-        font-family: 'Inter', sans-serif;
-    }
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
+    .form-group.full-width { grid-column: 1 / -1; }
     .checkbox-wrapper {
         display: flex;
         align-items: center;
@@ -77,50 +23,43 @@
         border-radius: 8px;
         border: 1px solid #e2e8f0;
     }
-    .form-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-        margin-top: 32px;
-        padding-top: 24px;
-        border-top: 1px solid #f1f5f9;
-    }
-    .btn-secondary {
-        background: white;
-        color: #475569;
-        padding: 10px 20px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 0.9rem;
+    select.form-control {
+        width: 100%;
+        padding: 12px 16px;
         border: 1px solid #cbd5e1;
-        transition: all 0.2s;
-    }
-    .btn-secondary:hover {
-        background: #f8fafc;
-        color: #1e293b;
-    }
-    .btn-primary {
-        background: #3b82f6;
-        color: white;
-        padding: 10px 24px;
-        border: none;
         border-radius: 8px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        cursor: pointer;
+        font-size: 0.95rem;
+        color: #1e293b;
         transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        outline: none;
+        font-family: 'Inter', sans-serif;
+        background: white;
     }
-    .btn-primary:hover {
-        background: #2563eb;
+    select.form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
     }
-    .error-text {
-        color: #ef4444;
-        font-size: 0.8rem;
-        margin-top: 4px;
+    select.form-control:disabled {
+        background: #f8fafc;
+        color: #94a3b8;
+        cursor: not-allowed;
+    }
+    textarea.form-control {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        font-family: 'Inter', sans-serif;
+        outline: none;
+        resize: vertical;
+        min-height: 90px;
+        transition: all 0.2s;
+    }
+    textarea.form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
     }
 </style>
 
@@ -130,7 +69,7 @@
         {{ title }}
     </div>
 
-    <form method="POST">
+    <form method="POST" id="clientForm">
         {% csrf_token %}
         
         <div class="form-grid">
@@ -179,22 +118,29 @@
                 {% if form.address.errors %}<div class="error-text">{{ form.address.errors.0 }}</div>{% endif %}
             </div>
 
-            <div class="form-group">
-                <label for="{{ form.city.id_for_label }}">City</label>
-                {{ form.city }}
-                {% if form.city.errors %}<div class="error-text">{{ form.city.errors.0 }}</div>{% endif %}
-            </div>
-
-            <div class="form-group">
-                <label for="{{ form.state.id_for_label }}">State</label>
-                {{ form.state }}
-                {% if form.state.errors %}<div class="error-text">{{ form.state.errors.0 }}</div>{% endif %}
-            </div>
-
+            <!-- Country -->
             <div class="form-group">
                 <label for="{{ form.country.id_for_label }}">Country</label>
                 {{ form.country }}
                 {% if form.country.errors %}<div class="error-text">{{ form.country.errors.0 }}</div>{% endif %}
+            </div>
+
+            <!-- State (shown only when country has states) -->
+            <div class="form-group" id="state-group" style="display:none;">
+                <label for="id_state">State</label>
+                <select name="state" id="id_state" class="form-control">
+                    <option value="">---------</option>
+                </select>
+                {% if form.state.errors %}<div class="error-text">{{ form.state.errors.0 }}</div>{% endif %}
+            </div>
+
+            <!-- Area (shown only when state has areas) -->
+            <div class="form-group" id="area-group" style="display:none;">
+                <label for="id_area">Area</label>
+                <select name="area" id="id_area" class="form-control">
+                    <option value="">---------</option>
+                </select>
+                {% if form.area.errors %}<div class="error-text">{{ form.area.errors.0 }}</div>{% endif %}
             </div>
         </div>
 
@@ -206,4 +152,60 @@
         </div>
     </form>
 </div>
+
+<script>
+    const countrySelect = document.getElementById('{{ form.country.id_for_label }}');
+    const stateSelect = document.getElementById('id_state');
+    const areaSelect = document.getElementById('id_area');
+    const stateGroup = document.getElementById('state-group');
+    const areaGroup = document.getElementById('area-group');
+
+    countrySelect.addEventListener('change', function () {
+        const countryId = this.value;
+        // Reset downstream
+        stateSelect.innerHTML = '<option value="">---------</option>';
+        areaSelect.innerHTML = '<option value="">---------</option>';
+        stateGroup.style.display = 'none';
+        areaGroup.style.display = 'none';
+
+        if (!countryId) return;
+
+        fetch(`{% url 'ajax_get_states' %}?country_id=${countryId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.states.length > 0) {
+                    data.states.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.id;
+                        opt.textContent = s.name;
+                        stateSelect.appendChild(opt);
+                    });
+                    stateGroup.style.display = 'flex';
+                }
+            });
+    });
+
+    stateSelect.addEventListener('change', function () {
+        const stateId = this.value;
+        areaSelect.innerHTML = '<option value="">---------</option>';
+        areaGroup.style.display = 'none';
+
+        if (!stateId) return;
+
+        fetch(`{% url 'ajax_get_areas' %}?state_id=${stateId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.areas.length > 0) {
+                    data.areas.forEach(a => {
+                        const opt = document.createElement('option');
+                        opt.value = a.id;
+                        opt.textContent = a.name;
+                        areaSelect.appendChild(opt);
+                    });
+                    areaGroup.style.display = 'flex';
+                }
+            });
+    });
+</script>
+
 {% endblock %}
