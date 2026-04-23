@@ -37,7 +37,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
+    # Custom Apps
     'core',
+    'master',
+    'client_management',
+    'service_management',
+    'booking_management',
+    'finance_management',
+    'tax_management',
 ]
 
 MIDDLEWARE = [

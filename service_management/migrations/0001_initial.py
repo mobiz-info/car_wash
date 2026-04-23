@@ -11,12 +11,12 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('auth', '0012_alter_user_first_name_max_length'),
-        ('client_management', '0001_initial'),
+        ('client_management', '0002_initial'),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Role',
+            name='ServiceType',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('auto_id', models.PositiveIntegerField(db_index=True, unique=True)),
@@ -24,6 +24,8 @@ class Migration(migrations.Migration):
                 ('date_updated', models.DateTimeField(auto_now_add=True)),
                 ('is_deleted', models.BooleanField(default=False)),
                 ('name', models.CharField(max_length=100)),
+                ('description', models.TextField(blank=True, null=True)),
+                ('company', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='client_management.client')),
                 ('creator', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='creator_%(class)s_objects', to='auth.user')),
                 ('updater', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='updater_%(class)s_objects', to='auth.user')),
             ],
@@ -32,19 +34,22 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='UserProfile',
+            name='Service',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('auto_id', models.PositiveIntegerField(db_index=True, unique=True)),
                 ('date_added', models.DateTimeField(auto_now_add=True, db_index=True)),
                 ('date_updated', models.DateTimeField(auto_now_add=True)),
                 ('is_deleted', models.BooleanField(default=False)),
-                ('phone', models.CharField(blank=True, max_length=50, null=True)),
-                ('company', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='client_management.client')),
+                ('name', models.CharField(max_length=150)),
+                ('description', models.TextField(blank=True, null=True)),
+                ('price', models.DecimalField(decimal_places=2, max_digits=10)),
+                ('duration', models.IntegerField(help_text='Minutes')),
+                ('is_active', models.BooleanField(default=True)),
+                ('company', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='client_management.client')),
                 ('creator', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='creator_%(class)s_objects', to='auth.user')),
-                ('role', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='core.role')),
+                ('service_type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='service_management.servicetype')),
                 ('updater', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='updater_%(class)s_objects', to='auth.user')),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='profile', to='auth.user')),
             ],
             options={
                 'abstract': False,

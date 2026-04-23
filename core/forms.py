@@ -1,98 +1,43 @@
 from django import forms
 from django.forms import TextInput, Select
-
-from .models import *
 from django.contrib.auth.models import User
-from .models import Country, Client, UserProfile, Role
-
-
-class CountryForm(forms.ModelForm):
-    class Meta:
-        model = Country
-        fields = ['name']
-        widgets = {
-            'name': TextInput(attrs={'class': 'form-control', 'placeholder': 'Country Name'}),
-        }
-        
-
-class StateForm(forms.ModelForm):
-    class Meta:
-        model = State
-        fields = ['country', 'name']
-        widgets = {
-            'country': Select(attrs={'class': 'form-control'}),
-            'name': TextInput(attrs={'class': 'form-control'}),
-        }
-        
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        qs = Country.objects.filter(is_deleted=False)
-
-        if self.instance and self.instance.pk:
-            qs = Country.objects.filter(is_deleted=False) | Country.objects.filter(id=self.instance.country_id)
-
-        self.fields['country'].queryset = qs
-        
-class DistrictForm(forms.ModelForm):
-    class Meta:
-        model = District
-        fields = ['state', 'name']
-        widgets = {
-            'state': Select(attrs={'class': 'form-control'}),
-            'name': TextInput(attrs={'class': 'form-control'}),
-        }
-        
-
-class AreaForm(forms.ModelForm):
-    class Meta:
-        model = Area
-        fields = ['district', 'name']
-        widgets = {
-            'district': Select(attrs={'class': 'form-control'}),
-            'name': TextInput(attrs={'class': 'form-control'}),
-            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country Name'}),
-        }
-
-
-class ClientForm(forms.ModelForm):
-    class Meta:
-        model = Client
-        fields = ['company_name', 'owner_name', 'email', 'phone', 'address', 'status', 'gst_number', 'city', 'state', 'country']
-        widgets = {
-            'company_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Company Name'}),
-            'owner_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Owner Name'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email Address'}),
-            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone Number'}),
-            'address': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Client Address', 'rows': 2}),
-            'status': forms.CheckboxInput(attrs={'class': 'form-check-input', 'style': 'width: 20px; height: 20px;'}),
-            'gst_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'GST Number'}),
-            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'City'}),
-            'state': forms.Select(attrs={'class': 'form-control'}),
-            'country': forms.Select(attrs={'class': 'form-control'}),
-        }
+from .models import UserProfile, Role
+from client_management.models import Client
 
 class UserCreationAdminForm(forms.ModelForm):
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Password'}))
-    confirm_password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm Password'}))
+    """Custom form to handle User creation specifically for the super admin portal"""
+    password_confirm = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Retype password'}),
+        label="Confirm Password"
+    )
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name']
+        fields = ['username', 'email', 'first_name', 'last_name', 'password']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email Address'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email address'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'First Name'}),
             'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Last Name'}),
+            'password': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Create password'})
         }
 
     def clean(self):
         cleaned_data = super().clean()
-        password = cleaned_data.get('password')
-        confirm_password = cleaned_data.get('confirm_password')
-        if password and confirm_password and password != confirm_password:
-            self.add_error('confirm_password', 'Passwords do not match.')
+        password = cleaned_data.get("password")
+        password_confirm = cleaned_data.get("password_confirm")
+
+        if password and password_confirm and password != password_confirm:
+            self.add_error('password_confirm', "Passwords do not match.")
+        
         return cleaned_data
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        if commit:
+            user.save()
+        return user
 
 class UserProfileForm(forms.ModelForm):
     class Meta:
@@ -101,8 +46,7 @@ class UserProfileForm(forms.ModelForm):
         widgets = {
             'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone Number'}),
             'role': forms.Select(attrs={'class': 'form-control'}),
-            'company': forms.Select(attrs={'class': 'form-control'}),
-            
+            'company': forms.Select(attrs={'class': 'form-control'})
         }
 
 class RoleForm(forms.ModelForm):
