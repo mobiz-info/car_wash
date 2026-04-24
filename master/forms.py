@@ -1,7 +1,6 @@
 from django import forms
 from django.forms import TextInput, Select
-from .models import Country, State, District, Area
-
+from .models import *
 class CountryForm(forms.ModelForm):
     class Meta:
         model = Country
@@ -36,3 +35,18 @@ class AreaForm(forms.ModelForm):
             'district': forms.Select(attrs={'class': 'form-control'}),
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Area Name'})
         }
+
+
+class VehicleTypeForm(forms.ModelForm):
+    class Meta:
+        model = VehicleType
+        fields = ['name', 'description', 'is_active']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for field_name, field in self.fields.items():
+            if field_name == 'is_active':
+                field.widget.attrs['class'] = 'form-check-input'
+            else:
+                field.widget.attrs['class'] = 'form-control'

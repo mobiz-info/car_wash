@@ -299,3 +299,54 @@ def area_delete(request, id):
     messages.success(request, "Area deleted successfully")
     return redirect('area_list')
 
+
+@login_required
+def vehicle_type_list(request):
+    data = VehicleType.objects.filter(is_deleted=False)
+    return render(request, 'vehicle_type/list.html', {'data': data})
+
+@login_required
+def vehicle_type_create(request):
+    form = VehicleTypeForm(request.POST or None)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(VehicleType)
+            instance.save()
+            messages.success(request, "Vehicle Type created successfully")
+            return redirect('vehicle_type_list')
+
+    return render(request, 'vehicle_type/create.html', {
+        'form': form,
+        'title': 'Create Vehicle Type'
+    })
+    
+    
+@login_required
+def vehicle_type_edit(request, id):
+    instance = get_object_or_404(VehicleType, id=id, is_deleted=False)
+
+    form = VehicleTypeForm(request.POST or None, instance=instance)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Vehicle Type updated successfully")
+            return redirect('vehicle_type_list')
+
+    return render(request, 'vehicle_type/create.html', {
+        'form': form,
+        'title': 'Edit Vehicle Type'
+    })
+    
+    
+@login_required
+def vehicle_type_delete(request, id):
+    instance = get_object_or_404(VehicleType, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Vehicle Type deleted successfully")
+    return redirect('vehicle_type_list')

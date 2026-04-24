@@ -519,7 +519,7 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'country_list' %}">Country</a>
-                <a href="{% url 'state_list' %}">State</a>
+                <a href="{% url 'state_list' %}">State/ Province/ Emirate</a>
                 <a href="{% url 'district_list' %}">District</a>
                 <a href="{% url 'area_list' %}">Area</a>
                 <a href="#">Branch</a>
@@ -539,6 +539,20 @@
                 <a href="{% url 'service_list' %}" class="nav-item submenu-item">Services</a>
                 <a href="#" class="nav-item submenu-item">Packages</a>
                 <a href="#" class="nav-item submenu-item">Add-ons</a>
+            </div>
+
+            <!-- Vehicle Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-wrench"></i>
+                    Vehicle Management
+                    <span class="nav-badge">4</span>
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'vehicle_type_list' %}" class="nav-item submenu-item">Vehicle Types</a>
+                
             </div>
 
             <div class="nav-section-title">OPERATIONS</div>

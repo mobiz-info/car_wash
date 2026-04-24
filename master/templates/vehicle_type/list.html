@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}Vehicle Type - Car Wash Admin{% endblock %}
+{% block page_title %}Vehicle Type{% endblock %}
+{% block breadcrumb_active %}Vehicle Management{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Type..." class="search-input">
+        </form>
+
+        <a href="{% url 'vehicle_type_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Vehicle Type
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Vehicle Type</th>
+                    
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in data %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td style="font-weight:600; color:#1e293b;">
+                        {{ obj.name }}
+                    </td>
+
+                    <!-- Actions -->
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'vehicle_type_edit' obj.pk %}" class="action-btn edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'vehicle_type_delete' obj.pk %}" onclick="return confirm('Delete this area?')" class="action-btn delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:40px; color:#94a3b8;">
+                        <i class="ph ph-map-pin-line" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+                        No areas found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{search}}" class="page-link">Previous</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{search}}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Area - Car Wash Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Area{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-map-pin-line" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label>Name</label>
+            {{ form.name }}
+        </div>
+
+        <div class="form-group">
+            <label>Description</label>
+            {{ form.description }}
+        </div>
+
+        
+
+        <div class="checkbox-wrapper">
+            {{ form.is_active }} Active
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'state_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save State
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
