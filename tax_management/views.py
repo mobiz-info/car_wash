@@ -66,7 +66,6 @@ def tax_edit(request, id):
         if form.is_valid():
             instance = form.save(commit=False)   
 
-            instance.auto_id = get_auto_id(Tax)
             instance.updater = request.user
 
             instance.save()

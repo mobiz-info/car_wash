@@ -1,160 +1,395 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Login - Car Wash Admin{% endblock %}
 
 {% block content %}
 <style>
-    /* We don't want the sidebar or top banner for the login page */
     .sidebar { display: none !important; }
     .main-wrapper { margin-left: 0 !important; }
     .top-banner { display: none !important; }
-    .content-area { 
-        padding: 0 !important; 
+    .content-area {
+        padding: 0 !important;
         margin-top: 0 !important;
+        min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: calc(100vh - 50px);
-        background-color: var(--bg-body);
-    }
-    
-    .login-container {
-        background: white;
-        width: 100%;
-        max-width: 440px;
-        padding: 40px;
-        border-radius: 16px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e2e8f0;
+        background: #eef2f7;
     }
 
-    .login-header {
+    /* Outer card wrapper */
+    .login-card {
+        display: flex;
+        width: 900px;
+        min-height: 580px;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+
+    /* ── Left Panel ── */
+    .login-left {
+        width: 380px;
+        min-width: 380px;
+        background: #0f2557;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .login-left-bg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.35;
+    }
+    .login-left-content {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding: 36px 32px;
+    }
+    .login-brand {
         text-align: center;
+        margin-bottom: 24px;
+    }
+    .login-brand-icon {
+        font-size: 3rem;
+        color: white;
+        display: block;
+        margin-bottom: 12px;
+    }
+    .login-brand h1 {
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+        letter-spacing: -0.01em;
+    }
+    .login-brand .subtitle {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.78rem;
+        line-height: 1.5;
+    }
+
+    .login-features {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+    .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+    }
+    .feature-icon {
+        width: 38px;
+        height: 38px;
+        background: rgba(59,130,246,0.85);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 1.1rem;
+        color: white;
+    }
+    .feature-text h4 {
+        color: white;
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+    .feature-text p {
+        color: rgba(255,255,255,0.6);
+        font-size: 0.75rem;
+        line-height: 1.4;
+    }
+
+    /* ── Right Panel ── */
+    .login-right {
+        flex: 1;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 44px;
+    }
+    .login-right-inner { width: 100%; max-width: 360px; }
+
+    .login-lock-icon {
+        width: 64px;
+        height: 64px;
+        background: #eff6ff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        color: #3b82f6;
+        font-size: 1.8rem;
+    }
+    .login-right h2 {
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 6px;
+    }
+    .login-right .tagline {
+        text-align: center;
+        color: #64748b;
+        font-size: 0.875rem;
         margin-bottom: 32px;
     }
 
-    .login-header i {
-        font-size: 3.5rem;
-        color: var(--bg-banner);
-        margin-bottom: 16px;
-    }
-
-    .login-header h1 {
-        font-size: 1.5rem;
-        color: #1e293b;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }
-
-    .login-header p {
-        color: #64748b;
-        font-size: 0.9rem;
-    }
-
-    .login-form .form-group {
-        margin-bottom: 20px;
-    }
-
-    .login-form label {
+    .lf-group { margin-bottom: 20px; }
+    .lf-group label {
         display: block;
         font-size: 0.85rem;
         font-weight: 600;
-        color: #334155;
+        color: #1e293b;
         margin-bottom: 8px;
     }
-
-    .login-form input[type="text"],
-    .login-form input[type="password"] {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        outline: none;
-        transition: all 0.2s;
-        font-family: inherit;
-        color: #1e293b;
-    }
-
-    .login-form input:focus {
-        border-color: var(--bg-banner);
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-    }
-
-    .login-btn {
-        width: 100%;
-        background-color: var(--bg-banner);
-        color: white;
-        padding: 12px;
-        border: none;
-        border-radius: 8px;
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
-        margin-top: 12px;
+    .lf-input-wrap {
+        position: relative;
         display: flex;
-        justify-content: center;
+        align-items: center;
+    }
+    .lf-input-wrap .lf-icon {
+        position: absolute;
+        left: 14px;
+        color: #94a3b8;
+        font-size: 1rem;
+        pointer-events: none;
+    }
+    .lf-input-wrap input {
+        width: 100%;
+        padding: 12px 16px 12px 42px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        color: #1e293b;
+        outline: none;
+        font-family: inherit;
+        transition: border 0.2s, box-shadow 0.2s;
+        background: #f8fafc;
+    }
+    .lf-input-wrap input:focus {
+        border-color: #3b82f6;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    .lf-input-wrap input::placeholder { color: #cbd5e1; }
+    .pw-toggle {
+        position: absolute;
+        right: 14px;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 1rem;
+        background: none;
+        border: none;
+        padding: 0;
+    }
+    .pw-toggle:hover { color: #475569; }
+
+    .lf-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+    .lf-remember {
+        display: flex;
         align-items: center;
         gap: 8px;
+        font-size: 0.85rem;
+        color: #334155;
+    }
+    .lf-remember input[type="checkbox"] { accent-color: #3b82f6; width: 15px; height: 15px; }
+    .lf-forgot { font-size: 0.82rem; color: #3b82f6; text-decoration: none; font-weight: 500; }
+    .lf-forgot:hover { text-decoration: underline; }
+
+    .btn-signin {
+        width: 100%;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 13px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: background 0.2s, transform 0.1s;
+        margin-bottom: 24px;
+    }
+    .btn-signin:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-signin:active { transform: translateY(0); }
+
+    .lf-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #94a3b8;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+    .lf-divider::before, .lf-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e2e8f0;
     }
 
-    .login-btn:hover {
-        background-color: #6d28d9;
+    .login-footer {
+        text-align: center;
+        margin-top: 24px;
+        color: #94a3b8;
+        font-size: 0.78rem;
     }
 
     .error-container {
-        background-color: #fef2f2;
-        color: #ef4444;
-        padding: 12px;
-        border-radius: 8px;
-        font-size: 0.85rem;
+        background: #fef2f2;
+        color: #dc2626;
+        padding: 11px 14px;
+        border-radius: 9px;
+        font-size: 0.83rem;
         margin-bottom: 20px;
         border: 1px solid #fecaca;
         display: flex;
         align-items: center;
         gap: 8px;
     }
+
+    @media (max-width: 850px) {
+        .login-left { display: none; }
+        .login-card { width: 100%; border-radius: 0; min-height: 100vh; }
+        .login-right { padding: 40px 28px; }
+    }
 </style>
 
-<div class="login-container">
-    <div class="login-header">
-        
-        <h1>Welcome Back</h1>
-        <p>Sign in to your CarWash Admin account</p>
-    </div>
+<div class="login-card">
 
-    {% if form.errors %}
-    <div class="error-container">
-        <i class="ph-bold ph-warning-circle" style="font-size: 1.1rem;"></i>
-        Invalid username or password. Please try again.
-    </div>
-    {% endif %}
-
-    <form method="POST" class="login-form">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="id_username">Username</label>
-            <input type="text" name="username" id="id_username" placeholder="Enter your username" required autofocus>
-        </div>
-        
-        <div class="form-group">
-            <div style="display: flex; justify-content: space-between;">
-                <label for="id_password">Password</label>
-                <a href="#" style="font-size: 0.8rem; color: var(--bg-banner); text-decoration: none; font-weight: 500;">Forgot password?</a>
+    <!-- LEFT PANEL -->
+    <div class="login-left">
+        <img src="{% static 'images/car_wash_login.png' %}" alt="Car Wash" class="login-left-bg">
+        <div class="login-left-content">
+            <div class="login-brand">
+                <i class="ph-bold ph-car-simple login-brand-icon"></i>
+                <h1>Car Wash<br>Management System</h1>
+                <p class="subtitle">Smart Solution for Car Wash<br>Business Management</p>
             </div>
-            <input type="password" name="password" id="id_password" placeholder="Enter your password" required>
-        </div>
 
-        <button type="submit" class="login-btn">
-            Sign In <i class="ph-bold ph-arrow-right"></i>
-        </button>
-        <input type="hidden" name="next" value="{{ next }}">
-    </form>
+            <div class="login-features">
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="ph-bold ph-chart-bar"></i></div>
+                    <div class="feature-text">
+                        <h4>Manage Branches</h4>
+                        <p>Manage all your branches efficiently</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="ph-bold ph-calendar-check"></i></div>
+                    <div class="feature-text">
+                        <h4>Booking System</h4>
+                        <p>Easy booking and service management</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="ph-bold ph-trend-up"></i></div>
+                    <div class="feature-text">
+                        <h4>Reports & Analytics</h4>
+                        <p>Track business growth and performance</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="login-right">
+        <div class="login-right-inner">
+
+            <div class="login-lock-icon">
+                <i class="ph-bold ph-lock-key"></i>
+            </div>
+            <h2>Welcome Back!</h2>
+            <p class="tagline">Sign in to your account to continue</p>
+
+            {% if form.errors %}
+            <div class="error-container">
+                <i class="ph-bold ph-warning-circle"></i>
+                Invalid username or password. Please try again.
+            </div>
+            {% endif %}
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="lf-group">
+                    <label for="id_username">Username or Email</label>
+                    <div class="lf-input-wrap">
+                        <i class="ph ph-user lf-icon"></i>
+                        <input type="text" name="username" id="id_username" placeholder="Enter username or email" required autofocus>
+                    </div>
+                </div>
+
+                <div class="lf-group">
+                    <label for="id_password">Password</label>
+                    <div class="lf-input-wrap">
+                        <i class="ph ph-lock lf-icon"></i>
+                        <input type="password" name="password" id="id_password" placeholder="Enter password" required>
+                        <button type="button" class="pw-toggle" onclick="togglePw()">
+                            <i class="ph ph-eye" id="pw-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="lf-row">
+                    <label class="lf-remember">
+                        <input type="checkbox" name="remember"> Remember me
+                    </label>
+                    <a href="#" class="lf-forgot">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="btn-signin">
+                    <i class="ph-bold ph-sign-in"></i> Sign In
+                </button>
+
+                <input type="hidden" name="next" value="{{ next }}">
+            </form>
+
+            <div class="login-footer">© 2025 Car Wash Management System</div>
+        </div>
+    </div>
+
 </div>
 
-<!-- Extra blocks injected to avoid leaking layout text into login page -->
+<script>
+function togglePw() {
+    const input = document.getElementById('id_password');
+    const icon = document.getElementById('pw-eye');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'ph ph-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'ph ph-eye';
+    }
+}
+</script>
+
 {% block page_title %}{% endblock %}
 {% block breadcrumb_active %}{% endblock %}
-
 {% endblock %}

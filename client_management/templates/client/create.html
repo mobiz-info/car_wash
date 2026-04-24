@@ -160,9 +160,11 @@
     const stateGroup = document.getElementById('state-group');
     const areaGroup = document.getElementById('area-group');
 
-    countrySelect.addEventListener('change', function () {
-        const countryId = this.value;
-        // Reset downstream
+    // Values from Django context (set on edit, empty on create)
+    const preSelectedStateId = '{{ selected_state_id|default:"" }}';
+    const preSelectedAreaId = '{{ selected_area_id|default:"" }}';
+
+    function loadStates(countryId, selectedStateId, callback) {
         stateSelect.innerHTML = '<option value="">---------</option>';
         areaSelect.innerHTML = '<option value="">---------</option>';
         stateGroup.style.display = 'none';
@@ -178,15 +180,16 @@
                         const opt = document.createElement('option');
                         opt.value = s.id;
                         opt.textContent = s.name;
+                        if (s.id == selectedStateId) opt.selected = true;
                         stateSelect.appendChild(opt);
                     });
                     stateGroup.style.display = 'flex';
+                    if (callback) callback();
                 }
             });
-    });
+    }
 
-    stateSelect.addEventListener('change', function () {
-        const stateId = this.value;
+    function loadAreas(stateId, selectedAreaId) {
         areaSelect.innerHTML = '<option value="">---------</option>';
         areaGroup.style.display = 'none';
 
@@ -200,11 +203,34 @@
                         const opt = document.createElement('option');
                         opt.value = a.id;
                         opt.textContent = a.name;
+                        if (a.id == selectedAreaId) opt.selected = true;
                         areaSelect.appendChild(opt);
                     });
                     areaGroup.style.display = 'flex';
                 }
             });
+    }
+
+    // On country change
+    countrySelect.addEventListener('change', function () {
+        loadStates(this.value, '', null);
+    });
+
+    // On state change
+    stateSelect.addEventListener('change', function () {
+        loadAreas(this.value, '');
+    });
+
+    // On page load: pre-populate if editing
+    document.addEventListener('DOMContentLoaded', function () {
+        const initialCountryId = countrySelect.value;
+        if (initialCountryId && preSelectedStateId) {
+            loadStates(initialCountryId, preSelectedStateId, function () {
+                if (preSelectedAreaId) {
+                    loadAreas(preSelectedStateId, preSelectedAreaId);
+                }
+            });
+        }
     });
 </script>
 

@@ -46,14 +46,17 @@ def client_edit(request, id):
     form = ClientForm(request.POST or None, instance=instance)
     if request.method == 'POST':
         if form.is_valid():
-            instance = form.save(commit=False)   
-            instance.auto_id = get_auto_id(Client)
+            instance = form.save(commit=False)
+            instance.updater = request.user
             instance.save()
             messages.success(request, "Client updated successfully")
             return redirect('client_list')
     return render(request, 'client/create.html', {
         'form': form,
-        'title': 'Edit Client'
+        'title': 'Edit Client',
+        'selected_country_id': str(instance.country_id) if instance.country_id else '',
+        'selected_state_id': str(instance.state_id) if instance.state_id else '',
+        'selected_area_id': str(instance.area_id) if instance.area_id else '',
     })
 
 
