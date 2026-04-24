@@ -146,8 +146,7 @@
                 <tr>
                     <th style="width: 80px;">#</th>
                     <th>Type Name</th>
-                    <th>Company</th>
-                    <th>Description</th>
+                   
                     <th style="width: 120px; text-align: right;">Action</th>
                 </tr>
             </thead>
@@ -165,8 +164,6 @@
                             </div>
                         </div>
                     </td>
-                    <td><span style="background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 500;">{{ obj.company.company_name }}</span></td>
-                    <td style="color: #64748b; font-size: 0.85rem; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ obj.description|default:"-" }}</td>
                     <td style="text-align: right;">
                         <div style="display: flex; gap: 8px; justify-content: flex-end;">
                             <a href="{% url 'service_type_edit' obj.id %}" class="action-btn edit" title="Edit">

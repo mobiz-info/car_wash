@@ -156,8 +156,7 @@
                     <th style="width: 80px;">#</th>
                     <th>Service Name</th>
                     <th>Type</th>
-                    <th>Company</th>
-                    <th>Duration & Price</th>
+                    <th>Duration</th>
                     <th>Status</th>
                     <th style="width: 120px; text-align: right;">Action</th>
                 </tr>
@@ -177,9 +176,7 @@
                         </div>
                     </td>
                     <td><span style="color: #475569; font-weight: 500;">{{ obj.service_type.name }}</span></td>
-                    <td><span style="background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 500;">{{ obj.company.company_name }}</span></td>
                     <td>
-                        <div style="color: #1e293b; font-weight: 600;">₹{{ obj.price }}</div>
                         <div style="color: #64748b; font-size: 0.8rem;"><i class="ph ph-clock"></i> {{ obj.duration }} mins</div>
                     </td>
                     <td>

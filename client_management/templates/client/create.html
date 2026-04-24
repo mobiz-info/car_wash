@@ -6,152 +6,179 @@
 
 {% block content %}
 <style>
-    .premium-form-container { max-width: 800px; }
+    .premium-form-container {
+        max-width: 900px;
+        margin: auto;
+    }
+
     .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 24px;
-        margin-bottom: 24px;
+        gap: 20px;
+        margin-bottom: 20px;
     }
-    .form-group.full-width { grid-column: 1 / -1; }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-group label {
+        font-weight: 600;
+        margin-bottom: 6px;
+        display: block;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+    }
+
+    .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+    }
+
     .checkbox-wrapper {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
         background: #f8fafc;
-        padding: 12px 16px;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    
+
+    .logo-preview {
+        margin-top: 10px;
+    }
+
+    .logo-preview img {
+        height: 80px;
         border-radius: 8px;
         border: 1px solid #e2e8f0;
+        padding: 4px;
+        background: #fff;
     }
-    select.form-control {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        color: #1e293b;
-        transition: all 0.2s;
-        outline: none;
-        font-family: 'Inter', sans-serif;
-        background: white;
-    }
-    select.form-control:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-    }
-    select.form-control:disabled {
-        background: #f8fafc;
-        color: #94a3b8;
-        cursor: not-allowed;
-    }
-    textarea.form-control {
-        width: 100%;
-        padding: 14px 16px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        color: #1e293b;
-        font-family: 'Inter', sans-serif;
-        outline: none;
-        resize: vertical;
-        min-height: 90px;
-        transition: all 0.2s;
-    }
-    textarea.form-control:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+
+    .error-text {
+        color: red;
+        font-size: 0.85rem;
+        margin-top: 4px;
     }
 </style>
 
 <div class="premium-form-container">
     <div class="premium-form-title">
-        <i class="ph ph-buildings" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        <i class="ph ph-buildings" style="color: #3b82f6;"></i>
         {{ title }}
     </div>
 
-    <form method="POST" id="clientForm">
+    <!-- ✅ IMPORTANT FIX -->
+    <form method="POST" enctype="multipart/form-data">
         {% csrf_token %}
-        
+
         <div class="form-grid">
+
             <div class="form-group">
-                <label for="{{ form.company_name.id_for_label }}">Company Name <span style="color:red">*</span></label>
+                <label>Company Name *</label>
                 {{ form.company_name }}
-                {% if form.company_name.errors %}<div class="error-text">{{ form.company_name.errors.0 }}</div>{% endif %}
             </div>
 
             <div class="form-group">
-                <label for="{{ form.owner_name.id_for_label }}">Owner Name <span style="color:red">*</span></label>
+                <label>Owner Name *</label>
                 {{ form.owner_name }}
-                {% if form.owner_name.errors %}<div class="error-text">{{ form.owner_name.errors.0 }}</div>{% endif %}
             </div>
 
             <div class="form-group">
-                <label for="{{ form.email.id_for_label }}">Email Address</label>
+                <label>Email</label>
                 {{ form.email }}
-                {% if form.email.errors %}<div class="error-text">{{ form.email.errors.0 }}</div>{% endif %}
             </div>
 
             <div class="form-group">
-                <label for="{{ form.phone.id_for_label }}">Phone Number</label>
+                <label>Phone</label>
                 {{ form.phone }}
-                {% if form.phone.errors %}<div class="error-text">{{ form.phone.errors.0 }}</div>{% endif %}
             </div>
 
             <div class="form-group">
-                <label for="{{ form.gst_number.id_for_label }}">GST Number</label>
+                <label>GST Number</label>
                 {{ form.gst_number }}
-                {% if form.gst_number.errors %}<div class="error-text">{{ form.gst_number.errors.0 }}</div>{% endif %}
             </div>
-            
+
             <div class="form-group">
                 <label>Status</label>
                 <div class="checkbox-wrapper">
                     {{ form.status }}
-                    <span style="font-size: 0.9rem; font-weight: 500; color: #334155;">Active Client</span>
+                    <span>Active Client</span>
                 </div>
-                {% if form.status.errors %}<div class="error-text">{{ form.status.errors.0 }}</div>{% endif %}
             </div>
 
             <div class="form-group full-width">
-                <label for="{{ form.address.id_for_label }}">Full Address</label>
+                <label>Address</label>
                 {{ form.address }}
-                {% if form.address.errors %}<div class="error-text">{{ form.address.errors.0 }}</div>{% endif %}
             </div>
 
-            <!-- Country -->
-            <div class="form-group">
-                <label for="{{ form.country.id_for_label }}">Country</label>
-                {{ form.country }}
-                {% if form.country.errors %}<div class="error-text">{{ form.country.errors.0 }}</div>{% endif %}
-            </div>
+            
 
-            <!-- State (shown only when country has states) -->
             <div class="form-group" id="state-group" style="display:none;">
-                <label for="id_state">State</label>
-                <select name="state" id="id_state" class="form-control">
-                    <option value="">---------</option>
-                </select>
-                {% if form.state.errors %}<div class="error-text">{{ form.state.errors.0 }}</div>{% endif %}
+                <label>State</label>
+                <select name="state" id="id_state" class="form-control"></select>
             </div>
 
-            <!-- Area (shown only when state has areas) -->
             <div class="form-group" id="area-group" style="display:none;">
-                <label for="id_area">Area</label>
-                <select name="area" id="id_area" class="form-control">
-                    <option value="">---------</option>
-                </select>
-                {% if form.area.errors %}<div class="error-text">{{ form.area.errors.0 }}</div>{% endif %}
+                <label>Area</label>
+                <select name="area" id="id_area" class="form-control"></select>
             </div>
+
+            <!-- 🔥 LOGO SECTION INSIDE GRID -->
+            <div class="form-group">
+                <label>Color Logo (PNG 300x300)</label>
+                <div class="logo-upload">
+                    {{ form.logo_color }}
+                </div>
+
+                {% if form.instance.logo_color %}
+                    <div class="logo-preview">
+                        <img src="{{ form.instance.logo_color.url }}">
+                    </div>
+                {% endif %}
+
+                {% if form.logo_color.errors %}
+                    <div class="error-text">{{ form.logo_color.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>B/W Logo (PNG 300x300)</label>
+                <div class="logo-upload">
+                    {{ form.logo_bw }}
+                </div>
+
+                {% if form.instance.logo_bw %}
+                    <div class="logo-preview">
+                        <img src="{{ form.instance.logo_bw.url }}">
+                    </div>
+                {% endif %}
+
+                {% if form.logo_bw.errors %}
+                    <div class="error-text">{{ form.logo_bw.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Country</label>
+                {{ form.country }}
+            </div>
+
         </div>
 
         <div class="form-actions">
             <a href="{% url 'client_list' %}" class="btn-secondary">Cancel</a>
-            <button type="submit" class="btn-primary">
-                <i class="ph ph-check-circle"></i> Save Client
-            </button>
+            <button type="submit" class="btn-primary">Save Client</button>
         </div>
     </form>
-</div>
 
 <script>
     const countrySelect = document.getElementById('{{ form.country.id_for_label }}');

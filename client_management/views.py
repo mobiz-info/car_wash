@@ -26,7 +26,7 @@ def client_list(request):
 
 @login_required
 def client_create(request):
-    form = ClientForm(request.POST or None)
+    form = ClientForm(request.POST or None, request.FILES or None)
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)   
@@ -43,7 +43,7 @@ def client_create(request):
 @login_required
 def client_edit(request, id):
     instance = get_object_or_404(Client, id=id, is_deleted=False)
-    form = ClientForm(request.POST or None, instance=instance)
+    form = ClientForm(request.POST or None, request.FILES or None, instance=instance)
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)

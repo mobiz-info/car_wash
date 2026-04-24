@@ -8,7 +8,8 @@ class ClientForm(forms.ModelForm):
         fields = [
             'company_name', 'owner_name', 'email', 'phone',
             'address', 'status', 'gst_number',
-            'country', 'state', 'area'
+            'country', 'state', 'area',
+            'logo_color', 'logo_bw' 
         ]
         
     def __init__(self, *args, **kwargs):

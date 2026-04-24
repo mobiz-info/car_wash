@@ -81,7 +81,7 @@ def service_type_delete(request, id):
 @login_required
 def service_list(request):
     search = request.GET.get('search', '')
-    queryset = Service.objects.filter(is_deleted=False).select_related('company', 'service_type').order_by('-date_added')
+    queryset = Service.objects.filter(is_deleted=False).select_related( 'service_type').order_by('-date_added')
 
     if search:
         queryset = queryset.filter(name__icontains=search)

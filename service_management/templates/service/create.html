@@ -7,16 +7,17 @@
 {% block content %}
 <style>
     .premium-form-container {
-        max-width: 800px;
+        max-width: 850px;
         background: white;
         padding: 32px;
         border-radius: 12px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        margin: 0 auto;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        margin: auto;
     }
+
     .premium-form-title {
-        font-size: 1.25rem;
+        font-size: 1.3rem;
         font-weight: 600;
         color: #1e293b;
         margin-bottom: 24px;
@@ -24,170 +25,174 @@
         border-bottom: 1px solid #f1f5f9;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
     }
+
     .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 20px;
     }
-    .form-group.full-width {
-        grid-column: 1 / -1;
-    }
+
     .form-group {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        margin-bottom: 0;
+        gap: 6px;
     }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
     .form-group label {
+        font-size: 0.8rem;
         font-weight: 600;
-        font-size: 0.85rem;
         color: #475569;
         text-transform: uppercase;
-        letter-spacing: 0.02em;
     }
-    .form-group input:not([type="checkbox"]), 
-    .form-group select, 
+
+    .form-group input:not([type="checkbox"]),
+    .form-group select,
     .form-group textarea {
-        width: 100%;
-        padding: 12px 16px;
+        padding: 10px 14px;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
-        font-size: 0.95rem;
-        color: #1e293b;
-        transition: all 0.2s;
-        outline: none;
-        font-family: 'Inter', sans-serif;
+        font-size: 0.9rem;
+        transition: 0.2s;
     }
-    .form-group input:not([type="checkbox"]):focus,
+
+    .form-group input:focus,
     .form-group select:focus,
     .form-group textarea:focus {
         border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
     }
+
+    textarea {
+        min-height: 90px;
+        resize: vertical;
+    }
+
     .checkbox-wrapper {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin-top: 8px;
+        gap: 10px;
+        margin-top: 10px;
     }
+
     .form-actions {
         display: flex;
         justify-content: flex-end;
         gap: 12px;
-        margin-top: 32px;
-        padding-top: 24px;
+        margin-top: 30px;
+        padding-top: 20px;
         border-top: 1px solid #f1f5f9;
     }
+
     .btn-secondary {
-        background: white;
-        color: #475569;
-        padding: 10px 20px;
+        padding: 10px 18px;
         border-radius: 8px;
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 0.9rem;
         border: 1px solid #cbd5e1;
-        transition: all 0.2s;
+        background: white;
+        text-decoration: none;
+        color: #475569;
+        transition: 0.2s;
     }
+
     .btn-secondary:hover {
         background: #f8fafc;
-        color: #1e293b;
     }
+
     .btn-primary {
+        padding: 10px 22px;
+        border-radius: 8px;
+        border: none;
         background: #3b82f6;
         color: white;
-        padding: 10px 24px;
-        border: none;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        font-weight: 500;
         cursor: pointer;
-        transition: all 0.2s;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+        transition: 0.2s;
     }
+
     .btn-primary:hover {
         background: #2563eb;
     }
+
     .error-text {
         color: #ef4444;
-        font-size: 0.8rem;
-        margin-top: 4px;
+        font-size: 0.75rem;
     }
 </style>
 
 <div class="premium-form-container">
+
     <div class="premium-form-title">
-        <i class="ph ph-drop" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        <i class="ph ph-drop" style="color:#3b82f6;"></i>
         {{ title }}
     </div>
 
     <form method="POST">
         {% csrf_token %}
-        
+
         <div class="form-grid">
-            <div class="form-group">
-                <label for="{{ form.company.id_for_label }}">Company <span style="color:red">*</span></label>
-                {{ form.company }}
-                {% if form.company.errors %}<div class="error-text">{{ form.company.errors.0 }}</div>{% endif %}
-            </div>
 
+            <!-- Service Type -->
             <div class="form-group">
-                <label for="{{ form.service_type.id_for_label }}">Service Type <span style="color:red">*</span></label>
+                <label>Service Type *</label>
                 {{ form.service_type }}
-                {% if form.service_type.errors %}<div class="error-text">{{ form.service_type.errors.0 }}</div>{% endif %}
+                {% if form.service_type.errors %}
+                    <div class="error-text">{{ form.service_type.errors.0 }}</div>
+                {% endif %}
             </div>
 
-            <div class="form-group full-width">
-                <label for="{{ form.name.id_for_label }}">Service Name <span style="color:red">*</span></label>
-                {{ form.name }}
-                {% if form.name.errors %}<div class="error-text">{{ form.name.errors.0 }}</div>{% endif %}
-            </div>
-
+            <!-- Duration -->
             <div class="form-group">
-                <label for="{{ form.price.id_for_label }}">Price (₹) <span style="color:red">*</span></label>
-                {{ form.price }}
-                {% if form.price.errors %}<div class="error-text">{{ form.price.errors.0 }}</div>{% endif %}
-            </div>
-
-            <div class="form-group">
-                <label for="{{ form.duration.id_for_label }}">Duration (Mins) <span style="color:red">*</span></label>
+                <label>Duration (Minutes) *</label>
                 {{ form.duration }}
-                {% if form.duration.errors %}<div class="error-text">{{ form.duration.errors.0 }}</div>{% endif %}
-            </div>
-            
-            <div class="form-group full-width">
-                <label for="{{ form.description.id_for_label }}">Description</label>
-                {{ form.description }}
-                {% if form.description.errors %}<div class="error-text">{{ form.description.errors.0 }}</div>{% endif %}
+                {% if form.duration.errors %}
+                    <div class="error-text">{{ form.duration.errors.0 }}</div>
+                {% endif %}
             </div>
 
+            <!-- Service Name -->
+            <div class="form-group full-width">
+                <label>Service Name *</label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <div class="error-text">{{ form.name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Description -->
+            <div class="form-group full-width">
+                <label>Description</label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <div class="error-text">{{ form.description.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Active -->
             <div class="form-group full-width">
                 <div class="checkbox-wrapper">
                     {{ form.is_active }}
-                    <label for="{{ form.is_active.id_for_label }}" style="margin: 0;">Is Active</label>
+                    <label for="{{ form.is_active.id_for_label }}">Is Active</label>
                 </div>
             </div>
+
         </div>
 
+        <!-- Buttons -->
         <div class="form-actions">
             <a href="{% url 'service_list' %}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary">
                 <i class="ph ph-check-circle"></i> Save Service
             </button>
         </div>
+
     </form>
 </div>
 
-<script>
-    // In a real application, you might add AJAX here to filter service types based on the selected company
-    document.addEventListener("DOMContentLoaded", function() {
-        const companySelect = document.getElementById("id_company");
-        const serviceTypeSelect = document.getElementById("id_service_type");
-        // Potential logic: companySelect.addEventListener('change', ...)
-    });
-</script>
 {% endblock %}
