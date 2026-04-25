@@ -41,3 +41,27 @@ class Client(BaseModel):
     
     def __str__(self):
         return f"{self.company_name} ({self.owner_name})"
+
+
+class Subscription(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='subscriptions')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    usage_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    no_of_licenses = models.PositiveIntegerField(default=1)
+
+    # Feature flags
+    whatsapp_integration = models.BooleanField(default=False)
+    bulk_sms = models.BooleanField(default=False)
+    email_integration = models.BooleanField(default=False)
+    bluetooth_printing = models.BooleanField(default=False)
+    tally_integration = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.company.company_name} ({self.start_date} → {self.end_date})"
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+        return self.start_date <= timezone.now().date() <= self.end_date
+

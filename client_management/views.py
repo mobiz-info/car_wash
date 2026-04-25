@@ -6,8 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.http import JsonResponse
-from .models import Client
-from .forms import ClientForm
+from .models import Client, Subscription
+from .forms import ClientForm, SubscriptionForm
 from master.models import State, Area
 from core.functions import get_auto_id
 @login_required
@@ -79,3 +79,63 @@ def ajax_get_areas(request):
     state_id = request.GET.get('state_id')
     areas = Area.objects.filter(district__state_id=state_id, is_deleted=False).values('id', 'name')
     return JsonResponse({'areas': list(areas)})
+
+
+# ─── Subscription Views ───────────────────────────────────────────────────────
+
+@login_required
+def subscription_list(request):
+    search = request.GET.get('search', '')
+    queryset = Subscription.objects.filter(is_deleted=False).select_related('company')
+    if search:
+        queryset = queryset.filter(company__company_name__icontains=search)
+    paginator = Paginator(queryset.order_by('-date_added'), 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'subscription/list.html', {
+        'page_obj': page_obj,
+        'search': search,
+    })
+
+
+@login_required
+def subscription_create(request):
+    form = SubscriptionForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(Subscription)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Subscription created successfully")
+            return redirect('subscription_list')
+    return render(request, 'subscription/create.html', {
+        'form': form,
+        'title': 'Create Subscription',
+    })
+
+
+@login_required
+def subscription_edit(request, id):
+    instance = get_object_or_404(Subscription, id=id, is_deleted=False)
+    form = SubscriptionForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Subscription updated successfully")
+            return redirect('subscription_list')
+    return render(request, 'subscription/create.html', {
+        'form': form,
+        'title': 'Edit Subscription',
+    })
+
+
+@login_required
+def subscription_delete(request, id):
+    instance = get_object_or_404(Subscription, id=id, is_deleted=False)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Subscription deleted successfully")
+    return redirect('subscription_list')
+

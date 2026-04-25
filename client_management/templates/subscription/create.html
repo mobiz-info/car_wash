@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Car Wash Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Subscription{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container { max-width: 860px; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+    .form-grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+    .form-group.full-width { grid-column: 1 / -1; }
+    select.form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: all 0.2s;
+        outline: none;
+        font-family: 'Inter', sans-serif;
+        background: white;
+    }
+    select.form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+
+    /* Make date inputs look like other form-control fields */
+    input[type="date"].form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        font-family: 'Inter', sans-serif;
+        background: white;
+        outline: none;
+        transition: all 0.2s;
+        box-sizing: border-box;
+        height: auto;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    input[type="date"].form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+
+    /* Section divider */
+    .form-section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        margin-bottom: 16px;
+        margin-top: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Feature checkboxes */
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .feature-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        cursor: pointer;
+        background: white;
+        transition: all 0.15s;
+        user-select: none;
+    }
+    .feature-card input[type="checkbox"] { display: none; }
+    .feature-card:hover { border-color: #93c5fd; background: #f0f9ff; }
+    .feature-card.active {
+        border-color: #3b82f6;
+        background: #eff6ff;
+    }
+    .feature-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+    .feature-label {
+        flex: 1;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #1e293b;
+    }
+    .feature-tick {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        color: transparent;
+        transition: all 0.15s;
+        flex-shrink: 0;
+    }
+    .feature-card.active .feature-tick {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-clipboard-text" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <!-- Company & Licenses -->
+        <div class="form-section-label"><i class="ph ph-buildings"></i> Company Details</div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="{{ form.company.id_for_label }}">Select Company <span style="color:red">*</span></label>
+                {{ form.company }}
+                {% if form.company.errors %}<div class="error-text">{{ form.company.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.no_of_licenses.id_for_label }}">No. of Licenses <span style="color:red">*</span></label>
+                {{ form.no_of_licenses }}
+                {% if form.no_of_licenses.errors %}<div class="error-text">{{ form.no_of_licenses.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <!-- Dates & Fee -->
+        <div class="form-section-label"><i class="ph ph-calendar"></i> Subscription Period & Fee</div>
+        <div class="form-grid-3">
+            <div class="form-group">
+                <label for="{{ form.start_date.id_for_label }}">Start Date <span style="color:red">*</span></label>
+                {{ form.start_date }}
+                {% if form.start_date.errors %}<div class="error-text">{{ form.start_date.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.end_date.id_for_label }}">End Date <span style="color:red">*</span></label>
+                {{ form.end_date }}
+                {% if form.end_date.errors %}<div class="error-text">{{ form.end_date.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.usage_fee.id_for_label }}">Usage Fee (₹) <span style="color:red">*</span></label>
+                {{ form.usage_fee }}
+                {% if form.usage_fee.errors %}<div class="error-text">{{ form.usage_fee.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="form-section-label"><i class="ph ph-puzzle-piece"></i> Features & Integrations</div>
+        <div class="features-grid">
+
+            <label class="feature-card" id="card-whatsapp">
+                <input type="checkbox" name="whatsapp_integration" id="{{ form.whatsapp_integration.id_for_label }}"
+                       {% if form.whatsapp_integration.value %}checked{% endif %}>
+                <div class="feature-icon" style="background:#dcfce7; color:#16a34a;">
+                    <i class="ph-bold ph-whatsapp-logo"></i>
+                </div>
+                <span class="feature-label">WhatsApp Integration</span>
+                <div class="feature-tick"><i class="ph-bold ph-check"></i></div>
+            </label>
+
+            <label class="feature-card" id="card-sms">
+                <input type="checkbox" name="bulk_sms" id="{{ form.bulk_sms.id_for_label }}"
+                       {% if form.bulk_sms.value %}checked{% endif %}>
+                <div class="feature-icon" style="background:#dbeafe; color:#1d4ed8;">
+                    <i class="ph-bold ph-chat-text"></i>
+                </div>
+                <span class="feature-label">Bulk SMS</span>
+                <div class="feature-tick"><i class="ph-bold ph-check"></i></div>
+            </label>
+
+            <label class="feature-card" id="card-email">
+                <input type="checkbox" name="email_integration" id="{{ form.email_integration.id_for_label }}"
+                       {% if form.email_integration.value %}checked{% endif %}>
+                <div class="feature-icon" style="background:#fef9c3; color:#a16207;">
+                    <i class="ph-bold ph-envelope-simple"></i>
+                </div>
+                <span class="feature-label">Email</span>
+                <div class="feature-tick"><i class="ph-bold ph-check"></i></div>
+            </label>
+
+            <label class="feature-card" id="card-bt">
+                <input type="checkbox" name="bluetooth_printing" id="{{ form.bluetooth_printing.id_for_label }}"
+                       {% if form.bluetooth_printing.value %}checked{% endif %}>
+                <div class="feature-icon" style="background:#f3e8ff; color:#7e22ce;">
+                    <i class="ph-bold ph-bluetooth"></i>
+                </div>
+                <span class="feature-label">Bluetooth Printing</span>
+                <div class="feature-tick"><i class="ph-bold ph-check"></i></div>
+            </label>
+
+            <label class="feature-card" id="card-tally">
+                <input type="checkbox" name="tally_integration" id="{{ form.tally_integration.id_for_label }}"
+                       {% if form.tally_integration.value %}checked{% endif %}>
+                <div class="feature-icon" style="background:#fee2e2; color:#dc2626;">
+                    <i class="ph-bold ph-calculator"></i>
+                </div>
+                <span class="feature-label">Tally Integration</span>
+                <div class="feature-tick"><i class="ph-bold ph-check"></i></div>
+            </label>
+
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions">
+            <a href="{% url 'subscription_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Subscription
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.querySelectorAll('.feature-card').forEach(card => {
+    const cb = card.querySelector('input[type="checkbox"]');
+    // Set initial state
+    if (cb.checked) card.classList.add('active');
+    card.addEventListener('click', function () {
+        cb.checked = !cb.checked;
+        card.classList.toggle('active', cb.checked);
+    });
+});
+</script>
+
+{% endblock %}
