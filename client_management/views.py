@@ -6,8 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.http import JsonResponse
-from .models import Client, Subscription
-from .forms import ClientForm, SubscriptionForm
+from .models import Client, Subscription, Branch, Staff
+from .forms import ClientForm, SubscriptionForm, BranchForm, StaffForm
 from master.models import State, Area
 from core.functions import get_auto_id
 @login_required
@@ -139,3 +139,183 @@ def subscription_delete(request, id):
     messages.success(request, "Subscription deleted successfully")
     return redirect('subscription_list')
 
+
+# ==========================================
+# BRANCH MANAGEMENT
+# ==========================================
+
+@login_required
+def branch_list(request):
+    search = request.GET.get('search', '')
+    
+    # Restrict to Company Admin's company
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    branches = Branch.objects.filter(is_deleted=False, company=company).order_by('-date_added')
+    
+    if search:
+        branches = branches.filter(name__icontains=search)
+        
+    paginator = Paginator(branches, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'branch/list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Branches',
+    })
+
+@login_required
+def branch_create(request):
+    form = BranchForm(request.POST or None, request.FILES or None, request=request)
+    if request.method == 'POST':
+        if form.is_valid():
+            branch = form.save(commit=False)
+            branch.auto_id = get_auto_id(Branch)
+            branch.creator = request.user
+            branch.save()
+            messages.success(request, "Branch created successfully")
+            return redirect('branch_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'branch/create.html', {
+        'form': form,
+        'title': 'Create Branch',
+    })
+
+@login_required
+def branch_edit(request, id):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    instance = get_object_or_404(Branch, id=id, company=company, is_deleted=False)
+    form = BranchForm(request.POST or None, request.FILES or None, instance=instance, request=request)
+    
+    if request.method == 'POST':
+        if form.is_valid():
+            branch = form.save(commit=False)
+            branch.updater = request.user
+            branch.save()
+            messages.success(request, "Branch updated successfully")
+            return redirect('branch_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'branch/create.html', {
+        'form': form,
+        'title': 'Edit Branch',
+        'is_edit': True,
+    })
+
+@login_required
+def branch_delete(request, id):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    instance = get_object_or_404(Branch, id=id, company=company, is_deleted=False)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Branch deleted successfully")
+    return redirect('branch_list')
+
+
+# ==========================================
+# STAFF MANAGEMENT
+# ==========================================
+
+@login_required
+def staff_list(request):
+    search = request.GET.get('search', '')
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    staffs = Staff.objects.filter(is_deleted=False, company=company).order_by('-date_added')
+    
+    if search:
+        staffs = staffs.filter(name__icontains=search)
+        
+    paginator = Paginator(staffs, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'staff/list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Staff',
+    })
+
+@login_required
+def staff_create(request):
+    form = StaffForm(request.POST or None, request.FILES or None, request=request)
+    if request.method == 'POST':
+        if form.is_valid():
+            staff = form.save(commit=False)
+            staff.auto_id = get_auto_id(Staff)
+            staff.creator = request.user
+            staff.save()
+            messages.success(request, "Staff member created successfully")
+            return redirect('staff_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'staff/create.html', {
+        'form': form,
+        'title': 'Create Staff',
+    })
+
+@login_required
+def staff_edit(request, id):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    instance = get_object_or_404(Staff, id=id, company=company, is_deleted=False)
+    form = StaffForm(request.POST or None, request.FILES or None, instance=instance, request=request)
+    
+    if request.method == 'POST':
+        if form.is_valid():
+            staff = form.save(commit=False)
+            staff.updater = request.user
+            staff.save()
+            messages.success(request, "Staff member updated successfully")
+            return redirect('staff_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'staff/create.html', {
+        'form': form,
+        'title': 'Edit Staff',
+        'is_edit': True,
+    })
+
+@login_required
+def staff_delete(request, id):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    instance = get_object_or_404(Staff, id=id, company=company, is_deleted=False)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Staff member deleted successfully")
+    return redirect('staff_list')

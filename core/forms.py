@@ -41,26 +41,22 @@ class UserCreationAdminForm(forms.ModelForm):
         
         if self.role and self.role.name.upper() == "COMPANY_ADMIN":
             company_id = self.data.get('company')
-
-        if company_id:
-            from client_management.models import Client  # adjust if needed
-            try:
-                company = Client.objects.get(id=company_id)
-
-                # 🔥 SET USERNAME = COMPANY NAME
-                cleaned_data['username'] = company.company_name
-
-            except Client.DoesNotExist:
-                self.add_error('username', "Invalid company selected.")
-        else:
-            self.add_error('username', "Company is required.")
             
+            if company_id:
+                from client_management.models import Client
+                try:
+                    company = Client.objects.get(id=company_id)
+                except Client.DoesNotExist:
+                    self.add_error('company', "Invalid company selected.")
+            else:
+                self.add_error('company', "Company is required.")
+            
+            # Allow custom username, clear out other non-required fields
             cleaned_data['email'] = ''
             cleaned_data['first_name'] = ''
             cleaned_data['last_name'] = ''
 
         return cleaned_data
-
     
     def save(self, commit=True):
         user = super().save(commit=False)

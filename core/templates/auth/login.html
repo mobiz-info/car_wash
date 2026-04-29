@@ -327,10 +327,10 @@
             <h2>Welcome Back!</h2>
             <p class="tagline">Sign in to your account to continue</p>
 
-            {% if form.errors %}
+            {% if error %}
             <div class="error-container">
                 <i class="ph-bold ph-warning-circle"></i>
-                Invalid username or password. Please try again.
+                {{ error }}
             </div>
             {% endif %}
 

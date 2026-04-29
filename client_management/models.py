@@ -65,3 +65,37 @@ class Subscription(BaseModel):
         from django.utils import timezone
         return self.start_date <= timezone.now().date() <= self.end_date
 
+from django.contrib.auth.models import User
+
+class Branch(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='branches')
+    name = models.CharField(max_length=200)
+    address = models.TextField(blank=True, null=True)
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    gst_number = models.CharField(max_length=100, blank=True, null=True)
+    website = models.URLField(blank=True, null=True)
+    logo = models.ImageField(upload_to='branch_logos/', blank=True, null=True)
+    branch_admin = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_branch')
+
+    def __str__(self):
+        return f"{self.name} - {self.company.company_name}"
+
+class Staff(BaseModel):
+    DESIGNATION_CHOICES = (
+        ('BRANCH_MANAGER', 'Branch manager'),
+        ('MARKETING', 'Marketing'),
+        ('CLERICAL', 'Clerical'),
+        ('SERVICE', 'Service'),
+    )
+
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='staffs')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='staffs')
+    designation = models.CharField(max_length=50, choices=DESIGNATION_CHOICES)
+    name = models.CharField(max_length=200)
+    employee_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_profile')
+
+    def __str__(self):
+        return f"{self.name} ({self.employee_id}) - {self.get_designation_display()}"

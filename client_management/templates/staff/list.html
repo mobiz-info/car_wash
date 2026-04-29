@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Staff - Car Wash Admin{% endblock %}
+{% block page_title %}Staff List{% endblock %}
+{% block breadcrumb_active %}Staff{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search by staff name..." class="search-input">
+        </form>
+        <a href="{% url 'staff_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Staff
+        </a>
+    </div>
+
+    <!-- Messages -->
+    {% for message in messages %}
+    <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; display:flex; align-items:center; gap:8px;">
+        <i class="ph-bold ph-check-circle"></i> {{ message }}
+    </div>
+    {% endfor %}
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Employee ID</th>
+                    <th>Name</th>
+                    <th>Branch</th>
+                    <th>Designation</th>
+                    <th>Phone</th>
+                    <th>Username</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for staff in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td><span style="font-weight:600; color:#3b82f6;">{{ staff.employee_id }}</span></td>
+
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;color:#2563eb;">
+                                <i class="ph-fill ph-user"></i>
+                            </div>
+                            <strong>{{ staff.name }}</strong>
+                        </div>
+                    </td>
+
+                    <td>{{ staff.branch.name }}</td>
+
+                    <td>
+                        <span class="badge" style="background:#f1f5f9;color:#475569;">
+                            {{ staff.get_designation_display }}
+                        </span>
+                    </td>
+
+                    <td>{{ staff.phone|default:"-" }}</td>
+                    
+                    <td>
+                        {% if staff.user %}
+                            <span class="badge" style="background:#f3e8ff;color:#7e22ce;">{{ staff.user.username }}</span>
+                        {% else %}
+                            <span style="color:#94a3b8; font-size:0.8rem;">None</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'staff_edit' staff.id %}" class="action-btn edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'staff_delete' staff.id %}" onclick="return confirm('Delete this staff member?')" class="action-btn delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; padding: 30px; color:#94a3b8;">
+                        No staff found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

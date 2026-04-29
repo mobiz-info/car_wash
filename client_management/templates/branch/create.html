@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Car Wash Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Branch{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container { max-width: 860px; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+    .form-grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+    .form-group.full-width { grid-column: 1 / -1; }
+    
+    /* Input aesthetics */
+    input.form-control, textarea.form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: all 0.2s;
+        outline: none;
+        font-family: 'Inter', sans-serif;
+        background: white;
+    }
+    input.form-control:focus, textarea.form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    
+    /* Section divider */
+    .form-section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        margin-bottom: 16px;
+        margin-top: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-buildings" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <!-- General Error Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; display:flex; align-items:center; gap:8px;">
+            <i class="ph-bold ph-warning-circle"></i> {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    {% if form.non_field_errors %}
+        <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca;">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Branch Basic Details -->
+        <div class="form-section-label"><i class="ph ph-identification-card"></i> Branch Profile</div>
+        <div class="form-grid">
+            <div class="form-group full-width">
+                <label for="{{ form.name.id_for_label }}">Branch Name <span style="color:red">*</span></label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="error-text">{{ form.name.errors.0 }}</div>{% endif %}
+            </div>
+            
+            <div class="form-group full-width">
+                <label for="{{ form.address.id_for_label }}">Address</label>
+                {{ form.address }}
+                {% if form.address.errors %}<div class="error-text">{{ form.address.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.phone.id_for_label }}">Phone Number</label>
+                {{ form.phone }}
+                {% if form.phone.errors %}<div class="error-text">{{ form.phone.errors.0 }}</div>{% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.email.id_for_label }}">Email Address</label>
+                {{ form.email }}
+                {% if form.email.errors %}<div class="error-text">{{ form.email.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.gst_number.id_for_label }}">GST / VAT Number</label>
+                {{ form.gst_number }}
+                {% if form.gst_number.errors %}<div class="error-text">{{ form.gst_number.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.website.id_for_label }}">Website URL</label>
+                {{ form.website }}
+                {% if form.website.errors %}<div class="error-text">{{ form.website.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 24px;">
+            <label for="{{ form.logo.id_for_label }}">Branch Logo (Optional)</label>
+            {{ form.logo }}
+            <small style="color: #64748b; display: block; margin-top: 4px;">Upload a PNG or JPG logo for this branch.</small>
+            {% if form.logo.errors %}<div class="error-text">{{ form.logo.errors.0 }}</div>{% endif %}
+        </div>
+
+        <!-- Branch Admin Credentials -->
+        <div class="form-section-label"><i class="ph ph-lock-key"></i> Administrator Login</div>
+        <p style="font-size: 0.85rem; color: #64748b; margin-top: -8px; margin-bottom: 16px;">
+            {% if is_edit %}
+                Update credentials for this branch manager. Leave password blank if you do not want to change it.
+            {% else %}
+                These credentials will be used by the branch manager to log into their specific dashboard.
+            {% endif %}
+        </p>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}">Username <span style="color:red">*</span></label>
+                {{ form.username }}
+                {% if form.username.errors %}<div class="error-text">{{ form.username.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.password.id_for_label }}">Password {% if not is_edit %}<span style="color:red">*</span>{% endif %}</label>
+                {{ form.password }}
+                {% if form.password.errors %}<div class="error-text">{{ form.password.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions" style="margin-top: 32px;">
+            <a href="{% url 'branch_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> {% if is_edit %}Save Changes{% else %}Create Branch{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

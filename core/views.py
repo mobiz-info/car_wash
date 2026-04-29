@@ -4,8 +4,8 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth import authenticate, login
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
+from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.models import User
 import datetime
 from datetime import date,datetime
@@ -13,8 +13,93 @@ from datetime import date,datetime
 from .models import *
 from .forms import UserCreationAdminForm, UserProfileForm, RoleForm
 from core.functions import get_auto_id
+
+# Roles allowed to access this admin portal
+ALLOWED_ROLES = ('SUPER_ADMIN', 'COMPANY_ADMIN', 'BRANCH_ADMIN')
+
+@csrf_protect
+def custom_login(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    error = None
+
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            # Check if user has a profile with an allowed role
+            try:
+                role_name = user.profile.role.name
+            except Exception:
+                role_name = None
+
+            if role_name in ALLOWED_ROLES:
+                login(request, user)
+                return redirect('dashboard')
+            else:
+                # Authenticated but not an allowed role — deny access
+                error = "You do not have permission to access this portal."
+        else:
+            error = "Invalid username or password."
+
+    return render(request, 'auth/login.html', {'error': error})
+from client_management.models import Client, Branch, Staff
+
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        try:
+            role_name = user.profile.role.name
+        except Exception:
+            role_name = None
+
+        if role_name == 'SUPER_ADMIN':
+            context['stats'] = [
+                {'label': 'Total Companies', 'value': Client.objects.filter(is_deleted=False).count(), 'icon': 'ph-fill ph-buildings', 'color': '#3b82f6'},
+                {'label': 'Total Branches', 'value': Branch.objects.filter(is_deleted=False).count(), 'icon': 'ph-fill ph-git-branch', 'color': '#10b981'},
+                {'label': 'Total Staff', 'value': Staff.objects.filter(is_deleted=False).count(), 'icon': 'ph-fill ph-users', 'color': '#f59e0b'},
+                {'label': 'Total Users', 'value': User.objects.filter(is_active=True).count(), 'icon': 'ph-fill ph-user-check', 'color': '#8b5cf6'},
+            ]
+
+        elif role_name == 'COMPANY_ADMIN':
+            company = user.profile.company
+            if company:
+                context['stats'] = [
+                    {'label': 'Total Branches', 'value': Branch.objects.filter(company=company, is_deleted=False).count(), 'icon': 'ph-fill ph-git-branch', 'color': '#3b82f6'},
+                    {'label': 'Total Staff', 'value': Staff.objects.filter(company=company, is_deleted=False).count(), 'icon': 'ph-fill ph-users', 'color': '#10b981'},
+                    {'label': 'Active Branches', 'value': Branch.objects.filter(company=company, is_deleted=False).count(), 'icon': 'ph-fill ph-buildings', 'color': '#f59e0b'},
+                ]
+            else:
+                context['stats'] = []
+
+        elif role_name == 'BRANCH_ADMIN':
+            try:
+                branch = user.managed_branch
+                company = branch.company if branch else None
+            except Exception:
+                branch = None
+                company = None
+
+            if branch:
+                context['stats'] = [
+                    {'label': 'Branch Staff', 'value': Staff.objects.filter(branch=branch, is_deleted=False).count(), 'icon': 'ph-fill ph-users', 'color': '#3b82f6'},
+                    {'label': 'Branch', 'value': branch.name, 'icon': 'ph-fill ph-git-branch', 'color': '#10b981'},
+                    {'label': 'Company', 'value': company.company_name if company else '-', 'icon': 'ph-fill ph-buildings', 'color': '#f59e0b'},
+                ]
+            else:
+                context['stats'] = []
+        else:
+            context['stats'] = []
+
+        return context
 
 
 # ==========================================

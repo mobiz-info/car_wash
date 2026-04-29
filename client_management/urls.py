@@ -14,4 +14,16 @@ urlpatterns = [
     path('subscription/create/', views.subscription_create, name='subscription_create'),
     path('subscription/edit/<uuid:id>/', views.subscription_edit, name='subscription_edit'),
     path('subscription/delete/<uuid:id>/', views.subscription_delete, name='subscription_delete'),
+
+    # Branch Management
+    path('branch/', views.branch_list, name='branch_list'),
+    path('branch/create/', views.branch_create, name='branch_create'),
+    path('branch/edit/<uuid:id>/', views.branch_edit, name='branch_edit'),
+    path('branch/delete/<uuid:id>/', views.branch_delete, name='branch_delete'),
+
+    # Staff Management
+    path('staff/', views.staff_list, name='staff_list'),
+    path('staff/create/', views.staff_create, name='staff_create'),
+    path('staff/edit/<uuid:id>/', views.staff_edit, name='staff_edit'),
+    path('staff/delete/<uuid:id>/', views.staff_delete, name='staff_delete'),
 ]
