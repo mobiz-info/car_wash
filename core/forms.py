@@ -22,6 +22,15 @@ class UserCreationAdminForm(forms.ModelForm):
             'password': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Create password'})
         }
 
+    def __init__(self, *args, **kwargs):
+        self.role = kwargs.pop('role', None)
+        super().__init__(*args, **kwargs)
+
+        if self.role and self.role.name.upper() == "COMPANY_ADMIN":
+            self.fields['email'].required = False
+            self.fields['first_name'].required = False
+            self.fields['last_name'].required = False
+            
     def clean(self):
         cleaned_data = super().clean()
         password = cleaned_data.get("password")
@@ -30,7 +39,28 @@ class UserCreationAdminForm(forms.ModelForm):
         if password and password_confirm and password != password_confirm:
             self.add_error('password_confirm', "Passwords do not match.")
         
+        if self.role and self.role.name.upper() == "COMPANY_ADMIN":
+            company_id = self.data.get('company')
+
+        if company_id:
+            from client_management.models import Client  # adjust if needed
+            try:
+                company = Client.objects.get(id=company_id)
+
+                # 🔥 SET USERNAME = COMPANY NAME
+                cleaned_data['username'] = company.company_name
+
+            except Client.DoesNotExist:
+                self.add_error('username', "Invalid company selected.")
+        else:
+            self.add_error('username', "Company is required.")
+            
+            cleaned_data['email'] = ''
+            cleaned_data['first_name'] = ''
+            cleaned_data['last_name'] = ''
+
         return cleaned_data
+
     
     def save(self, commit=True):
         user = super().save(commit=False)

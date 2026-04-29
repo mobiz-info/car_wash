@@ -42,19 +42,22 @@ def user_list(request):
 @login_required
 def user_create(request):
     if request.method == 'POST':
-        user_form = UserCreationAdminForm(request.POST)
+        role_id = request.POST.get('role')
+        role = Role.objects.filter(id=role_id).first()
+
+        user_form = UserCreationAdminForm(request.POST, role=role)
         profile_form = UserProfileForm(request.POST)
+
         
         if user_form.is_valid() and profile_form.is_valid():
-            user = user_form.save(commit=False)
-            user.set_password(user_form.cleaned_data['password'])
-            user.save()
-            
+            user = user_form.save()
+
             profile = profile_form.save(commit=False)
             profile.user = user
             profile.auto_id = get_auto_id(UserProfile)
             profile.creator = request.user
             profile.save()
+
             return redirect('user_list')
     else:
         user_form = UserCreationAdminForm()
