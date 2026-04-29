@@ -1,7 +1,8 @@
 from django.db import models
-from core.models import BaseModel
 from django.core.exceptions import ValidationError
 from PIL import Image
+
+from core.models import BaseModel
 
 def validate_png(image):
     if not image.name.lower().endswith('.png'):
@@ -13,6 +14,8 @@ def validate_image_dimensions(image):
 
     if width != 300 or height != 300:
         raise ValidationError("Image must be exactly 300x300 pixels.")
+    
+    
 class Client(BaseModel):
     company_name = models.CharField(max_length=200)
     owner_name = models.CharField(max_length=200)
@@ -99,3 +102,5 @@ class Staff(BaseModel):
 
     def __str__(self):
         return f"{self.name} ({self.employee_id}) - {self.get_designation_display()}"
+
+

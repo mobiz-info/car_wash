@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Vehicle Prices - Car Wash Admin{% endblock %}
+{% block page_title %}Vehicle Prices{% endblock %}
+{% block breadcrumb_active %}Vehicle Prices{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+<div class="list-header">
+
+    <h3 style="margin:0;">Branch Vehicle Prices</h3>
+
+    {% if branch %}
+        <a href="{% url 'branch_vehicle_price_create' branch.id %}" 
+           style="
+                background:#3b82f6;
+                color:white;
+                padding:10px 16px;
+                border-radius:8px;
+                text-decoration:none;
+                font-size:0.85rem;
+                font-weight:500;
+                display:flex;
+                align-items:center;
+                gap:6px;
+                transition:0.2s;
+           "
+           onmouseover="this.style.background='#2563eb'"
+           onmouseout="this.style.background='#3b82f6'">
+
+            <i class="ph ph-plus"></i>
+            Create Price
+        </a>
+    {% endif %}
+
+</div>
+   
+
+    <!-- Table -->
+    <div style="overflow-x:auto;">
+        <table class="premium-table">
+
+            <thead>
+                <tr>
+                    <th>#</th>
+                    {% comment %} <th>Branch</th> {% endcomment %}
+                    <th>Vehicle Type</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for obj in data %}
+                <tr>
+
+                    <td>{{ forloop.counter }}</td>
+
+                    <!-- Branch -->
+                    {% comment %} <td style="font-weight:600; color:#1e293b;">
+                        {{ obj.branch.name }}
+                    </td> {% endcomment %}
+
+                    <!-- Vehicle Type -->
+                    <td>
+                        {{ obj.vehicle_type.name }}
+                    </td>
+
+                    <!-- Price -->
+                    <td style="color:#64748b;">
+                        ₹ {{ obj.price }}
+                    </td>
+
+                    <!-- Status -->
+                    <td>
+                        {% if obj.is_active %}
+                            <span class="status-badge status-active">Active</span>
+                        {% else %}
+                            <span class="status-badge" style="background:#fee2e2; color:#991b1b;">
+                                Inactive
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Action -->
+                    <td style="text-align:right;">
+                        {% if obj.branch and obj.branch.id %}
+                            <a href="{% url 'branch_vehicle_price_create' obj.branch.id %}" 
+                               style="color:#3b82f6; font-weight:500;">
+                                <i class="ph ph-gear" style="font-size:1.2rem;"></i>
+                            </a>
+                        {% endif %}
+                    </td>
+
+                </tr>
+
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">
+                        No vehicle prices found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+    </div>
+
+</div>
+
+{% endblock %}

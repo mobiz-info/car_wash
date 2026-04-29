@@ -134,27 +134,58 @@
     </div>
 
     <form method="POST">
-    {% csrf_token %}
+        {% csrf_token %}
 
-    <h3>Services for {{ branch.name }}</h3>
+        <h3 style="margin-bottom:20px;">Services for {{ branch.name }}</h3>
 
-    <div>
-        {% for service in services %}
-            <div style="margin-bottom:10px;">
-                <label>
-                    <input type="checkbox" 
-                           name="services" 
-                           value="{{ service.id }}"
-                           {% if service.id in existing_service_ids %}checked{% endif %}>
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background:#f8fafc;">
+                        <th style="padding:12px; border:1px solid #e2e8f0; text-align:left;">#</th>
+                        <th style="padding:12px; border:1px solid #e2e8f0; text-align:left;">Service</th>
+                        <th style="padding:12px; border:1px solid #e2e8f0; text-align:center;">Enable</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for service in services %}
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:10px;">{{ forloop.counter }}</td>
+
+                        <td style="padding:10px; font-weight:500;">
+                            {{ service.name }}
+                        </td>
+
                     
-                    {{ service.name }} ({{ service.duration }} mins)
-                </label>
-            </div>
-        {% endfor %}
-    </div>
+                        <td style="padding:10px; text-align:center;">
+                            <input type="checkbox" 
+                                name="services" 
+                                value="{{ service.id }}"
+                                style="width:18px; height:18px; cursor:pointer;"
+                                {% if service.id in existing_service_ids %}checked{% endif %}>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;">
+                            No services found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-    <button type="submit">Save</button>
-</form>
+        <!-- Actions -->
+        <div class="form-actions">
+            <a href="{% url 'branch_service_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                Save Changes
+            </button>
+        </div>
+
+    </form>
 </div>
 
 {% endblock %}

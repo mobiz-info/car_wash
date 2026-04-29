@@ -594,6 +594,20 @@
             <div class="nav-submenu">
                 <a href="#">Clients</a>
             </div>
+            <!-- Service Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-wrench"></i>
+                    Service Management
+                    <span class="nav-badge">4</span>
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'branch_service_list' %}" class="nav-item submenu-item">Services Enable</a>
+                <a href="{% url 'branch_vehicle_price_list' %}" class="nav-item submenu-item">Price</a>
+
+            </div>
 
             {% else %}
             

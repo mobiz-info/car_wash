@@ -12,5 +12,10 @@ urlpatterns = [
     path('services/edit/<uuid:id>/', views.service_edit, name='service_edit'),
     path('services/delete/<uuid:id>/', views.service_delete, name='service_delete'),
     
+    path('branch/services/', views.branch_service_list, name='branch_service_list'),
+    path('branch/<uuid:branch_id>/services/', views.branch_service_manage, name='branch_service_manage'),
+
+    path('branch/vehicle-prices/',views.branch_vehicle_price_list,name='branch_vehicle_price_list'),
+    path('branch/<uuid:branch_id>/vehicle-price/create/',views.branch_vehicle_price_create,name='branch_vehicle_price_create'),
 
 ]
