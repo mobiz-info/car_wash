@@ -12,6 +12,5 @@ urlpatterns = [
     path('services/edit/<uuid:id>/', views.service_edit, name='service_edit'),
     path('services/delete/<uuid:id>/', views.service_delete, name='service_delete'),
     
-    path('branch/<uuid:branch_id>/services/', views.branch_service_manage, name='branch_service_manage'),
 
 ]

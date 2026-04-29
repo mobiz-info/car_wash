@@ -141,38 +141,3 @@ def service_delete(request, id):
     messages.success(request, 'Service deleted successfully.')
     return redirect('service_list')
 
-
-def branch_service_manage(request, branch_id):
-    branch = get_object_or_404(Branch, id=branch_id)
-
-    services = Service.objects.filter(is_active=True)
-
-    # Already enabled services
-    existing = BranchService.objects.filter(branch=branch, is_enabled=True)
-    existing_service_ids = existing.values_list('service_id', flat=True)
-
-    if request.method == 'POST':
-        selected_services = request.POST.getlist('services')
-
-        # Disable all first
-        BranchService.objects.filter(branch=branch).update(is_enabled=False)
-
-        for service in services:
-            is_checked = str(service.id) in selected_services
-
-            obj, created = BranchService.objects.get_or_create(
-                branch=branch,
-                service=service
-            )
-
-            obj.is_enabled = is_checked
-            obj.save()
-
-        return redirect('branch_list')  # change as needed
-
-    context = {
-        'branch': branch,
-        'services': services,
-        'existing_service_ids': existing_service_ids
-    }
-    return render(request, 'branch/branch_services.html', context)
