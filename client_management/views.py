@@ -6,10 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.http import JsonResponse
-from .models import Client, Subscription, Branch, Staff
-from .forms import ClientForm, SubscriptionForm, BranchForm, StaffForm
+
+from .models import *
+from .forms import *
 from master.models import State, Area
 from core.functions import get_auto_id
+
+
 @login_required
 def client_list(request):
     search = request.GET.get('search', '')
@@ -322,3 +325,55 @@ def staff_delete(request, id):
     instance.save()
     messages.success(request, "Staff member deleted successfully")
     return redirect('staff_list')
+
+
+@login_required
+def customer_type_list(request):
+    data = CustomerType.objects.filter(is_deleted=False)
+    return render(request, 'customer_type/list.html', {'data': data})
+
+
+@login_required
+def customer_type_create(request):
+    form = CustomerTypeForm(request.POST or None)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(CustomerType)
+            instance.save()
+            messages.success(request, "Customer Type created successfully")
+            return redirect('customer_type_list')
+
+    return render(request, 'customer_type/create.html', {
+        'form': form,
+        'title': 'Create Customer Type'
+    })
+
+
+@login_required
+def customer_type_edit(request, id):
+    instance = get_object_or_404(CustomerType, id=id, is_deleted=False)
+
+    form = CustomerTypeForm(request.POST or None, instance=instance)
+
+    if form.is_valid():
+        instance = form.save(commit=False)
+        instance.updater = request.user
+        instance.save()
+        messages.success(request, "Customer Type updated successfully")
+        return redirect('customer_type_list')
+
+    return render(request, 'customer_type/create.html', {
+        'form': form,
+        'title': 'Edit Customer Type'
+    })
+
+
+@login_required
+def customer_type_delete(request, id):
+    instance = get_object_or_404(CustomerType, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Customer Type deleted successfully")
+    return redirect('customer_type_list')

@@ -524,6 +524,7 @@
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
+                <a href="{% url 'customer_type_list' %}">Customer Type</a>
                 <a href="#">Customers</a>
                 <a href="#">Memberships</a>
             </div>
@@ -551,6 +552,8 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'vehicle_type_list' %}" class="nav-item submenu-item">Vehicle Types</a>
+                <a href="{% url 'vehicle_type_model_list' %}" class="nav-item submenu-item">Vehicle Types Model</a>
+
             </div>
 
             <div class="nav-item dropdown-toggle">
@@ -719,7 +722,8 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'vehicle_type_list' %}" class="nav-item submenu-item">Vehicle Types</a>
-                
+                <a href="{% url 'vehicle_type_model_list' %}" class="nav-item submenu-item">Vehicle Types Model</a>
+                                
             </div>
 
             <div class="nav-section-title">OPERATIONS</div>

@@ -31,4 +31,9 @@ urlpatterns = [
     path('vehicle-type/edit/<uuid:id>/', views.vehicle_type_edit, name='vehicle_type_edit'),
     path('vehicle-type/delete/<uuid:id>/', views.vehicle_type_delete, name='vehicle_type_delete'),
     
+    path('vehicle-type-model/', views.vehicle_type_model_list, name='vehicle_type_model_list'),
+    path('vehicle-type-model/create/', views.vehicle_type_model_create, name='vehicle_type_model_create'),
+    path('vehicle-type-model/edit/<uuid:id>/', views.vehicle_type_model_edit, name='vehicle_type_model_edit'),
+    path('vehicle-type-model/delete/<uuid:id>/', views.vehicle_type_model_delete, name='vehicle_type_model_delete'),
+    
 ]

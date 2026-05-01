@@ -50,3 +50,9 @@ class VehicleTypeForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-check-input'
             else:
                 field.widget.attrs['class'] = 'form-control'
+                
+                
+class VehicleTypeModelForm(forms.ModelForm):
+    class Meta:
+        model = VehicleTypeModel
+        fields = ['vehicle_type', 'name', 'description', 'is_active']

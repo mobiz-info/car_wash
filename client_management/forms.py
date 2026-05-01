@@ -1,5 +1,5 @@
 from django import forms
-from .models import Client, Subscription, Branch, Staff
+from .models import *
 from master.models import State, Area
 
 class ClientForm(forms.ModelForm):
@@ -274,3 +274,8 @@ class SubscriptionForm(forms.ModelForm):
                 if not isinstance(field.widget, forms.Select):
                     field.widget.attrs['placeholder'] = f"Enter {field.label}"
 
+
+class CustomerTypeForm(forms.ModelForm):
+    class Meta:
+        model = CustomerType
+        fields = ['name']

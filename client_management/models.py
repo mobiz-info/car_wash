@@ -104,3 +104,12 @@ class Staff(BaseModel):
         return f"{self.name} ({self.employee_id}) - {self.get_designation_display()}"
 
 
+class CustomerType(BaseModel):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        db_table = 'customer_type'
+        ordering = ['-id']
