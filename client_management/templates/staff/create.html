@@ -76,11 +76,15 @@
         <!-- Employment Details -->
         <div class="form-section-label"><i class="ph ph-briefcase"></i> Employment Details</div>
         <div class="form-grid">
+            {% if not form.branch.is_hidden %}
             <div class="form-group">
                 <label for="{{ form.branch.id_for_label }}">Select Branch <span style="color:red">*</span></label>
                 {{ form.branch }}
                 {% if form.branch.errors %}<div class="error-text">{{ form.branch.errors.0 }}</div>{% endif %}
             </div>
+            {% else %}
+                {{ form.branch }}
+            {% endif %}
             
             <div class="form-group">
                 <label for="{{ form.designation.id_for_label }}">Designation <span style="color:red">*</span></label>

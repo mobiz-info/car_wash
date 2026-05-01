@@ -138,12 +138,20 @@ class StaffForm(forms.ModelForm):
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
         
-        # Restrict branches to the current company
+        # Restrict branches
         if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
-            self.fields['branch'].queryset = Branch.objects.filter(
-                company=self.request.user.profile.company, 
-                is_deleted=False
-            )
+            if self.request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(self.request.user, 'managed_branch'):
+                self.fields['branch'].queryset = Branch.objects.filter(
+                    id=self.request.user.managed_branch.id,
+                    is_deleted=False
+                )
+                self.fields['branch'].initial = self.request.user.managed_branch.id
+                self.fields['branch'].widget = forms.HiddenInput()
+            else:
+                self.fields['branch'].queryset = Branch.objects.filter(
+                    company=self.request.user.profile.company, 
+                    is_deleted=False
+                )
             
         for field_name, field in self.fields.items():
             if field_name not in ['username', 'password']:

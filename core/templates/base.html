@@ -609,6 +609,19 @@
 
             </div>
 
+            <!-- Staff Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-user-list"></i>
+                    Staff Management
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'staff_list' %}" class="nav-item submenu-item">Staff List</a>
+                <a href="{% url 'staff_create' %}" class="nav-item submenu-item">Add Staff</a>
+            </div>
+
             {% else %}
             
             <a href="{% url 'dashboard' %}" class="nav-item">

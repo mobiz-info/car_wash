@@ -247,6 +247,9 @@ def staff_list(request):
         
     staffs = Staff.objects.filter(is_deleted=False, company=company).order_by('-date_added')
     
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        staffs = staffs.filter(branch=request.user.managed_branch)
+    
     if search:
         staffs = staffs.filter(name__icontains=search)
         
