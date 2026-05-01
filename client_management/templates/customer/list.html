@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Customers - Car Wash Admin{% endblock %}
+{% block page_title %}Customers{% endblock %}
+{% block breadcrumb_active %}Customers{% endblock %}
+
+{% block content %}
+<div class="list-container">
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{ search }}" class="search-input" placeholder="Search customers...">
+        </form>
+        {% if request.user.profile.role.name == 'BRANCH_ADMIN' %}
+        <a href="{% url 'customer_create' %}" class="btn-create">
+            <i class="ph ph-plus-circle"></i> Add Customer
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- General Error Messages -->
+    {% if messages %}
+        <div style="padding: 16px 24px;">
+        {% for message in messages %}
+        <div style="margin-bottom:8px; padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px;
+            {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+            {% elif message.tags == 'error' %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;
+            {% else %}background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;{% endif %}">
+            <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% elif message.tags == 'error' %}ph-warning-circle{% else %}ph-info{% endif %}"></i> 
+            {{ message }}
+        </div>
+        {% endfor %}
+        </div>
+    {% endif %}
+
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>Customer Name</th>
+                    <th>Contact</th>
+                    <th>Type</th>
+                    <th>Branch</th>
+                    <th>Vehicles</th>
+                    <th>Added On</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in page_obj %}
+                <tr>
+                    <td>
+                        <div style="font-weight: 600; color: #1e293b;">{{ customer.name }}</div>
+                        {% if customer.email %}<div style="font-size: 0.8rem; color: #64748b;">{{ customer.email }}</div>{% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <i class="ph ph-phone" style="color: #64748b;"></i> {{ customer.phone }}
+                        </div>
+                        {% if customer.whatsapp_number %}
+                        <div style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: #10b981; margin-top: 2px;">
+                            <i class="ph ph-whatsapp-logo"></i> {{ customer.whatsapp_number }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="background: #eff6ff; color: #2563eb; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500;">
+                            {{ customer.customer_type.name|default:"-" }}
+                        </span>
+                    </td>
+                    <td>{{ customer.branch.name }}</td>
+                    <td>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            {% for vehicle in customer.vehicles.all %}
+                                <div style="font-size: 0.85rem;">
+                                    <span style="font-weight: 500;">{{ vehicle.vehicle_number }}</span>
+                                    <span style="color: #64748b; font-size: 0.8rem;">({{ vehicle.vehicle_type_model.name }})</span>
+                                </div>
+                            {% empty %}
+                                <span style="color: #94a3b8; font-size: 0.8rem;">No vehicles</span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td>{{ customer.date_added|date:"M d, Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px; color: #64748b;">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                            <i class="ph ph-users" style="font-size: 2.5rem; color: #cbd5e1;"></i>
+                            <p>No customers found.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}" class="page-link">Previous</a>
+        {% endif %}
+        
+        <span style="font-weight: 500;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

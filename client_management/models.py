@@ -113,3 +113,25 @@ class CustomerType(BaseModel):
     class Meta:
         db_table = 'customer_type'
         ordering = ['-id']
+
+class Customer(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='customers')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='customers')
+    name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=50)
+    customer_type = models.ForeignKey(CustomerType, on_delete=models.SET_NULL, null=True, blank=False)
+    whatsapp_number = models.CharField(max_length=50, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    pincode = models.CharField(max_length=20, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.phone})"
+
+class CustomerVehicle(BaseModel):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='vehicles')
+    vehicle_type_model = models.ForeignKey('master.VehicleTypeModel', on_delete=models.CASCADE)
+    vehicle_number = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.vehicle_number} - {self.vehicle_type_model.name}"

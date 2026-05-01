@@ -525,7 +525,7 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'customer_type_list' %}">Customer Type</a>
-                <a href="#">Customers</a>
+                <a href="{% url 'customer_list' %}">Customers</a>
                 <a href="#">Memberships</a>
             </div>
 
@@ -595,7 +595,8 @@
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                <a href="#">Clients</a>
+                <a href="{% url 'customer_list' %}">Customer List</a>
+                <a href="{% url 'customer_create' %}">Add Customer</a>
             </div>
             <!-- Service Management -->
             <div class="nav-item dropdown-toggle">

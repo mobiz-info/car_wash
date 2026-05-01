@@ -33,4 +33,8 @@ urlpatterns = [
     path('customer-type/edit/<uuid:id>/', views.customer_type_edit, name='customer_type_edit'),
     path('customer-type/delete/<uuid:id>/', views.customer_type_delete, name='customer_type_delete'),
 
+    # Customer Management
+    path('customer/', views.customer_list, name='customer_list'),
+    path('customer/create/', views.customer_create, name='customer_create'),
+    path('ajax/load-vehicle-models/', views.ajax_load_vehicle_models, name='ajax_load_vehicle_models'),
 ]

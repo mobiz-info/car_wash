@@ -274,6 +274,61 @@ class SubscriptionForm(forms.ModelForm):
                 if not isinstance(field.widget, forms.Select):
                     field.widget.attrs['placeholder'] = f"Enter {field.label}"
 
+from .models import Customer, CustomerVehicle
+from master.models import VehicleTypeModel
+
+class CustomerForm(forms.ModelForm):
+    class Meta:
+        model = Customer
+        fields = ['name', 'phone', 'customer_type', 'whatsapp_number', 'email', 'address', 'pincode']
+        widgets = {
+            'address': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = 'form-control'
+            if not isinstance(field.widget, forms.Select) and not isinstance(field.widget, forms.Textarea):
+                field.widget.attrs['placeholder'] = f"Enter {field.label}"
+
+from master.models import VehicleType, VehicleTypeModel
+
+class CustomerVehicleForm(forms.ModelForm):
+    vehicle_type = forms.ModelChoiceField(
+        queryset=VehicleType.objects.filter(is_active=True),
+        required=True,
+        empty_label="---------",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    class Meta:
+        model = CustomerVehicle
+        fields = ['vehicle_type', 'vehicle_type_model', 'vehicle_number']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = 'form-control'
+            # Disable HTML5 validation so the browser doesn't block hidden inputs
+            if field.required:
+                field.widget.attrs['required'] = False
+            if not isinstance(field.widget, forms.Select):
+                field.widget.attrs['placeholder'] = f"Enter {field.label}"
+                
+        # Handle dynamic vehicle model selection
+        if 'vehicle_type' in self.data:
+            try:
+                vehicle_type_id = int(self.data.get('vehicle_type'))
+                self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id, is_active=True).order_by('name')
+            except (ValueError, TypeError):
+                pass
+        elif not self.instance._state.adding and getattr(self.instance, 'vehicle_type_model_id', None):
+            self.fields['vehicle_type'].initial = self.instance.vehicle_type_model.vehicle_type.id
+            self.fields['vehicle_type_model'].queryset = self.instance.vehicle_type_model.vehicle_type.models.filter(is_active=True).order_by('name')
+        else:
+            self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
+
 
 class CustomerTypeForm(forms.ModelForm):
     class Meta:

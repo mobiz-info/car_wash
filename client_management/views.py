@@ -377,3 +377,104 @@ def customer_type_delete(request, id):
     instance.save()
     messages.success(request, "Customer Type deleted successfully")
     return redirect('customer_type_list')
+
+# ==========================================
+# CUSTOMER MANAGEMENT
+# ==========================================
+
+from .models import Customer, CustomerVehicle
+from .forms import CustomerForm, CustomerVehicleForm
+from master.models import VehicleTypeModel
+
+@login_required
+def customer_list(request):
+    search = request.GET.get('search', '')
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    customers = Customer.objects.filter(is_deleted=False, company=company).order_by('-date_added')
+    
+    # Restrict to branch if BRANCH_ADMIN
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        customers = customers.filter(branch=request.user.managed_branch)
+    
+    if search:
+        customers = customers.filter(name__icontains=search)
+        
+    paginator = Paginator(customers, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'customer/list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Customers',
+    })
+
+@login_required
+def customer_create(request):
+    # Only allow BRANCH_ADMIN to create customers
+    if request.user.profile.role.name != 'BRANCH_ADMIN':
+        messages.error(request, "Only Branch Admins can create customers.")
+        return redirect('customer_list')
+
+    try:
+        company = request.user.profile.company
+        branch = request.user.managed_branch
+    except AttributeError:
+        messages.error(request, "Branch configuration missing.")
+        return redirect('dashboard')
+
+    customer_form = CustomerForm(request.POST or None)
+    vehicle_form = CustomerVehicleForm(request.POST or None)
+
+    if request.method == 'POST':
+        customer_valid = customer_form.is_valid()
+        
+        is_rc_owner = False
+        if customer_valid:
+            customer_type = customer_form.cleaned_data.get('customer_type')
+            if customer_type and customer_type.name.lower() == 'rc owner':
+                is_rc_owner = True
+                
+        # Only require vehicle form to be valid if it's an RC owner
+        all_valid = customer_valid and (not is_rc_owner or vehicle_form.is_valid())
+
+        if all_valid:
+            # Save Customer
+            customer = customer_form.save(commit=False)
+            customer.company = company
+            customer.branch = branch
+            customer.auto_id = get_auto_id(Customer)
+            customer.creator = request.user
+            customer.save()
+
+            # Save Vehicle only if RC owner
+            if is_rc_owner:
+                vehicle = vehicle_form.save(commit=False)
+                vehicle.customer = customer
+                vehicle.auto_id = get_auto_id(CustomerVehicle)
+                vehicle.creator = request.user
+                vehicle.save()
+
+            messages.success(request, "Customer created successfully")
+            return redirect('customer_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    return render(request, 'customer/create.html', {
+        'customer_form': customer_form,
+        'vehicle_form': vehicle_form,
+        'title': 'Add Customer',
+    })
+
+def ajax_load_vehicle_models(request):
+    vehicle_type_id = request.GET.get('vehicle_type')
+    if vehicle_type_id:
+        models = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id, is_active=True).order_by('name')
+        return JsonResponse({'models': list(models.values('id', 'name'))})
+    return JsonResponse({'models': []})
