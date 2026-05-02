@@ -68,6 +68,12 @@
         font-size: 0.85rem;
         margin-top: 4px;
     }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px 30px;
+        margin-bottom: 20px;
+    }
 </style>
 
 <div class="premium-form-container">
@@ -91,7 +97,30 @@
                 <label>Owner Name *</label>
                 {{ form.owner_name }}
             </div>
+            <div class="form-group">
+                <label>Business Name</label>
+                {{ form.business_name }}
+            </div>
 
+            <div class="form-group">
+                <label>No. of Licenses</label>
+                {{ form.licenses_count }}
+            </div>
+
+            <div class="form-group">
+                <label>Maximum Branches</label>
+                {{ form.max_branches }}
+            </div>
+
+            <div class="form-group">
+                <label>Monthly Tariff</label>
+                {{ form.monthly_tariff }}
+            </div>
+
+            <div class="form-group">
+                <label>Next Renewal Date</label>
+                {{ form.next_renewal_date }}
+            </div>
             <div class="form-group">
                 <label>Email</label>
                 {{ form.email }}
@@ -109,10 +138,10 @@
 
             <div class="form-group">
                 <label>Status</label>
-                <div class="checkbox-wrapper">
+                <label style="display:flex; align-items:center; gap:10px;">
                     {{ form.status }}
-                    <span>Active Client</span>
-                </div>
+                    Active Client
+                </label>
             </div>
 
             <div class="form-group full-width">
@@ -166,6 +195,19 @@
             <div class="form-group" id="area-group" style="display:none;">
                 <label>Area</label>
                 <select name="area" id="id_area" class="form-control"></select>
+            </div>
+
+            <div class="form-group full-width" style="margin-top:20px;">
+                <label style="font-weight:600;">Scheme Facility</label>
+
+                <div style="display:flex; gap:30px; flex-wrap:wrap; margin-top:10px;">
+                    {% for checkbox in form.scheme_types %}
+                        <label style="display:flex; align-items:center; gap:8px;">
+                            {{ checkbox.tag }}
+                            {{ checkbox.choice_label }}
+                        </label>
+                    {% endfor %}
+                </div>
             </div>
         </div>
 

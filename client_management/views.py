@@ -35,6 +35,7 @@ def client_create(request):
             instance = form.save(commit=False)   
             instance.auto_id = get_auto_id(Client)
             instance.save()
+            form.save_m2m()
             messages.success(request, "Client created successfully")
             return redirect('client_list')
     return render(request, 'client/create.html', {

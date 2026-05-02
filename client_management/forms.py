@@ -1,17 +1,36 @@
 from django import forms
 from .models import *
-from master.models import State, Area
+from master.models import State, Area,SchemeType
 
 class ClientForm(forms.ModelForm):
+    scheme_types = forms.ModelMultipleChoiceField(
+        queryset=SchemeType.objects.filter(is_deleted=False),
+        widget=forms.CheckboxSelectMultiple,
+        required=False
+    )
+
     class Meta:
         model = Client
         fields = [
-            'company_name', 'owner_name', 'email', 'phone',
-            'address', 'status', 'gst_number',
+            'company_name', 'business_name', 'owner_name',
+            'email', 'phone', 'address',
+            'gst_number',
             'country', 'state', 'area',
-            'logo_color', 'logo_bw' 
+
+            'licenses_count', 'max_branches',
+            'monthly_tariff', 'next_renewal_date',
+
+            'scheme_types',
+
+            'status', 'logo_color', 'logo_bw'
         ]
-        
+        widgets = {
+            'next_renewal_date': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control'
+            }),
+        }
+            
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Initially show empty querysets for state/area (populated via JS)
