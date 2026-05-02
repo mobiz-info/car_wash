@@ -53,6 +53,7 @@ def client_edit(request, id):
             instance = form.save(commit=False)
             instance.updater = request.user
             instance.save()
+            form.save_m2m()
             messages.success(request, "Client updated successfully")
             return redirect('client_list')
     return render(request, 'client/create.html', {
@@ -183,6 +184,7 @@ def branch_create(request):
             branch.auto_id = get_auto_id(Branch)
             branch.creator = request.user
             branch.save()
+            form.save_m2m()
             messages.success(request, "Branch created successfully")
             return redirect('branch_list')
         else:
@@ -209,6 +211,7 @@ def branch_edit(request, id):
             branch = form.save(commit=False)
             branch.updater = request.user
             branch.save()
+            form.save_m2m()
             messages.success(request, "Branch updated successfully")
             return redirect('branch_list')
         else:

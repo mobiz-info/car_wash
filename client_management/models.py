@@ -89,6 +89,8 @@ class Branch(BaseModel):
     logo = models.ImageField(upload_to='branch_logos/', blank=True, null=True)
     branch_admin = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_branch')
 
+    scheme_types = models.ManyToManyField('master.SchemeType', blank=True)
+    
     def __str__(self):
         return f"{self.name} - {self.company.company_name}"
 

@@ -68,10 +68,14 @@ class BranchForm(forms.ModelForm):
         widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Create password'}),
         required=False  # Required only on creation, not edit
     )
-
+    scheme_types = forms.ModelMultipleChoiceField(
+        queryset=SchemeType.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False
+    )
     class Meta:
         model = Branch
-        fields = ['name', 'address', 'phone', 'email', 'gst_number', 'website', 'logo']
+        fields = ['name', 'address', 'phone', 'email', 'gst_number', 'website', 'logo','scheme_types']
         widgets = {
             'address': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
@@ -80,11 +84,11 @@ class BranchForm(forms.ModelForm):
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
         for field_name, field in self.fields.items():
-            if field_name not in ['logo', 'username', 'password']:
+            if field_name not in ['logo', 'username', 'password', 'scheme_types']:
                 field.widget.attrs['class'] = 'form-control'
                 if not isinstance(field.widget, forms.Select) and not isinstance(field.widget, forms.Textarea):
                     field.widget.attrs['placeholder'] = f"Enter {field.label}"
-        
+        self.fields['scheme_types'].widget.attrs.update({'class': 'form-check-input'})
         if self.instance and not self.instance._state.adding:
             if self.instance.branch_admin:
                 self.fields['username'].initial = self.instance.branch_admin.username
@@ -135,6 +139,7 @@ class BranchForm(forms.ModelForm):
 
         if commit:
             branch.save()
+            self.save_m2m()
             
         return branch
 
