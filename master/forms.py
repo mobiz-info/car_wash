@@ -56,3 +56,12 @@ class VehicleTypeModelForm(forms.ModelForm):
     class Meta:
         model = VehicleTypeModel
         fields = ['vehicle_type', 'name', 'description', 'is_active']
+
+
+class SchemeTypeForm(forms.ModelForm):
+    class Meta:
+        model = SchemeType
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Scheme Type Name'})
+        }

@@ -403,3 +403,57 @@ def vehicle_type_model_delete(request, id):
     instance.save()
     messages.success(request, "Vehicle Model deleted successfully")
     return redirect('vehicle_type_model_list')
+
+
+# ==========================================
+# SCHEME TYPE
+# ==========================================
+
+from .models import SchemeType
+
+@login_required
+def scheme_type_list(request):
+    search = request.GET.get('search', '')
+    queryset = SchemeType.objects.filter(is_deleted=False)
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    paginator = Paginator(queryset, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'scheme_type/list.html', {'page_obj': page_obj, 'search': search})
+
+
+@login_required
+def scheme_type_create(request):
+    form = SchemeTypeForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(SchemeType)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Scheme Type created successfully")
+            return redirect('scheme_type_list')
+    return render(request, 'scheme_type/create.html', {'form': form, 'title': 'Create Scheme Type'})
+
+
+@login_required
+def scheme_type_edit(request, id):
+    instance = get_object_or_404(SchemeType, id=id, is_deleted=False)
+    form = SchemeTypeForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Scheme Type updated successfully")
+            return redirect('scheme_type_list')
+    return render(request, 'scheme_type/create.html', {'form': form, 'title': 'Edit Scheme Type'})
+
+
+@login_required
+def scheme_type_delete(request, id):
+    instance = get_object_or_404(SchemeType, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Scheme Type deleted successfully")
+    return redirect('scheme_type_list')

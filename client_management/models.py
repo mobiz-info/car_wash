@@ -135,3 +135,41 @@ class CustomerVehicle(BaseModel):
 
     def __str__(self):
         return f"{self.vehicle_number} - {self.vehicle_type_model.name}"
+
+
+class Scheme(BaseModel):
+    SCHEME_BENEFIT_QTY = 'Quantity'
+    SCHEME_BENEFIT_DISCOUNT = 'Discount'
+    SCHEME_BENEFIT_VOUCHER = 'Voucher'
+
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='schemes')
+    scheme_type = models.ForeignKey('master.SchemeType', on_delete=models.CASCADE, related_name='schemes')
+    name = models.CharField(max_length=200)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    services = models.ManyToManyField('service_management.Service', blank=True, related_name='schemes')
+    customer_types = models.ManyToManyField(CustomerType, blank=True, related_name='schemes')
+    vehicle_types = models.ManyToManyField('master.VehicleType', blank=True, related_name='schemes')
+
+    # Quantity benefit
+    paid_visits = models.IntegerField(null=True, blank=True)
+    free_visits = models.IntegerField(null=True, blank=True)
+
+    # Discount benefit
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['-date_added']
+
+
+class SchemeVoucher(BaseModel):
+    scheme = models.ForeignKey(Scheme, on_delete=models.CASCADE, related_name='vouchers')
+    voucher_number = models.CharField(max_length=100)
+    discount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.scheme.name} - {self.voucher_number}"

@@ -54,3 +54,13 @@ class VehicleTypeModel(BaseModel):
 
     class Meta:
         unique_together = ['vehicle_type', 'name']
+
+
+class SchemeType(BaseModel):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']

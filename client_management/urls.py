@@ -37,4 +37,9 @@ urlpatterns = [
     path('customer/', views.customer_list, name='customer_list'),
     path('customer/create/', views.customer_create, name='customer_create'),
     path('ajax/load-vehicle-models/', views.ajax_load_vehicle_models, name='ajax_load_vehicle_models'),
+
+    # Scheme Management
+    path('scheme/', views.scheme_list, name='scheme_list'),
+    path('scheme/create/', views.scheme_create, name='scheme_create'),
+    path('scheme/delete/<uuid:id>/', views.scheme_delete, name='scheme_delete'),
 ]

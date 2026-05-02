@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% block title %}Create Scheme - Car Wash Admin{% endblock %}
+{% block page_title %}Create Scheme{% endblock %}
+{% block breadcrumb_active %}Create Scheme{% endblock %}
+
+{% block content %}
+<style>
+    .scheme-section {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+    .section-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #64748b;
+        margin-bottom: 18px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-group label { font-weight: 600; font-size: 0.875rem; color: #374151; display: block; margin-bottom: 6px; }
+    input.form-control, select.form-control { width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.9rem; outline:none; transition: border 0.2s, box-shadow 0.2s; }
+    input.form-control:focus, select.form-control:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+    .error-text { color:#ef4444; font-size:0.78rem; margin-top:4px; }
+
+    /* Table select */
+    .select-table { width:100%; border-collapse: collapse; }
+    .select-table th { background:#f8fafc; color:#64748b; font-size:0.75rem; font-weight:700; text-transform:uppercase; padding:10px 14px; text-align:left; border-bottom:1px solid #e2e8f0; }
+    .select-table td { padding:10px 14px; border-bottom:1px solid #f1f5f9; font-size:0.875rem; color:#374151; }
+    .select-table tr:last-child td { border-bottom:none; }
+    .select-table tr:hover td { background:#f8fafc; }
+    .row-checkbox { width:18px; height:18px; accent-color:#3b82f6; cursor:pointer; }
+
+    /* Benefit panels */
+    .benefit-panel { display:none; }
+    .benefit-panel.active { display:block; }
+
+    /* Voucher rows */
+    .voucher-row { display:grid; grid-template-columns: 40px 1fr 150px 40px; gap:10px; align-items:center; margin-bottom:10px; }
+    .voucher-row .sl { color:#94a3b8; font-size:0.8rem; font-weight:600; text-align:center; }
+    .btn-add-row { background:#eff6ff; color:#3b82f6; border:1px dashed #93c5fd; border-radius:8px; padding:8px 16px; font-size:0.85rem; font-weight:600; cursor:pointer; width:100%; margin-top:8px; transition:background 0.2s; }
+    .btn-add-row:hover { background:#dbeafe; }
+    .btn-del-row { background:#fee2e2; color:#ef4444; border:none; border-radius:6px; width:32px; height:32px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; }
+</style>
+
+<div style="max-width:900px; margin: 0 auto;">
+    {% if messages %}
+    <div style="margin-bottom:20px;">
+        {% for message in messages %}
+        <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
+            {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+            {% else %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;{% endif %}">
+            <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% else %}ph-warning-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="POST" id="scheme-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="vouchers_data" id="vouchers_data" value="[]">
+
+        <!-- Basic Details -->
+        <div class="scheme-section">
+            <div class="section-title"><i class="ph ph-info"></i> Basic Details</div>
+            <div class="form-grid-2" style="margin-bottom:20px;">
+                <div class="form-group">
+                    <label>Scheme Type <span style="color:red">*</span></label>
+                    {{ form.scheme_type }}
+                    {% if form.scheme_type.errors %}<div class="error-text">{{ form.scheme_type.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label>Scheme Name <span style="color:red">*</span></label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<div class="error-text">{{ form.name.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label>Start Date <span style="color:red">*</span></label>
+                    {{ form.start_date }}
+                    {% if form.start_date.errors %}<div class="error-text">{{ form.start_date.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label>End Date <span style="color:red">*</span></label>
+                    {{ form.end_date }}
+                    {% if form.end_date.errors %}<div class="error-text">{{ form.end_date.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Benefit Section (conditional) -->
+        <div class="scheme-section">
+            <div class="section-title"><i class="ph ph-gift"></i> Scheme Benefit</div>
+
+            <div id="no-type-msg" style="color:#94a3b8; font-style:italic; font-size:0.9rem;">Select a Scheme Type above to configure the benefit.</div>
+
+            <!-- Quantity -->
+            <div class="benefit-panel" id="panel-quantity">
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>No. of Paid Visits <span style="color:red">*</span></label>
+                        {{ form.paid_visits }}
+                    </div>
+                    <div class="form-group">
+                        <label>Free Visits <span style="color:red">*</span></label>
+                        {{ form.free_visits }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Discount -->
+            <div class="benefit-panel" id="panel-discount">
+                <div style="max-width:300px;">
+                    <div class="form-group">
+                        <label>Discount Percentage (%) <span style="color:red">*</span></label>
+                        {{ form.discount_percentage }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voucher -->
+            <div class="benefit-panel" id="panel-voucher">
+                <div style="display:grid; grid-template-columns: 40px 1fr 150px 40px; gap:10px; margin-bottom:8px;">
+                    <span style="color:#94a3b8; font-size:0.75rem; font-weight:700; text-align:center;">Sl</span>
+                    <span style="color:#94a3b8; font-size:0.75rem; font-weight:700;">Voucher No.</span>
+                    <span style="color:#94a3b8; font-size:0.75rem; font-weight:700;">Discount</span>
+                    <span></span>
+                </div>
+                <div id="voucher-rows"></div>
+                <button type="button" class="btn-add-row" onclick="addVoucherRow()">
+                    <i class="ph ph-plus-circle"></i> Add Voucher
+                </button>
+            </div>
+        </div>
+
+        <!-- Services -->
+        <div class="scheme-section">
+            <div class="section-title"><i class="ph ph-wrench"></i> Services</div>
+            <div style="overflow-x:auto;">
+                <table class="select-table">
+                    <thead><tr><th>Sl</th><th>Service Name</th><th style="text-align:center;">Select</th></tr></thead>
+                    <tbody>
+                        {% for service in all_services %}
+                        <tr>
+                            <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                            <td>{{ service.name }}</td>
+                            <td style="text-align:center;">
+                                <input type="checkbox" name="services" value="{{ service.pk }}" class="row-checkbox"
+                                    {% if service in form.services.initial %}checked{% endif %}>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:20px;">No services available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Customer Types -->
+        <div class="scheme-section">
+            <div class="section-title"><i class="ph ph-users-three"></i> Customer Types</div>
+            <div style="overflow-x:auto;">
+                <table class="select-table">
+                    <thead><tr><th>Sl</th><th>Customer Type</th><th style="text-align:center;">Select</th></tr></thead>
+                    <tbody>
+                        {% for ct in all_customer_types %}
+                        <tr>
+                            <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                            <td>{{ ct.name }}</td>
+                            <td style="text-align:center;">
+                                <input type="checkbox" name="customer_types" value="{{ ct.pk }}" class="row-checkbox">
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:20px;">No customer types available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Vehicle Types -->
+        <div class="scheme-section">
+            <div class="section-title"><i class="ph ph-car"></i> Vehicle Types</div>
+            <div style="overflow-x:auto;">
+                <table class="select-table">
+                    <thead><tr><th>Sl</th><th>Vehicle Type</th><th style="text-align:center;">Select</th></tr></thead>
+                    <tbody>
+                        {% for vt in all_vehicle_types %}
+                        <tr>
+                            <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                            <td>{{ vt.name }}</td>
+                            <td style="text-align:center;">
+                                <input type="checkbox" name="vehicle_types" value="{{ vt.pk }}" class="row-checkbox">
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:20px;">No vehicle types available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex; gap:12px; margin-top:8px; margin-bottom:32px;">
+            <a href="{% url 'scheme_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Scheme
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// ---- Scheme type panel toggle ----
+const schemeTypeSelect = document.getElementById('id_scheme_type');
+const panels = { quantity: document.getElementById('panel-quantity'), discount: document.getElementById('panel-discount'), voucher: document.getElementById('panel-voucher') };
+const noTypeMsg = document.getElementById('no-type-msg');
+
+function activatePanel() {
+    const text = schemeTypeSelect.options[schemeTypeSelect.selectedIndex]?.text?.toLowerCase() || '';
+    Object.values(panels).forEach(p => p.classList.remove('active'));
+    noTypeMsg.style.display = 'block';
+    if (text.includes('quantity')) { panels.quantity.classList.add('active'); noTypeMsg.style.display = 'none'; }
+    else if (text.includes('discount')) { panels.discount.classList.add('active'); noTypeMsg.style.display = 'none'; }
+    else if (text.includes('voucher')) { panels.voucher.classList.add('active'); noTypeMsg.style.display = 'none'; }
+}
+
+schemeTypeSelect.addEventListener('change', activatePanel);
+activatePanel();
+
+// ---- Voucher rows ----
+let voucherCount = 0;
+const voucherContainer = document.getElementById('voucher-rows');
+
+function addVoucherRow(vNum = '', vDis = '') {
+    voucherCount++;
+    const row = document.createElement('div');
+    row.className = 'voucher-row';
+    row.dataset.index = voucherCount;
+    row.innerHTML = `
+        <span class="sl">${voucherCount}</span>
+        <input type="text" class="form-control v-num" placeholder="Voucher Number" value="${vNum}">
+        <input type="number" class="form-control v-dis" placeholder="Discount" min="0" step="0.01" value="${vDis}">
+        <button type="button" class="btn-del-row" onclick="this.parentElement.remove(); renumberVouchers();">
+            <i class="ph ph-trash"></i>
+        </button>`;
+    voucherContainer.appendChild(row);
+}
+
+function renumberVouchers() {
+    document.querySelectorAll('.voucher-row .sl').forEach((el, i) => el.textContent = i + 1);
+}
+
+// ---- Pack vouchers into hidden input on submit ----
+document.getElementById('scheme-form').addEventListener('submit', function() {
+    const rows = document.querySelectorAll('.voucher-row');
+    const data = [];
+    rows.forEach(row => {
+        const vNum = row.querySelector('.v-num').value.trim();
+        const vDis = row.querySelector('.v-dis').value;
+        if (vNum) data.push({ voucher_number: vNum, discount: vDis });
+    });
+    document.getElementById('vouchers_data').value = JSON.stringify(data);
+});
+</script>
+{% endblock %}

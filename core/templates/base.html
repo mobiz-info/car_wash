@@ -531,6 +531,18 @@
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
+                    <i class="ph ph-ticket"></i>
+                    Scheme Management
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'scheme_list' %}">Scheme List</a>
+                <!-- <a href="{% url 'scheme_create' %}">Create Scheme</a> -->
+            </div>
+
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
                     <i class="ph ph-wrench"></i>
                     Services
                 </div>
@@ -724,7 +736,19 @@
             <div class="nav-submenu">
                 <a href="{% url 'vehicle_type_list' %}" class="nav-item submenu-item">Vehicle Types</a>
                 <a href="{% url 'vehicle_type_model_list' %}" class="nav-item submenu-item">Vehicle Types Model</a>
-                                
+            </div>
+
+            <!-- Scheme Type -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-tag"></i>
+                    Scheme Type
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'scheme_type_list' %}" class="nav-item submenu-item">Scheme Types</a>
+                <a href="{% url 'scheme_type_create' %}" class="nav-item submenu-item">Add Scheme Type</a>
             </div>
 
             <div class="nav-section-title">OPERATIONS</div>

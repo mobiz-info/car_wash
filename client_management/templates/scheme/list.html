@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}Schemes - Car Wash Admin{% endblock %}
+{% block page_title %}Scheme Management{% endblock %}
+{% block breadcrumb_active %}Schemes{% endblock %}
+
+{% block content %}
+<div class="list-container">
+    <div class="list-header">
+        <div style="font-size:1rem; font-weight:600; color:#1e293b;">All Schemes</div>
+        <a href="{% url 'scheme_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Create Scheme
+        </a>
+    </div>
+
+    {% if messages %}
+    <div style="padding: 0 24px 16px;">
+        {% for message in messages %}
+        <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
+            {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+            {% else %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;{% endif %}">
+            <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% else %}ph-warning-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Scheme Name</th>
+                    <th>Scheme Type</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Services</th>
+                    <th>Customer Types</th>
+                    <th>Vehicle Types</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scheme in schemes %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td style="font-weight:600; color:#1e293b;">{{ scheme.name }}</td>
+
+                    <td>
+                        <span style="background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">
+                            {{ scheme.scheme_type.name }}
+                        </span>
+                    </td>
+
+                    <td>{{ scheme.start_date|date:"d M Y" }}</td>
+                    <td>{{ scheme.end_date|date:"d M Y" }}</td>
+
+                    <td>
+                        {% for s in scheme.services.all %}
+                            <span style="background:#f0fdf4; color:#166534; padding:2px 8px; border-radius:12px; font-size:0.72rem; margin:2px; display:inline-block;">{{ s.name }}</span>
+                        {% empty %}<span style="color:#94a3b8; font-size:0.8rem;">—</span>{% endfor %}
+                    </td>
+
+                    <td>
+                        {% for ct in scheme.customer_types.all %}
+                            <span style="background:#fefce8; color:#713f12; padding:2px 8px; border-radius:12px; font-size:0.72rem; margin:2px; display:inline-block;">{{ ct.name }}</span>
+                        {% empty %}<span style="color:#94a3b8; font-size:0.8rem;">—</span>{% endfor %}
+                    </td>
+
+                    <td>
+                        {% for vt in scheme.vehicle_types.all %}
+                            <span style="background:#fdf4ff; color:#7e22ce; padding:2px 8px; border-radius:12px; font-size:0.72rem; margin:2px; display:inline-block;">{{ vt.name }}</span>
+                        {% empty %}<span style="color:#94a3b8; font-size:0.8rem;">—</span>{% endfor %}
+                    </td>
+
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'scheme_delete' scheme.pk %}" onclick="return confirm('Delete this scheme?')" class="action-btn delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align:center; padding:50px; color:#94a3b8;">
+                        <i class="ph ph-clipboard-text" style="font-size:3rem; display:block; margin-bottom:12px;"></i>
+                        No schemes found. <a href="{% url 'scheme_create' %}" style="color:#3b82f6;">Create one now →</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

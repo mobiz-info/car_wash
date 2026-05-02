@@ -334,3 +334,30 @@ class CustomerTypeForm(forms.ModelForm):
     class Meta:
         model = CustomerType
         fields = ['name']
+
+
+from .models import Scheme
+from master.models import SchemeType
+from service_management.models import Service
+
+class SchemeForm(forms.ModelForm):
+    class Meta:
+        model = Scheme
+        fields = ['scheme_type', 'name', 'start_date', 'end_date',
+                  'services', 'customer_types', 'vehicle_types',
+                  'paid_visits', 'free_visits', 'discount_percentage']
+        widgets = {
+            'scheme_type': forms.Select(attrs={'class': 'form-control', 'id': 'id_scheme_type'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Scheme Name'}),
+            'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'end_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'paid_visits': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'No. of Paid Visits', 'min': 1}),
+            'free_visits': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'No. of Free Visits', 'min': 1}),
+            'discount_percentage': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Discount %', 'min': 0, 'max': 100, 'step': '0.01'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make benefit and selection fields optional — view handles validation
+        for f in ['paid_visits', 'free_visits', 'discount_percentage', 'services', 'customer_types', 'vehicle_types']:
+            self.fields[f].required = False

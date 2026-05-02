@@ -35,5 +35,10 @@ urlpatterns = [
     path('vehicle-type-model/create/', views.vehicle_type_model_create, name='vehicle_type_model_create'),
     path('vehicle-type-model/edit/<uuid:id>/', views.vehicle_type_model_edit, name='vehicle_type_model_edit'),
     path('vehicle-type-model/delete/<uuid:id>/', views.vehicle_type_model_delete, name='vehicle_type_model_delete'),
-    
+
+    # Scheme Type
+    path('scheme-type/', views.scheme_type_list, name='scheme_type_list'),
+    path('scheme-type/create/', views.scheme_type_create, name='scheme_type_create'),
+    path('scheme-type/edit/<uuid:id>/', views.scheme_type_edit, name='scheme_type_edit'),
+    path('scheme-type/delete/<uuid:id>/', views.scheme_type_delete, name='scheme_type_delete'),
 ]

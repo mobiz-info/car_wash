@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Scheme Types - Car Wash Admin{% endblock %}
+{% block page_title %}Scheme Types{% endblock %}
+{% block breadcrumb_active %}Scheme Types{% endblock %}
+
+{% block content %}
+<div class="list-container">
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{ search }}" placeholder="Search Scheme Type..." class="search-input">
+        </form>
+        <a href="{% url 'scheme_type_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Scheme Type
+        </a>
+    </div>
+
+    {% if messages %}
+    <div style="padding: 0 24px 16px;">
+        {% for message in messages %}
+        <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px;
+            {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+            {% else %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;{% endif %}">
+            <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% else %}ph-warning-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Scheme Type Name</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                    <td style="font-weight:600; color:#1e293b;">{{ obj.name }}</td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'scheme_type_edit' obj.pk %}" class="action-btn edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'scheme_type_delete' obj.pk %}" onclick="return confirm('Delete this scheme type?')" class="action-btn delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" style="text-align:center; padding:40px; color:#94a3b8;">
+                        <i class="ph ph-tag" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+                        No scheme types found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

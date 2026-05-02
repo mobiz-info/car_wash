@@ -478,3 +478,114 @@ def ajax_load_vehicle_models(request):
         models = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id, is_active=True).order_by('name')
         return JsonResponse({'models': list(models.values('id', 'name'))})
     return JsonResponse({'models': []})
+
+
+# ==========================================
+# SCHEME MANAGEMENT
+# ==========================================
+
+import json
+from .models import Scheme, SchemeVoucher
+from .forms import SchemeForm
+from service_management.models import Service
+from master.models import VehicleType as MasterVehicleType
+
+
+@login_required
+def scheme_list(request):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    schemes = Scheme.objects.filter(is_deleted=False, company=company).prefetch_related(
+        'services', 'customer_types', 'vehicle_types', 'scheme_type'
+    )
+    return render(request, 'scheme/list.html', {'schemes': schemes, 'title': 'Schemes'})
+
+
+@login_required
+def scheme_create(request):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "Not associated with any company.")
+        return redirect('dashboard')
+
+    all_services = Service.objects.filter(is_deleted=False, is_active=True)
+    all_customer_types = CustomerType.objects.filter(is_deleted=False)
+    all_vehicle_types = MasterVehicleType.objects.filter(is_deleted=False, is_active=True)
+
+    form = SchemeForm(request.POST or None)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            scheme_type_name = form.cleaned_data['scheme_type'].name.lower()
+
+            # Validate benefit fields based on scheme type
+            error = None
+            if 'quantity' in scheme_type_name:
+                if not form.cleaned_data.get('paid_visits') or not form.cleaned_data.get('free_visits'):
+                    error = "Please enter Paid Visits and Free Visits for Quantity scheme."
+            elif 'discount' in scheme_type_name:
+                if not form.cleaned_data.get('discount_percentage'):
+                    error = "Please enter a Discount Percentage for Discount scheme."
+            elif 'voucher' in scheme_type_name:
+                vouchers_json = request.POST.get('vouchers_data', '[]')
+                try:
+                    vouchers = json.loads(vouchers_json)
+                except (json.JSONDecodeError, ValueError):
+                    vouchers = []
+                if not vouchers:
+                    error = "Please add at least one voucher for Voucher scheme."
+
+            if error:
+                messages.error(request, error)
+            else:
+                scheme = form.save(commit=False)
+                scheme.company = company
+                scheme.auto_id = get_auto_id(Scheme)
+                scheme.creator = request.user
+                scheme.save()
+                form.save_m2m()
+
+                # Save vouchers if voucher type
+                if 'voucher' in scheme_type_name:
+                    for v in vouchers:
+                        vnum = v.get('voucher_number', '').strip()
+                        vdis = v.get('discount', None)
+                        if vnum and vdis is not None:
+                            SchemeVoucher.objects.create(
+                                scheme=scheme,
+                                voucher_number=vnum,
+                                discount=vdis,
+                                auto_id=get_auto_id(SchemeVoucher),
+                                creator=request.user,
+                            )
+
+                messages.success(request, "Scheme created successfully")
+                return redirect('scheme_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    return render(request, 'scheme/create.html', {
+        'form': form,
+        'all_services': all_services,
+        'all_customer_types': all_customer_types,
+        'all_vehicle_types': all_vehicle_types,
+        'title': 'Create Scheme',
+    })
+
+
+@login_required
+def scheme_delete(request, id):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        return redirect('dashboard')
+    instance = get_object_or_404(Scheme, id=id, company=company, is_deleted=False)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Scheme deleted successfully")
+    return redirect('scheme_list')
