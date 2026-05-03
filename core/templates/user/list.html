@@ -137,7 +137,7 @@
                     <th>Email</th>
                     <th>Role</th>
                     <th>Company</th>
-                    
+                    <th style="text-align:right;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -160,7 +160,18 @@
                     <td>{{ obj.email|default:"-" }}</td>
                     <td>{{ obj.profile.role.name|default:"-" }}</td>
                     <td>{{ obj.profile.company.company_name|default:"-" }}</td>
-                    
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'user_edit' obj.pk %}" class="action-btn edit" style="color: #3b82f6; background: #eff6ff; padding: 6px 10px; border-radius: 6px; text-decoration: none;">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            {% if request.user != obj %}
+                            <a href="{% url 'user_delete' obj.pk %}" onclick="return confirm('Delete this user?')" class="action-btn delete" style="color: #ef4444; background: #fef2f2; padding: 6px 10px; border-radius: 6px; text-decoration: none;">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>

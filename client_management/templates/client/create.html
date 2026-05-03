@@ -198,15 +198,35 @@
             </div>
 
             <div class="form-group full-width" style="margin-top:20px;">
-                <label style="font-weight:600;">Scheme Facility</label>
+                <label style="font-weight:600; font-size:0.95rem; color:#374151;">Scheme Facility</label>
 
-                <div style="display:flex; gap:30px; flex-wrap:wrap; margin-top:10px;">
-                    {% for checkbox in form.scheme_types %}
-                        <label style="display:flex; align-items:center; gap:8px;">
+                <!-- Yes / No toggle -->
+                <div style="display:flex; gap:20px; margin-top:10px;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 20px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; font-weight:500;">
+                        <input type="radio" name="scheme_facility" value="yes" id="scheme_facility_yes"
+                            style="accent-color:#3b82f6; width:16px; height:16px;"
+                            {% if form.scheme_types.value %}checked{% endif %}>
+                        <i class="ph ph-check-circle" style="color:#10b981;"></i> Yes
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 20px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; font-weight:500;">
+                        <input type="radio" name="scheme_facility" value="no" id="scheme_facility_no"
+                            style="accent-color:#ef4444; width:16px; height:16px;"
+                            {% if not form.scheme_types.value %}checked{% endif %}>
+                        <i class="ph ph-x-circle" style="color:#ef4444;"></i> No
+                    </label>
+                </div>
+
+                <!-- Scheme types — shown only when Yes is selected -->
+                <div id="scheme-types-panel" style="display:{% if form.scheme_types.value %}block{% else %}none{% endif %}; margin-top:16px; padding:16px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px;">
+                    <p style="font-size:0.8rem; font-weight:700; text-transform:uppercase; color:#3b82f6; margin-bottom:12px; letter-spacing:0.05em;">Select Scheme Types</p>
+                    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                        {% for checkbox in form.scheme_types %}
+                        <label style="display:flex; align-items:center; gap:8px; padding:8px 16px; background:white; border:1px solid #bfdbfe; border-radius:8px; cursor:pointer; font-weight:500;">
                             {{ checkbox.tag }}
                             {{ checkbox.choice_label }}
                         </label>
-                    {% endfor %}
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -296,6 +316,25 @@
             });
         }
     });
+    // ---- Scheme Facility Yes/No Toggle ----
+    const facilityYes = document.getElementById('scheme_facility_yes');
+    const facilityNo = document.getElementById('scheme_facility_no');
+    const schemeTypesPanel = document.getElementById('scheme-types-panel');
+
+    function toggleSchemePanel() {
+        if (facilityYes.checked) {
+            schemeTypesPanel.style.display = 'block';
+        } else {
+            schemeTypesPanel.style.display = 'none';
+            // Uncheck all scheme type checkboxes when No is selected
+            schemeTypesPanel.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        }
+    }
+
+    facilityYes.addEventListener('change', toggleSchemePanel);
+    facilityNo.addEventListener('change', toggleSchemePanel);
+    // Run on load to set correct initial state
+    toggleSchemePanel();
 </script>
 
 {% endblock %}

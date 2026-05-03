@@ -103,6 +103,19 @@ class BranchForm(forms.ModelForm):
                 raise forms.ValidationError("Username already exists.")
         return username
 
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.instance._state.adding:
+            try:
+                company = self.request.user.profile.company
+                if company and company.max_branches is not None:
+                    current_count = Branch.objects.filter(company=company, is_deleted=False).count()
+                    if current_count >= company.max_branches:
+                        raise forms.ValidationError(f"Your company has reached the maximum limit of {company.max_branches} branches.")
+            except AttributeError:
+                pass
+        return cleaned_data
+
     def save(self, commit=True):
         branch = super().save(commit=False)
         company = self.request.user.profile.company

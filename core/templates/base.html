@@ -529,6 +529,7 @@
                 <a href="#">Memberships</a>
             </div>
 
+            {% if request.user.profile.company.scheme_types.exists %}
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
                     <i class="ph ph-ticket"></i>
@@ -540,6 +541,7 @@
                 <a href="{% url 'scheme_list' %}">Scheme List</a>
                 <!-- <a href="{% url 'scheme_create' %}">Create Scheme</a> -->
             </div>
+            {% endif %}
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">

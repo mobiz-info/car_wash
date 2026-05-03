@@ -11,7 +11,7 @@ import datetime
 from datetime import date,datetime
 
 from .models import *
-from .forms import UserCreationAdminForm, UserProfileForm, RoleForm
+from .forms import UserCreationAdminForm, UserProfileForm, RoleForm, UserEditForm
 from core.functions import get_auto_id
 
 # Roles allowed to access this admin portal
@@ -153,6 +153,34 @@ def user_create(request):
         'profile_form': profile_form,
         'title': 'Add New User'
     })
+
+
+@login_required
+def user_edit(request, pk):
+    user_obj = get_object_or_404(User, pk=pk)
+    form = UserEditForm(request.POST or None, instance=user_obj)
+    if request.method == 'POST':
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"User '{user_obj.username}' updated successfully.")
+            return redirect('user_list')
+    return render(request, 'user/edit.html', {
+        'form': form,
+        'title': f'Edit User — {user_obj.username}',
+        'user_obj': user_obj,
+    })
+
+
+@login_required
+def user_delete(request, pk):
+    user_obj = get_object_or_404(User, pk=pk)
+    if user_obj == request.user:
+        messages.error(request, "You cannot delete your own account.")
+        return redirect('user_list')
+    username = user_obj.username
+    user_obj.delete()
+    messages.success(request, f"User '{username}' deleted successfully.")
+    return redirect('user_list')
 
 # ==========================================
 # ROLE MANAGEMENT

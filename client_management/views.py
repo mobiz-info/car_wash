@@ -521,7 +521,11 @@ def scheme_create(request):
     all_customer_types = CustomerType.objects.filter(is_deleted=False)
     all_vehicle_types = MasterVehicleType.objects.filter(is_deleted=False, is_active=True)
 
+    # Only show scheme types the company has enabled
+    company_scheme_types = company.scheme_types.all()
+
     form = SchemeForm(request.POST or None)
+    form.fields['scheme_type'].queryset = company_scheme_types
 
     if request.method == 'POST':
         if form.is_valid():
