@@ -140,6 +140,7 @@ class Customer(BaseModel):
 
 class CustomerVehicle(BaseModel):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='vehicles')
+    vehicle_type = models.ForeignKey('master.VehicleType', on_delete=models.CASCADE, blank=True, null=True)
     vehicle_type_model = models.ForeignKey('master.VehicleTypeModel', on_delete=models.CASCADE)
     vehicle_number = models.CharField(max_length=100)
 

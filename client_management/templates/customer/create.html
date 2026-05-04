@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function toggleVehicleSection() {
         if (customerTypeSelect && customerTypeSelect.selectedIndex >= 0) {
             const selectedText = customerTypeSelect.options[customerTypeSelect.selectedIndex].text.toLowerCase();
-            if (selectedText === 'rc owner') {
+            if (selectedText.includes('rc owner')) {
                 vehicleSection.style.display = 'block';
             } else {
                 vehicleSection.style.display = 'none';

@@ -597,3 +597,52 @@ def scheme_delete(request, id):
     instance.save()
     messages.success(request, "Scheme deleted successfully")
     return redirect('scheme_list')
+
+
+@login_required
+def customer_vehicle_list(request):
+    data = CustomerVehicle.objects.filter(is_deleted=False)
+    return render(request, 'customer_vehicle/list.html', {'data': data})
+
+
+@login_required
+def customer_vehicle_create(request):
+    form = CustomersVehicleForm(request.POST or None)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(CustomerVehicle)
+            instance.save()
+            return redirect('customer_vehicle_list')
+
+    return render(request, 'customer_vehicle/create.html', {'form': form, 'title': 'Create Vehicle'})
+
+
+@login_required
+def customer_vehicle_edit(request, pk):
+    instance = get_object_or_404(CustomerVehicle, pk=pk, is_deleted=False)
+    form = CustomersVehicleForm(request.POST or None, instance=instance)
+
+    if request.method == 'POST':
+        if form.is_valid():
+            form.save()
+            return redirect('customer_vehicle_list')
+
+    return render(request, 'customer_vehicle/create.html', {'form': form, 'title': 'Edit Vehicle'})
+
+
+@login_required
+def customer_vehicle_delete(request, pk):
+    instance = get_object_or_404(CustomerVehicle, pk=pk)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Vehicle deleted successfully")
+    return redirect('customer_vehicle_list')
+
+
+@login_required
+def load_vehicle_models(request):
+    vehicle_type_id = request.GET.get('vehicle_type_id')
+    models = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id).values('id', 'name')
+    return JsonResponse(list(models), safe=False)

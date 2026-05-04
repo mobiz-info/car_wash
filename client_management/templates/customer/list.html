@@ -70,11 +70,15 @@
                     <td>{{ customer.branch.name }}</td>
                     <td>
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            {% for vehicle in customer.vehicles.all %}
-                                <div style="font-size: 0.85rem;">
-                                    <span style="font-weight: 500;">{{ vehicle.vehicle_number }}</span>
-                                    <span style="color: #64748b; font-size: 0.8rem;">({{ vehicle.vehicle_type_model.name }})</span>
-                                </div>
+                            {% for vehicle in customer.vehicles.all|dictsort:"id" %}
+                                {% if not vehicle.is_deleted %}
+                                    <div style="font-size: 0.85rem;">
+                                        <span style="font-weight: 500;">{{ vehicle.vehicle_number }}</span>
+                                        <span style="color: #64748b; font-size: 0.8rem;">
+                                            ({{ vehicle.vehicle_type_model.name }})
+                                        </span>
+                                    </div>
+                                {% endif %}
                             {% empty %}
                                 <span style="color: #94a3b8; font-size: 0.8rem;">No vehicles</span>
                             {% endfor %}

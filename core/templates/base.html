@@ -640,6 +640,19 @@
                 <a href="{% url 'staff_create' %}" class="nav-item submenu-item">Add Staff</a>
             </div>
 
+            <!-- Vehicle Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-user-list"></i>
+                    Vehicle Management
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'customer_vehicle_list' %}" class="nav-item submenu-item">Vehicle List</a>
+                <a href="{% url 'customer_vehicle_create' %}" class="nav-item submenu-item">Add Vehicle</a>
+            </div>
+
             {% else %}
             
             <a href="{% url 'dashboard' %}" class="nav-item">

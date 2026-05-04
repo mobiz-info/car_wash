@@ -398,3 +398,29 @@ class SchemeForm(forms.ModelForm):
         # Make benefit and selection fields optional — view handles validation
         for f in ['paid_visits', 'free_visits', 'discount_percentage', 'services', 'customer_types', 'vehicle_types']:
             self.fields[f].required = False
+            
+class CustomersVehicleForm(forms.ModelForm):
+    class Meta:
+        model = CustomerVehicle
+        fields = ['customer', 'vehicle_type', 'vehicle_type_model', 'vehicle_number']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # 🚨 IMPORTANT: Always set queryset based on POST or instance
+        if self.data:
+            vehicle_type_id = self.data.get('vehicle_type')
+
+            if vehicle_type_id:
+                self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(
+                    vehicle_type_id=vehicle_type_id
+                )
+            else:
+                self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
+
+        elif self.instance.pk and self.instance.vehicle_type:
+            self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(
+                vehicle_type=self.instance.vehicle_type
+            )
+        else:
+            self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()

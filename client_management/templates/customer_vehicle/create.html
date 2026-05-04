@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Car Wash Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Customer Vehicle{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container { max-width: 860px; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+    .form-group.full-width { grid-column: 1 / -1; }
+
+    input.form-control, select.form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: all 0.2s;
+        outline: none;
+        font-family: 'Inter', sans-serif;
+        background: white;
+    }
+
+    input.form-control:focus, select.form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+
+    .form-section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-car" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <!-- Errors -->
+    {% if form.non_field_errors %}
+    <div style="margin-bottom:16px; padding:12px; background:#fee2e2; color:#991b1b; border-radius:8px;">
+        {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-section-label">
+            <i class="ph ph-car"></i> Vehicle Details
+        </div>
+
+        <div class="form-grid">
+
+            <!-- Customer -->
+            <div class="form-group">
+                <label>Customer <span style="color:red">*</span></label>
+                {{ form.customer }}
+                {% if form.customer.errors %}
+                    <div class="error-text">{{ form.customer.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Vehicle Type -->
+            <div class="form-group">
+                <label>Vehicle Type <span style="color:red">*</span></label>
+                {{ form.vehicle_type }}
+                {% if form.vehicle_type.errors %}
+                    <div class="error-text">{{ form.vehicle_type.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Vehicle Model -->
+            <div class="form-group">
+                <label>Vehicle Model <span style="color:red">*</span></label>
+                {{ form.vehicle_type_model }}
+                {% if form.vehicle_type_model.errors %}
+                    <div class="error-text">{{ form.vehicle_type_model.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Vehicle Number -->
+            <div class="form-group">
+                <label>Vehicle Number <span style="color:red">*</span></label>
+                {{ form.vehicle_number }}
+                {% if form.vehicle_number.errors %}
+                    <div class="error-text">{{ form.vehicle_number.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions" style="margin-top: 32px;">
+            <a href="{% url 'customer_vehicle_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Vehicle
+            </button>
+        </div>
+
+    </form>
+</div>
+
+<!-- AJAX for dependent dropdown -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    const vehicleType = document.getElementById("id_vehicle_type");
+    const vehicleModel = document.getElementById("id_vehicle_type_model");
+
+    vehicleType.addEventListener("change", function() {
+        const typeId = this.value;
+
+        if (!typeId) {
+            vehicleModel.innerHTML = '<option value="">---------</option>';
+            return;
+        }
+
+        fetch("{% url 'ajax_load_vehicle_models' %}?vehicle_type=" + typeId)
+            .then(response => response.json())
+            .then(data => {
+
+                let options = '<option value="">Select Model</option>';
+
+                data.models.forEach(function(item) {
+                    options += `<option value="${item.id}">${item.name}</option>`;
+                });
+
+                vehicleModel.innerHTML = options;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+    });
+
+});
+</script>
+
+{% endblock %}

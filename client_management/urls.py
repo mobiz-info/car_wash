@@ -42,4 +42,10 @@ urlpatterns = [
     path('scheme/', views.scheme_list, name='scheme_list'),
     path('scheme/create/', views.scheme_create, name='scheme_create'),
     path('scheme/delete/<uuid:id>/', views.scheme_delete, name='scheme_delete'),
+    
+    # Vehicle Management
+    path('customer-vehicle/', views.customer_vehicle_list, name='customer_vehicle_list'),
+    path('customer-vehicle/create/', views.customer_vehicle_create, name='customer_vehicle_create'),
+    path('customer-vehicle/edit/<uuid:pk>/', views.customer_vehicle_edit, name='customer_vehicle_edit'),
+    path('customer-vehicle/delete/<uuid:pk>/', views.customer_vehicle_delete, name='customer_vehicle_delete'),
 ]
