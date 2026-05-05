@@ -7,9 +7,11 @@
 <div class="list-container">
     <div class="list-header">
         <div style="font-size:1rem; font-weight:600; color:#1e293b;">All Schemes</div>
+        {% if request.user.profile.role.name == 'COMPANY_ADMIN' %}
         <a href="{% url 'scheme_create' %}" class="btn-create">
             <i class="ph-bold ph-plus"></i> Create Scheme
         </a>
+        {% endif %}
     </div>
 
     {% if messages %}
@@ -75,18 +77,26 @@
                     </td>
 
                     <td style="text-align:right;">
+                        {% if request.user.profile.role.name == 'COMPANY_ADMIN' %}
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'scheme_edit' scheme.pk %}" class="action-btn edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
                             <a href="{% url 'scheme_delete' scheme.pk %}" onclick="return confirm('Delete this scheme?')" class="action-btn delete">
                                 <i class="ph ph-trash"></i>
                             </a>
                         </div>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
                     <td colspan="9" style="text-align:center; padding:50px; color:#94a3b8;">
                         <i class="ph ph-clipboard-text" style="font-size:3rem; display:block; margin-bottom:12px;"></i>
-                        No schemes found. <a href="{% url 'scheme_create' %}" style="color:#3b82f6;">Create one now →</a>
+                        No schemes found. 
+                        {% if request.user.profile.role.name == 'COMPANY_ADMIN' %}
+                        <a href="{% url 'scheme_create' %}" style="color:#3b82f6;">Create one now →</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

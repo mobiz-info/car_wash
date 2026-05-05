@@ -497,12 +497,27 @@
                 <a href="{% url 'branch_list' %}">Branches</a>
             </div>
 
-            <a href="#" class="nav-item">
+            <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
                     <i class="ph ph-trend-up"></i>
                     Sales Management
                 </div>
-            </a>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'invoice_list' %}">Invoices</a>
+            </div>
+
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-calendar-check"></i>
+                    Booking Management
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'booking_list' %}">Bookings</a>
+            </div>
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
@@ -594,12 +609,27 @@
 
             <div class="nav-section-title">MAIN</div>
 
-            <a href="#" class="nav-item">
+            <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
                     <i class="ph ph-trend-up"></i>
                     Sales Management
                 </div>
-            </a>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'invoice_list' %}">Invoices</a>
+            </div>
+
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-calendar-check"></i>
+                    Booking Management
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'booking_list' %}">Bookings</a>
+            </div>
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
@@ -640,10 +670,11 @@
                 <a href="{% url 'staff_create' %}" class="nav-item submenu-item">Add Staff</a>
             </div>
 
+
             <!-- Vehicle Management -->
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
-                    <i class="ph ph-user-list"></i>
+                    <i class="ph ph-car"></i>
                     Vehicle Management
                 </div>
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
@@ -652,6 +683,21 @@
                 <a href="{% url 'customer_vehicle_list' %}" class="nav-item submenu-item">Vehicle List</a>
                 <a href="{% url 'customer_vehicle_create' %}" class="nav-item submenu-item">Add Vehicle</a>
             </div>
+
+            {% if request.user.managed_branch and request.user.managed_branch.scheme_types.exists %}
+            <!-- Scheme Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-ticket"></i>
+                    Scheme Management
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'scheme_list' %}">Scheme List</a>
+            </div>
+            {% endif %}
+
 
             {% else %}
             

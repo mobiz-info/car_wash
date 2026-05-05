@@ -44,4 +44,16 @@ class Processing_Log(models.Model):
 
     def __str__(self):
         return f"Processing Log - {self.created_date}"
-    
+
+class APIToken(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='api_token')
+    token = models.CharField(max_length=100, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = uuid.uuid4().hex
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Token for {self.user.username}"

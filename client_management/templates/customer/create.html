@@ -77,6 +77,16 @@
         <!-- Customer Details -->
         <div class="form-section-label"><i class="ph ph-user"></i> Customer Details</div>
         <div class="form-grid">
+            {% if customer_form.branch.is_hidden %}
+                {{ customer_form.branch }}
+            {% else %}
+                <div class="form-group full-width">
+                    <label for="{{ customer_form.branch.id_for_label }}">Branch <span style="color:red">*</span></label>
+                    {{ customer_form.branch }}
+                    {% if customer_form.branch.errors %}<div class="error-text">{{ customer_form.branch.errors.0 }}</div>{% endif %}
+                </div>
+            {% endif %}
+            
             <div class="form-group">
                 <label for="{{ customer_form.name.id_for_label }}">Customer Name <span style="color:red">*</span></label>
                 {{ customer_form.name }}

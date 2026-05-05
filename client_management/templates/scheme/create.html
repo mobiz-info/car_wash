@@ -154,7 +154,7 @@
                             <td>{{ service.name }}</td>
                             <td style="text-align:center;">
                                 <input type="checkbox" name="services" value="{{ service.pk }}" class="row-checkbox"
-                                    {% if service in form.services.initial %}checked{% endif %}>
+                                    {% if service.pk in selected_services %}checked{% endif %}>
                             </td>
                         </tr>
                         {% empty %}
@@ -177,7 +177,8 @@
                             <td style="color:#94a3b8;">{{ forloop.counter }}</td>
                             <td>{{ ct.name }}</td>
                             <td style="text-align:center;">
-                                <input type="checkbox" name="customer_types" value="{{ ct.pk }}" class="row-checkbox">
+                                <input type="checkbox" name="customer_types" value="{{ ct.pk }}" class="row-checkbox"
+                                    {% if ct.pk in selected_customers %}checked{% endif %}>
                             </td>
                         </tr>
                         {% empty %}
@@ -200,7 +201,8 @@
                             <td style="color:#94a3b8;">{{ forloop.counter }}</td>
                             <td>{{ vt.name }}</td>
                             <td style="text-align:center;">
-                                <input type="checkbox" name="vehicle_types" value="{{ vt.pk }}" class="row-checkbox">
+                                <input type="checkbox" name="vehicle_types" value="{{ vt.pk }}" class="row-checkbox"
+                                    {% if vt.pk in selected_vehicles %}checked{% endif %}>
                             </td>
                         </tr>
                         {% empty %}
@@ -273,5 +275,11 @@ document.getElementById('scheme-form').addEventListener('submit', function() {
     });
     document.getElementById('vouchers_data').value = JSON.stringify(data);
 });
+
+// Load existing vouchers if any
+const existingVouchers = {{ existing_vouchers_json|default:"[]"|safe }};
+if (existingVouchers.length > 0) {
+    existingVouchers.forEach(v => addVoucherRow(v.voucher_number, v.discount));
+}
 </script>
 {% endblock %}

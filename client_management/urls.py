@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import api_views
 
 urlpatterns = [
     path('client/', views.client_list, name='client_list'),
@@ -26,7 +27,7 @@ urlpatterns = [
     path('staff/create/', views.staff_create, name='staff_create'),
     path('staff/edit/<uuid:id>/', views.staff_edit, name='staff_edit'),
     path('staff/delete/<uuid:id>/', views.staff_delete, name='staff_delete'),
-    
+
     # Customer Type
     path('customer-type/', views.customer_type_list, name='customer_type_list'),
     path('customer-type/create/', views.customer_type_create, name='customer_type_create'),
@@ -41,11 +42,21 @@ urlpatterns = [
     # Scheme Management
     path('scheme/', views.scheme_list, name='scheme_list'),
     path('scheme/create/', views.scheme_create, name='scheme_create'),
+    path('scheme/edit/<uuid:id>/', views.scheme_edit, name='scheme_edit'),
     path('scheme/delete/<uuid:id>/', views.scheme_delete, name='scheme_delete'),
-    
+
     # Vehicle Management
     path('customer-vehicle/', views.customer_vehicle_list, name='customer_vehicle_list'),
     path('customer-vehicle/create/', views.customer_vehicle_create, name='customer_vehicle_create'),
     path('customer-vehicle/edit/<uuid:pk>/', views.customer_vehicle_edit, name='customer_vehicle_edit'),
     path('customer-vehicle/delete/<uuid:pk>/', views.customer_vehicle_delete, name='customer_vehicle_delete'),
+
+    # Mobile API Endpoints
+    path('api/login/', api_views.api_login, name='api_login'),
+    path('api/customer/search/', api_views.api_customer_search, name='api_customer_search'),
+    path('api/invoice/services/', api_views.api_get_services, name='api_get_services'),
+    path('api/invoice/create/', api_views.api_create_invoice, name='api_create_invoice'),
+    path('api/customer/form-data/', api_views.api_get_form_data, name='api_get_form_data'),
+    path('api/customer/add/', api_views.api_add_customer, name='api_add_customer'),
+    path('api/vehicle/search/', api_views.api_vehicle_search, name='api_vehicle_search'),
 ]

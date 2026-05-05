@@ -317,13 +317,30 @@ from master.models import VehicleTypeModel
 class CustomerForm(forms.ModelForm):
     class Meta:
         model = Customer
-        fields = ['name', 'phone', 'customer_type', 'whatsapp_number', 'email', 'address', 'pincode']
+        fields = ['branch', 'name', 'phone', 'customer_type', 'whatsapp_number', 'email', 'address', 'pincode']
         widgets = {
             'address': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
         
     def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
+        
+        # Restrict branches based on role
+        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
+            if self.request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(self.request.user, 'managed_branch'):
+                self.fields['branch'].queryset = Branch.objects.filter(
+                    id=self.request.user.managed_branch.id,
+                    is_deleted=False
+                )
+                self.fields['branch'].initial = self.request.user.managed_branch.id
+                self.fields['branch'].widget = forms.HiddenInput()
+            else:
+                self.fields['branch'].queryset = Branch.objects.filter(
+                    company=self.request.user.profile.company, 
+                    is_deleted=False
+                )
+                
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = 'form-control'
             if not isinstance(field.widget, forms.Select) and not isinstance(field.widget, forms.Textarea):

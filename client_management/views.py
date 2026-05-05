@@ -421,19 +421,18 @@ def customer_list(request):
 
 @login_required
 def customer_create(request):
-    # Only allow BRANCH_ADMIN to create customers
-    if request.user.profile.role.name != 'BRANCH_ADMIN':
-        messages.error(request, "Only Branch Admins can create customers.")
+    # Allow both COMPANY_ADMIN and BRANCH_ADMIN to create customers
+    if request.user.profile.role.name not in ['BRANCH_ADMIN', 'COMPANY_ADMIN']:
+        messages.error(request, "Only Branch or Company Admins can create customers.")
         return redirect('customer_list')
 
     try:
         company = request.user.profile.company
-        branch = request.user.managed_branch
     except AttributeError:
-        messages.error(request, "Branch configuration missing.")
+        messages.error(request, "Company configuration missing.")
         return redirect('dashboard')
 
-    customer_form = CustomerForm(request.POST or None)
+    customer_form = CustomerForm(request.POST or None, request=request)
     vehicle_form = CustomerVehicleForm(request.POST or None)
 
     if request.method == 'POST':
@@ -452,7 +451,7 @@ def customer_create(request):
             # Save Customer
             customer = customer_form.save(commit=False)
             customer.company = company
-            customer.branch = branch
+            # branch is handled by the form because it is in the ModelForm fields
             customer.auto_id = get_auto_id(Customer)
             customer.creator = request.user
             customer.save()
@@ -505,7 +504,19 @@ def scheme_list(request):
 
     schemes = Scheme.objects.filter(is_deleted=False, company=company).prefetch_related(
         'services', 'customer_types', 'vehicle_types', 'scheme_type'
-    )
+    ).order_by('-date_added')
+
+    # If user is a branch admin, show only active schemes matching the branch's allowed scheme types
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        from django.utils import timezone
+        today = timezone.now().date()
+        branch = request.user.managed_branch
+        schemes = schemes.filter(
+            scheme_type__in=branch.scheme_types.all(),
+            start_date__lte=today,
+            end_date__gte=today
+        )
+
     return render(request, 'scheme/list.html', {'schemes': schemes, 'title': 'Schemes'})
 
 
@@ -577,12 +588,116 @@ def scheme_create(request):
         else:
             messages.error(request, "Please correct the errors below.")
 
+    import uuid
+    selected_services = []
+    selected_customers = []
+    selected_vehicles = []
+    if request.method == 'POST':
+        for x in request.POST.getlist('services'):
+            try: selected_services.append(uuid.UUID(x))
+            except: pass
+        for x in request.POST.getlist('customer_types'):
+            try: selected_customers.append(uuid.UUID(x))
+            except: pass
+        for x in request.POST.getlist('vehicle_types'):
+            try: selected_vehicles.append(uuid.UUID(x))
+            except: pass
+
     return render(request, 'scheme/create.html', {
         'form': form,
         'all_services': all_services,
         'all_customer_types': all_customer_types,
         'all_vehicle_types': all_vehicle_types,
+        'selected_services': selected_services,
+        'selected_customers': selected_customers,
+        'selected_vehicles': selected_vehicles,
         'title': 'Create Scheme',
+    })
+
+@login_required
+def scheme_edit(request, id):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "Not associated with any company.")
+        return redirect('dashboard')
+
+    instance = get_object_or_404(Scheme, id=id, company=company, is_deleted=False)
+
+    all_services = Service.objects.filter(is_deleted=False, is_active=True)
+    all_customer_types = CustomerType.objects.filter(is_deleted=False)
+    all_vehicle_types = MasterVehicleType.objects.filter(is_deleted=False, is_active=True)
+
+    company_scheme_types = company.scheme_types.all()
+
+    form = SchemeForm(request.POST or None, instance=instance)
+    form.fields['scheme_type'].queryset = company_scheme_types
+    
+    existing_vouchers = list(instance.vouchers.values('voucher_number', 'discount'))
+
+    if request.method == 'POST':
+        if form.is_valid():
+            scheme_type_name = form.cleaned_data['scheme_type'].name.lower()
+
+            error = None
+            if 'quantity' in scheme_type_name:
+                if not form.cleaned_data.get('paid_visits') or not form.cleaned_data.get('free_visits'):
+                    error = "Please enter Paid Visits and Free Visits for Quantity scheme."
+            elif 'discount' in scheme_type_name:
+                if not form.cleaned_data.get('discount_percentage'):
+                    error = "Please enter a Discount Percentage for Discount scheme."
+            elif 'voucher' in scheme_type_name:
+                vouchers_json = request.POST.get('vouchers_data', '[]')
+                try:
+                    vouchers = json.loads(vouchers_json)
+                except (json.JSONDecodeError, ValueError):
+                    vouchers = []
+                if not vouchers:
+                    error = "Please add at least one voucher for Voucher scheme."
+
+            if error:
+                messages.error(request, error)
+            else:
+                scheme = form.save(commit=False)
+                scheme.updater = request.user
+                scheme.save()
+                form.save_m2m()
+
+                if 'voucher' in scheme_type_name:
+                    instance.vouchers.all().delete()
+                    for v in vouchers:
+                        vnum = v.get('voucher_number', '').strip()
+                        vdis = v.get('discount', None)
+                        if vnum and vdis is not None:
+                            SchemeVoucher.objects.create(
+                                scheme=scheme,
+                                voucher_number=vnum,
+                                discount=vdis,
+                                auto_id=get_auto_id(SchemeVoucher),
+                                creator=request.user,
+                            )
+
+                messages.success(request, "Scheme updated successfully")
+                return redirect('scheme_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    # Convert values to list for easy checking in template
+    selected_services = list(instance.services.values_list('id', flat=True))
+    selected_customers = list(instance.customer_types.values_list('id', flat=True))
+    selected_vehicles = list(instance.vehicle_types.values_list('id', flat=True))
+
+    return render(request, 'scheme/create.html', {
+        'form': form,
+        'all_services': all_services,
+        'all_customer_types': all_customer_types,
+        'all_vehicle_types': all_vehicle_types,
+        'existing_vouchers_json': json.dumps([{'voucher_number': v['voucher_number'], 'discount': str(v['discount'])} for v in existing_vouchers]),
+        'selected_services': selected_services,
+        'selected_customers': selected_customers,
+        'selected_vehicles': selected_vehicles,
+        'title': 'Edit Scheme',
+        'is_edit': True,
     })
 
 
