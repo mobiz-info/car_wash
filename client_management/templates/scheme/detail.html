@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% block title %}{{ scheme.name }} - Scheme Detail{% endblock %}
+{% block page_title %}Scheme Detail{% endblock %}
+{% block breadcrumb_active %}{{ scheme.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width:900px; margin:0 auto; padding-bottom:40px;">
+
+    <!-- Messages -->
+    {% if messages %}
+    <div style="margin-bottom:16px;">
+        {% for message in messages %}
+        <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
+            {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+            {% else %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;{% endif %}">
+            <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% else %}ph-warning-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Header card -->
+    <div style="background:#fff; border-radius:16px; border:1px solid #e2e8f0; overflow:hidden; margin-bottom:20px; box-shadow:0 1px 4px rgba(0,0,0,.05);">
+        <div style="background:linear-gradient(135deg,#000080,#1e40af); padding:24px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div>
+                <div style="font-size:1.4rem; font-weight:800; color:#fff;">{{ scheme.name }}</div>
+                <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <span style="background:rgba(255,255,255,.18); color:#fff; padding:3px 12px; border-radius:20px; font-size:.78rem; font-weight:600;">
+                        {{ scheme.scheme_type.name }}
+                    </span>
+                    {% now "Y-m-d" as today_str %}
+                    {% if scheme.start_date|date:"Y-m-d" <= today_str and scheme.end_date|date:"Y-m-d" >= today_str %}
+                    <span style="background:#d1fae5; color:#065f46; padding:3px 12px; border-radius:20px; font-size:.78rem; font-weight:600;">
+                        ✓ Active
+                    </span>
+                    {% else %}
+                    <span style="background:#fee2e2; color:#991b1b; padding:3px 12px; border-radius:20px; font-size:.78rem; font-weight:600;">
+                        Inactive
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <a href="{% url 'scheme_list' %}" style="background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); padding:8px 18px; border-radius:8px; font-size:.85rem; font-weight:600; text-decoration:none;">
+                    <i class="ph ph-arrow-left"></i> Back
+                </a>
+                {% if is_company_admin %}
+                <a href="{% url 'scheme_edit' scheme.pk %}" style="background:#fff; color:#000080; padding:8px 18px; border-radius:8px; font-size:.85rem; font-weight:700; text-decoration:none;">
+                    <i class="ph ph-pencil-simple"></i> Edit
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Scheme Details Grid -->
+        <div style="padding:24px 28px; display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px;">
+            <div>
+                <div style="font-size:.72rem; font-weight:700; color:#94a3b8; letter-spacing:.5px; text-transform:uppercase;">Start Date</div>
+                <div style="font-size:1rem; font-weight:600; color:#1e293b; margin-top:4px;">{{ scheme.start_date|date:"d M Y" }}</div>
+            </div>
+            <div>
+                <div style="font-size:.72rem; font-weight:700; color:#94a3b8; letter-spacing:.5px; text-transform:uppercase;">End Date</div>
+                <div style="font-size:1rem; font-weight:600; color:#1e293b; margin-top:4px;">{{ scheme.end_date|date:"d M Y" }}</div>
+            </div>
+            {% if scheme.paid_visits %}
+            <div>
+                <div style="font-size:.72rem; font-weight:700; color:#94a3b8; letter-spacing:.5px; text-transform:uppercase;">Paid Visits</div>
+                <div style="font-size:1rem; font-weight:600; color:#1e293b; margin-top:4px;">{{ scheme.paid_visits }}</div>
+            </div>
+            <div>
+                <div style="font-size:.72rem; font-weight:700; color:#94a3b8; letter-spacing:.5px; text-transform:uppercase;">Free Visits</div>
+                <div style="font-size:1rem; font-weight:600; color:#16a34a; margin-top:4px;">{{ scheme.free_visits }}</div>
+            </div>
+            {% endif %}
+            {% if scheme.discount_percentage %}
+            <div>
+                <div style="font-size:.72rem; font-weight:700; color:#94a3b8; letter-spacing:.5px; text-transform:uppercase;">Discount</div>
+                <div style="font-size:1rem; font-weight:600; color:#ea580c; margin-top:4px;">{{ scheme.discount_percentage }}%</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tags row -->
+        <div style="padding:0 28px 24px; display:flex; flex-direction:column; gap:14px;">
+            <!-- Services -->
+            <div>
+                <div style="font-size:.72rem; font-weight:700; color:#94a3b8; letter-spacing:.5px; margin-bottom:6px;">SERVICES</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                    {% for s in scheme.services.all %}
+                    <span style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; padding:4px 12px; border-radius:20px; font-size:.8rem; font-weight:600;">{{ s.name }}</span>
+                    {% empty %}<span style="color:#94a3b8; font-size:.85rem;">All services</span>{% endfor %}
+                </div>
+            </div>
+            <!-- Customer Types -->
+            <div>
+                <div style="font-size:.72rem; font-weight:700; color:#94a3b8; letter-spacing:.5px; margin-bottom:6px;">CUSTOMER TYPES</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                    {% for ct in scheme.customer_types.all %}
+                    <span style="background:#fefce8; color:#713f12; border:1px solid #fde68a; padding:4px 12px; border-radius:20px; font-size:.8rem; font-weight:600;">{{ ct.name }}</span>
+                    {% empty %}<span style="color:#94a3b8; font-size:.85rem;">All customer types</span>{% endfor %}
+                </div>
+            </div>
+            <!-- Vehicle Types -->
+            <div>
+                <div style="font-size:.72rem; font-weight:700; color:#94a3b8; letter-spacing:.5px; margin-bottom:6px;">VEHICLE TYPES</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                    {% for vt in scheme.vehicle_types.all %}
+                    <span style="background:#fdf4ff; color:#7e22ce; border:1px solid #e9d5ff; padding:4px 12px; border-radius:20px; font-size:.8rem; font-weight:600;">{{ vt.name }}</span>
+                    {% empty %}<span style="color:#94a3b8; font-size:.85rem;">All vehicle types</span>{% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vouchers Section -->
+    <div style="background:#fff; border-radius:16px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05);">
+        <div style="padding:20px 28px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="background:#eff6ff; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                    <i class="ph-bold ph-ticket" style="color:#2563eb; font-size:1.1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; color:#1e293b; font-size:1rem;">Voucher Numbers</div>
+                    <div style="font-size:.78rem; color:#94a3b8;">{{ vouchers.count }} voucher{{ vouchers.count|pluralize }} added</div>
+                </div>
+            </div>
+            {% if is_company_admin %}
+            <button onclick="document.getElementById('addVoucherModal').style.display='flex'"
+                style="background:#000080; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-size:.85rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                <i class="ph-bold ph-plus"></i> Add Voucher
+            </button>
+            {% endif %}
+        </div>
+
+        {% if vouchers %}
+        <div style="overflow-x:auto;">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Voucher Number</th>
+                        <th>Discount Amount</th>
+                        <th>Date Added</th>
+                        {% if is_company_admin %}<th style="text-align:right;">Action</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vouchers %}
+                    <tr>
+                        <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                        <td>
+                            <span style="font-family:monospace; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 12px; border-radius:6px; font-size:.9rem; font-weight:700; color:#1e293b; letter-spacing:.5px;">
+                                {{ v.voucher_number }}
+                            </span>
+                        </td>
+                        <td>
+                            <span style="font-weight:700; color:#16a34a; font-size:1rem;">₹{{ v.discount }}</span>
+                        </td>
+                        <td style="color:#64748b; font-size:.85rem;">{{ v.date_added|date:"d M Y" }}</td>
+                        {% if is_company_admin %}
+                        <td style="text-align:right;">
+                            <a href="{% url 'voucher_delete' v.pk %}"
+                               onclick="return confirm('Delete voucher {{ v.voucher_number }}?')"
+                               class="action-btn delete" title="Delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding:60px; text-align:center; color:#94a3b8;">
+            <i class="ph ph-ticket" style="font-size:3rem; display:block; margin-bottom:12px;"></i>
+            <div style="font-weight:600;">No vouchers added yet</div>
+            {% if is_company_admin %}
+            <div style="font-size:.85rem; margin-top:6px;">Click "Add Voucher" to create voucher codes for this scheme.</div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Voucher Modal -->
+{% if is_company_admin %}
+<div id="addVoucherModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:#fff; border-radius:16px; width:100%; max-width:460px; box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="padding:20px 24px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+            <div style="font-weight:700; font-size:1rem; color:#1e293b;">Add Voucher Number</div>
+            <button onclick="document.getElementById('addVoucherModal').style.display='none'"
+                style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:#94a3b8; line-height:1;">×</button>
+        </div>
+        <form method="POST" action="{% url 'voucher_add' scheme.pk %}" style="padding:24px;">
+            {% csrf_token %}
+            <div style="margin-bottom:18px;">
+                <label style="font-size:.85rem; font-weight:600; color:#374151; display:block; margin-bottom:6px;">
+                    Voucher Number <span style="color:red;">*</span>
+                </label>
+                <input type="text" name="voucher_number" required placeholder="e.g. VOUCHER001"
+                    style="width:100%; box-sizing:border-box; padding:10px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:.95rem; font-family:monospace; font-weight:600; letter-spacing:.5px; outline:none;"
+                    oninput="this.value=this.value.toUpperCase()">
+                <div style="font-size:.75rem; color:#94a3b8; margin-top:4px;">Enter the voucher code to be given to customers</div>
+            </div>
+            <div style="margin-bottom:24px;">
+                <label style="font-size:.85rem; font-weight:600; color:#374151; display:block; margin-bottom:6px;">
+                    Discount Amount (₹) <span style="color:red;">*</span>
+                </label>
+                <input type="number" name="discount" required min="0" step="0.01" placeholder="100.00"
+                    style="width:100%; box-sizing:border-box; padding:10px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:.95rem; outline:none;">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" onclick="document.getElementById('addVoucherModal').style.display='none'"
+                    style="flex:1; padding:11px; border:1px solid #d1d5db; background:#f8fafc; border-radius:8px; font-weight:600; cursor:pointer; color:#64748b;">
+                    Cancel
+                </button>
+                <button type="submit"
+                    style="flex:2; padding:11px; background:#000080; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:.95rem;">
+                    <i class="ph-bold ph-plus"></i> Add Voucher
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

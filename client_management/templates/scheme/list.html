@@ -39,11 +39,12 @@
                     <th>Services</th>
                     <th>Customer Types</th>
                     <th>Vehicle Types</th>
+                    <th style="text-align:center;">Benefited Users</th>
                     <th style="text-align:right;">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {% for scheme in schemes %}
+                {% for scheme, benefited_count in schemes %}
                 <tr>
                     <td style="color:#94a3b8;">{{ forloop.counter }}</td>
 
@@ -76,22 +77,31 @@
                         {% empty %}<span style="color:#94a3b8; font-size:0.8rem;">—</span>{% endfor %}
                     </td>
 
+                    <td style="text-align:center;">
+                        <span style="display:inline-flex; align-items:center; gap:5px; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:4px 12px; border-radius:20px; font-size:.8rem; font-weight:700;">
+                            <i class="ph ph-users"></i>
+                            {{ benefited_count }}
+                        </span>
+                    </td>
                     <td style="text-align:right;">
-                        {% if request.user.profile.role.name == 'COMPANY_ADMIN' %}
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'scheme_detail' scheme.pk %}" class="action-btn" style="background:#eff6ff; color:#2563eb; border-color:#bfdbfe;" title="View Details">
+                                <i class="ph ph-eye"></i>
+                            </a>
+                            {% if request.user.profile.role.name == 'COMPANY_ADMIN' %}
                             <a href="{% url 'scheme_edit' scheme.pk %}" class="action-btn edit">
                                 <i class="ph ph-pencil-simple"></i>
                             </a>
                             <a href="{% url 'scheme_delete' scheme.pk %}" onclick="return confirm('Delete this scheme?')" class="action-btn delete">
                                 <i class="ph ph-trash"></i>
                             </a>
+                            {% endif %}
                         </div>
-                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" style="text-align:center; padding:50px; color:#94a3b8;">
+                    <td colspan="10" style="text-align:center; padding:50px; color:#94a3b8;">
                         <i class="ph ph-clipboard-text" style="font-size:3rem; display:block; margin-bottom:12px;"></i>
                         No schemes found. 
                         {% if request.user.profile.role.name == 'COMPANY_ADMIN' %}

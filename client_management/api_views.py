@@ -28,12 +28,20 @@ def api_login(request):
             token_obj, created = APIToken.objects.get_or_create(user=user)
             
             company_name = user.profile.company.company_name if user.profile.company else ''
-            
+            branch_name = ''
+            if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+                branch_name = user.managed_branch.name
+
+            # Display name: branch name for BRANCH_ADMIN, company name for COMPANY_ADMIN
+            display_name = branch_name if role == 'BRANCH_ADMIN' else company_name
+
             return JsonResponse({
                 'success': True,
                 'token': token_obj.token,
                 'role': role,
                 'company_name': company_name,
+                'branch_name': branch_name,
+                'display_name': display_name,
                 'username': user.username
             })
         else:
@@ -51,6 +59,28 @@ def get_user_from_token(request):
         except APIToken.DoesNotExist:
             return None
     return None
+
+
+def api_dashboard_stats(request):
+    """Returns today's total job count for the dashboard."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from django.utils import timezone
+    from finance_management.models import Invoice
+    today = timezone.now().date()
+
+    role = user.profile.role.name if user.profile.role else None
+    invoices = Invoice.objects.filter(is_deleted=False, date=today)
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        invoices = invoices.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        invoices = invoices.filter(branch__company=user.profile.company)
+
+    return JsonResponse({'success': True, 'total_jobs': invoices.count()})
 
 def api_customer_search(request):
     if request.method != 'GET':
@@ -496,4 +526,130 @@ def api_add_customer(request):
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_available_schemes(request):
+    """Return available schemes for a given customer + vehicle for invoice creation."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    customer_id = request.GET.get('customer_id')
+    vehicle_id = request.GET.get('vehicle_id')
+    if not customer_id or not vehicle_id:
+        return JsonResponse({'success': False, 'message': 'customer_id and vehicle_id required'}, status=400)
+
+    try:
+        company = user.profile.company
+        customer = Customer.objects.get(id=customer_id, company=company, is_deleted=False)
+        vehicle = CustomerVehicle.objects.select_related(
+            'vehicle_type_model', 'vehicle_type_model__vehicle_type'
+        ).get(id=vehicle_id, customer=customer, is_deleted=False)
+
+        from finance_management.models import Invoice
+        today = timezone.now().date()
+
+        # Eligible schemes: active, matches customer type + vehicle type
+        schemes_qs = Scheme.objects.filter(
+            company=company,
+            start_date__lte=today,
+            end_date__gte=today,
+            is_deleted=False,
+        )
+        if customer.customer_type:
+            schemes_qs = schemes_qs.filter(customer_types=customer.customer_type)
+        if vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type:
+            schemes_qs = schemes_qs.filter(vehicle_types=vehicle.vehicle_type_model.vehicle_type)
+
+        visits_count = Invoice.objects.filter(vehicle=vehicle, is_deleted=False).count()
+
+        result = []
+        for scheme in schemes_qs.distinct():
+            scheme_type = scheme.scheme_type.name if scheme.scheme_type else 'Quantity'
+            entry = {
+                'id': str(scheme.id),
+                'name': scheme.name,
+                'scheme_type': scheme_type,  # 'Quantity', 'Discount', 'Voucher'
+            }
+
+            if scheme_type == 'Quantity' or scheme_type == scheme.SCHEME_BENEFIT_QTY:
+                paid = scheme.paid_visits or 0
+                free = scheme.free_visits or 0
+                is_eligible = paid > 0 and visits_count >= paid
+                entry.update({
+                    'description': f'Get {free} free wash after every {paid} paid washes',
+                    'paid_visits': paid,
+                    'free_visits': free,
+                    'visits_count': visits_count,
+                    'is_eligible': is_eligible,
+                })
+            elif scheme_type == 'Discount' or scheme_type == scheme.SCHEME_BENEFIT_DISCOUNT:
+                pct = float(scheme.discount_percentage or 0)
+                entry.update({
+                    'description': f'Get {pct}% off on total bill',
+                    'discount_percentage': pct,
+                    'is_eligible': True,
+                })
+            elif scheme_type == 'Voucher' or scheme_type == scheme.SCHEME_BENEFIT_VOUCHER:
+                entry.update({
+                    'description': 'Use voucher code and get discount',
+                    'is_eligible': True,
+                    'requires_voucher': True,
+                })
+
+            result.append(entry)
+
+        return JsonResponse({'success': True, 'schemes': result})
+
+    except Customer.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+    except CustomerVehicle.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Vehicle not found'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_validate_voucher(request):
+    """Validate a voucher number for a scheme and return the discount."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        scheme_id = data.get('scheme_id')
+        voucher_number = data.get('voucher_number', '').strip()
+
+        if not scheme_id or not voucher_number:
+            return JsonResponse({'success': False, 'message': 'scheme_id and voucher_number required'}, status=400)
+
+        from .models import SchemeVoucher
+        voucher = SchemeVoucher.objects.filter(
+            scheme_id=scheme_id,
+            voucher_number=voucher_number,
+            is_deleted=False,
+        ).first()
+
+        if voucher:
+            return JsonResponse({
+                'success': True,
+                'voucher_id': str(voucher.id),
+                'discount': float(voucher.discount),
+                'message': f'Voucher applied! ₹{voucher.discount} off',
+            })
+        else:
+            return JsonResponse({'success': False, 'message': 'Invalid or already used voucher'}, status=404)
+
+    except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)

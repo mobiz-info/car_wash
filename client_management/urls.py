@@ -44,6 +44,9 @@ urlpatterns = [
     path('scheme/create/', views.scheme_create, name='scheme_create'),
     path('scheme/edit/<uuid:id>/', views.scheme_edit, name='scheme_edit'),
     path('scheme/delete/<uuid:id>/', views.scheme_delete, name='scheme_delete'),
+    path('scheme/detail/<uuid:id>/', views.scheme_detail, name='scheme_detail'),
+    path('scheme/<uuid:scheme_id>/voucher/add/', views.voucher_add, name='voucher_add'),
+    path('voucher/delete/<uuid:voucher_id>/', views.voucher_delete, name='voucher_delete'),
 
     # Vehicle Management
     path('customer-vehicle/', views.customer_vehicle_list, name='customer_vehicle_list'),
@@ -59,4 +62,7 @@ urlpatterns = [
     path('api/customer/form-data/', api_views.api_get_form_data, name='api_get_form_data'),
     path('api/customer/add/', api_views.api_add_customer, name='api_add_customer'),
     path('api/vehicle/search/', api_views.api_vehicle_search, name='api_vehicle_search'),
+    path('api/dashboard/stats/', api_views.api_dashboard_stats, name='api_dashboard_stats'),
+    path('api/schemes/available/', api_views.api_available_schemes, name='api_available_schemes'),
+    path('api/schemes/validate-voucher/', api_views.api_validate_voucher, name='api_validate_voucher'),
 ]

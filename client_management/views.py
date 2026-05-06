@@ -517,7 +517,52 @@ def scheme_list(request):
             end_date__gte=today
         )
 
-    return render(request, 'scheme/list.html', {'schemes': schemes, 'title': 'Schemes'})
+    # Compute benefited users count per scheme
+    from finance_management.models import Invoice
+    from django.db.models import Count, Q
+    benefited_counts = []  # list of (scheme, count) tuples
+    for scheme in schemes:
+        scheme_type_name = scheme.scheme_type.name if scheme.scheme_type else ''
+
+        # Base vehicle queryset: vehicles matching scheme's vehicle_types (if filtered)
+        vehicles_qs = CustomerVehicle.objects.filter(
+            is_deleted=False,
+            customer__company=company,
+        )
+        if scheme.vehicle_types.exists():
+            vehicles_qs = vehicles_qs.filter(
+                vehicle_type_model__vehicle_type__in=scheme.vehicle_types.all()
+            )
+        if scheme.customer_types.exists():
+            vehicles_qs = vehicles_qs.filter(
+                customer__customer_type__in=scheme.customer_types.all()
+            )
+
+        if scheme_type_name == 'Quantity' and scheme.paid_visits:
+            benefited = (
+                vehicles_qs
+                .annotate(visit_count=Count('invoices', filter=Q(invoices__is_deleted=False)))
+                .filter(visit_count__gte=scheme.paid_visits)
+                .values('customer').distinct().count()
+            )
+        elif scheme_type_name == 'Voucher':
+            benefited = (
+                Invoice.objects.filter(
+                    is_deleted=False,
+                    customer__company=company,
+                    vehicle__in=vehicles_qs,
+                    discount__gt=0,
+                ).values('customer').distinct().count()
+            )
+        else:
+            benefited = vehicles_qs.values('customer').distinct().count()
+
+        benefited_counts.append((scheme, benefited))
+
+    return render(request, 'scheme/list.html', {
+        'schemes': benefited_counts,
+        'title': 'Schemes',
+    })
 
 
 @login_required
@@ -712,6 +757,87 @@ def scheme_delete(request, id):
     instance.save()
     messages.success(request, "Scheme deleted successfully")
     return redirect('scheme_list')
+
+
+@login_required
+def scheme_detail(request, id):
+    """Full detail view for a scheme including voucher management."""
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        return redirect('dashboard')
+
+    scheme = get_object_or_404(Scheme, id=id, company=company, is_deleted=False)
+    vouchers = scheme.vouchers.filter(is_deleted=False).order_by('-date_added')
+
+    return render(request, 'scheme/detail.html', {
+        'scheme': scheme,
+        'vouchers': vouchers,
+        'title': scheme.name,
+        'is_company_admin': request.user.profile.role.name == 'COMPANY_ADMIN',
+    })
+
+
+@login_required
+def voucher_add(request, scheme_id):
+    """Add a voucher number to a scheme."""
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        return redirect('dashboard')
+
+    if request.user.profile.role.name != 'COMPANY_ADMIN':
+        messages.error(request, "Only company admins can add vouchers.")
+        return redirect('scheme_detail', id=scheme_id)
+
+    scheme = get_object_or_404(Scheme, id=scheme_id, company=company, is_deleted=False)
+
+    if request.method == 'POST':
+        from .models import SchemeVoucher
+        voucher_number = request.POST.get('voucher_number', '').strip()
+        discount = request.POST.get('discount', '0').strip()
+
+        if not voucher_number:
+            messages.error(request, "Voucher number is required.")
+        elif SchemeVoucher.objects.filter(scheme=scheme, voucher_number=voucher_number, is_deleted=False).exists():
+            messages.error(request, f"Voucher '{voucher_number}' already exists for this scheme.")
+        else:
+            try:
+                from decimal import Decimal
+                v = SchemeVoucher(
+                    scheme=scheme,
+                    voucher_number=voucher_number,
+                    discount=Decimal(discount),
+                    auto_id=SchemeVoucher.objects.count() + 1,
+                )
+                v.save()
+                messages.success(request, f"Voucher '{voucher_number}' added successfully.")
+            except Exception as e:
+                messages.error(request, f"Error: {e}")
+
+    return redirect('scheme_detail', id=scheme_id)
+
+
+@login_required
+def voucher_delete(request, voucher_id):
+    """Delete a voucher from a scheme."""
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        return redirect('dashboard')
+
+    if request.user.profile.role.name != 'COMPANY_ADMIN':
+        messages.error(request, "Only company admins can delete vouchers.")
+        return redirect('scheme_list')
+
+    from .models import SchemeVoucher
+    voucher = get_object_or_404(SchemeVoucher, id=voucher_id, scheme__company=company, is_deleted=False)
+    scheme_id = voucher.scheme.id
+    voucher.is_deleted = True
+    voucher.save()
+    messages.success(request, "Voucher deleted successfully.")
+    return redirect('scheme_detail', id=scheme_id)
+
 
 
 @login_required
