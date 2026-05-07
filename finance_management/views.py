@@ -1,11 +1,14 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db.models import Q, Sum, F, DecimalField, ExpressionWrapper
+from django.contrib import messages
+from decimal import Decimal
 
+from core.functions import get_auto_id, log_activity
 from django.views.decorators.csrf import csrf_exempt
 from client_management.api_views import get_user_from_token
-from .models import Invoice
+from .models import Invoice, Receipt
 
 
 @login_required
@@ -159,3 +162,116 @@ def invoice_receipt(request, pk):
     }
 
     return render(request, 'invoice/invoice_receipt.html', context)
+
+
+@login_required
+def receipt_list(request):
+
+    receipts = Receipt.objects.filter(
+        is_deleted=False
+    ).select_related(
+        'invoice',
+        'invoice__customer'
+    ).order_by('-created_at')
+
+    search = request.GET.get('search')
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    if search:
+        receipts = receipts.filter(
+            Q(receipt_number__icontains=search) |
+            Q(invoice__invoice_number__icontains=search) |
+            Q(invoice__customer__name__icontains=search)
+        )
+
+    if from_date:
+        receipts = receipts.filter(created_at__date__gte=from_date)
+
+    if to_date:
+        receipts = receipts.filter(created_at__date__lte=to_date)
+
+    context = {
+        'receipts': receipts,
+        'search': search,
+    }
+
+    return render(request, 'receipt/list.html', context)
+
+
+@login_required
+def receipt_create(request, invoice_id=None):
+
+    invoices = Invoice.objects.filter(
+        is_deleted=False
+    ).order_by('-id')
+
+    selected_invoice = None
+
+    if invoice_id:
+        selected_invoice = get_object_or_404(
+            Invoice,
+            pk=invoice_id,
+            is_deleted=False
+        )
+
+    if request.method == 'POST':
+
+        invoice = get_object_or_404(
+            Invoice,
+            pk=request.POST.get('invoice')
+        )
+
+        amount = Decimal(request.POST.get('amount') or 0)
+
+        payment_mode = request.POST.get('payment_mode')
+        remarks = request.POST.get('remarks')
+
+        cheque_no = request.POST.get('cheque_no')
+        cheque_date = request.POST.get('cheque_date')
+        bank_name = request.POST.get('bank_name')
+
+        # Generate Receipt Number
+        last_receipt = Receipt.objects.order_by('-id').first()
+
+        if last_receipt:
+            try:
+                last_no = int(last_receipt.receipt_number.split('-')[-1])
+            except:
+                last_no = last_receipt.id
+        else:
+            last_no = 0
+
+        receipt_number = f"RCPT-{str(last_no + 1).zfill(5)}"
+
+        # Create Receipt
+        receipt = Receipt.objects.create(
+            auto_id=get_auto_id(Receipt),
+            receipt_number=receipt_number,
+            invoice=invoice,
+            amount=amount,
+            payment_mode=payment_mode,
+            remarks=remarks,
+            cheque_no=cheque_no,
+            cheque_date=cheque_date if cheque_date else None,
+            bank_name=bank_name,
+        )
+
+        # Update Invoice Collection
+        invoice.amount_collected += amount
+        invoice.save()
+
+        messages.success(
+            request,
+            "Receipt created successfully."
+        )
+
+        return redirect('receipt_list')
+
+    context = {
+        'invoices': invoices,
+        'selected_invoice': selected_invoice,
+        'title': 'Create Receipt',
+    }
+
+    return render(request, 'receipt/create.html', context)

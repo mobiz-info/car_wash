@@ -7,4 +7,8 @@ urlpatterns = [
     
     path('sales-report/', views.sales_report, name='sales_report'),
     path('invoice-receipt/<uuid:pk>/',views.invoice_receipt,name='invoice_receipt'),
+    path('receipt-list/',views.receipt_list,name='receipt_list'),
+    path('receipt-create/',views.receipt_create,name='receipt_create'),
+    
+    
 ]

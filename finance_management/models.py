@@ -28,3 +28,32 @@ class InvoiceItem(BaseModel):
 
     def __str__(self):
         return f"{self.invoice.invoice_number} - {self.service_name}"
+
+
+class Receipt(BaseModel):
+    PAYMENT_CHOICES = (
+        ('cash', 'Cash'),
+        ('cheque', 'Cheque'),
+        ('online', 'Online'),
+    )
+
+    receipt_number = models.CharField(max_length=50, unique=True)
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name='receipts'
+    )
+
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
+
+    remarks = models.TextField(blank=True, null=True)
+
+    cheque_no = models.CharField(max_length=100, blank=True, null=True)
+    cheque_date = models.DateField(blank=True, null=True)
+    bank_name = models.CharField(max_length=150, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.receipt_number
