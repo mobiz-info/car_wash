@@ -1,0 +1,696 @@
+{% extends 'base.html' %}
+
+{% block title %}Sales Report - Car Wash Admin{% endblock %}
+{% block page_title %}Sales Report{% endblock %}
+{% block breadcrumb_active %}Sales Report{% endblock %}
+
+{% block content %}
+
+<style>
+
+.report-wrapper{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+/* Header */
+
+.report-header{
+    background:linear-gradient(135deg, #1e3a8a, #2563eb);
+    border-radius:22px;
+    padding:30px;
+    color:white;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 10px 30px rgba(37,99,235,0.18);
+}
+
+.report-header::after{
+    content:'';
+    position:absolute;
+    width:280px;
+    height:280px;
+    background:rgba(255,255,255,0.08);
+    border-radius:50%;
+    right:-80px;
+    top:-80px;
+}
+
+.report-title{
+    position:relative;
+    z-index:2;
+}
+
+.report-title h2{
+    margin:0;
+    font-size:2rem;
+    font-weight:700;
+}
+
+.report-title p{
+    margin-top:8px;
+    color:rgba(255,255,255,0.85);
+    font-size:0.95rem;
+}
+
+/* Filter */
+
+.filter-card{
+    background:white;
+    border-radius:18px;
+    padding:22px;
+    box-shadow:0 4px 18px rgba(15,23,42,0.06);
+    border:1px solid #e2e8f0;
+}
+
+.filter-form{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    align-items:center;
+}
+
+.filter-group{
+    position:relative;
+}
+
+.search-input{
+    min-width:220px;
+    height:46px;
+    border-radius:12px;
+    border:1px solid #dbeafe;
+    background:#f8fafc;
+    padding:0 16px 0 44px;
+    font-size:0.9rem;
+    transition:0.3s;
+}
+
+.search-input:focus{
+    outline:none;
+    border-color:#2563eb;
+    background:white;
+    box-shadow:0 0 0 4px rgba(37,99,235,0.08);
+}
+
+.search-icon{
+    position:absolute;
+    left:14px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#64748b;
+    font-size:1rem;
+}
+
+.date-input{
+    height:46px;
+    border-radius:12px;
+    border:1px solid #dbeafe;
+    background:#f8fafc;
+    padding:0 14px;
+    font-size:0.9rem;
+}
+
+.filter-btn{
+    height:46px;
+    padding:0 22px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg, #2563eb, #1d4ed8);
+    color:white;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+.filter-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 8px 20px rgba(37,99,235,0.2);
+}
+
+/* Summary */
+
+.summary-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(250px,1fr));
+    gap:20px;
+}
+
+.summary-card{
+    background:white;
+    border-radius:20px;
+    padding:24px;
+    position:relative;
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    box-shadow:0 4px 18px rgba(15,23,42,0.05);
+}
+
+.summary-card::before{
+    content:'';
+    position:absolute;
+    top:0;
+    left:0;
+    width:6px;
+    height:100%;
+}
+
+.summary-card.sales::before{
+    background:#2563eb;
+}
+
+.summary-card.collection::before{
+    background:#10b981;
+}
+
+.summary-card.balance::before{
+    background:#ef4444;
+}
+
+.summary-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.summary-label{
+    color:#64748b;
+    font-size:0.9rem;
+    font-weight:600;
+}
+
+.summary-icon{
+    width:52px;
+    height:52px;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1.3rem;
+}
+
+.summary-card.sales .summary-icon{
+    background:#dbeafe;
+    color:#2563eb;
+}
+
+.summary-card.collection .summary-icon{
+    background:#d1fae5;
+    color:#059669;
+}
+
+.summary-card.balance .summary-icon{
+    background:#fee2e2;
+    color:#dc2626;
+}
+
+.summary-value{
+    margin-top:18px;
+    font-size:2rem;
+    font-weight:700;
+    color:#0f172a;
+}
+
+/* Table */
+
+.table-card{
+    background:white;
+    border-radius:22px;
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    box-shadow:0 6px 24px rgba(15,23,42,0.05);
+}
+
+.table-header{
+    padding:22px 24px;
+    border-bottom:1px solid #e2e8f0;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.table-header h3{
+    margin:0;
+    font-size:1.1rem;
+    color:#0f172a;
+}
+
+.table-header span{
+    color:#64748b;
+    font-size:0.88rem;
+}
+
+.table-wrapper{
+    overflow-x:auto;
+}
+
+.premium-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.premium-table thead{
+    background:#f8fafc;
+}
+
+.premium-table th{
+    padding:16px;
+    font-size:0.82rem;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    color:#64748b;
+    font-weight:700;
+    border-bottom:1px solid #e2e8f0;
+}
+
+.premium-table td{
+    padding:18px 16px;
+    border-bottom:1px solid #f1f5f9;
+    vertical-align:middle;
+}
+
+.premium-table tbody tr{
+    transition:0.2s;
+}
+
+.premium-table tbody tr:hover{
+    background:#f8fbff;
+}
+
+.invoice-badge{
+    font-family:monospace;
+    font-weight:700;
+    color:#1e293b;
+    background:#f1f5f9;
+    padding:6px 10px;
+    border-radius:8px;
+    font-size:0.85rem;
+}
+
+.customer-name{
+    font-weight:700;
+    color:#0f172a;
+}
+
+.customer-phone{
+    font-size:0.78rem;
+    color:#64748b;
+    margin-top:4px;
+}
+
+.vehicle-no{
+    font-weight:600;
+    color:#1e293b;
+}
+
+.vehicle-type{
+    font-size:0.78rem;
+    color:#64748b;
+    margin-top:4px;
+}
+
+.branch-badge{
+    background:#eff6ff;
+    color:#2563eb;
+    padding:6px 10px;
+    border-radius:8px;
+    font-size:0.78rem;
+    font-weight:600;
+}
+
+.service-item{
+    background:#f8fafc;
+    padding:4px 8px;
+    border-radius:6px;
+    font-size:0.76rem;
+    margin-bottom:5px;
+    display:inline-block;
+    color:#334155;
+}
+
+.amount{
+    font-weight:700;
+    color:#0f172a;
+}
+
+.collected-paid{
+    background:#d1fae5;
+    color:#065f46;
+    padding:6px 10px;
+    border-radius:8px;
+    font-size:0.78rem;
+    font-weight:700;
+}
+
+.collected-pending{
+    background:#fef3c7;
+    color:#92400e;
+    padding:6px 10px;
+    border-radius:8px;
+    font-size:0.78rem;
+    font-weight:700;
+}
+
+.balance-pending{
+    color:#dc2626;
+    font-weight:700;
+}
+
+.balance-clear{
+    color:#16a34a;
+    font-weight:700;
+}
+
+.receipt-btn{
+    background:linear-gradient(135deg, #2563eb, #1d4ed8);
+    color:white;
+    padding:9px 14px;
+    border-radius:10px;
+    text-decoration:none;
+    font-size:0.8rem;
+    font-weight:600;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    transition:0.3s;
+}
+
+.receipt-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 20px rgba(37,99,235,0.18);
+}
+
+/* Empty */
+
+.empty-state{
+    padding:70px 20px;
+    text-align:center;
+}
+
+.empty-state i{
+    font-size:4rem;
+    color:#cbd5e1;
+}
+
+.empty-state h4{
+    margin-top:16px;
+    color:#334155;
+}
+
+.empty-state p{
+    color:#94a3b8;
+    font-size:0.9rem;
+}
+
+</style>
+
+<div class="report-wrapper">
+
+    
+
+    <!-- Filter -->
+    <div class="filter-card">
+
+        <form method="GET" class="filter-form">
+
+            <div class="filter-group">
+                <i class="ph ph-magnifying-glass search-icon"></i>
+
+                <input type="text"
+                       name="search"
+                       value="{{ search }}"
+                       class="search-input"
+                       placeholder="Search invoice no, customer...">
+            </div>
+
+            <input type="date"
+                   name="from_date"
+                   value="{{ request.GET.from_date }}"
+                   class="date-input">
+
+            <input type="date"
+                   name="to_date"
+                   value="{{ request.GET.to_date }}"
+                   class="date-input">
+
+            <button type="submit" class="filter-btn">
+                <i class="ph ph-funnel"></i>
+                Filter Report
+            </button>
+
+        </form>
+
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-grid">
+
+        <div class="summary-card sales">
+
+            <div class="summary-top">
+                <div class="summary-label">Total Sales</div>
+
+                <div class="summary-icon">
+                    <i class="ph ph-chart-line-up"></i>
+                </div>
+            </div>
+
+            <div class="summary-value">
+                ₹{{ total_amount }}
+            </div>
+
+        </div>
+
+        <div class="summary-card collection">
+
+            <div class="summary-top">
+                <div class="summary-label">Total Collection</div>
+
+                <div class="summary-icon">
+                    <i class="ph ph-wallet"></i>
+                </div>
+            </div>
+
+            <div class="summary-value">
+                ₹{{ total_collection }}
+            </div>
+
+        </div>
+
+        <div class="summary-card balance">
+
+            <div class="summary-top">
+                <div class="summary-label">Pending Balance</div>
+
+                <div class="summary-icon">
+                    <i class="ph ph-warning-circle"></i>
+                </div>
+            </div>
+
+            <div class="summary-value">
+                ₹{{ total_balance }}
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+
+        <div class="table-header">
+
+            <div>
+                <h3>Invoice Sales Report</h3>
+                <span>
+                    Total Invoices : {{ invoices|length }}
+                </span>
+            </div>
+
+        </div>
+
+        <div class="table-wrapper">
+
+            <table class="premium-table">
+
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Invoice</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Branch</th>
+                        <th>Services</th>
+                        <th style="text-align:right;">Total</th>
+                        <th style="text-align:right;">Collected</th>
+                        <th style="text-align:right;">Balance</th>
+                        <th style="text-align:center;">Receipt</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for invoice in invoices %}
+
+                    <tr>
+
+                        <td style="color:#94a3b8;">
+                            {{ forloop.counter }}
+                        </td>
+
+                        <td>
+                            <span class="invoice-badge">
+                                {{ invoice.invoice_number }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {{ invoice.date|date:"d M Y" }}
+                        </td>
+
+                        <td>
+
+                            <div class="customer-name">
+                                {{ invoice.customer.name }}
+                            </div>
+
+                            <div class="customer-phone">
+                                {{ invoice.customer.phone }}
+                            </div>
+
+                        </td>
+
+                        <td>
+
+                            <div class="vehicle-no">
+                                {{ invoice.vehicle.vehicle_number }}
+                            </div>
+
+                            <div class="vehicle-type">
+                                {{ invoice.vehicle.vehicle_type_model.name|default:"-" }}
+                            </div>
+
+                        </td>
+
+                        <td>
+
+                            <span class="branch-badge">
+                                {{ invoice.branch.name }}
+                            </span>
+
+                        </td>
+
+                        <td>
+
+                            {% for item in invoice.items.all %}
+
+                                <div class="service-item">
+                                    {{ item.service_name }}
+                                </div>
+
+                            {% empty %}
+
+                                <span style="color:#94a3b8;">—</span>
+
+                            {% endfor %}
+
+                        </td>
+
+                        <td style="text-align:right;">
+
+                            <span class="amount">
+                                ₹{{ invoice.total }}
+                            </span>
+
+                        </td>
+
+                        <td style="text-align:right;">
+
+                            {% if invoice.amount_collected >= invoice.total %}
+
+                                <span class="collected-paid">
+                                    ₹{{ invoice.amount_collected }} ✓
+                                </span>
+
+                            {% else %}
+
+                                <span class="collected-pending">
+                                    ₹{{ invoice.amount_collected }}
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td style="text-align:right;">
+
+                            {% with balance=invoice.total|add:"-"|add:invoice.amount_collected %}
+
+                                {% if balance > 0 %}
+
+                                    <span class="balance-pending">
+                                        ₹{{ balance }}
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="balance-clear">
+                                        ₹0
+                                    </span>
+
+                                {% endif %}
+
+                            {% endwith %}
+
+                        </td>
+
+                        <td style="text-align:center;">
+
+                            <a href="{% url 'invoice_receipt' invoice.id %}"
+                               class="receipt-btn">
+
+                                <i class="ph ph-printer"></i>
+                                Receipt
+
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td colspan="11">
+
+                            <div class="empty-state">
+
+                                <i class="ph ph-chart-line"></i>
+
+                                <h4>No Sales Report Found</h4>
+
+                                <p>
+                                    Sales invoices and collections will appear here.
+                                </p>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

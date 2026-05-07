@@ -1,7 +1,8 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Sum, F, DecimalField, ExpressionWrapper
+
 from django.views.decorators.csrf import csrf_exempt
 from client_management.api_views import get_user_from_token
 from .models import Invoice
@@ -91,3 +92,70 @@ def api_list_invoices(request):
 
     return JsonResponse({'success': True, 'invoices': results})
 
+
+
+@login_required
+def sales_report(request):
+
+    invoices = Invoice.objects.filter(is_deleted=False).order_by('-date')
+
+    # Filters
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    branch = request.GET.get('branch')
+
+    if from_date:
+        invoices = invoices.filter(date__gte=from_date)
+
+    if to_date:
+        invoices = invoices.filter(date__lte=to_date)
+
+    if branch:
+        invoices = invoices.filter(branch_id=branch)
+
+    # Balance Calculation
+    invoices = invoices.annotate(
+        balance=ExpressionWrapper(
+            F('total') - F('amount_collected'),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        )
+    )
+
+    # Totals
+    total_amount = invoices.aggregate(
+        total=Sum('total')
+    )['total'] or 0
+
+    total_collection = invoices.aggregate(
+        collected=Sum('amount_collected')
+    )['collected'] or 0
+
+    total_balance = total_amount - total_collection
+
+    context = {
+        'invoices': invoices,
+        'total_amount': total_amount,
+        'total_collection': total_collection,
+        'total_balance': total_balance,
+    }
+
+    return render(request, 'reports/sales_report.html', context)
+
+
+@login_required
+def invoice_receipt(request, pk):
+
+    invoice = get_object_or_404(
+        Invoice.objects.prefetch_related('items'),
+        pk=pk,
+        is_deleted=False
+    )
+
+    balance = invoice.total - invoice.amount_collected
+
+    context = {
+        'invoice': invoice,
+        'balance': balance,
+    }
+
+    return render(request, 'invoice/invoice_receipt.html', context)
