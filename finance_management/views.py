@@ -1,14 +1,13 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import JsonResponse
 from django.db.models import Q, Sum, F, DecimalField, ExpressionWrapper
-from django.contrib import messages
-from decimal import Decimal
-
-from core.functions import get_auto_id, log_activity
 from django.views.decorators.csrf import csrf_exempt
+from core.functions import get_auto_id, log_activity
 from client_management.api_views import get_user_from_token
 from .models import Invoice, Receipt
+from decimal import Decimal
 
 
 @login_required
@@ -38,6 +37,108 @@ def invoice_list(request):
         'search': search,
         'title': 'Invoices'
     })
+
+
+@login_required
+def outstanding_list(request):
+    """Show all invoices where amount_collected < total (customer has balance due)."""
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    # Only invoices with outstanding balance
+    invoices = Invoice.objects.filter(
+        is_deleted=False,
+    ).select_related(
+        'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
+    ).order_by('customer__name', '-date')
+
+    # Scope by role
+    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        invoices = invoices.filter(branch__company=user.profile.company)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        invoices = invoices.filter(branch=user.managed_branch)
+
+    # Filter only outstanding (balance > 0)
+    invoices = invoices.filter(amount_collected__lt=F('total'))
+
+    # Search
+    search = request.GET.get('search', '').strip()
+    if search:
+        invoices = invoices.filter(
+            Q(customer__name__icontains=search) |
+            Q(customer__phone__icontains=search) |
+            Q(invoice_number__icontains=search)
+        )
+
+    # Annotate outstanding on each invoice
+    invoice_list_data = []
+    total_outstanding = Decimal('0.00')
+    for inv in invoices:
+        outstanding = inv.total - inv.amount_collected
+        total_outstanding += outstanding
+        invoice_list_data.append({
+            'invoice': inv,
+            'outstanding': outstanding,
+        })
+
+    # Group by customer for summary
+    from collections import defaultdict
+    customer_summary = defaultdict(lambda: {'customer': None, 'total_outstanding': Decimal('0'), 'invoices': []})
+    for item in invoice_list_data:
+        cid = str(item['invoice'].customer.id)
+        customer_summary[cid]['customer'] = item['invoice'].customer
+        customer_summary[cid]['total_outstanding'] += item['outstanding']
+        customer_summary[cid]['invoices'].append(item)
+
+    return render(request, 'invoice/outstanding.html', {
+        'customer_summary': list(customer_summary.values()),
+        'invoice_list': invoice_list_data,
+        'total_outstanding': total_outstanding,
+        'search': search,
+        'title': 'Customer Outstanding',
+    })
+
+
+@login_required
+def collect_payment(request, invoice_id):
+    """Collect partial or full payment for an outstanding invoice."""
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    invoice = get_object_or_404(Invoice, id=invoice_id, is_deleted=False)
+
+    # Scope check
+    if role == 'COMPANY_ADMIN':
+        if not invoice.branch.company == user.profile.company:
+            messages.error(request, "Access denied.")
+            return redirect('outstanding_list')
+    elif role == 'BRANCH_ADMIN':
+        if invoice.branch != user.managed_branch:
+            messages.error(request, "Access denied.")
+            return redirect('outstanding_list')
+
+    if request.method == 'POST':
+        amount_str = request.POST.get('amount', '0').strip()
+        try:
+            amount = Decimal(amount_str)
+            outstanding = invoice.total - invoice.amount_collected
+            if amount <= 0:
+                messages.error(request, "Amount must be greater than 0.")
+            elif amount > outstanding:
+                messages.error(request, f"Amount ₹{amount} exceeds outstanding ₹{outstanding}.")
+            else:
+                invoice.amount_collected += amount
+                invoice.save()
+                remaining = invoice.total - invoice.amount_collected
+                if remaining == 0:
+                    messages.success(request, f"Full payment collected for Invoice #{invoice.invoice_number}. ✓ Fully settled.")
+                else:
+                    messages.success(request, f"₹{amount} collected. Remaining outstanding: ₹{remaining}.")
+                return redirect('outstanding_list')
+        except Exception as e:
+            messages.error(request, f"Invalid amount: {e}")
+
+    return redirect('outstanding_list')
 
 
 def api_list_invoices(request):
@@ -275,3 +376,106 @@ def receipt_create(request, invoice_id=None):
     }
 
     return render(request, 'receipt/create.html', context)
+
+@csrf_exempt
+def api_outstanding_list(request):
+    """Mobile API: list all invoices with outstanding balance (amount_collected < total)."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    invoices = Invoice.objects.filter(
+        is_deleted=False,
+    ).select_related(
+        'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
+    ).filter(amount_collected__lt=F('total')).order_by('customer__name', '-date')
+
+    role = user.profile.role.name if user.profile.role else None
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        invoices = invoices.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        invoices = invoices.filter(branch__company=user.profile.company)
+
+    results = []
+    total_outstanding = Decimal('0.00')
+    for inv in invoices:
+        outstanding = inv.total - inv.amount_collected
+        total_outstanding += outstanding
+        results.append({
+            'id': str(inv.id),
+            'invoice_number': inv.invoice_number,
+            'date': str(inv.date),
+            'total': str(inv.total),
+            'amount_collected': str(inv.amount_collected),
+            'outstanding': str(outstanding),
+            'customer': {
+                'name': inv.customer.name,
+                'phone': inv.customer.phone,
+            },
+            'vehicle': {
+                'number': inv.vehicle.vehicle_number,
+                'model': inv.vehicle.vehicle_type_model.name if inv.vehicle.vehicle_type_model else '',
+            },
+            'branch': inv.branch.name if inv.branch else '',
+        })
+
+    return JsonResponse({
+        'success': True,
+        'invoices': results,
+        'total_outstanding': str(total_outstanding),
+        'count': len(results),
+    })
+
+
+@csrf_exempt
+def api_collect_payment(request):
+    """Mobile API: collect partial or full payment for an outstanding invoice."""
+    import json
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        invoice_id = data.get('invoice_id')
+        amount = Decimal(str(data.get('amount', 0)))
+
+        invoice = Invoice.objects.get(id=invoice_id, is_deleted=False)
+
+        # Scope check
+        role = user.profile.role.name if user.profile.role else None
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            if invoice.branch != user.managed_branch:
+                return JsonResponse({'success': False, 'message': 'Access denied'}, status=403)
+        elif role == 'COMPANY_ADMIN' and user.profile.company:
+            if invoice.branch.company != user.profile.company:
+                return JsonResponse({'success': False, 'message': 'Access denied'}, status=403)
+
+        outstanding = invoice.total - invoice.amount_collected
+        if amount <= 0:
+            return JsonResponse({'success': False, 'message': 'Amount must be greater than 0'}, status=400)
+        if amount > outstanding:
+            return JsonResponse({'success': False, 'message': f'Amount exceeds outstanding balance of ₹{outstanding}'}, status=400)
+
+        invoice.amount_collected += amount
+        invoice.save()
+
+        remaining = invoice.total - invoice.amount_collected
+        return JsonResponse({
+            'success': True,
+            'message': 'Payment collected successfully',
+            'new_collected': str(invoice.amount_collected),
+            'remaining_outstanding': str(remaining),
+            'fully_settled': remaining == 0,
+        })
+
+    except Invoice.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Invoice not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)

@@ -18,4 +18,7 @@ urlpatterns = [
     path('branch/vehicle-prices/',views.branch_vehicle_price_list,name='branch_vehicle_price_list'),
     path('branch/<uuid:branch_id>/vehicle-price/create/',views.branch_vehicle_price_create,name='branch_vehicle_price_create'),
 
+    path('branch/<uuid:branch_id>/service-pricing/', views.service_vehicle_price_manage, name='service_vehicle_price_manage'),
+    path('branch/service-pricing/', views.service_vehicle_price_redirect, name='service_vehicle_price_redirect'),
+
 ]

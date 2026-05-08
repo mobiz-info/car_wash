@@ -506,6 +506,7 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'invoice_list' %}">Invoices</a>
+                <a href="{% url 'outstanding_list' %}">Outstanding</a>
             </div>
 
             <div class="nav-item dropdown-toggle">
@@ -619,6 +620,7 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'invoice_list' %}">Invoices</a>
+                <a href="{% url 'outstanding_list' %}">Outstanding</a>
             </div>
 
             <div class="nav-item dropdown-toggle">
@@ -654,7 +656,8 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'branch_service_list' %}" class="nav-item submenu-item">Services Enable</a>
-                <a href="{% url 'branch_vehicle_price_list' %}" class="nav-item submenu-item">Price</a>
+                <!-- <a href="{% url 'branch_vehicle_price_list' %}" class="nav-item submenu-item">Price</a> -->
+                <a href="{% url 'service_vehicle_price_redirect' %}" class="nav-item submenu-item">Service Pricing</a>
 
             </div>
 

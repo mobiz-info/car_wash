@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 
-from .models import ServiceType, Service,BranchService, BranchVehiclePrice
+from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice
 from master.models import VehicleType
 from client_management.models import Branch
 from .forms import ServiceTypeForm, ServiceForm
@@ -170,7 +170,7 @@ def branch_service_list(request):
 def branch_service_manage(request, branch_id):
     branch = get_object_or_404(Branch, id=branch_id)
 
-    services = ServiceType.objects.all()
+    services = ServiceType.objects.filter(is_deleted=False)
 
     existing = BranchService.objects.filter(branch=branch, is_enabled=True)
     existing_service_ids = existing.values_list('service_id', flat=True)
@@ -264,3 +264,92 @@ def branch_vehicle_price_create(request, branch_id):
         'vehicle_types': vehicle_types,
         'existing_map': existing_map
     })
+
+@login_required
+def service_vehicle_price_manage(request, branch_id):
+    """
+    Grid UI: rows = enabled ServiceTypes for branch, columns = VehicleTypes.
+    Each cell holds the price for that service x vehicle type.
+    Accessible by both COMPANY_ADMIN and BRANCH_ADMIN.
+    """
+    branch = get_object_or_404(Branch, id=branch_id)
+    role = request.user.profile.role.name if hasattr(request.user, 'profile') and request.user.profile.role else None
+
+    # Scope guard
+    if role == 'BRANCH_ADMIN':
+        if getattr(request.user, 'managed_branch', None) != branch:
+            messages.error(request, "Access denied.")
+            return redirect('branch_vehicle_price_list')
+    elif role == 'COMPANY_ADMIN':
+        if branch.company != request.user.profile.company:
+            messages.error(request, "Access denied.")
+            return redirect('dashboard')
+
+    # Enabled ServiceTypes for this branch → then get individual Services under those types
+    enabled_service_type_ids = BranchService.objects.filter(
+        branch=branch, is_enabled=True, is_deleted=False
+    ).values_list('service_id', flat=True)
+
+    # Individual services belonging to enabled service types
+    services = Service.objects.filter(
+        service_type_id__in=enabled_service_type_ids,
+        is_active=True,
+        is_deleted=False,
+    ).select_related('service_type').order_by('service_type__name', 'name')
+
+    vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')
+
+    # Build existing price map: {(service_id, vehicle_type_id): price}
+    existing = ServiceVehicleTypePrice.objects.filter(branch=branch, is_deleted=False)
+    price_map = {(str(p.service_id), str(p.vehicle_type_id)): p.price for p in existing}
+
+    if request.method == 'POST':
+        for svc in services:
+            for vt in vehicle_types:
+                field_name = f'price_{svc.id}_{vt.id}'
+                raw = request.POST.get(field_name, '').strip()
+                price_val = float(raw) if raw else 0.0
+
+                obj, created = ServiceVehicleTypePrice.objects.get_or_create(
+                    branch=branch,
+                    service=svc,
+                    vehicle_type=vt,
+                    defaults={
+                        'auto_id': ServiceVehicleTypePrice.objects.count() + 1,
+                        'creator': request.user,
+                        'price': price_val,
+                        'is_active': True,
+                    }
+                )
+                if not created:
+                    obj.price = price_val
+                    obj.is_active = True
+                    obj.save()
+
+        messages.success(request, "Service pricing saved successfully.")
+        return redirect('service_vehicle_price_manage', branch_id=branch_id)
+
+    import json
+    # JSON format: {"svc_id__vt_id": "price_value"} for JS to populate inputs
+    price_map_json = json.dumps({
+        f"{sid}__{vid}": str(price)
+        for (sid, vid), price in price_map.items()
+    })
+
+    return render(request, 'service/service_vehicle_price.html', {
+        'branch': branch,
+        'services': services,
+        'vehicle_types': vehicle_types,
+        'price_map_json': price_map_json,
+        'title': f'Service Pricing - {branch.name}',
+    })
+
+
+@login_required
+def service_vehicle_price_redirect(request):
+    """Redirect to the service pricing page for the current user's branch."""
+    branch = getattr(request.user, 'managed_branch', None)
+    if not branch:
+        messages.error(request, "No branch assigned.")
+        return redirect('dashboard')
+    return redirect('service_vehicle_price_manage', branch_id=branch.id)

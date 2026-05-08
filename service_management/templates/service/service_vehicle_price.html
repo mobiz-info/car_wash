@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block title %}Service Pricing - {{ branch.name }}{% endblock %}
+{% block page_title %}Service Pricing{% endblock %}
+{% block breadcrumb_active %}{{ branch.name }} — Pricing{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container { max-width: 960px; }
+
+    /* Section divider — same as customer/create */
+    .form-section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        margin-bottom: 16px;
+        margin-top: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Price input */
+    input.price-input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        font-weight: 700;
+        text-align: right;
+        transition: all 0.2s;
+        outline: none;
+        font-family: 'Inter', sans-serif;
+        background: white;
+        box-sizing: border-box;
+    }
+    input.price-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+
+    /* Pricing table */
+    .pricing-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: .875rem;
+    }
+    .pricing-table thead tr {
+        background: linear-gradient(135deg, #000080, #1e40af);
+    }
+    .pricing-table thead th {
+        padding: 12px 16px;
+        color: #fff;
+        font-size: .78rem;
+        font-weight: 700;
+        letter-spacing: .4px;
+        text-align: left;
+        border-right: 1px solid rgba(255,255,255,.12);
+        white-space: nowrap;
+    }
+    .pricing-table thead th.vt-col { text-align: center; min-width: 130px; }
+    .pricing-table tbody tr {
+        border-bottom: 1px solid #f1f5f9;
+        transition: background .12s;
+    }
+    .pricing-table tbody tr:nth-child(even) { background: #fafbfc; }
+    .pricing-table tbody tr:hover { background: #f0f7ff; }
+    .pricing-table tbody td {
+        padding: 12px 16px;
+        border-right: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .pricing-table tbody td.vt-cell { text-align: center; }
+
+    /* No-price badge */
+    .badge-empty {
+        display: inline-block;
+        font-size: .7rem;
+        color: #94a3b8;
+        background: #f1f5f9;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-weight: 600;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-currency-inr" style="color:#3b82f6; font-size:1.5rem;"></i>
+        Service Pricing — {{ branch.name }}
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px;
+        {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+        {% else %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;{% endif %}
+        display:flex; align-items:center; gap:8px;">
+        <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% else %}ph-warning-circle{% endif %}"></i>
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if not services %}
+    <div style="padding:48px 0; text-align:center; color:#94a3b8;">
+        <i class="ph ph-warning-circle" style="font-size:2.5rem; display:block; margin-bottom:10px; color:#f59e0b;"></i>
+        <div style="font-weight:700; color:#1e293b; font-size:1rem;">No services available</div>
+        <div style="font-size:.85rem; margin-top:6px;">Enable service types for this branch and ensure individual services exist.</div>
+    </div>
+
+    {% elif not vehicle_types %}
+    <div style="padding:48px 0; text-align:center; color:#94a3b8;">
+        <i class="ph ph-warning-circle" style="font-size:2.5rem; display:block; margin-bottom:10px; color:#f59e0b;"></i>
+        <div style="font-weight:700; color:#1e293b; font-size:1rem;">No vehicle types found</div>
+        <div style="font-size:.85rem; margin-top:6px;">Add vehicle types in master data first.</div>
+    </div>
+
+    {% else %}
+
+   
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-section-label">
+            <i class="ph ph-table"></i>
+            Price Grid (Service × Vehicle Type)
+        </div>
+
+        <div style="overflow-x:auto; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:28px; box-shadow:0 1px 4px rgba(0,0,0,.04);">
+            <table class="pricing-table">
+                <thead>
+                    <tr>
+                        <th style="min-width:180px;">Service</th>
+                        <th style="min-width:130px; color:rgba(255,255,255,.7); font-weight:600;">Type</th>
+                        {% for vt in vehicle_types %}
+                        <th class="vt-col">
+                            <i class="ph ph-car" style="display:block; font-size:1rem; margin-bottom:3px;"></i>
+                            {{ vt.name }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for svc in services %}
+                    <tr>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="background:#eff6ff; width:28px; height:28px; border-radius:7px;
+                                            display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <i class="ph ph-sparkle" style="color:#2563eb; font-size:.85rem;"></i>
+                                </div>
+                                <span style="font-weight:700; color:#1e293b;">{{ svc.name }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span style="font-size:.76rem; font-weight:600; color:#64748b;
+                                         background:#f1f5f9; padding:3px 8px; border-radius:5px;">
+                                {{ svc.service_type.name }}
+                            </span>
+                        </td>
+                        {% for vt in vehicle_types %}
+                        <td class="vt-cell">
+                            <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+                                <span style="font-size:.9rem; color:#94a3b8; font-weight:600;">₹</span>
+                                <input
+                                    type="number"
+                                    class="price-input"
+                                    name="price_{{ svc.id }}_{{ vt.id }}"
+                                    data-key="{{ svc.id }}__{{ vt.id }}"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                >
+                            </div>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Actions — same pattern as customer/create -->
+        <div class="form-actions" style="margin-top:8px;">
+            <a href="javascript:history.back()" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-floppy-disk"></i> Save Pricing
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+<script>
+// Populate saved prices from server
+const priceData = {{ price_map_json|safe }};
+document.querySelectorAll('input[data-key]').forEach(function(input) {
+    const key = input.getAttribute('data-key');
+    if (priceData[key] !== undefined) {
+        const val = parseFloat(priceData[key]);
+        if (!isNaN(val) && val > 0) input.value = val.toFixed(2);
+    }
+});
+</script>
+{% endblock %}

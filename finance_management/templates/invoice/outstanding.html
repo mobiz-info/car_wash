@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% block title %}Customer Outstanding - Car Wash Admin{% endblock %}
+{% block page_title %}Customer Outstanding{% endblock %}
+{% block breadcrumb_active %}Outstanding{% endblock %}
+
+{% block content %}
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <div style="font-size:1rem; font-weight:600; color:#1e293b;">Customer Outstanding Balances</div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div style="padding:0 24px 16px;">
+        {% for message in messages %}
+        <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
+            {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+            {% else %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;{% endif %}">
+            <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% else %}ph-warning-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+
+    <!-- Search -->
+    <div style="padding:0 24px 20px;">
+        <form method="get">
+            <div style="display:flex; gap:10px; max-width:500px;">
+                <input type="text" name="search" value="{{ search }}" placeholder="Search by customer name, phone or invoice #..."
+                    style="flex:1; padding:10px 14px; border:1px solid #e2e8f0; border-radius:8px; font-size:.9rem; outline:none;">
+                <button type="submit" style="padding:10px 20px; background:#000080; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                    <i class="ph ph-magnifying-glass"></i> Search
+                </button>
+                {% if search %}
+                <a href="{% url 'outstanding_list' %}" style="padding:10px 16px; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; border-radius:8px; font-weight:600; text-decoration:none;">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {% if customer_summary %}
+    <!-- Customer Accordion -->
+    <div style="padding:0 24px;">
+        {% for summary in customer_summary %}
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; margin-bottom:14px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.04);">
+            <!-- Customer Header -->
+            <div style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; cursor:pointer; border-bottom:1px solid #f1f5f9;"
+                 onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="background:#eff6ff; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                        <i class="ph-bold ph-user" style="color:#2563eb; font-size:1.1rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:700; color:#1e293b; font-size:.95rem;">{{ summary.customer.name }}</div>
+                        <div style="font-size:.8rem; color:#64748b;">{{ summary.customer.phone }} &nbsp;·&nbsp; {{ summary.invoices|length }} invoice{{ summary.invoices|length|pluralize }}</div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="text-align:right;">
+                        <div style="font-size:.72rem; color:#94a3b8; font-weight:600;">TOTAL DUE</div>
+                        <div style="font-size:1.3rem; font-weight:900; color:#dc2626;">₹{{ summary.total_outstanding|floatformat:2 }}</div>
+                    </div>
+                    <i class="ph ph-caret-down" style="color:#94a3b8;"></i>
+                </div>
+            </div>
+
+            <!-- Invoices for this customer -->
+            <div>
+                <table style="width:100%; border-collapse:collapse; font-size:.875rem;">
+                    <thead>
+                        <tr style="background:#f8fafc;">
+                            <th style="padding:10px 16px; text-align:left; font-weight:600; color:#64748b; font-size:.78rem; letter-spacing:.3px;">INVOICE #</th>
+                            <th style="padding:10px 16px; text-align:left; font-weight:600; color:#64748b; font-size:.78rem;">DATE</th>
+                            <th style="padding:10px 16px; text-align:left; font-weight:600; color:#64748b; font-size:.78rem;">VEHICLE</th>
+                            <th style="padding:10px 16px; text-align:right; font-weight:600; color:#64748b; font-size:.78rem;">TOTAL</th>
+                            <th style="padding:10px 16px; text-align:right; font-weight:600; color:#64748b; font-size:.78rem;">COLLECTED</th>
+                            <th style="padding:10px 16px; text-align:right; font-weight:600; color:#64748b; font-size:.78rem;">OUTSTANDING</th>
+                            <th style="padding:10px 16px; text-align:right; font-weight:600; color:#64748b; font-size:.78rem;">ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in summary.invoices %}
+                        <tr style="border-top:1px solid #f1f5f9;">
+                            <td style="padding:12px 16px; font-weight:600; color:#1e293b;">
+                                <span style="font-family:monospace; background:#f8fafc; border:1px solid #e2e8f0; padding:2px 8px; border-radius:5px; font-size:.82rem;">
+                                    #{{ item.invoice.invoice_number }}
+                                </span>
+                            </td>
+                            <td style="padding:12px 16px; color:#64748b;">{{ item.invoice.date|date:"d M Y" }}</td>
+                            <td style="padding:12px 16px; color:#64748b;">{{ item.invoice.vehicle.vehicle_number }}</td>
+                            <td style="padding:12px 16px; text-align:right; font-weight:600; color:#1e293b;">₹{{ item.invoice.total|floatformat:2 }}</td>
+                            <td style="padding:12px 16px; text-align:right; color:#16a34a; font-weight:600;">₹{{ item.invoice.amount_collected|floatformat:2 }}</td>
+                            <td style="padding:12px 16px; text-align:right; font-weight:800; color:#dc2626;">₹{{ item.outstanding|floatformat:2 }}</td>
+                            <td style="padding:12px 16px; text-align:right;">
+                                <button onclick="openCollect('{{ item.invoice.id }}', '{{ item.invoice.invoice_number }}', '{{ item.outstanding }}')"
+                                    style="background:#000080; color:#fff; border:none; padding:6px 14px; border-radius:7px; font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap;">
+                                    <i class="ph ph-currency-inr"></i> Collect
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Total Outstanding Row -->
+        {% if customer_summary %}
+        <div style="display:flex; justify-content:flex-end; align-items:center; gap:12px; padding:14px 20px; border-top:2px solid #e2e8f0; margin-top:4px;">
+            <span style="font-size:.95rem; font-weight:600; color:#64748b;">Total Outstanding</span>
+            <span style="font-size:1.2rem; font-weight:900; color:#dc2626;">₹{{ total_outstanding|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <div style="text-align:center; padding:80px 20px; color:#94a3b8;">
+        <i class="ph ph-check-circle" style="font-size:4rem; display:block; margin-bottom:16px; color:#22c55e;"></i>
+        <div style="font-size:1.2rem; font-weight:700; color:#16a34a;">All Clear!</div>
+        <div style="margin-top:6px; font-size:.9rem;">No outstanding balances found{% if search %} for "{{ search }}"{% endif %}.</div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Collect Payment Modal -->
+<div id="collectModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:#fff; border-radius:16px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="padding:20px 24px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+            <div>
+                <div style="font-weight:700; font-size:1rem; color:#1e293b;">Collect Payment</div>
+                <div id="modalInvoiceLabel" style="font-size:.82rem; color:#64748b; margin-top:2px;"></div>
+            </div>
+            <button onclick="closeCollect()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#94a3b8; line-height:1;">×</button>
+        </div>
+        <form id="collectForm" method="POST" action="" style="padding:24px;">
+            {% csrf_token %}
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:14px 16px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-size:.85rem; color:#64748b; font-weight:600;">Outstanding Balance</span>
+                <span id="modalOutstanding" style="font-size:1.4rem; font-weight:900; color:#dc2626;"></span>
+            </div>
+            <div style="margin-bottom:18px;">
+                <label style="font-size:.85rem; font-weight:600; color:#374151; display:block; margin-bottom:6px;">
+                    Amount to Collect (₹) <span style="color:red;">*</span>
+                </label>
+                <input type="number" name="amount" id="collectAmount" required min="0.01" step="0.01"
+                    style="width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem; font-weight:700; outline:none;">
+                <div style="font-size:.75rem; color:#94a3b8; margin-top:4px;">Enter partial or full outstanding amount</div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" onclick="closeCollect()"
+                    style="flex:1; padding:11px; border:1px solid #d1d5db; background:#f8fafc; border-radius:8px; font-weight:600; cursor:pointer; color:#64748b;">
+                    Cancel
+                </button>
+                <button type="submit"
+                    style="flex:2; padding:11px; background:#000080; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:.95rem;">
+                    <i class="ph-bold ph-check"></i> Confirm Collection
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openCollect(invoiceId, invoiceNumber, outstanding) {
+    document.getElementById('collectModal').style.display = 'flex';
+    document.getElementById('modalInvoiceLabel').textContent = 'Invoice #' + invoiceNumber;
+    document.getElementById('modalOutstanding').textContent = '₹' + parseFloat(outstanding).toFixed(2);
+    document.getElementById('collectAmount').value = parseFloat(outstanding).toFixed(2);
+    document.getElementById('collectAmount').max = parseFloat(outstanding).toFixed(2);
+    document.getElementById('collectForm').action = '/outstanding/collect/' + invoiceId + '/';
+}
+function closeCollect() {
+    document.getElementById('collectModal').style.display = 'none';
+}
+// Close on backdrop click
+document.getElementById('collectModal').addEventListener('click', function(e) {
+    if (e.target === this) closeCollect();
+});
+</script>
+{% endblock %}

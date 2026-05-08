@@ -57,3 +57,29 @@ class BranchVehiclePrice(BaseModel):
 
     def __str__(self):
         return f"{self.branch} - {self.vehicle_type} - {self.price}"
+
+class ServiceVehicleTypePrice(BaseModel):
+    """Price for a specific individual Service x VehicleType per branch (per-service pricing)."""
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE,
+        related_name='service_vehicle_prices'
+    )
+    service = models.ForeignKey(
+        Service,
+        on_delete=models.CASCADE,
+        related_name='vehicle_type_prices'
+    )
+    vehicle_type = models.ForeignKey(
+        VehicleType,
+        on_delete=models.CASCADE,
+        related_name='service_prices'
+    )
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('branch', 'service', 'vehicle_type')
+
+    def __str__(self):
+        return f"{self.branch} | {self.service.name} | {self.vehicle_type} - Rs.{self.price}"

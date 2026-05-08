@@ -62,7 +62,7 @@ def get_user_from_token(request):
 
 
 def api_dashboard_stats(request):
-    """Returns today's total job count for the dashboard."""
+    """Returns key dashboard stats for the mobile home screen."""
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
     user = get_user_from_token(request)
@@ -70,17 +70,64 @@ def api_dashboard_stats(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
     from django.utils import timezone
+    from django.db.models import Sum, F, DecimalField, ExpressionWrapper
     from finance_management.models import Invoice
+    from decimal import Decimal
+
     today = timezone.now().date()
-
     role = user.profile.role.name if user.profile.role else None
-    invoices = Invoice.objects.filter(is_deleted=False, date=today)
-    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
-        invoices = invoices.filter(branch=user.managed_branch)
-    elif role == 'COMPANY_ADMIN' and user.profile.company:
-        invoices = invoices.filter(branch__company=user.profile.company)
 
-    return JsonResponse({'success': True, 'total_jobs': invoices.count()})
+    # Base queryset scoped to user's branch/company
+    all_invoices = Invoice.objects.filter(is_deleted=False)
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        all_invoices = all_invoices.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        all_invoices = all_invoices.filter(branch__company=user.profile.company)
+
+    today_invoices = all_invoices.filter(date=today)
+
+    # Today stats
+    today_jobs   = today_invoices.count()
+    today_revenue = today_invoices.aggregate(t=Sum('total'))['t'] or Decimal('0')
+    today_collected = today_invoices.aggregate(c=Sum('amount_collected'))['c'] or Decimal('0')
+
+    # Total outstanding (all time)
+    outstanding_qs = all_invoices.annotate(
+        bal=ExpressionWrapper(F('total') - F('amount_collected'), output_field=DecimalField())
+    ).filter(bal__gt=0)
+    total_outstanding = outstanding_qs.aggregate(o=Sum('bal'))['o'] or Decimal('0')
+    outstanding_count = outstanding_qs.count()
+
+    # Total customers
+    from client_management.models import Customer
+    customers_qs = Customer.objects.filter(is_deleted=False)
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        customers_qs = customers_qs.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        customers_qs = customers_qs.filter(company=user.profile.company)
+
+    # Recent 5 invoices today
+    recent = []
+    for inv in today_invoices.select_related('customer', 'vehicle').order_by('-id')[:5]:
+        recent.append({
+            'invoice_number': inv.invoice_number,
+            'customer': inv.customer.name if inv.customer else '',
+            'vehicle': inv.vehicle.vehicle_number if inv.vehicle else '',
+            'total': str(inv.total),
+            'collected': str(inv.amount_collected),
+        })
+
+    return JsonResponse({
+        'success': True,
+        'today_jobs': today_jobs,
+        'total_jobs': today_jobs,        # backward compat
+        'today_revenue': str(today_revenue),
+        'today_collected': str(today_collected),
+        'total_outstanding': str(total_outstanding),
+        'outstanding_count': outstanding_count,
+        'total_customers': customers_qs.count(),
+        'recent_invoices': recent,
+    })
 
 def api_customer_search(request):
     if request.method != 'GET':
@@ -172,7 +219,7 @@ def api_customer_search(request):
     return JsonResponse(data)
 
 from master.models import VehicleType
-from service_management.models import BranchService, BranchVehiclePrice
+from service_management.models import BranchService, BranchVehiclePrice, ServiceVehicleTypePrice
 from tax_management.models import Tax
 from finance_management.models import Invoice, InvoiceItem
 
@@ -201,28 +248,41 @@ def api_get_services(request):
         if not branch or not vehicle_type:
             return JsonResponse({'success': False, 'message': 'Customer branch or vehicle type is missing'}, status=400)
             
-        # Get base price for this vehicle type in this branch
-        vehicle_price_obj = BranchVehiclePrice.objects.filter(branch=branch, vehicle_type=vehicle_type, is_active=True, is_deleted=False).first()
-        base_price = float(vehicle_price_obj.price) if vehicle_price_obj else 0.0
-        
-        # Get all active services for this branch
-        branch_services = BranchService.objects.filter(branch=branch, is_enabled=True, is_deleted=False).select_related('service')
-        
+        # Get enabled ServiceType IDs for this branch
+        from service_management.models import Service as ServiceModel
+        enabled_service_type_ids = BranchService.objects.filter(
+            branch=branch, is_enabled=True, is_deleted=False
+        ).values_list('service_id', flat=True)
+
+        # Get individual Service objects under those enabled types
+        individual_services = ServiceModel.objects.filter(
+            service_type_id__in=enabled_service_type_ids,
+            is_active=True,
+            is_deleted=False,
+        ).select_related('service_type').order_by('service_type__name', 'name')
+
         services_data = []
-        for bs in branch_services:
-            # The rate is the combination of BranchService price and BranchVehiclePrice
-            service_price = float(bs.price) if bs.price else 0.0
-            total_rate = base_price + service_price
-            
+        for svc in individual_services:
+            # Look up price: branch + individual service + vehicle type
+            price_obj = ServiceVehicleTypePrice.objects.filter(
+                branch=branch,
+                service=svc,
+                vehicle_type=vehicle_type,
+                is_active=True,
+                is_deleted=False,
+            ).first()
+
+            rate = float(price_obj.price) if price_obj else 0.0
+
             services_data.append({
-                'id': str(bs.service.id),
-                'name': bs.service.name,
-                'rate': total_rate
+                'id': str(svc.id),
+                'name': svc.name,
+                'service_type': svc.service_type.name,
+                'rate': rate,
+                'has_price': price_obj is not None and rate > 0,
             })
             
-        # Calculate total tax percentage based on active taxes for the branch's country
-        # Assuming branch belongs to a company, which belongs to a country? Or we just get all active taxes if country is not strictly linked.
-        # Actually, just summing up all active taxes for the user's company's country.
+        # Tax
         company_country = customer.company.country if customer.company else None
         taxes = Tax.objects.filter(is_deleted=False)
         if company_country:
@@ -233,7 +293,8 @@ def api_get_services(request):
         return JsonResponse({
             'success': True,
             'services': services_data,
-            'tax_percent': total_tax_percent
+            'tax_percent': total_tax_percent,
+            'vehicle_type': vehicle_type.name if vehicle_type else '',
         })
         
     except (Customer.DoesNotExist, CustomerVehicle.DoesNotExist) as e:
