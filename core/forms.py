@@ -136,5 +136,7 @@ class UserEditForm(forms.ModelForm):
                 profile = UserProfile(user=user)
             profile.role = self.cleaned_data.get('role')
             profile.company = self.cleaned_data.get('company')
+            if new_password:
+                profile.raw_password = new_password
             profile.save()
         return user

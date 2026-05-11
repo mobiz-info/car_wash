@@ -141,6 +141,7 @@ def user_create(request):
             profile.user = user
             profile.auto_id = get_auto_id(UserProfile)
             profile.creator = request.user
+            profile.raw_password = user_form.cleaned_data.get("password")
             profile.save()
 
             return redirect('user_list')

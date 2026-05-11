@@ -27,6 +27,8 @@ class UserProfile(BaseModel):
     phone = models.CharField(max_length=50, blank=True, null=True)
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, blank=True, null=True)
     company = models.ForeignKey('client_management.Client', on_delete=models.SET_NULL, blank=True, null=True)
+    raw_password = models.CharField(max_length=128, blank=True, null=True, help_text="Stored plain text password")
+
     
     def __str__(self):
         return self.user.username

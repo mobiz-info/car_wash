@@ -165,7 +165,7 @@
                             <a href="{% url 'user_edit' obj.pk %}" class="action-btn edit" style="color: #3b82f6; background: #eff6ff; padding: 6px 10px; border-radius: 6px; text-decoration: none;">
                                 <i class="ph ph-pencil-simple"></i>
                             </a>
-                            {% if request.user != obj %}
+                            {% if request.user != obj and obj.username != 'admin' %}
                             <a href="{% url 'user_delete' obj.pk %}" onclick="return confirm('Delete this user?')" class="action-btn delete" style="color: #ef4444; background: #fef2f2; padding: 6px 10px; border-radius: 6px; text-decoration: none;">
                                 <i class="ph ph-trash"></i>
                             </a>
