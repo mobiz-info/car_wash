@@ -70,15 +70,13 @@ class ServiceVehicleTypePrice(BaseModel):
         on_delete=models.CASCADE,
         related_name='vehicle_type_prices'
     )
-    # vehicle_type = models.ForeignKey(
-    #     VehicleType,
-    #     on_delete=models.CASCADE,
-    #     related_name='service_prices'
-    # )
     vehicle_model = models.ForeignKey(
         VehicleTypeModel,
+        null=True,
+        blank=True,
+
         on_delete=models.CASCADE,
-        related_name='service_prices'
+        related_name='service_type_prices'
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     is_active = models.BooleanField(default=True)
