@@ -5,8 +5,8 @@ from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import authenticate, login
-from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
+from decimal import Decimal
 
 from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice
 from master.models import VehicleType, VehicleTypeModel
@@ -406,7 +406,7 @@ def service_vehicle_price_manage(request, branch_id):
 
                 raw = request.POST.get(field_name, '').strip()
 
-                price_value = float(raw) if raw else 0
+                price_value = Decimal(raw) if raw else Decimal('0.00')
 
                 obj, created = ServiceVehicleTypePrice.objects.get_or_create(
                     branch=branch,
@@ -422,13 +422,15 @@ def service_vehicle_price_manage(request, branch_id):
 
                 if not created:
                     obj.price = price_value
+                    obj.is_active = True
                     obj.save()
 
         messages.success(request, "Pricing updated successfully.")
+        return redirect('service_vehicle_price_manage', branch_id=branch_id)
 
-        return redirect(
-            f"{reverse('service_vehicle_price_manage', kwargs={'branch_id': branch.id})}?vehicle_type={selected_vehicle_type.id}"
-        )
+        # return redirect(
+        #     f"{reverse('service_vehicle_price_manage', kwargs={'branch_id': branch.id})}?vehicle_type={selected_vehicle_type.id}"
+        # )
 
     return render(request, 'service/service_vehicle_price.html', {
         'branch': branch,
