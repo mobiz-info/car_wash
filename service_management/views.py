@@ -174,7 +174,7 @@ def company_service_manage(request):
         messages.error(request, "No company assigned.")
         return redirect('dashboard')
 
-    all_services = ServiceType.objects.filter(is_deleted=False).order_by('name')
+    all_services = Service.objects.filter(is_deleted=False).order_by('name')
     existing_ids = set(
         CompanyService.objects.filter(company=company, is_enabled=True)
         .values_list('service_id', flat=True)
@@ -219,7 +219,7 @@ def branch_service_manage(request, branch_id):
         company=branch.company, is_enabled=True
     ).values_list('service_id', flat=True)
 
-    services = ServiceType.objects.filter(
+    services = Service.objects.filter(
         id__in=company_enabled_ids, is_deleted=False
     ).order_by('name')
 
@@ -423,14 +423,14 @@ def service_vehicle_price_manage(request, branch_id):
             is_deleted=False
         ).order_by('name')
 
-    enabled_service_type_ids = BranchService.objects.filter(
+    enabled_service_ids = BranchService.objects.filter(
         branch=branch,
         is_enabled=True,
         is_deleted=False
     ).values_list('service_id', flat=True)
 
     services = Service.objects.filter(
-        service_type_id__in=enabled_service_type_ids,
+        id__in=enabled_service_ids,
         is_active=True,
         is_deleted=False
     ).select_related('service_type').order_by(
