@@ -14,12 +14,12 @@ class ServiceTypeForm(forms.ModelForm):
 class ServiceForm(forms.ModelForm):
     class Meta:
         model = Service
-        fields = ['service_type', 'name', 'description',  'duration', 'is_active']
+        fields = ['service_type', 'name', 'description','is_active']
         widgets = {
             'service_type': Select(attrs={'class': 'form-control'}),
             'name': TextInput(attrs={'class': 'form-control', 'placeholder': 'Service Name (e.g. Foam Wash)'}),
             'description': Textarea(attrs={'class': 'form-control', 'placeholder': 'Operation details...', 'rows': 3}),
-            'duration': NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutes'}),
+            # 'duration': NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutes'}),
             'is_active': CheckboxInput(attrs={'class': 'form-check-input'})
         }
     

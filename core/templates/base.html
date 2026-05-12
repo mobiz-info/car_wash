@@ -479,12 +479,12 @@
 
             <div class="nav-section-title">MAIN</div>
 
-            <a href="#" class="nav-item">
+            <!-- <a href="#" class="nav-item">
                 <div class="nav-item-left">
                     <i class="ph ph-user"></i>
                     Profile
                 </div>
-            </a>
+            </a> -->
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
@@ -542,7 +542,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'customer_type_list' %}">Customer Type</a>
                 <a href="{% url 'customer_list' %}">Customers</a>
-                <a href="#">Memberships</a>
+                <!-- <a href="#">Memberships</a> -->
             </div>
 
             {% if request.user.profile.company.scheme_types.exists %}
@@ -888,7 +888,7 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'tax_list' %}">Taxes</a>
-                <a href="#">Tariff</a>
+                <!-- <a href="#">Tariff</a> -->
                 <a href="{% url 'log_list' %}">Logs</a>
             </div>
             

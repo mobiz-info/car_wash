@@ -16,7 +16,7 @@ class Service(BaseModel):
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True, null=True)
 
-    duration = models.IntegerField(help_text="Minutes")
+    # duration = models.IntegerField(help_text="Minutes")
 
     is_active = models.BooleanField(default=True)
 

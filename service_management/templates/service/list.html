@@ -156,7 +156,7 @@
                     <th style="width: 80px;">#</th>
                     <th>Service Name</th>
                     <th>Type</th>
-                    <th>Duration</th>
+                    <!-- <th>Duration</th> -->
                     <th>Status</th>
                     <th style="width: 120px; text-align: right;">Action</th>
                 </tr>
@@ -176,9 +176,9 @@
                         </div>
                     </td>
                     <td><span style="color: #475569; font-weight: 500;">{{ obj.service_type.name }}</span></td>
-                    <td>
+                    <!-- <td>
                         <div style="color: #64748b; font-size: 0.8rem;"><i class="ph ph-clock"></i> {{ obj.duration }} mins</div>
-                    </td>
+                    </td> -->
                     <td>
                         {% if obj.is_active %}
                             <span class="status-badge status-active">Active</span>
