@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from decimal import Decimal
 
-from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice
+from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice, CompanyService
 from master.models import VehicleType, VehicleTypeModel
 from client_management.models import Branch
 from .forms import ServiceTypeForm, ServiceForm
@@ -147,55 +147,107 @@ def service_delete(request, id):
 
 @login_required
 def branch_service_list(request):
-    branch = getattr(request.user, 'managed_branch', None)
+    """List view — COMPANY_ADMIN sees company-level services; BRANCH_ADMIN sees their branch."""
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
 
-    if not branch:
-        messages.error(request, "No branch assigned")
-        return redirect('dashboard')
-
-    services = BranchService.objects.filter(
-        branch=branch,
-        is_enabled=True
-    ).select_related('service')
-
-    data = [{
-        'branch': branch,
-        'services': services
-    }]
+    if role_name == 'COMPANY_ADMIN':
+        # Redirect directly to company-level service management
+        return redirect('company_service_manage')
+    else:
+        # BRANCH_ADMIN: show their branch's enabled services
+        branch = getattr(request.user, 'managed_branch', None)
+        if not branch:
+            messages.error(request, "No branch assigned.")
+            return redirect('dashboard')
+        services = BranchService.objects.filter(branch=branch, is_enabled=True).select_related('service')
+        data = [{'branch': branch, 'services': services}]
 
     return render(request, 'branch/branch_service_list.html', {'data': data})
+
+
+@login_required
+def company_service_manage(request):
+    """COMPANY_ADMIN selects which services are available across their company."""
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    if not company:
+        messages.error(request, "No company assigned.")
+        return redirect('dashboard')
+
+    all_services = ServiceType.objects.filter(is_deleted=False).order_by('name')
+    existing_ids = set(
+        CompanyService.objects.filter(company=company, is_enabled=True)
+        .values_list('service_id', flat=True)
+    )
+
+    if request.method == 'POST':
+        selected = request.POST.getlist('services')
+        # Disable all, then re-enable selected
+        CompanyService.objects.filter(company=company).update(is_enabled=False)
+        for service in all_services:
+            is_checked = str(service.id) in selected
+            obj, created = CompanyService.objects.get_or_create(
+                company=company,
+                service=service,
+                defaults={
+                    'auto_id': get_auto_id(CompanyService),
+                    'creator': request.user,
+                    'is_enabled': is_checked,
+                }
+            )
+            if not created:
+                obj.is_enabled = is_checked
+                obj.save()
+        messages.success(request, "Company services updated successfully.")
+        return redirect('company_service_manage')
+
+    return render(request, 'branch/company_service_manage.html', {
+        'company': company,
+        'services': all_services,
+        'existing_ids': existing_ids,
+        'title': 'Manage Company Services',
+    })
     
 
 @login_required
 def branch_service_manage(request, branch_id):
+    """BRANCH_ADMIN enables services — only from company-allowed services."""
     branch = get_object_or_404(Branch, id=branch_id)
 
-    services = ServiceType.objects.filter(is_deleted=False)
+    # Only show services the COMPANY has enabled for this branch's company
+    company_enabled_ids = CompanyService.objects.filter(
+        company=branch.company, is_enabled=True
+    ).values_list('service_id', flat=True)
+
+    services = ServiceType.objects.filter(
+        id__in=company_enabled_ids, is_deleted=False
+    ).order_by('name')
 
     existing = BranchService.objects.filter(branch=branch, is_enabled=True)
-    existing_service_ids = existing.values_list('service_id', flat=True)
+    existing_service_ids = set(existing.values_list('service_id', flat=True))
 
     if request.method == 'POST':
         selected_services = request.POST.getlist('services')
-
-        # Disable all first
-        BranchService.objects.filter(branch=branch).update(is_enabled=False)
+        # Only allow selecting from company-enabled services
+        BranchService.objects.filter(branch=branch, service_id__in=company_enabled_ids).update(is_enabled=False)
 
         for service in services:
             is_checked = str(service.id) in selected_services
-
             obj, created = BranchService.objects.get_or_create(
-                auto_id = get_auto_id(BranchService),
-                creator = request.user,
                 branch=branch,
-                service=service
+                service=service,
+                defaults={
+                    'auto_id': get_auto_id(BranchService),
+                    'creator': request.user,
+                    'is_enabled': is_checked,
+                }
             )
+            if not created:
+                obj.is_enabled = is_checked
+                obj.save()
 
-            
-            obj.is_enabled = is_checked
-            obj.save()
-
-        return redirect('branch_service_list')  # better redirect
+        messages.success(request, "Branch services updated.")
+        return redirect('branch_service_list')
 
     context = {
         'branch': branch,
@@ -445,8 +497,23 @@ def service_vehicle_price_manage(request, branch_id):
 @login_required
 def service_vehicle_price_redirect(request):
     """Redirect to the service pricing page for the current user's branch."""
-    branch = getattr(request.user, 'managed_branch', None)
-    if not branch:
-        messages.error(request, "No branch assigned.")
-        return redirect('dashboard')
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    if role_name == 'COMPANY_ADMIN':
+        # For COMPANY_ADMIN: redirect to first branch of their company
+        company = getattr(request.user.profile, 'company', None)
+        if not company:
+            messages.error(request, "No company assigned.")
+            return redirect('dashboard')
+        branch = Branch.objects.filter(company=company, is_deleted=False).first()
+        if not branch:
+            messages.error(request, "No branches found for your company.")
+            return redirect('dashboard')
+    else:
+        branch = getattr(request.user, 'managed_branch', None)
+        if not branch:
+            messages.error(request, "No branch assigned.")
+            return redirect('dashboard')
+
     return redirect('service_vehicle_price_manage', branch_id=branch.id)

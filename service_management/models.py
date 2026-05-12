@@ -33,6 +33,19 @@ class BranchService(BaseModel):
 
     def __str__(self):
         return f"{self.branch} - {self.service}"
+
+
+class CompanyService(BaseModel):
+    """Services enabled at the company level. Branches can only enable a subset of these."""
+    company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, related_name='company_services')
+    service = models.ForeignKey(ServiceType, on_delete=models.CASCADE, related_name='company_service_entries')
+    is_enabled = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('company', 'service')
+
+    def __str__(self):
+        return f"{self.company} - {self.service}"
     
     
 class BranchVehiclePrice(BaseModel):
