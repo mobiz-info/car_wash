@@ -62,7 +62,7 @@
         {{ title }}
     </div>
 
-    <!-- General Error Messages -->
+    {% comment %} <!-- General Error Messages -->
     {% if messages %}
         {% for message in messages %}
         <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; display:flex; align-items:center; gap:8px;">
@@ -74,7 +74,7 @@
         <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca;">
             {{ form.non_field_errors }}
         </div>
-    {% endif %}
+    {% endif %} {% endcomment %}
 
     <form method="POST" enctype="multipart/form-data">
         {% csrf_token %}

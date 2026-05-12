@@ -52,7 +52,7 @@
 </style>
 
 <div style="max-width:900px; margin: 0 auto;">
-    {% if messages %}
+    {% comment %} {% if messages %}
     <div style="margin-bottom:20px;">
         {% for message in messages %}
         <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
@@ -63,7 +63,7 @@
         </div>
         {% endfor %}
     </div>
-    {% endif %}
+    {% endif %} {% endcomment %}
 
     <form method="POST" id="scheme-form" novalidate>
         {% csrf_token %}

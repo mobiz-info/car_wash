@@ -12,7 +12,7 @@
     </div>
 
     <!-- Messages -->
-    {% if messages %}
+    {% comment %} {% if messages %}
     <div style="padding:0 24px 16px;">
         {% for message in messages %}
         <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
@@ -23,7 +23,7 @@
         </div>
         {% endfor %}
     </div>
-    {% endif %}
+    {% endif %} {% endcomment %}
 
 
     <!-- Search -->

@@ -78,7 +78,7 @@
     </div>
 
     <!-- Messages -->
-    {% if messages %}
+    {% comment %} {% if messages %}
     <div style="padding:16px 24px;">
 
         {% for message in messages %}
@@ -124,7 +124,7 @@
         {% endfor %}
 
     </div>
-    {% endif %}
+    {% endif %} {% endcomment %}
 
     <!-- Table -->
     <div style="overflow-x:auto;">

@@ -7,7 +7,7 @@
 <div style="max-width:900px; margin:0 auto; padding-bottom:40px;">
 
     <!-- Messages -->
-    {% if messages %}
+    {% comment %} {% if messages %}
     <div style="margin-bottom:16px;">
         {% for message in messages %}
         <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
@@ -18,7 +18,7 @@
         </div>
         {% endfor %}
     </div>
-    {% endif %}
+    {% endif %} {% endcomment %}
 
     <!-- Header card -->
     <div style="background:#fff; border-radius:16px; border:1px solid #e2e8f0; overflow:hidden; margin-bottom:20px; box-shadow:0 1px 4px rgba(0,0,0,.05);">
