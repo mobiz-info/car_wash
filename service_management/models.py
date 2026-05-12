@@ -1,6 +1,6 @@
 from django.db import models
 from core.models import BaseModel
-from master.models import VehicleType
+from master.models import VehicleType,VehicleTypeModel
 from client_management.models import Branch
 
 
@@ -70,8 +70,13 @@ class ServiceVehicleTypePrice(BaseModel):
         on_delete=models.CASCADE,
         related_name='vehicle_type_prices'
     )
-    vehicle_type = models.ForeignKey(
-        VehicleType,
+    # vehicle_type = models.ForeignKey(
+    #     VehicleType,
+    #     on_delete=models.CASCADE,
+    #     related_name='service_prices'
+    # )
+    vehicle_model = models.ForeignKey(
+        VehicleTypeModel,
         on_delete=models.CASCADE,
         related_name='service_prices'
     )
@@ -79,7 +84,7 @@ class ServiceVehicleTypePrice(BaseModel):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = ('branch', 'service', 'vehicle_type')
+        unique_together = ('branch', 'service', 'vehicle_model')
 
     def __str__(self):
-        return f"{self.branch} | {self.service.name} | {self.vehicle_type} - Rs.{self.price}"
+        return f"{self.branch} | {self.service.name} | {self.vehicle_model} - Rs.{self.price}"
