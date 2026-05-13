@@ -598,6 +598,17 @@
                 <!-- <a href="#">Revenue</a> -->
             </div>
 
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-gear"></i>
+                    Settings
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'company_tax_enable' %}">Tax Enable</a>
+            </div>
+
             {% elif request.user.profile.role.name == 'BRANCH_ADMIN' %}
 
             <a href="{% url 'dashboard' %}" class="nav-item">

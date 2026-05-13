@@ -204,6 +204,15 @@ def branch_create(request):
             branch = form.save(commit=False)
             branch.auto_id = get_auto_id(Branch)
             branch.creator = request.user
+
+            # Auto-assign invoice prefix (A, B, C...) based on branch count for this company
+            try:
+                company = request.user.profile.company
+                existing_count = Branch.objects.filter(company=company, is_deleted=False).count()
+                branch.invoice_prefix = chr(65 + (existing_count % 26))  # A=65
+            except Exception:
+                pass
+
             branch.save()
             form.save_m2m()
             messages.success(request, "Branch created successfully")

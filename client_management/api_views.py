@@ -4,7 +4,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from core.models import APIToken
+from core.functions import get_auto_id
 from .models import Customer, CustomerVehicle, Scheme
+from service_management.models import Service
 
 @csrf_exempt
 def api_login(request):
@@ -106,9 +108,9 @@ def api_dashboard_stats(request):
     elif role == 'COMPANY_ADMIN' and user.profile.company:
         customers_qs = customers_qs.filter(company=user.profile.company)
 
-    # Recent 5 invoices today
+    # Recent 3 invoices today
     recent = []
-    for inv in today_invoices.select_related('customer', 'vehicle').order_by('-id')[:5]:
+    for inv in today_invoices.select_related('customer', 'vehicle').order_by('-id')[:3]:
         recent.append({
             'invoice_number': inv.invoice_number,
             'customer': inv.customer.name if inv.customer else '',
@@ -282,18 +284,25 @@ def api_get_services(request):
                 'has_price': price_obj is not None and rate > 0,
             })
             
-        # Tax
-        company_country = customer.company.country if customer.company else None
-        taxes = Tax.objects.filter(is_deleted=False)
-        if company_country:
-            taxes = taxes.filter(country=company_country)
-            
-        total_tax_percent = sum(float(t.percent) for t in taxes)
-        
+        # Tax - get company-enabled taxes only
+        from tax_management.models import CompanyTax
+        company = customer.company
+        taxes_data = []
+        if company:
+            enabled_company_taxes = CompanyTax.objects.filter(
+                company=company, is_enabled=True
+            ).select_related('tax')
+            for ct in enabled_company_taxes:
+                taxes_data.append({
+                    'id': str(ct.tax.id),
+                    'name': ct.tax.name,
+                    'percent': float(ct.tax.percent),
+                })
+
         return JsonResponse({
             'success': True,
             'services': services_data,
-            'tax_percent': total_tax_percent,
+            'taxes': taxes_data,
             'vehicle_type': vehicle_type.name if vehicle_type else '',
         })
         
@@ -323,10 +332,46 @@ def api_create_invoice(request):
         customer = Customer.objects.get(id=customer_id, is_deleted=False)
         vehicle = CustomerVehicle.objects.get(id=vehicle_id, customer=customer, is_deleted=False)
         
-        # Generate Invoice Number
-        from core.functions import get_auto_id
-        count = Invoice.objects.filter(branch__company=customer.company).count() + 1
-        inv_number = f"INV-{count:05d}"
+        # Generate invoice number using the branch-specific prefix and sequence.
+        branch = customer.branch
+        prefix = (branch.invoice_prefix or '').strip().upper()
+
+        # Auto-assign prefix for older branches that do not have one yet.
+        if not prefix:
+            company_branches = list(
+                branch.company.branches.filter(is_deleted=False)
+                .order_by('date_added', 'auto_id')
+                .values_list('id', flat=True)
+            )
+            try:
+                branch_index = company_branches.index(branch.id)
+            except ValueError:
+                branch_index = 0
+            prefix = chr(65 + (branch_index % 26))  # A, B, C...
+            branch.invoice_prefix = prefix
+            branch.save(update_fields=['invoice_prefix'])
+
+        prefix_base = f"INV-{prefix}-"
+        last_invoice = (
+            Invoice.objects.filter(branch=branch, invoice_number__startswith=prefix_base)
+            .order_by('-auto_id')
+            .first()
+        )
+
+        next_sequence = 1
+        if last_invoice:
+            try:
+                next_sequence = int(last_invoice.invoice_number.rsplit('-', 1)[-1]) + 1
+            except (TypeError, ValueError):
+                next_sequence = (
+                    Invoice.objects.filter(
+                        branch=branch,
+                        invoice_number__startswith=prefix_base,
+                    ).count()
+                    + 1
+                )
+
+        inv_number = f"{prefix_base}{next_sequence}"
         
         invoice = Invoice.objects.create(
             invoice_number=inv_number,
@@ -592,7 +637,7 @@ def api_add_customer(request):
 
 @csrf_exempt
 def api_available_schemes(request):
-    """Return available schemes for a given customer + vehicle for invoice creation."""
+    """Return available schemes for a customer + vehicle + service for invoice creation."""
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
 
@@ -602,8 +647,9 @@ def api_available_schemes(request):
 
     customer_id = request.GET.get('customer_id')
     vehicle_id = request.GET.get('vehicle_id')
-    if not customer_id or not vehicle_id:
-        return JsonResponse({'success': False, 'message': 'customer_id and vehicle_id required'}, status=400)
+    service_id = request.GET.get('service_id')
+    if not customer_id or not vehicle_id or not service_id:
+        return JsonResponse({'success': False, 'message': 'customer_id, vehicle_id and service_id required'}, status=400)
 
     try:
         company = user.profile.company
@@ -611,21 +657,28 @@ def api_available_schemes(request):
         vehicle = CustomerVehicle.objects.select_related(
             'vehicle_type_model', 'vehicle_type_model__vehicle_type'
         ).get(id=vehicle_id, customer=customer, is_deleted=False)
+        service = Service.objects.get(id=service_id, is_deleted=False)
 
         from finance_management.models import Invoice
         today = timezone.now().date()
 
-        # Eligible schemes: active, matches customer type + vehicle type
+        # Eligible schemes: active, matches customer type + vehicle type + service
         schemes_qs = Scheme.objects.filter(
             company=company,
             start_date__lte=today,
             end_date__gte=today,
+            services=service,
             is_deleted=False,
         )
         if customer.customer_type:
             schemes_qs = schemes_qs.filter(customer_types=customer.customer_type)
         if vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type:
             schemes_qs = schemes_qs.filter(vehicle_types=vehicle.vehicle_type_model.vehicle_type)
+        
+        # Filter by selected service
+        service_id = request.GET.get('service_id')
+        if service_id:
+            schemes_qs = schemes_qs.filter(services__id=service_id)
 
         visits_count = Invoice.objects.filter(vehicle=vehicle, is_deleted=False).count()
 
@@ -671,6 +724,8 @@ def api_available_schemes(request):
         return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
     except CustomerVehicle.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Vehicle not found'}, status=404)
+    except Service.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Service not found'}, status=404)
     except Exception as e:
         import traceback
         traceback.print_exc()

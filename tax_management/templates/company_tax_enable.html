@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Car Wash Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Settings{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    .tax-card {
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
+    .tax-card-header {
+        padding: 20px 28px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+    }
+    .tax-card-header h5 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .badge-count {
+        background: #3b82f6;
+        color: white;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .tax-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .tax-table th {
+        padding: 12px 24px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        text-align: left;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .tax-table td {
+        padding: 14px 24px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+        color: #1e293b;
+    }
+    .tax-table tr:last-child td { border-bottom: none; }
+    .tax-table tr:hover { background: #f8fafc; }
+
+    /* Toggle switch */
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+    }
+    .toggle-switch input { display: none; }
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: #cbd5e1;
+        border-radius: 24px;
+        transition: 0.3s;
+    }
+    .toggle-slider:before {
+        content: "";
+        position: absolute;
+        width: 18px; height: 18px;
+        left: 3px; bottom: 3px;
+        background: white;
+        border-radius: 50%;
+        transition: 0.3s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: #3b82f6; }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+    .btn-save {
+        padding: 10px 26px;
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: 0.2s;
+    }
+    .btn-save:hover { opacity: 0.9; }
+    .select-all-bar {
+        padding: 10px 24px;
+        background: #eff6ff;
+        border-bottom: 1px solid #dbeafe;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.85rem;
+        color: #3b82f6;
+        font-weight: 500;
+        cursor: pointer;
+        user-select: none;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 50px;
+        color: #94a3b8;
+    }
+</style>
+
+<form method="POST">
+    {% csrf_token %}
+    <div class="tax-card">
+        <div class="tax-card-header">
+            <h5>
+                <i class="ph ph-receipt"></i>
+                All Taxes
+                <span class="badge-count" id="selectedCount">0 selected</span>
+            </h5>
+        </div>
+
+        <!-- Select All -->
+        <div class="select-all-bar" onclick="toggleAll()">
+            <input type="checkbox" id="selectAllCheck" style="width:16px;height:16px;cursor:pointer;" onclick="event.stopPropagation(); toggleAll()">
+            <label for="selectAllCheck" style="cursor:pointer; margin:0;">Select / Deselect All</label>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="tax-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">#</th>
+                        <th>Tax Name</th>
+                        <th>Percentage</th>
+                        <th style="width:120px; text-align:center;">Enable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tax in available_taxes %}
+                    <tr>
+                        <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                        <td>
+                            <span style="font-weight:600; color:#1e293b;">{{ tax.name }}</span>
+                        </td>
+                        <td>
+                            <span style="font-weight:600; color:#1e293b;">{{ tax.percent }}%</span>
+                        </td>
+                        <td style="text-align:center;">
+                            <label class="toggle-switch">
+                                <input type="checkbox"
+                                    name="taxes"
+                                    value="{{ tax.id }}"
+                                    class="tax-checkbox"
+                                    {% if tax.id|stringformat:"s" in enabled_tax_ids %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="empty-state">
+                            <i class="ph ph-warning" style="font-size:2rem;"></i>
+                            <p>No taxes found for your country. Contact Super Admin.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="padding:16px 24px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn-save">
+                <i class="ph ph-floppy-disk"></i> Save Changes
+            </button>
+        </div>
+    </div>
+</form>
+
+<script>
+    function updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('.tax-checkbox');
+        const checkedBoxes = document.querySelectorAll('.tax-checkbox:checked');
+        const countSpan = document.getElementById('selectedCount');
+        const selectAllCheck = document.getElementById('selectAllCheck');
+
+        countSpan.textContent = `${checkedBoxes.length} selected`;
+
+        if (checkboxes.length > 0) {
+            selectAllCheck.checked = (checkboxes.length === checkedBoxes.length);
+        }
+    }
+
+    function toggleAll() {
+        const selectAllCheck = document.getElementById('selectAllCheck');
+        const checkboxes = document.querySelectorAll('.tax-checkbox');
+        const isChecked = !selectAllCheck.checked; 
+        
+        selectAllCheck.checked = isChecked;
+        
+        checkboxes.forEach(cb => {
+            cb.checked = isChecked;
+        });
+        
+        updateSelectedCount();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const checkboxes = document.querySelectorAll('.tax-checkbox');
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', updateSelectedCount);
+        });
+        
+        // Initial count
+        updateSelectedCount();
+    });
+</script>
+{% endblock %}

@@ -6,4 +6,5 @@ urlpatterns = [
     path('tax/create/', views.tax_create, name='tax_create'),
     path('tax/edit/<uuid:id>/', views.tax_edit, name='tax_edit'),
     path('tax/delete/<uuid:id>/', views.tax_delete, name='tax_delete'),
+    path('company-tax/enable/', views.company_tax_enable, name='company_tax_enable'),
 ]

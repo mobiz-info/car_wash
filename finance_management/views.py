@@ -399,6 +399,13 @@ def api_outstanding_list(request):
     elif role == 'COMPANY_ADMIN' and user.profile.company:
         invoices = invoices.filter(branch__company=user.profile.company)
 
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    if from_date:
+        invoices = invoices.filter(date__gte=from_date)
+    if to_date:
+        invoices = invoices.filter(date__lte=to_date)
+
     results = []
     total_outstanding = Decimal('0.00')
     for inv in invoices:
@@ -466,6 +473,17 @@ def api_collect_payment(request):
         invoice.amount_collected += amount
         invoice.save()
 
+        receipt_auto_id = get_auto_id(Receipt)
+        receipt = Receipt.objects.create(
+            auto_id=receipt_auto_id,
+            creator=user,
+            receipt_number=f"RCPT-{str(receipt_auto_id).zfill(5)}",
+            invoice=invoice,
+            amount=amount,
+            payment_mode=data.get('payment_mode') or 'cash',
+            remarks=data.get('remarks') or 'Outstanding collection',
+        )
+
         remaining = invoice.total - invoice.amount_collected
         return JsonResponse({
             'success': True,
@@ -473,9 +491,85 @@ def api_collect_payment(request):
             'new_collected': str(invoice.amount_collected),
             'remaining_outstanding': str(remaining),
             'fully_settled': remaining == 0,
+            'receipt': {
+                'id': str(receipt.id),
+                'receipt_number': receipt.receipt_number,
+                'amount': str(receipt.amount),
+            },
         })
 
     except Invoice.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Invoice not found'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+def api_receipt_list(request):
+    """Mobile API: list receipts created from outstanding collections."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    receipts = Receipt.objects.filter(is_deleted=False).select_related(
+        'invoice',
+        'invoice__customer',
+        'invoice__vehicle',
+        'invoice__vehicle__vehicle_type_model',
+        'invoice__branch',
+    ).order_by('-created_at', '-auto_id')
+
+    role = user.profile.role.name if user.profile.role else None
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        receipts = receipts.filter(invoice__branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        receipts = receipts.filter(invoice__branch__company=user.profile.company)
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    if from_date:
+        receipts = receipts.filter(created_at__date__gte=from_date)
+    if to_date:
+        receipts = receipts.filter(created_at__date__lte=to_date)
+
+    results = []
+    total_collected = Decimal('0.00')
+    for receipt in receipts:
+        invoice = receipt.invoice
+        balance = invoice.total - invoice.amount_collected
+        total_collected += receipt.amount
+        results.append({
+            'id': str(receipt.id),
+            'receipt_number': receipt.receipt_number,
+            'date': receipt.created_at.date().isoformat(),
+            'time': receipt.created_at.strftime('%I:%M %p'),
+            'amount': str(receipt.amount),
+            'payment_mode': receipt.payment_mode,
+            'remarks': receipt.remarks or '',
+            'invoice': {
+                'id': str(invoice.id),
+                'invoice_number': invoice.invoice_number,
+                'date': str(invoice.date),
+                'total': str(invoice.total),
+                'amount_collected': str(invoice.amount_collected),
+                'balance': str(balance),
+            },
+            'customer': {
+                'name': invoice.customer.name,
+                'phone': invoice.customer.phone,
+            },
+            'vehicle': {
+                'number': invoice.vehicle.vehicle_number,
+                'model': invoice.vehicle.vehicle_type_model.name if invoice.vehicle.vehicle_type_model else '',
+            },
+            'branch': invoice.branch.name if invoice.branch else '',
+        })
+
+    return JsonResponse({
+        'success': True,
+        'receipts': results,
+        'total_collected': str(total_collected),
+        'count': len(results),
+    })

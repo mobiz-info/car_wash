@@ -20,3 +20,15 @@ class Tax(BaseModel):
     percent = models.DecimalField(max_digits=5, decimal_places=2)
     tax_type = models.CharField(max_length=10, choices=TAX_TYPE)
     mode = models.CharField(max_length=15, choices=MODE)
+
+class CompanyTax(BaseModel):
+    company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, related_name='company_taxes')
+    tax = models.ForeignKey(Tax, on_delete=models.CASCADE)
+    is_enabled = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('company', 'tax')
+        db_table = 'company_tax'
+
+    def __str__(self):
+        return f"{self.company.company_name} - {self.tax.name} ({'Enabled' if self.is_enabled else 'Disabled'})"

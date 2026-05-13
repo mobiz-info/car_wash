@@ -16,4 +16,5 @@ urlpatterns = [
     # Mobile APIs (stash)
     path('api/outstanding/list/', views.api_outstanding_list, name='api_outstanding_list'),
     path('api/outstanding/collect/', views.api_collect_payment, name='api_collect_payment'),
+    path('api/receipt/list/', views.api_receipt_list, name='api_receipt_list'),
 ]
