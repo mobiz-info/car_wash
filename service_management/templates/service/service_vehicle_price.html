@@ -182,7 +182,7 @@
 
                     <td>
 
-                        {% with key=service.id|stringformat:"s"|add:"__"|add:model.id|stringformat:"s" %}
+                        {% with key=service.id|concat:"__"|concat:model.id %}
 
                         <input
                             type="number"

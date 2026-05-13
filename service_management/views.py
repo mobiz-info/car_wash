@@ -478,11 +478,9 @@ def service_vehicle_price_manage(request, branch_id):
                     obj.save()
 
         messages.success(request, "Pricing updated successfully.")
+        if selected_vehicle_type:
+            return redirect(f"{reverse('service_vehicle_price_manage', kwargs={'branch_id': branch.id})}?vehicle_type={selected_vehicle_type.id}")
         return redirect('service_vehicle_price_manage', branch_id=branch_id)
-
-        # return redirect(
-        #     f"{reverse('service_vehicle_price_manage', kwargs={'branch_id': branch.id})}?vehicle_type={selected_vehicle_type.id}"
-        # )
 
     return render(request, 'service/service_vehicle_price.html', {
         'branch': branch,

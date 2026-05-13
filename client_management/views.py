@@ -490,7 +490,7 @@ def ajax_load_vehicle_models(request):
 import json
 from .models import Scheme, SchemeVoucher
 from .forms import SchemeForm
-from service_management.models import Service
+from service_management.models import Service, CompanyService
 from master.models import VehicleType as MasterVehicleType
 
 
@@ -573,7 +573,15 @@ def scheme_create(request):
         messages.error(request, "Not associated with any company.")
         return redirect('dashboard')
 
-    all_services = Service.objects.filter(is_deleted=False, is_active=True)
+    company_enabled_service_ids = CompanyService.objects.filter(
+        company=company, is_enabled=True
+    ).values_list('service_id', flat=True)
+    
+    all_services = Service.objects.filter(
+        id__in=company_enabled_service_ids, 
+        is_deleted=False, 
+        is_active=True
+    )
     all_customer_types = CustomerType.objects.filter(is_deleted=False)
     all_vehicle_types = MasterVehicleType.objects.filter(is_deleted=False, is_active=True)
 
@@ -669,7 +677,15 @@ def scheme_edit(request, id):
 
     instance = get_object_or_404(Scheme, id=id, company=company, is_deleted=False)
 
-    all_services = Service.objects.filter(is_deleted=False, is_active=True)
+    company_enabled_service_ids = CompanyService.objects.filter(
+        company=company, is_enabled=True
+    ).values_list('service_id', flat=True)
+    
+    all_services = Service.objects.filter(
+        id__in=company_enabled_service_ids, 
+        is_deleted=False, 
+        is_active=True
+    )
     all_customer_types = CustomerType.objects.filter(is_deleted=False)
     all_vehicle_types = MasterVehicleType.objects.filter(is_deleted=False, is_active=True)
 

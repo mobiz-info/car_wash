@@ -95,6 +95,12 @@ class BranchForm(forms.ModelForm):
             self.fields['password'].required = False
         else:
             self.fields['password'].required = True
+            
+        # Restrict scheme_types to the company's allowed schemes
+        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
+            self.fields['scheme_types'].queryset = self.request.user.profile.company.scheme_types.filter(is_deleted=False)
+        else:
+            self.fields['scheme_types'].queryset = SchemeType.objects.none()
 
     def clean_username(self):
         username = self.cleaned_data.get('username')

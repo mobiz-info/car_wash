@@ -248,15 +248,15 @@ def api_get_services(request):
         if not branch or not vehicle_type:
             return JsonResponse({'success': False, 'message': 'Customer branch or vehicle type is missing'}, status=400)
             
-        # Get enabled ServiceType IDs for this branch
+        # Get enabled Service IDs for this branch
         from service_management.models import Service as ServiceModel
-        enabled_service_type_ids = BranchService.objects.filter(
+        enabled_service_ids = BranchService.objects.filter(
             branch=branch, is_enabled=True, is_deleted=False
         ).values_list('service_id', flat=True)
 
-        # Get individual Service objects under those enabled types
+        # Get individual Service objects
         individual_services = ServiceModel.objects.filter(
-            service_type_id__in=enabled_service_type_ids,
+            id__in=enabled_service_ids,
             is_active=True,
             is_deleted=False,
         ).select_related('service_type').order_by('service_type__name', 'name')

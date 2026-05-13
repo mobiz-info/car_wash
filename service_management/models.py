@@ -26,7 +26,7 @@ class Service(BaseModel):
 
 class BranchService(BaseModel):
     branch = models.ForeignKey('client_management.Branch', on_delete=models.CASCADE, related_name='branch_services')
-    service = models.ForeignKey(ServiceType, on_delete=models.CASCADE, related_name='service_branches')
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service_branches')
 
     is_enabled = models.BooleanField(default=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -38,7 +38,7 @@ class BranchService(BaseModel):
 class CompanyService(BaseModel):
     """Services enabled at the company level. Branches can only enable a subset of these."""
     company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, related_name='company_services')
-    service = models.ForeignKey(ServiceType, on_delete=models.CASCADE, related_name='company_service_entries')
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='company_service_entries')
     is_enabled = models.BooleanField(default=True)
 
     class Meta:
