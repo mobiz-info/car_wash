@@ -263,11 +263,11 @@ def api_get_services(request):
 
         services_data = []
         for svc in individual_services:
-            # Look up price: branch + individual service + vehicle type
+            # Look up price: branch + individual service + vehicle model
             price_obj = ServiceVehicleTypePrice.objects.filter(
                 branch=branch,
                 service=svc,
-                vehicle_type=vehicle_type,
+                vehicle_model=vehicle.vehicle_type_model,
                 is_active=True,
                 is_deleted=False,
             ).first()
