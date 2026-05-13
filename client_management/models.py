@@ -26,13 +26,14 @@ class Client(BaseModel):
     gst_number = models.CharField(max_length=100, blank=True, null=True)
     country = models.ForeignKey('master.Country', on_delete=models.SET_NULL, blank=True, null=True)
     state = models.ForeignKey('master.State', on_delete=models.SET_NULL, blank=True, null=True)
+    district = models.ForeignKey('master.District', on_delete=models.SET_NULL, blank=True, null=True)
     area = models.ForeignKey('master.Area', on_delete=models.SET_NULL, blank=True, null=True)
 
     business_name = models.CharField(max_length=200, blank=True, null=True)
     licenses_count = models.IntegerField(blank=True, null=True)
     max_branches = models.IntegerField(blank=True, null=True)
     monthly_tariff = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    next_renewal_date = models.DateField(blank=True, null=True)
+    # next_renewal_date = models.DateField(blank=True, null=True)
 
     scheme_types = models.ManyToManyField('master.SchemeType', blank=True)
     

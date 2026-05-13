@@ -117,10 +117,10 @@
                 {{ form.monthly_tariff }}
             </div>
 
-            <div class="form-group">
+            {% comment %} <div class="form-group">
                 <label>Next Renewal Date</label>
                 {{ form.next_renewal_date }}
-            </div>
+            </div> {% endcomment %}
             <div class="form-group">
                 <label>Email</label>
                 {{ form.email }}
@@ -192,6 +192,11 @@
                 <select name="state" id="id_state" class="form-control"></select>
             </div>
 
+            <div class="form-group" id="district-group" style="display:none;">
+                <label>District</label>
+                <select name="district" id="id_district" class="form-control"></select>
+            </div>
+
             <div class="form-group" id="area-group" style="display:none;">
                 <label>Area</label>
                 <select name="area" id="id_area" class="form-control"></select>
@@ -238,20 +243,31 @@
     </form>
 
 <script>
+
     const countrySelect = document.getElementById('{{ form.country.id_for_label }}');
     const stateSelect = document.getElementById('id_state');
+    const districtSelect = document.getElementById('id_district');
     const areaSelect = document.getElementById('id_area');
+
     const stateGroup = document.getElementById('state-group');
+    const districtGroup = document.getElementById('district-group');
     const areaGroup = document.getElementById('area-group');
 
-    // Values from Django context (set on edit, empty on create)
+    // Edit values
     const preSelectedStateId = '{{ selected_state_id|default:"" }}';
+    const preSelectedDistrictId = '{{ selected_district_id|default:"" }}';
     const preSelectedAreaId = '{{ selected_area_id|default:"" }}';
 
-    function loadStates(countryId, selectedStateId, callback) {
+    // ---------------- STATES ----------------
+
+    function loadStates(countryId, selectedStateId='', callback=null) {
+
         stateSelect.innerHTML = '<option value="">---------</option>';
+        districtSelect.innerHTML = '<option value="">---------</option>';
         areaSelect.innerHTML = '<option value="">---------</option>';
+
         stateGroup.style.display = 'none';
+        districtGroup.style.display = 'none';
         areaGroup.style.display = 'none';
 
         if (!countryId) return;
@@ -259,62 +275,162 @@
         fetch(`{% url 'ajax_get_states' %}?country_id=${countryId}`)
             .then(res => res.json())
             .then(data => {
+
                 if (data.states.length > 0) {
-                    data.states.forEach(s => {
+
+                    data.states.forEach(state => {
+
                         const opt = document.createElement('option');
-                        opt.value = s.id;
-                        opt.textContent = s.name;
-                        if (s.id == selectedStateId) opt.selected = true;
+
+                        opt.value = state.id;
+                        opt.textContent = state.name;
+
+                        if (state.id == selectedStateId) {
+                            opt.selected = true;
+                        }
+
                         stateSelect.appendChild(opt);
+
                     });
-                    stateGroup.style.display = 'flex';
+
+                    stateGroup.style.display = 'block';
+
                     if (callback) callback();
                 }
+
             });
+
     }
 
-    function loadAreas(stateId, selectedAreaId) {
+    // ---------------- DISTRICTS ----------------
+
+    function loadDistricts(stateId, selectedDistrictId='', callback=null) {
+
+        districtSelect.innerHTML = '<option value="">---------</option>';
         areaSelect.innerHTML = '<option value="">---------</option>';
+
+        districtGroup.style.display = 'none';
         areaGroup.style.display = 'none';
 
         if (!stateId) return;
 
-        fetch(`{% url 'ajax_get_areas' %}?state_id=${stateId}`)
+        fetch(`{% url 'ajax_get_districts' %}?state_id=${stateId}`)
             .then(res => res.json())
             .then(data => {
-                if (data.areas.length > 0) {
-                    data.areas.forEach(a => {
+
+                if (data.districts.length > 0) {
+
+                    data.districts.forEach(district => {
+
                         const opt = document.createElement('option');
-                        opt.value = a.id;
-                        opt.textContent = a.name;
-                        if (a.id == selectedAreaId) opt.selected = true;
-                        areaSelect.appendChild(opt);
+
+                        opt.value = district.id;
+                        opt.textContent = district.name;
+
+                        if (district.id == selectedDistrictId) {
+                            opt.selected = true;
+                        }
+
+                        districtSelect.appendChild(opt);
+
                     });
-                    areaGroup.style.display = 'flex';
+
+                    districtGroup.style.display = 'block';
+
+                    if (callback) callback();
                 }
+
             });
+
     }
 
-    // On country change
-    countrySelect.addEventListener('change', function () {
-        loadStates(this.value, '', null);
-    });
+    // ---------------- AREAS ----------------
 
-    // On state change
-    stateSelect.addEventListener('change', function () {
-        loadAreas(this.value, '');
-    });
+    function loadAreas(districtId, selectedAreaId='') {
 
-    // On page load: pre-populate if editing
-    document.addEventListener('DOMContentLoaded', function () {
-        const initialCountryId = countrySelect.value;
-        if (initialCountryId && preSelectedStateId) {
-            loadStates(initialCountryId, preSelectedStateId, function () {
-                if (preSelectedAreaId) {
-                    loadAreas(preSelectedStateId, preSelectedAreaId);
+        areaSelect.innerHTML = '<option value="">---------</option>';
+
+        areaGroup.style.display = 'none';
+
+        if (!districtId) return;
+
+        fetch(`{% url 'ajax_get_areas' %}?district_id=${districtId}`)
+            .then(res => res.json())
+            .then(data => {
+
+                if (data.areas.length > 0) {
+
+                    data.areas.forEach(area => {
+
+                        const opt = document.createElement('option');
+
+                        opt.value = area.id;
+                        opt.textContent = area.name;
+
+                        if (area.id == selectedAreaId) {
+                            opt.selected = true;
+                        }
+
+                        areaSelect.appendChild(opt);
+
+                    });
+
+                    areaGroup.style.display = 'block';
+
                 }
+
             });
+
+    }
+
+    // ---------------- EVENTS ----------------
+
+    countrySelect.addEventListener('change', function () {
+
+        loadStates(this.value);
+
+    });
+
+    stateSelect.addEventListener('change', function () {
+
+        loadDistricts(this.value);
+
+    });
+
+    districtSelect.addEventListener('change', function () {
+
+        loadAreas(this.value);
+
+    });
+
+    // ---------------- EDIT LOAD ----------------
+
+    document.addEventListener('DOMContentLoaded', function () {
+
+        const initialCountryId = countrySelect.value;
+
+        if (initialCountryId && preSelectedStateId) {
+
+            loadStates(initialCountryId, preSelectedStateId, function () {
+
+                if (preSelectedDistrictId) {
+
+                    loadDistricts(preSelectedStateId, preSelectedDistrictId, function () {
+
+                        if (preSelectedAreaId) {
+
+                            loadAreas(preSelectedDistrictId, preSelectedAreaId);
+
+                        }
+
+                    });
+
+                }
+
+            });
+
         }
+
     });
     // ---- Scheme Facility Yes/No Toggle ----
     const facilityYes = document.getElementById('scheme_facility_yes');

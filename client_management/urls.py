@@ -9,7 +9,8 @@ urlpatterns = [
     path('client/delete/<uuid:id>/', views.client_delete, name='client_delete'),
     path('ajax/states/', views.ajax_get_states, name='ajax_get_states'),
     path('ajax/areas/', views.ajax_get_areas, name='ajax_get_areas'),
-
+    path('ajax/district/', views.ajax_get_districts, name='ajax_get_districts'),
+    
     # Subscription
     path('subscription/', views.subscription_list, name='subscription_list'),
     path('subscription/create/', views.subscription_create, name='subscription_create'),

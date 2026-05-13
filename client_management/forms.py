@@ -15,21 +15,15 @@ class ClientForm(forms.ModelForm):
             'company_name', 'business_name', 'owner_name',
             'email', 'phone', 'address',
             'gst_number',
-            'country', 'state', 'area',
+            'country', 'state', 'district', 'area',
 
             'licenses_count', 'max_branches',
-            'monthly_tariff', 'next_renewal_date',
-
+            'monthly_tariff', 
             'scheme_types',
 
             'status', 'logo_color', 'logo_bw'
         ]
-        widgets = {
-            'next_renewal_date': forms.DateInput(attrs={
-                'type': 'date',
-                'class': 'form-control'
-            }),
-        }
+        
             
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

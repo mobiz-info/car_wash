@@ -206,7 +206,7 @@ def sales_report(request):
     # Filters
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
-    branch = request.GET.get('branch')
+    invoice_number = request.GET.get('invoice_number')
 
     if from_date:
         invoices = invoices.filter(date__gte=from_date)
@@ -214,8 +214,8 @@ def sales_report(request):
     if to_date:
         invoices = invoices.filter(date__lte=to_date)
 
-    if branch:
-        invoices = invoices.filter(branch_id=branch)
+    if invoice_number:
+        invoices = invoices.filter(invoice_number=invoice_number)
 
     # Balance Calculation
     invoices = invoices.annotate(

@@ -9,7 +9,7 @@ from django.http import JsonResponse
 
 from .models import *
 from .forms import *
-from master.models import State, Area
+from master.models import State, Area, District
 from core.functions import get_auto_id
 
 
@@ -80,12 +80,33 @@ def ajax_get_states(request):
     return JsonResponse({'states': list(states)})
 
 
+@login_required
 def ajax_get_areas(request):
+
+    district_id = request.GET.get('district_id')
+
+    areas = Area.objects.filter(
+        district_id=district_id,
+        is_deleted=False
+    ).values('id', 'name')
+
+    return JsonResponse({
+        'areas': list(areas)
+    })
+
+@login_required
+def ajax_get_districts(request):
+
     state_id = request.GET.get('state_id')
-    areas = Area.objects.filter(district__state_id=state_id, is_deleted=False).values('id', 'name')
-    return JsonResponse({'areas': list(areas)})
 
+    districts = District.objects.filter(
+        state_id=state_id,
+        is_deleted=False
+    ).values('id', 'name')
 
+    return JsonResponse({
+        'districts': list(districts)
+    })
 # ─── Subscription Views ───────────────────────────────────────────────────────
 
 @login_required
