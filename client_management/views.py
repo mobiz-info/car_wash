@@ -13,6 +13,40 @@ from master.models import State, Area, District
 from core.functions import get_auto_id
 
 
+def _index_to_invoice_prefix(index):
+    index = max(index, 0)
+    chars = []
+
+    while True:
+        index, remainder = divmod(index, 26)
+        chars.append(chr(65 + remainder))
+        if index == 0:
+            break
+        index -= 1
+
+    return ''.join(reversed(chars))
+
+
+def _next_branch_invoice_prefix(company):
+    branches = Branch.objects.filter(
+        company=company,
+    ).order_by('date_added', 'auto_id')
+
+    used_prefixes = {
+        (prefix or '').strip().upper()
+        for prefix in branches.values_list('invoice_prefix', flat=True)
+        if (prefix or '').strip()
+    }
+
+    next_index = branches.count()
+    prefix = _index_to_invoice_prefix(next_index)
+    while prefix in used_prefixes:
+        next_index += 1
+        prefix = _index_to_invoice_prefix(next_index)
+
+    return prefix
+
+
 @login_required
 def client_list(request):
     search = request.GET.get('search', '')
@@ -205,11 +239,10 @@ def branch_create(request):
             branch.auto_id = get_auto_id(Branch)
             branch.creator = request.user
 
-            # Auto-assign invoice prefix (A, B, C...) based on branch count for this company
+            # Auto-assign the next available branch invoice prefix.
             try:
                 company = request.user.profile.company
-                existing_count = Branch.objects.filter(company=company, is_deleted=False).count()
-                branch.invoice_prefix = chr(65 + (existing_count % 26))  # A=65
+                branch.invoice_prefix = _next_branch_invoice_prefix(company)
             except Exception:
                 pass
 
@@ -594,6 +627,33 @@ def scheme_list(request):
         'title': 'Schemes',
     })
 
+@login_required
+def scheme_usage_list(request):
+    """View to list all scheme redemptions (usages) across the company/branch."""
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    from finance_management.models import Invoice
+    usages = Invoice.objects.filter(
+        scheme__isnull=False, 
+        is_deleted=False, 
+        scheme__company=company
+    ).select_related(
+        'scheme', 'customer', 'vehicle', 'branch'
+    ).order_by('-date_added')
+
+    # If branch admin, only show usages from their branch
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        usages = usages.filter(branch=request.user.managed_branch)
+
+    return render(request, 'scheme/usages.html', {
+        'usages': usages,
+        'title': 'Scheme Usages',
+    })
+
 
 @login_required
 def scheme_create(request):
@@ -815,10 +875,16 @@ def scheme_detail(request, id):
 
     scheme = get_object_or_404(Scheme, id=id, company=company, is_deleted=False)
     vouchers = scheme.vouchers.filter(is_deleted=False).order_by('-date_added')
+    
+    from finance_management.models import Invoice
+    usages = Invoice.objects.filter(scheme=scheme, is_deleted=False).select_related(
+        'customer', 'vehicle', 'branch'
+    ).order_by('-date_added')
 
     return render(request, 'scheme/detail.html', {
         'scheme': scheme,
         'vouchers': vouchers,
+        'usages': usages,
         'title': scheme.name,
         'is_company_admin': request.user.profile.role.name == 'COMPANY_ADMIN',
     })

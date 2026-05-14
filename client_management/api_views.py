@@ -8,6 +8,58 @@ from core.functions import get_auto_id
 from .models import Customer, CustomerVehicle, Scheme
 from service_management.models import Service
 
+
+def _index_to_invoice_prefix(index):
+    index = max(index, 0)
+    chars = []
+
+    while True:
+        index, remainder = divmod(index, 26)
+        chars.append(chr(65 + remainder))
+        if index == 0:
+            break
+        index -= 1
+
+    return ''.join(reversed(chars))
+
+
+def _resolve_branch_invoice_prefix(branch):
+    company_branches = list(
+        branch.company.branches.all()
+        .order_by('date_added', 'auto_id')
+        .values('id', 'invoice_prefix')
+    )
+
+    branch_ids = [item['id'] for item in company_branches]
+    try:
+        branch_index = branch_ids.index(branch.id)
+    except ValueError:
+        branch_index = len(branch_ids)
+
+    used_prefixes = {
+        (item['invoice_prefix'] or '').strip().upper()
+        for item in company_branches
+        if item['id'] != branch.id and (item['invoice_prefix'] or '').strip()
+    }
+
+    current_prefix = (branch.invoice_prefix or '').strip().upper()
+    preferred_prefix = _index_to_invoice_prefix(branch_index)
+    resolved_prefix = current_prefix
+
+    if not resolved_prefix or resolved_prefix in used_prefixes:
+        resolved_prefix = preferred_prefix
+        next_index = branch_index
+        while resolved_prefix in used_prefixes:
+            next_index += 1
+            resolved_prefix = _index_to_invoice_prefix(next_index)
+
+    if resolved_prefix != current_prefix:
+        branch.invoice_prefix = resolved_prefix
+        branch.save(update_fields=['invoice_prefix'])
+
+    return resolved_prefix
+
+
 @csrf_exempt
 def api_login(request):
     if request.method != 'POST':
@@ -329,27 +381,19 @@ def api_create_invoice(request):
         if not customer_id or not vehicle_id:
             return JsonResponse({'success': False, 'message': 'customer_id and vehicle_id are required'}, status=400)
             
-        customer = Customer.objects.get(id=customer_id, is_deleted=False)
+        role = user.profile.role.name if user.profile.role else None
+        customer_qs = Customer.objects.filter(id=customer_id, is_deleted=False)
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            customer_qs = customer_qs.filter(branch=user.managed_branch)
+        elif role == 'COMPANY_ADMIN' and user.profile.company:
+            customer_qs = customer_qs.filter(company=user.profile.company)
+
+        customer = customer_qs.get()
         vehicle = CustomerVehicle.objects.get(id=vehicle_id, customer=customer, is_deleted=False)
         
-        # Generate invoice number using the branch-specific prefix and sequence.
-        branch = customer.branch
-        prefix = (branch.invoice_prefix or '').strip().upper()
-
-        # Auto-assign prefix for older branches that do not have one yet.
-        if not prefix:
-            company_branches = list(
-                branch.company.branches.filter(is_deleted=False)
-                .order_by('date_added', 'auto_id')
-                .values_list('id', flat=True)
-            )
-            try:
-                branch_index = company_branches.index(branch.id)
-            except ValueError:
-                branch_index = 0
-            prefix = chr(65 + (branch_index % 26))  # A, B, C...
-            branch.invoice_prefix = prefix
-            branch.save(update_fields=['invoice_prefix'])
+        # Generate invoice number using a unique branch-specific prefix and sequence.
+        branch = user.managed_branch if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') else customer.branch
+        prefix = _resolve_branch_invoice_prefix(branch)
 
         prefix_base = f"INV-{prefix}-"
         last_invoice = (
@@ -372,12 +416,22 @@ def api_create_invoice(request):
                 )
 
         inv_number = f"{prefix_base}{next_sequence}"
+        while Invoice.objects.filter(invoice_number=inv_number).exists():
+            next_sequence += 1
+            inv_number = f"{prefix_base}{next_sequence}"
         
+        scheme_id = data.get('scheme_id')
+        scheme_obj = None
+        if scheme_id:
+            from client_management.models import Scheme
+            scheme_obj = Scheme.objects.filter(id=scheme_id).first()
+            
         invoice = Invoice.objects.create(
             invoice_number=inv_number,
             customer=customer,
             vehicle=vehicle,
-            branch=customer.branch,
+            branch=branch,
+            scheme=scheme_obj,
             subtotal=data.get('subtotal', 0),
             discount=data.get('discount', 0),
             tax_amount=data.get('tax_amount', 0),
@@ -680,7 +734,8 @@ def api_available_schemes(request):
         if service_id:
             schemes_qs = schemes_qs.filter(services__id=service_id)
 
-        visits_count = Invoice.objects.filter(vehicle=vehicle, is_deleted=False).count()
+        # Total paid visits (invoices without any scheme)
+        total_paid_visits = Invoice.objects.filter(vehicle=vehicle, scheme__isnull=True, is_deleted=False).count()
 
         result = []
         for scheme in schemes_qs.distinct():
@@ -694,12 +749,21 @@ def api_available_schemes(request):
             if scheme_type == 'Quantity' or scheme_type == scheme.SCHEME_BENEFIT_QTY:
                 paid = scheme.paid_visits or 0
                 free = scheme.free_visits or 0
-                is_eligible = paid > 0 and visits_count >= paid
+                
+                # Count how many times this specific scheme was already used by this vehicle
+                free_washes_taken = Invoice.objects.filter(vehicle=vehicle, scheme=scheme, is_deleted=False).count()
+                
+                # Calculate current progress towards the next free wash
+                current_progress = total_paid_visits - (free_washes_taken * paid)
+                if current_progress < 0:
+                    current_progress = 0
+                    
+                is_eligible = paid > 0 and current_progress >= paid
                 entry.update({
                     'description': f'Get {free} free wash after every {paid} paid washes',
                     'paid_visits': paid,
                     'free_visits': free,
-                    'visits_count': visits_count,
+                    'visits_count': current_progress,
                     'is_eligible': is_eligible,
                 })
             elif scheme_type == 'Discount' or scheme_type == scheme.SCHEME_BENEFIT_DISCOUNT:

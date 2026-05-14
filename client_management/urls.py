@@ -42,6 +42,7 @@ urlpatterns = [
 
     # Scheme Management
     path('scheme/', views.scheme_list, name='scheme_list'),
+    path('scheme/usages/', views.scheme_usage_list, name='scheme_usage_list'),
     path('scheme/create/', views.scheme_create, name='scheme_create'),
     path('scheme/edit/<uuid:id>/', views.scheme_edit, name='scheme_edit'),
     path('scheme/delete/<uuid:id>/', views.scheme_delete, name='scheme_delete'),
