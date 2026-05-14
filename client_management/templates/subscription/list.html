@@ -39,6 +39,7 @@
                     <th>Usage Fee</th>
                     <th>Features</th>
                     <th>Status</th>
+                    <th>Renewal Due</th>
                     <th style="text-align:right;">Actions</th>
                 </tr>
             </thead>
@@ -91,6 +92,115 @@
                             <span class="badge" style="background:#fee2e2;color:#991b1b;">Expired</span>
                         {% endif %}
                     </td>
+                    <td>
+                        {% now "Y-m-d" as today %}
+
+                        {% if sub.is_active %}
+
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+
+                                <!-- Renewal Warning -->
+                                {% if sub.end_date|timeuntil <= "7 days" %}
+
+                                <div style="
+                                    display:flex;
+                                    align-items:flex-start;
+                                    gap:8px;
+                                    padding:10px 12px;
+                                    border-radius:12px;
+                                    background:#fff7ed;
+                                    border:1px solid #fed7aa;
+                                    min-width:220px;
+                                ">
+
+                                    <div style="
+                                        width:32px;
+                                        height:32px;
+                                        border-radius:10px;
+                                        background:#ffedd5;
+                                        display:flex;
+                                        align-items:center;
+                                        justify-content:center;
+                                        color:#ea580c;
+                                        flex-shrink:0;
+                                    ">
+                                        <i class="ph-fill ph-warning-circle"></i>
+                                    </div>
+
+                                    <div>
+
+                                        
+                                        <div style="
+                                            font-size:0.75rem;
+                                            color:#c2410c;
+                                            line-height:1.5;
+                                        ">
+                                            Subscription expires on
+                                            <strong>{{ sub.end_date }}</strong>
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                {% endif %}
+
+                            </div>
+
+                        {% else %}
+
+                            <!-- Expired Card -->
+                            <div style="
+                                display:flex;
+                                align-items:flex-start;
+                                gap:10px;
+                                padding:12px;
+                                border-radius:14px;
+                                background:#fef2f2;
+                                border:1px solid #fecaca;
+                                min-width:220px;
+                            ">
+
+                                <div style="
+                                    width:38px;
+                                    height:38px;
+                                    border-radius:12px;
+                                    background:#fee2e2;
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:center;
+                                    color:#dc2626;
+                                    flex-shrink:0;
+                                ">
+                                    <i class="ph-fill ph-x-circle"></i>
+                                </div>
+
+                                <div>
+
+                                    <div style="
+                                        font-size:0.82rem;
+                                        font-weight:700;
+                                        color:#991b1b;
+                                        margin-bottom:3px;
+                                    ">
+                                        Subscription Expired
+                                    </div>
+
+                                    <div style="
+                                        font-size:0.75rem;
+                                        color:#b91c1c;
+                                        line-height:1.5;
+                                    ">
+                                        Expired on
+                                        <strong>{{ sub.end_date }}</strong>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        {% endif %}
+                    </td>
 
                     <td style="text-align:right;">
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
@@ -102,6 +212,7 @@
                             </a>
                         </div>
                     </td>
+                    
                 </tr>
 
                 {% empty %}
