@@ -8,9 +8,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.models import User
 import datetime
-from datetime import date,datetime
+from datetime import date,datetime,timedelta
+from django.utils import timezone
+
 
 from .models import *
+from client_management.models import Subscription
 from .forms import UserCreationAdminForm, UserProfileForm, RoleForm, UserEditForm
 from core.functions import get_auto_id
 
@@ -60,6 +63,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             role_name = user.profile.role.name
         except Exception:
             role_name = None
+            
+        context['subscription_notification'] = None
 
         if role_name == 'SUPER_ADMIN':
             context['stats'] = [
@@ -77,8 +82,44 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                     {'label': 'Total Staff', 'value': Staff.objects.filter(company=company, is_deleted=False).count(), 'icon': 'ph-fill ph-users', 'color': '#10b981'},
                     {'label': 'Active Branches', 'value': Branch.objects.filter(company=company, is_deleted=False).count(), 'icon': 'ph-fill ph-buildings', 'color': '#f59e0b'},
                 ]
+                
+            # SUBSCRIPTION CHECK
+            subscription = Subscription.objects.filter(
+                    company=company
+                ).order_by('-end_date').first()
+
+            if subscription:
+
+                today = timezone.now().date()
+                days_left = (subscription.end_date - today).days
+
+                if days_left < 0:
+                    context['subscription_notification'] = {
+                            'type': 'danger',
+                            'message': 'Your subscription has expired.'
+                        }
+
+                elif days_left == 0:
+                    context['subscription_notification'] = {
+                            'type': 'danger',
+                            'message': 'Your subscription expires today.'
+                        }
+
+                elif days_left == 1:
+                    context['subscription_notification'] = {
+                            'type': 'warning',
+                            'message': 'Your subscription will expire tomorrow.'
+                        }
+
+                elif days_left <= 7:
+                    context['subscription_notification'] = {
+                            'type': 'warning',
+                            'message': f'Your subscription will expire in {days_left} days.'
+                        }
+
             else:
                 context['stats'] = []
+            
 
         elif role_name == 'BRANCH_ADMIN':
             try:

@@ -21,6 +21,16 @@
         </div>
         <div style="font-size: 1.3rem; font-weight: 700; color: #1e293b;">{{ stat.value }}</div>
     </div>
+    {% if subscription_notification %}
+    <div class="alert alert-{{ subscription_notification.type }} alert-dismissible fade show">
+        {{ subscription_notification.message }}
+
+        <button type="button"
+                class="btn-close"
+                data-bs-dismiss="alert">
+        </button>
+    </div>
+    {% endif %}
     {% empty %}
     <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;">
         <i class="ph ph-chart-bar" style="font-size: 2rem;"></i>

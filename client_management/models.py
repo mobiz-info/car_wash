@@ -77,6 +77,21 @@ class Subscription(BaseModel):
         from django.utils import timezone
         return self.start_date <= timezone.now().date() <= self.end_date
 
+
+class SubscriptionNotification(models.Model):
+    subscription = models.ForeignKey(
+        'Subscription',
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    message = models.TextField()
+    notify_date = models.DateField(auto_now_add=True)
+    is_sent = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.message
+    
+    
 from django.contrib.auth.models import User
 
 class Branch(BaseModel):

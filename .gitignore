@@ -1,2 +1,4 @@
 db.sqlite3
 settings.ini
+__pycache__/
+*.pyc
