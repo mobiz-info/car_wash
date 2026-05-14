@@ -182,6 +182,67 @@
         </div>
         {% endif %}
     </div>
+    
+    <!-- Scheme Usages Section -->
+    <div style="background:#fff; border-radius:16px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); margin-top:24px;">
+        <div style="padding:20px 28px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="background:#fefce8; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                    <i class="ph-bold ph-users" style="color:#ca8a04; font-size:1.1rem;"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; color:#1e293b; font-size:1rem;">Scheme Usages (Redemptions)</div>
+                    <div style="font-size:.78rem; color:#94a3b8;">{{ usages.count }} time{{ usages.count|pluralize }} redeemed</div>
+                </div>
+            </div>
+        </div>
+
+        {% if usages %}
+        <div style="overflow-x:auto;">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Invoice Number</th>
+                        <th>Date Redeemed</th>
+                        <th style="text-align:right;">Discount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usage in usages %}
+                    <tr>
+                        <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                        <td>
+                            <div style="font-weight:700; color:#1e293b; font-size:.95rem;">{{ usage.customer.name }}</div>
+                            <div style="font-size:.8rem; color:#64748b; margin-top:2px;">{{ usage.customer.phone }}</div>
+                        </td>
+                        <td>
+                            <span style="background:#f1f5f9; color:#475569; padding:4px 10px; border-radius:6px; font-size:.85rem; font-weight:700; font-family:monospace; border:1px solid #e2e8f0;">
+                                {{ usage.vehicle.vehicle_number }}
+                            </span>
+                        </td>
+                        <td>
+                            <span style="font-weight:600; color:#2563eb;">{{ usage.invoice_number }}</span>
+                        </td>
+                        <td style="color:#64748b; font-size:.85rem;">{{ usage.date_added|date:"d M Y, h:i A" }}</td>
+                        <td style="text-align:right;">
+                            <span style="font-weight:700; color:#16a34a; font-size:.95rem;">₹{{ usage.discount }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding:60px; text-align:center; color:#94a3b8;">
+            <i class="ph ph-users" style="font-size:3rem; display:block; margin-bottom:12px;"></i>
+            <div style="font-weight:600;">No redemptions yet</div>
+            <div style="font-size:.85rem; margin-top:6px;">Customers who use this scheme at checkout will appear here.</div>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
 <!-- Add Voucher Modal -->
