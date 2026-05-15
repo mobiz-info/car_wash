@@ -689,6 +689,189 @@ def api_add_customer(request):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
+
+@csrf_exempt
+def api_list_customers(request):
+    """List all customers for the branch/company (for mobile customer list)."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        company = user.profile.company
+        role = user.profile.role.name if user.profile.role else None
+
+        customers_qs = Customer.objects.filter(company=company, is_deleted=False).order_by('name')
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            customers_qs = customers_qs.filter(branch=user.managed_branch)
+
+        search = request.GET.get('search', '').strip()
+        if search:
+            from django.db.models import Q
+            customers_qs = customers_qs.filter(
+                Q(name__icontains=search) | Q(phone__icontains=search)
+            )
+
+        customers_data = []
+        for c in customers_qs.select_related('customer_type')[:100]:
+            customers_data.append({
+                'id': str(c.id),
+                'name': c.name,
+                'phone': c.phone,
+                'customer_type': c.customer_type.name if c.customer_type else '',
+                'vehicle_count': c.vehicles.filter(is_deleted=False).count(),
+            })
+
+        return JsonResponse({'success': True, 'customers': customers_data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_customer(request):
+
+    """Fetch full customer details for editing on mobile."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    customer_id = request.GET.get('customer_id', '').strip()
+    if not customer_id:
+        return JsonResponse({'success': False, 'message': 'customer_id is required'}, status=400)
+
+    try:
+        company = user.profile.company
+        customer = Customer.objects.get(id=customer_id, company=company, is_deleted=False)
+
+        vehicles_data = []
+        for v in customer.vehicles.filter(is_deleted=False):
+            vehicles_data.append({
+                'id': str(v.id),
+                'vehicle_number': v.vehicle_number,
+                'vehicle_model_id': str(v.vehicle_type_model.id) if v.vehicle_type_model else None,
+                'vehicle_model_name': v.vehicle_type_model.name if v.vehicle_type_model else '',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'customer': {
+                'id': str(customer.id),
+                'name': customer.name,
+                'phone': customer.phone,
+                'whatsapp_number': customer.whatsapp_number or '',
+                'email': customer.email or '',
+                'address': customer.address or '',
+                'customer_type_id': str(customer.customer_type.id) if customer.customer_type else None,
+                'customer_type_name': customer.customer_type.name if customer.customer_type else '',
+                'vehicles': vehicles_data,
+            }
+        })
+    except Customer.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_edit_customer(request):
+    """Update customer basic info, phone, existing vehicles, and add new vehicles."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id', '').strip()
+        name = data.get('name', '').strip()
+        customer_type_id = data.get('customer_type_id')
+        new_vehicles = data.get('new_vehicles', [])
+        updated_vehicles = data.get('updated_vehicles', [])  # list of {id, vehicle_number, vehicle_model_id}
+        new_phone = data.get('phone', '').strip()
+
+        if not customer_id or not name or not customer_type_id:
+            return JsonResponse({'success': False, 'message': 'customer_id, name, and customer_type are required'}, status=400)
+
+        company = user.profile.company
+        customer = Customer.objects.get(id=customer_id, company=company, is_deleted=False)
+
+        from .models import CustomerType, CustomerVehicle
+        from master.models import VehicleTypeModel
+        from core.functions import get_auto_id
+        from django.db import transaction
+
+        customer_type = CustomerType.objects.filter(id=customer_type_id, is_deleted=False).first()
+        if not customer_type:
+            return JsonResponse({'success': False, 'message': 'Invalid customer type'}, status=400)
+
+        # Check phone uniqueness if changed
+        if new_phone and new_phone != customer.phone:
+            if Customer.objects.filter(phone=new_phone, company=company, is_deleted=False).exclude(id=customer_id).exists():
+                return JsonResponse({'success': False, 'message': 'Another customer with this phone number already exists'}, status=400)
+
+        with transaction.atomic():
+            customer.name = name
+            customer.customer_type = customer_type
+            customer.whatsapp_number = data.get('whatsapp_number', '').strip() or None
+            customer.email = data.get('email', '').strip() or None
+            customer.address = data.get('address', '').strip() or None
+            if new_phone:
+                customer.phone = new_phone
+            customer.save()
+
+            # Update existing vehicles
+            for v in updated_vehicles:
+                vehicle_id = v.get('id')
+                vehicle_number = v.get('vehicle_number', '').strip().upper()
+                vehicle_model_id = v.get('vehicle_model_id')
+                if not vehicle_id or not vehicle_number:
+                    continue
+                cv = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer, is_deleted=False).first()
+                if not cv:
+                    continue
+                if vehicle_number:
+                    cv.vehicle_number = vehicle_number
+                if vehicle_model_id:
+                    vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
+                    if vm:
+                        cv.vehicle_type_model = vm
+                cv.save()
+
+            # Add new vehicles
+            for v in new_vehicles:
+                vehicle_number = v.get('vehicle_number', '').strip().upper()
+                vehicle_model_id = v.get('vehicle_model_id')
+                if not vehicle_number or not vehicle_model_id:
+                    continue
+                vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
+                if not vm:
+                    continue
+                CustomerVehicle.objects.create(
+                    customer=customer,
+                    vehicle_type_model=vm,
+                    vehicle_number=vehicle_number,
+                    creator=user,
+                    auto_id=get_auto_id(CustomerVehicle),
+                )
+
+        return JsonResponse({'success': True, 'message': 'Customer updated successfully'})
+
+    except Customer.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
 @csrf_exempt
 def api_available_schemes(request):
     """Return available schemes for a customer + vehicle + service for invoice creation."""
