@@ -7,6 +7,9 @@ from django.views.decorators.csrf import csrf_exempt
 from core.functions import get_auto_id, log_activity
 from client_management.api_views import get_user_from_token
 from .models import Invoice, Receipt
+from booking_management.models import Booking
+from client_management.models import Branch
+from service_management.models import ServiceType
 from decimal import Decimal
 
 
@@ -573,3 +576,116 @@ def api_receipt_list(request):
         'total_collected': str(total_collected),
         'count': len(results),
     })
+
+
+@login_required
+def job_report(request):
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    branch_id = request.GET.get('branch')
+    status = request.GET.get('status')
+
+    bookings = Booking.objects.filter(
+        is_deleted=False
+    ).select_related(
+        'branch',
+        'customer',
+        'vehicle'
+    )
+
+    # Company Login Filter
+    user = request.user
+
+    role = None
+    company = None
+
+    if hasattr(user, 'profile') and user.profile.role:
+        role = user.profile.role.name
+
+    if role == 'COMPANY_ADMIN':
+
+        company = user.profile.company
+
+        # Filter bookings using branch company
+        bookings = bookings.filter(
+            branch__company=company
+        )
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+    else:
+
+        branches = Branch.objects.filter(
+            is_deleted=False
+        )
+
+    # Date Filters
+    if from_date:
+        bookings = bookings.filter(
+            booking_date__gte=from_date
+        )
+
+    if to_date:
+        bookings = bookings.filter(
+            booking_date__lte=to_date
+        )
+
+    # Branch Filter
+    if branch_id:
+        bookings = bookings.filter(
+            branch_id=branch_id
+        )
+
+    # Status Filter
+    if status:
+        bookings = bookings.filter(
+            status=status
+        )
+
+    bookings = bookings.order_by('-booking_date')
+
+    # Summary Counts
+    total_jobs = bookings.count()
+
+    completed_jobs = bookings.filter(
+        status=Booking.STATUS_COMPLETED
+    ).count()
+
+    pending_jobs = bookings.filter(
+        status=Booking.STATUS_PENDING
+    ).count()
+
+    confirmed_jobs = bookings.filter(
+        status=Booking.STATUS_CONFIRMED
+    ).count()
+
+    cancelled_jobs = bookings.filter(
+        status=Booking.STATUS_CANCELLED
+    ).count()
+
+    context = {
+        'bookings': bookings,
+
+        'branches': branches,
+
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'status': status,
+
+        'total_jobs': total_jobs,
+        'completed_jobs': completed_jobs,
+        'pending_jobs': pending_jobs,
+        'confirmed_jobs': confirmed_jobs,
+        'cancelled_jobs': cancelled_jobs,
+    }
+
+    return render(
+        request,
+        'reports/job_report.html',
+        context
+    )

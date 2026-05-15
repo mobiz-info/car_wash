@@ -1,0 +1,756 @@
+{% extends 'base.html' %}
+
+{% block title %}Job Report - Car Wash Admin{% endblock %}
+{% block page_title %}Job Report{% endblock %}
+{% block breadcrumb_active %}Job Report{% endblock %}
+
+{% block content %}
+
+<style>
+
+.report-wrapper{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+/* Header */
+
+.report-header{
+    background:linear-gradient(135deg, #7c3aed, #5b21b6);
+    border-radius:22px;
+    padding:30px;
+    color:white;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 10px 30px rgba(91,33,182,0.18);
+}
+
+.report-header::after{
+    content:'';
+    position:absolute;
+    width:280px;
+    height:280px;
+    background:rgba(255,255,255,0.08);
+    border-radius:50%;
+    right:-80px;
+    top:-80px;
+}
+
+.report-title{
+    position:relative;
+    z-index:2;
+}
+
+.report-title h2{
+    margin:0;
+    font-size:2rem;
+    font-weight:700;
+}
+
+.report-title p{
+    margin-top:8px;
+    color:rgba(255,255,255,0.85);
+    font-size:0.95rem;
+}
+
+/* Filter */
+
+.filter-card{
+    background:white;
+    border-radius:18px;
+    padding:22px;
+    box-shadow:0 4px 18px rgba(15,23,42,0.06);
+    border:1px solid #e2e8f0;
+}
+
+.filter-form{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    align-items:center;
+}
+
+.filter-group{
+    position:relative;
+}
+
+.search-input{
+    min-width:220px;
+    height:46px;
+    border-radius:12px;
+    border:1px solid #ddd6fe;
+    background:#f8fafc;
+    padding:0 16px 0 44px;
+    font-size:0.9rem;
+    transition:0.3s;
+}
+
+.search-input:focus{
+    outline:none;
+    border-color:#7c3aed;
+    background:white;
+    box-shadow:0 0 0 4px rgba(124,58,237,0.08);
+}
+
+.search-icon{
+    position:absolute;
+    left:14px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#64748b;
+    font-size:1rem;
+}
+
+.date-input,
+.select-input{
+    height:46px;
+    border-radius:12px;
+    border:1px solid #ddd6fe;
+    background:#f8fafc;
+    padding:0 14px;
+    font-size:0.9rem;
+    min-width:170px;
+}
+
+.date-input:focus,
+.select-input:focus{
+    outline:none;
+    border-color:#7c3aed;
+    background:white;
+}
+
+.filter-btn{
+    height:46px;
+    padding:0 22px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg, #7c3aed, #5b21b6);
+    color:white;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+.filter-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 8px 20px rgba(124,58,237,0.2);
+}
+
+.reset-btn{
+    height:46px;
+    padding:0 22px;
+    border:none;
+    border-radius:12px;
+    background:#f1f5f9;
+    color:#334155;
+    font-weight:600;
+    text-decoration:none;
+    display:flex;
+    align-items:center;
+    transition:0.3s;
+}
+
+.reset-btn:hover{
+    background:#e2e8f0;
+}
+
+/* Summary */
+
+.summary-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(250px,1fr));
+    gap:20px;
+}
+
+.summary-card{
+    background:white;
+    border-radius:20px;
+    padding:24px;
+    position:relative;
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    box-shadow:0 4px 18px rgba(15,23,42,0.05);
+}
+
+.summary-card::before{
+    content:'';
+    position:absolute;
+    top:0;
+    left:0;
+    width:6px;
+    height:100%;
+}
+
+.summary-card.total::before{
+    background:#7c3aed;
+}
+
+.summary-card.completed::before{
+    background:#10b981;
+}
+
+.summary-card.pending::before{
+    background:#f59e0b;
+}
+
+.summary-card.cancelled::before{
+    background:#ef4444;
+}
+
+.summary-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.summary-label{
+    color:#64748b;
+    font-size:0.9rem;
+    font-weight:600;
+}
+
+.summary-icon{
+    width:52px;
+    height:52px;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1.3rem;
+}
+
+.summary-card.total .summary-icon{
+    background:#ede9fe;
+    color:#7c3aed;
+}
+
+.summary-card.completed .summary-icon{
+    background:#d1fae5;
+    color:#059669;
+}
+
+.summary-card.pending .summary-icon{
+    background:#fef3c7;
+    color:#d97706;
+}
+
+.summary-card.cancelled .summary-icon{
+    background:#fee2e2;
+    color:#dc2626;
+}
+
+.summary-value{
+    margin-top:18px;
+    font-size:2rem;
+    font-weight:700;
+    color:#0f172a;
+}
+
+/* Table */
+
+.table-card{
+    background:white;
+    border-radius:22px;
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    box-shadow:0 6px 24px rgba(15,23,42,0.05);
+}
+
+.table-header{
+    padding:22px 24px;
+    border-bottom:1px solid #e2e8f0;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.table-header h3{
+    margin:0;
+    font-size:1.1rem;
+    color:#0f172a;
+}
+
+.table-header span{
+    color:#64748b;
+    font-size:0.88rem;
+}
+
+.table-wrapper{
+    overflow-x:auto;
+}
+
+.premium-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.premium-table thead{
+    background:#f8fafc;
+}
+
+.premium-table th{
+    padding:16px;
+    font-size:0.82rem;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    color:#64748b;
+    font-weight:700;
+    border-bottom:1px solid #e2e8f0;
+}
+
+.premium-table td{
+    padding:18px 16px;
+    border-bottom:1px solid #f1f5f9;
+    vertical-align:middle;
+}
+
+.premium-table tbody tr{
+    transition:0.2s;
+}
+
+.premium-table tbody tr:hover{
+    background:#faf7ff;
+}
+
+/* Badges */
+
+.booking-badge{
+    font-family:monospace;
+    font-weight:700;
+    color:#1e293b;
+    background:#f1f5f9;
+    padding:6px 10px;
+    border-radius:8px;
+    font-size:0.85rem;
+}
+
+.customer-name{
+    font-weight:700;
+    color:#0f172a;
+}
+
+.vehicle-no{
+    font-weight:600;
+    color:#1e293b;
+}
+
+.branch-badge{
+    background:#ede9fe;
+    color:#6d28d9;
+    padding:6px 10px;
+    border-radius:8px;
+    font-size:0.78rem;
+    font-weight:600;
+}
+
+.status-badge{
+    padding:7px 12px;
+    border-radius:8px;
+    font-size:0.78rem;
+    font-weight:700;
+    display:inline-block;
+}
+
+.status-confirmed{
+    background:#dbeafe;
+    color:#2563eb;
+}
+
+.status-completed{
+    background:#d1fae5;
+    color:#059669;
+}
+
+.status-pending{
+    background:#fef3c7;
+    color:#b45309;
+}
+
+.status-cancelled{
+    background:#fee2e2;
+    color:#dc2626;
+}
+
+/* Empty */
+
+.empty-state{
+    padding:70px 20px;
+    text-align:center;
+}
+
+.empty-state i{
+    font-size:4rem;
+    color:#cbd5e1;
+}
+
+.empty-state h4{
+    margin-top:16px;
+    color:#334155;
+}
+
+.empty-state p{
+    color:#94a3b8;
+    font-size:0.9rem;
+}
+
+</style>
+
+<div class="report-wrapper">
+
+   
+    <!-- Filter -->
+
+    <div class="filter-card">
+
+        <form method="GET" class="filter-form">
+
+            <div class="filter-group">
+
+                <i class="ph ph-magnifying-glass search-icon"></i>
+
+                <input type="text"
+                       name="search"
+                       value="{{ request.GET.search }}"
+                       class="search-input"
+                       placeholder="Search customer or vehicle...">
+
+            </div>
+
+            <input type="date"
+                   name="from_date"
+                   value="{{ from_date }}"
+                   class="date-input">
+
+            <input type="date"
+                   name="to_date"
+                   value="{{ to_date }}"
+                   class="date-input">
+
+            <select name="branch" class="select-input">
+
+                <option value="">
+                    All Branches
+                </option>
+
+                {% for branch in branches %}
+
+                <option value="{{ branch.id }}"
+                    {% if branch_id == branch.id|stringformat:"s" %}
+                        selected
+                    {% endif %}>
+
+                    {{ branch.name }}
+
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+            <select name="status" class="select-input">
+
+                <option value="">
+                    All Status
+                </option>
+
+                <option value="pending"
+                    {% if status == 'pending' %}
+                        selected
+                    {% endif %}>
+                    Pending
+                </option>
+
+                <option value="confirmed"
+                    {% if status == 'confirmed' %}
+                        selected
+                    {% endif %}>
+                    Confirmed
+                </option>
+
+                <option value="completed"
+                    {% if status == 'completed' %}
+                        selected
+                    {% endif %}>
+                    Completed
+                </option>
+
+                <option value="cancelled"
+                    {% if status == 'cancelled' %}
+                        selected
+                    {% endif %}>
+                    Cancelled
+                </option>
+
+            </select>
+
+            <button type="submit" class="filter-btn">
+
+                <i class="ph ph-funnel"></i>
+
+                Filter Report
+
+            </button>
+
+            <a href="{% url 'job_report' %}"
+               class="reset-btn">
+
+                Reset
+
+            </a>
+
+        </form>
+
+    </div>
+
+    <!-- Summary -->
+
+    <div class="summary-grid">
+
+        <div class="summary-card total">
+
+            <div class="summary-top">
+
+                <div class="summary-label">
+                    Total Jobs
+                </div>
+
+                <div class="summary-icon">
+                    <i class="ph ph-clipboard-text"></i>
+                </div>
+
+            </div>
+
+            <div class="summary-value">
+                {{ total_jobs }}
+            </div>
+
+        </div>
+
+        <div class="summary-card completed">
+
+            <div class="summary-top">
+
+                <div class="summary-label">
+                    Completed Jobs
+                </div>
+
+                <div class="summary-icon">
+                    <i class="ph ph-check-circle"></i>
+                </div>
+
+            </div>
+
+            <div class="summary-value">
+                {{ completed_jobs }}
+            </div>
+
+        </div>
+
+        <div class="summary-card pending">
+
+            <div class="summary-top">
+
+                <div class="summary-label">
+                    Pending Jobs
+                </div>
+
+                <div class="summary-icon">
+                    <i class="ph ph-clock"></i>
+                </div>
+
+            </div>
+
+            <div class="summary-value">
+                {{ pending_jobs }}
+            </div>
+
+        </div>
+
+        <div class="summary-card cancelled">
+
+            <div class="summary-top">
+
+                <div class="summary-label">
+                    Cancelled Jobs
+                </div>
+
+                <div class="summary-icon">
+                    <i class="ph ph-x-circle"></i>
+                </div>
+
+            </div>
+
+            <div class="summary-value">
+                {{ cancelled_jobs }}
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Table -->
+
+    <div class="table-card">
+
+        <div class="table-header">
+
+            <div>
+
+                <h3>Booking Job Report</h3>
+
+                <span>
+                    Total Jobs : {{ bookings|length }}
+                </span>
+
+            </div>
+
+        </div>
+
+        <div class="table-wrapper">
+
+            <table class="premium-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>#</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Branch</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for item in bookings %}
+
+                    <tr>
+
+                        <td style="color:#94a3b8;">
+                            {{ forloop.counter }}
+                        </td>
+
+                       
+
+                        <td>
+
+                            {{ item.booking_date|date:"d M Y" }}
+
+                            <br>
+
+                            <small style="color:#94a3b8;">
+
+                                {% if item.booking_time %}
+                                    {{ item.booking_time }}
+                                {% else %}
+                                    -
+                                {% endif %}
+
+                            </small>
+
+                        </td>
+
+                        <td>
+
+                            <div class="customer-name">
+                                {{ item.customer.name }}
+                            </div>
+
+                        </td>
+
+                        <td>
+
+                            <div class="vehicle-no">
+                                {{ item.vehicle.vehicle_number }}
+                            </div>
+
+                        </td>
+
+                        <td>
+
+                            <span class="branch-badge">
+                                {{ item.branch.name }}
+                            </span>
+
+                        </td>
+
+                        <td>
+
+                            {% if item.status == 'confirmed' %}
+
+                                <span class="status-badge status-confirmed">
+                                    Confirmed
+                                </span>
+
+                            {% elif item.status == 'completed' %}
+
+                                <span class="status-badge status-completed">
+                                    Completed
+                                </span>
+
+                            {% elif item.status == 'pending' %}
+
+                                <span class="status-badge status-pending">
+                                    Pending
+                                </span>
+
+                            {% else %}
+
+                                <span class="status-badge status-cancelled">
+                                    Cancelled
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {{ item.notes|default:"-" }}
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td colspan="8">
+
+                            <div class="empty-state">
+
+                                <i class="ph ph-clipboard-text"></i>
+
+                                <h4>No Job Report Found</h4>
+
+                                <p>
+                                    Booking jobs will appear here.
+                                </p>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
