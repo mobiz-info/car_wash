@@ -69,5 +69,12 @@ urlpatterns = [
     path('api/vehicle/search/', api_views.api_vehicle_search, name='api_vehicle_search'),
     path('api/dashboard/stats/', api_views.api_dashboard_stats, name='api_dashboard_stats'),
     path('api/schemes/available/', api_views.api_available_schemes, name='api_available_schemes'),
+    path('api/schemes/branch/', api_views.api_branch_schemes, name='api_branch_schemes'),
     path('api/schemes/validate-voucher/', api_views.api_validate_voucher, name='api_validate_voucher'),
+
+    # Reports
+    path('api/reports/jobs/', api_views.api_report_jobs, name='api_report_jobs'),
+    path('api/reports/scheme-beneficiary/', api_views.api_report_scheme_beneficiary, name='api_report_scheme_beneficiary'),
+    path('api/reports/collection/', api_views.api_report_collection, name='api_report_collection'),
+    path('api/reports/outstanding/', api_views.api_report_outstanding, name='api_report_outstanding'),
 ]

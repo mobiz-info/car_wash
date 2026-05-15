@@ -37,6 +37,7 @@
                     <th>Email</th>
                     <th>GST No</th>
                     <th>Username</th>
+                    <th>Password</th>
                     <th style="text-align:right;">Actions</th>
                 </tr>
             </thead>
@@ -67,6 +68,16 @@
                             <span class="badge" style="background:#f3e8ff;color:#7e22ce;">{{ branch.branch_admin.username }}</span>
                         {% else %}
                             <span style="color:#94a3b8; font-size:0.8rem;">None</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        {% if branch.branch_admin %}
+                            <div style="font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 0.85rem; color: #475569;">
+                                {{ branch.branch_admin.profile.raw_password|default:"********" }}
+                            </div>
+                        {% else %}
+                            <span style="color:#94a3b8; font-size:0.8rem;">-</span>
                         {% endif %}
                     </td>
 

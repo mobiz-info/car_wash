@@ -1,4 +1,5 @@
 import json
+from django.db import models
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
@@ -440,6 +441,23 @@ def api_create_invoice(request):
             creator=user,
             auto_id=get_auto_id(Invoice)
         )
+        
+        # Create Receipt if amount_collected > 0
+        from finance_management.models import Receipt
+        from decimal import Decimal
+        amount_collected = Decimal(str(data.get('amount_collected', 0)))
+        if amount_collected > 0:
+            receipt_auto_id = get_auto_id(Receipt)
+            receipt_number = f"RCPT-{str(receipt_auto_id).zfill(5)}"
+            Receipt.objects.create(
+                auto_id=receipt_auto_id,
+                creator=user,
+                receipt_number=receipt_number,
+                invoice=invoice,
+                amount=amount_collected,
+                payment_mode='cash', # Defaulting to cash for invoice creation API
+                remarks='Invoice time collection'
+            )
         
         # Create Items
         services_list = data.get('services', [])
@@ -1016,3 +1034,300 @@ def api_validate_voucher(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@csrf_exempt
+def api_branch_schemes(request):
+    """Return all active schemes for the branch or company."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    role = user.profile.role.name if user.profile.role else None
+    
+    from .models import Scheme
+    schemes_qs = Scheme.objects.filter(is_deleted=False)
+
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        # Branch can access schemes of its company, filtered by its active scheme types
+        schemes_qs = schemes_qs.filter(company=user.managed_branch.company)
+        schemes_qs = schemes_qs.filter(scheme_type__in=user.managed_branch.scheme_types.all())
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        schemes_qs = schemes_qs.filter(company=user.profile.company)
+
+    result = []
+    for scheme in schemes_qs.distinct():
+        scheme_type = scheme.scheme_type.name if scheme.scheme_type else 'Quantity'
+        
+        services = ", ".join(scheme.services.values_list('name', flat=True)) if scheme.services.exists() else 'All Services'
+        vehicle_types = ", ".join(scheme.vehicle_types.values_list('name', flat=True)) if scheme.vehicle_types.exists() else 'All Vehicles'
+        customer_types = ", ".join(scheme.customer_types.values_list('name', flat=True)) if scheme.customer_types.exists() else 'All Customers'
+
+        result.append({
+            'id': str(scheme.id),
+            'name': scheme.name,
+            'scheme_type': scheme_type,
+            'description': '',
+            'start_date': str(scheme.start_date) if scheme.start_date else '',
+            'end_date': str(scheme.end_date) if scheme.end_date else '',
+            'services': services,
+            'vehicle_types': vehicle_types,
+            'customer_types': customer_types,
+            'paid_visits': scheme.paid_visits or 0,
+            'free_visits': scheme.free_visits or 0,
+            'discount_percentage': str(scheme.discount_percentage or 0),
+            'voucher_amount': '0',
+        })
+
+    return JsonResponse({'success': True, 'schemes': result})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# REPORTS API
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _report_scope(user):
+    """Returns (company, branch_filter_kwargs) for the logged-in user."""
+    company = user.profile.company
+    role = user.profile.role.name if user.profile.role else None
+    qs_filter = {}
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        qs_filter['branch'] = user.managed_branch
+    elif role == 'COMPANY_ADMIN':
+        qs_filter['branch__company'] = company
+    return company, qs_filter
+
+
+def _parse_dates(request):
+    from datetime import date, datetime
+    from_date_str = request.GET.get('from_date', '')
+    to_date_str = request.GET.get('to_date', '')
+    today = date.today()
+
+    def parse_dt(dt_str, default_dt):
+        if not dt_str:
+            return default_dt
+        try:
+            return datetime.strptime(dt_str, '%d-%m-%Y').date()
+        except ValueError:
+            try:
+                return date.fromisoformat(dt_str)
+            except ValueError:
+                return default_dt
+
+    from_date = parse_dt(from_date_str, today.replace(day=1))
+    to_date = parse_dt(to_date_str, today)
+    return from_date, to_date
+
+
+@csrf_exempt
+def api_report_jobs(request):
+    """Job report: all invoices in date range."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import Invoice
+    from django.db.models import Sum
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user)
+
+    qs = Invoice.objects.filter(
+        is_deleted=False, date__gte=from_date, date__lte=to_date, **scope
+    ).select_related('customer', 'vehicle', 'branch').order_by('-date', '-auto_id')
+
+    rows = []
+    for inv in qs:
+        services = ', '.join(inv.items.values_list('service_name', flat=True))
+        rows.append({
+            'invoice_number': inv.invoice_number,
+            'date': inv.date.strftime('%d-%m-%Y'),
+            'customer': inv.customer.name,
+            'phone': inv.customer.phone,
+            'vehicle': inv.vehicle.vehicle_number if inv.vehicle else '',
+            'branch': inv.branch.name if inv.branch else '',
+            'services': services,
+            'subtotal': str(inv.subtotal),
+            'discount': str(inv.discount),
+            'tax': str(inv.tax_amount),
+            'total': str(inv.total),
+            'collected': str(inv.amount_collected),
+        })
+
+    totals = qs.aggregate(
+        total_jobs=models.Count('id'),
+        total_revenue=Sum('total'),
+        total_collected=Sum('amount_collected'),
+        total_discount=Sum('discount'),
+    )
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_jobs': totals['total_jobs'] or 0,
+        'total_revenue': str(totals['total_revenue'] or 0),
+        'total_collected': str(totals['total_collected'] or 0),
+        'total_discount': str(totals['total_discount'] or 0),
+        'rows': rows,
+    })
+
+
+@csrf_exempt
+def api_report_scheme_beneficiary(request):
+    """Scheme beneficiary report: invoices where a scheme was redeemed."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import Invoice
+    from django.db.models import Sum, Count
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user)
+
+    qs = Invoice.objects.filter(
+        is_deleted=False, date__gte=from_date, date__lte=to_date,
+        scheme__isnull=False, **scope
+    ).select_related('customer', 'vehicle', 'scheme', 'branch').order_by('-date', '-auto_id')
+
+    rows = []
+    for inv in qs:
+        rows.append({
+            'invoice_number': inv.invoice_number,
+            'date': inv.date.strftime('%d-%m-%Y'),
+            'customer': inv.customer.name,
+            'phone': inv.customer.phone,
+            'vehicle': inv.vehicle.vehicle_number if inv.vehicle else '',
+            'scheme': inv.scheme.name if inv.scheme else '',
+            'scheme_type': inv.scheme.scheme_type.name if inv.scheme and inv.scheme.scheme_type else '',
+            'discount': str(inv.discount),
+            'total': str(inv.total),
+            'branch': inv.branch.name if inv.branch else '',
+        })
+
+    totals = qs.aggregate(
+        total_count=Count('id'),
+        total_discount=Sum('discount'),
+    )
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_count': totals['total_count'] or 0,
+        'total_discount': str(totals['total_discount'] or 0),
+        'rows': rows,
+    })
+
+
+@csrf_exempt
+def api_report_collection(request):
+    """Collection report: returns all receipts within date range."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import Receipt
+    from django.db.models import Sum
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user)
+
+    receipt_scope = {}
+    if 'branch' in scope:
+        receipt_scope['invoice__branch'] = scope['branch']
+    elif 'branch__company' in scope:
+        receipt_scope['invoice__branch__company'] = scope['branch__company']
+
+    rec_qs = Receipt.objects.filter(
+        created_at__date__gte=from_date,
+        created_at__date__lte=to_date,
+        **receipt_scope
+    ).select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch').order_by('-created_at')
+
+    rows = []
+    for rec in rec_qs:
+        rows.append({
+            'receipt_number': rec.receipt_number,
+            'date': rec.created_at.date().strftime('%d-%m-%Y'),
+            'invoice_number': rec.invoice.invoice_number,
+            'customer': rec.invoice.customer.name,
+            'phone': rec.invoice.customer.phone,
+            'vehicle': rec.invoice.vehicle.vehicle_number if rec.invoice.vehicle else '',
+            'branch': rec.invoice.branch.name if rec.invoice.branch else '',
+            'amount': str(rec.amount),
+            'payment_mode': rec.payment_mode,
+            'remarks': rec.remarks,
+        })
+
+    rec_total = rec_qs.aggregate(t=Sum('amount'))['t'] or 0
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_collected': str(rec_total),
+        'count': len(rows),
+        'rows': rows,
+    })
+
+
+@csrf_exempt
+def api_report_outstanding(request):
+    """Outstanding report: invoices with unpaid balance."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import Invoice
+    from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user)
+
+    qs = Invoice.objects.filter(
+        is_deleted=False, date__gte=from_date, date__lte=to_date, **scope
+    ).annotate(
+        balance=ExpressionWrapper(F('total') - F('amount_collected'), output_field=DecimalField())
+    ).filter(balance__gt=0).select_related('customer', 'vehicle', 'branch').order_by('-date', '-auto_id')
+
+    rows = []
+    for inv in qs:
+        rows.append({
+            'invoice_number': inv.invoice_number,
+            'date': inv.date.strftime('%d-%m-%Y'),
+            'customer': inv.customer.name,
+            'phone': inv.customer.phone,
+            'vehicle': inv.vehicle.vehicle_number if inv.vehicle else '',
+            'branch': inv.branch.name if inv.branch else '',
+            'total': str(inv.total),
+            'collected': str(inv.amount_collected),
+            'balance': str(inv.balance),
+        })
+
+    agg = qs.aggregate(
+        total_outstanding=Sum(ExpressionWrapper(F('total') - F('amount_collected'), output_field=DecimalField())),
+        count=models.Count('id'),
+    )
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_outstanding': str(agg['total_outstanding'] or 0),
+        'count': agg['count'] or 0,
+        'rows': rows,
+    })
+

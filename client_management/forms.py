@@ -138,7 +138,8 @@ class BranchForm(forms.ModelForm):
                 role=role,
                 company=company,
                 auto_id=get_auto_id(UserProfile),
-                creator=self.request.user
+                creator=self.request.user,
+                raw_password=password
             )
             branch.branch_admin = user
         else:
@@ -148,6 +149,9 @@ class BranchForm(forms.ModelForm):
                 user.username = username
                 if password:
                     user.set_password(password)
+                    if hasattr(user, 'profile'):
+                        user.profile.raw_password = password
+                        user.profile.save()
                 user.save()
 
         if commit:

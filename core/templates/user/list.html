@@ -133,8 +133,10 @@
             <thead>
                 <tr>
                     <th style="width: 80px;">#</th>
-                    <th>User</th>
+                    <th>Name</th>
+                    <th>Username</th>
                     <th>Email</th>
+                    <th>Password</th>
                     <th>Role</th>
                     <th>Company</th>
                     <th style="text-align:right;">Actions</th>
@@ -150,14 +152,25 @@
                                 <i class="ph-fill ph-user"></i>
                             </div>
                             <div>
-                                <div style="color: #1e293b;">{{ obj.username }}</div>
-                                {% if obj.first_name or obj.last_name %}
-                                <div style="font-size: 0.75rem; color: #64748b; font-weight: 400;">{{ obj.first_name }} {{ obj.last_name }}</div>
-                                {% endif %}
+                                <div style="color: #1e293b;">
+                                    {% if obj.first_name or obj.last_name %}
+                                        {{ obj.first_name }} {{ obj.last_name }}
+                                    {% else %}
+                                        <span style="color: #94a3b8; font-style: italic;">No Name</span>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </td>
+                    <td>
+                        <div style="font-weight: 600; color: #3b82f6;">{{ obj.username }}</div>
+                    </td>
                     <td>{{ obj.email|default:"-" }}</td>
+                    <td>
+                        <div style="font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 0.85rem; color: #475569;">
+                            {{ obj.profile.raw_password|default:"********" }}
+                        </div>
+                    </td>
                     <td>{{ obj.profile.role.name|default:"-" }}</td>
                     <td>{{ obj.profile.company.company_name|default:"-" }}</td>
                     <td style="text-align:right;">
