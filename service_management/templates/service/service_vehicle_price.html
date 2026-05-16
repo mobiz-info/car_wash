@@ -280,7 +280,7 @@
                         {% for vt in vehicle_types %}
                         <td class="vt-cell">
                             <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
-                                <span style="font-size:.9rem; color:#94a3b8; font-weight:600;">₹</span>
+                                <span style="font-size:.9rem; color:#94a3b8; font-weight:600;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}</span>
                                 <input
                                     type="number"
                                     class="price-input"

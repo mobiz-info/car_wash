@@ -91,12 +91,17 @@ def api_list_bookings(request):
             'status': b.status,
             'notes': b.notes or '',
             'customer': {
+                'id': str(b.customer.id),
                 'name': b.customer.name,
                 'phone': b.customer.phone,
+                'type': b.customer.customer_type.name if b.customer.customer_type else '',
             },
             'vehicle': {
+                'id': str(b.vehicle.id),
                 'number': b.vehicle.vehicle_number,
                 'model': b.vehicle.vehicle_type_model.name if b.vehicle.vehicle_type_model else '',
+                'no': b.vehicle.vehicle_number,
+                'type': b.vehicle.vehicle_type_model.name if b.vehicle.vehicle_type_model else '',
             },
             'branch': b.branch.name if b.branch else '',
         })

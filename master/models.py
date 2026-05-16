@@ -3,6 +3,8 @@ from core.models import BaseModel
 
 class Country(BaseModel):
     name = models.CharField(max_length=100)
+    currency_code = models.CharField(max_length=10, blank=True, null=True, help_text="e.g. INR, AED")
+    currency_symbol = models.CharField(max_length=10, blank=True, null=True, help_text="e.g. ₹, AED")
 
     def __str__(self):
         return self.name

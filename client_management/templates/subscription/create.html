@@ -174,7 +174,7 @@
                 {% if form.end_date.errors %}<div class="error-text">{{ form.end_date.errors.0 }}</div>{% endif %}
             </div>
             <div class="form-group">
-                <label for="{{ form.usage_fee.id_for_label }}">Usage Fee (₹) <span style="color:red">*</span></label>
+                <label for="{{ form.usage_fee.id_for_label }}">Usage Fee ({{ request.user.profile.company.country.currency_symbol|default:'₹' }}) <span style="color:red">*</span></label>
                 {{ form.usage_fee }}
                 {% if form.usage_fee.errors %}<div class="error-text">{{ form.usage_fee.errors.0 }}</div>{% endif %}
             </div>

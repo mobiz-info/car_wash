@@ -62,7 +62,7 @@
                 <div style="display:flex; align-items:center; gap:12px;">
                     <div style="text-align:right;">
                         <div style="font-size:.72rem; color:#94a3b8; font-weight:600;">TOTAL DUE</div>
-                        <div style="font-size:1.3rem; font-weight:900; color:#dc2626;">₹{{ summary.total_outstanding|floatformat:2 }}</div>
+                        <div style="font-size:1.3rem; font-weight:900; color:#dc2626;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ summary.total_outstanding|floatformat:2 }}</div>
                     </div>
                     <i class="ph ph-caret-down" style="color:#94a3b8;"></i>
                 </div>
@@ -92,9 +92,9 @@
                             </td>
                             <td style="padding:12px 16px; color:#64748b;">{{ item.invoice.date|date:"d M Y" }}</td>
                             <td style="padding:12px 16px; color:#64748b;">{{ item.invoice.vehicle.vehicle_number }}</td>
-                            <td style="padding:12px 16px; text-align:right; font-weight:600; color:#1e293b;">₹{{ item.invoice.total|floatformat:2 }}</td>
-                            <td style="padding:12px 16px; text-align:right; color:#16a34a; font-weight:600;">₹{{ item.invoice.amount_collected|floatformat:2 }}</td>
-                            <td style="padding:12px 16px; text-align:right; font-weight:800; color:#dc2626;">₹{{ item.outstanding|floatformat:2 }}</td>
+                            <td style="padding:12px 16px; text-align:right; font-weight:600; color:#1e293b;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.invoice.total|floatformat:2 }}</td>
+                            <td style="padding:12px 16px; text-align:right; color:#16a34a; font-weight:600;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.invoice.amount_collected|floatformat:2 }}</td>
+                            <td style="padding:12px 16px; text-align:right; font-weight:800; color:#dc2626;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.outstanding|floatformat:2 }}</td>
                             <td style="padding:12px 16px; text-align:right;">
                                 <button onclick="openCollect('{{ item.invoice.id }}', '{{ item.invoice.invoice_number }}', '{{ item.outstanding }}')"
                                     style="background:#000080; color:#fff; border:none; padding:6px 14px; border-radius:7px; font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap;">
@@ -113,7 +113,7 @@
         {% if customer_summary %}
         <div style="display:flex; justify-content:flex-end; align-items:center; gap:12px; padding:14px 20px; border-top:2px solid #e2e8f0; margin-top:4px;">
             <span style="font-size:.95rem; font-weight:600; color:#64748b;">Total Outstanding</span>
-            <span style="font-size:1.2rem; font-weight:900; color:#dc2626;">₹{{ total_outstanding|floatformat:2 }}</span>
+            <span style="font-size:1.2rem; font-weight:900; color:#dc2626;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_outstanding|floatformat:2 }}</span>
         </div>
         {% endif %}
     </div>
@@ -146,7 +146,7 @@
             </div>
             <div style="margin-bottom:18px;">
                 <label style="font-size:.85rem; font-weight:600; color:#374151; display:block; margin-bottom:6px;">
-                    Amount to Collect (₹) <span style="color:red;">*</span>
+                    Amount to Collect ({{ request.user.profile.company.country.currency_symbol|default:'₹' }}) <span style="color:red;">*</span>
                 </label>
                 <input type="number" name="amount" id="collectAmount" required min="0.01" step="0.01"
                     style="width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem; font-weight:700; outline:none;">
@@ -170,7 +170,7 @@
 function openCollect(invoiceId, invoiceNumber, outstanding) {
     document.getElementById('collectModal').style.display = 'flex';
     document.getElementById('modalInvoiceLabel').textContent = 'Invoice #' + invoiceNumber;
-    document.getElementById('modalOutstanding').textContent = '₹' + parseFloat(outstanding).toFixed(2);
+    document.getElementById('modalOutstanding').textContent = '{{ request.user.profile.company.country.currency_symbol|default:'₹' }}' + parseFloat(outstanding).toFixed(2);
     document.getElementById('collectAmount').value = parseFloat(outstanding).toFixed(2);
     document.getElementById('collectAmount').max = parseFloat(outstanding).toFixed(2);
     document.getElementById('collectForm').action = '/outstanding/collect/' + invoiceId + '/';

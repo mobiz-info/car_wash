@@ -128,7 +128,8 @@ def collect_payment(request, invoice_id):
             if amount <= 0:
                 messages.error(request, "Amount must be greater than 0.")
             elif amount > outstanding:
-                messages.error(request, f"Amount ₹{amount} exceeds outstanding ₹{outstanding}.")
+                currency = invoice.branch.company.country.currency_symbol if invoice.branch.company.country else '₹'
+                messages.error(request, f"Amount {currency}{amount} exceeds outstanding {currency}{outstanding}.")
             else:
                 invoice.amount_collected += amount
                 invoice.save()
@@ -136,7 +137,8 @@ def collect_payment(request, invoice_id):
                 if remaining == 0:
                     messages.success(request, f"Full payment collected for Invoice #{invoice.invoice_number}. ✓ Fully settled.")
                 else:
-                    messages.success(request, f"₹{amount} collected. Remaining outstanding: ₹{remaining}.")
+                    currency = invoice.branch.company.country.currency_symbol if invoice.branch.company.country else '₹'
+                    messages.success(request, f"{currency}{amount} collected. Remaining outstanding: {currency}{remaining}.")
                 return redirect('outstanding_list')
         except Exception as e:
             messages.error(request, f"Invalid amount: {e}")
@@ -506,7 +508,8 @@ def api_collect_payment(request):
         if amount <= 0:
             return JsonResponse({'success': False, 'message': 'Amount must be greater than 0'}, status=400)
         if amount > outstanding:
-            return JsonResponse({'success': False, 'message': f'Amount exceeds outstanding balance of ₹{outstanding}'}, status=400)
+            currency = invoice.branch.company.country.currency_symbol if invoice.branch.company.country else '₹'
+            return JsonResponse({'success': False, 'message': f'Amount exceeds outstanding balance of {currency}{outstanding}'}, status=400)
 
         invoice.amount_collected += amount
         invoice.save()

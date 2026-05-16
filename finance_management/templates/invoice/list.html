@@ -79,20 +79,20 @@
                             {% endfor %}
                         </div>
                     </td>
-                    <td style="text-align:right; font-weight:500;">₹{{ invoice.subtotal }}</td>
-                    <td style="text-align:right; color:#ef4444;">{% if invoice.discount > 0 %}-₹{{ invoice.discount }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right; color:#64748b; font-size:0.85rem;">₹{{ invoice.tax_amount }}</td>
+                    <td style="text-align:right; font-weight:500;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.subtotal }}</td>
+                    <td style="text-align:right; color:#ef4444;">{% if invoice.discount > 0 %}-{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.discount }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right; color:#64748b; font-size:0.85rem;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.tax_amount }}</td>
                     <td style="text-align:right;">
-                        <span style="font-weight:700; color:#000080; font-size:1rem;">₹{{ invoice.total }}</span>
+                        <span style="font-weight:700; color:#000080; font-size:1rem;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.total }}</span>
                     </td>
                     <td style="text-align:right;">
                         {% if invoice.amount_collected >= invoice.total %}
                             <span style="background:#d1fae5; color:#065f46; padding:4px 8px; border-radius:6px; font-size:0.78rem; font-weight:600;">
-                                ₹{{ invoice.amount_collected }} ✓
+                                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.amount_collected }} ✓
                             </span>
                         {% else %}
                             <span style="background:#fee2e2; color:#991b1b; padding:4px 8px; border-radius:6px; font-size:0.78rem; font-weight:600;">
-                                ₹{{ invoice.amount_collected }}
+                                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.amount_collected }}
                             </span>
                         {% endif %}
                     </td>

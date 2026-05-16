@@ -290,28 +290,28 @@
                     <div class="info-row">
                         <span class="info-label">Subtotal</span>
                         <span class="info-value">
-                            ₹{{ invoice.subtotal }}
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.subtotal }}
                         </span>
                     </div>
 
                     <div class="info-row">
                         <span class="info-label">Discount</span>
                         <span class="info-value">
-                            ₹{{ invoice.discount }}
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.discount }}
                         </span>
                     </div>
 
                     <div class="info-row">
                         <span class="info-label">Tax</span>
                         <span class="info-value">
-                            ₹{{ invoice.tax_amount }}
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.tax_amount }}
                         </span>
                     </div>
 
                     <div class="info-row">
                         <span class="info-label">Collected</span>
                         <span class="info-value" style="color:#059669;">
-                            ₹{{ invoice.amount_collected }}
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.amount_collected }}
                         </span>
                     </div>
 
@@ -342,7 +342,7 @@
                         <td>{{ item.service_name }}</td>
 
                         <td style="text-align:right;">
-                            ₹{{ item.rate }}
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.rate }}
                         </td>
 
                     </tr>
@@ -359,28 +359,28 @@
 
                 <div class="summary-row">
                     <span>Subtotal</span>
-                    <strong>₹{{ invoice.subtotal }}</strong>
+                    <strong>{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.subtotal }}</strong>
                 </div>
 
                 <div class="summary-row">
                     <span>Discount</span>
-                    <strong>- ₹{{ invoice.discount }}</strong>
+                    <strong>- {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.discount }}</strong>
                 </div>
 
                 <div class="summary-row">
                     <span>Tax</span>
-                    <strong>₹{{ invoice.tax_amount }}</strong>
+                    <strong>{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.tax_amount }}</strong>
                 </div>
 
                 <div class="summary-row total">
                     <span>Total</span>
-                    <strong>₹{{ invoice.total }}</strong>
+                    <strong>{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.total }}</strong>
                 </div>
 
                 <div class="summary-row">
                     <span>Collected</span>
                     <strong style="color:#059669;">
-                        ₹{{ invoice.amount_collected }}
+                        {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.amount_collected }}
                     </strong>
                 </div>
 
@@ -389,7 +389,7 @@
 
                     {% if balance > 0 %}
                         <strong style="color:#dc2626;">
-                            ₹{{ balance }}
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ balance }}
                         </strong>
                     {% else %}
                         <strong style="color:#16a34a;">

@@ -456,7 +456,7 @@
             </div>
 
             <div class="summary-value">
-                ₹{{ total_amount }}
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_amount }}
             </div>
 
         </div>
@@ -472,7 +472,7 @@
             </div>
 
             <div class="summary-value">
-                ₹{{ total_collection }}
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_collection }}
             </div>
 
         </div>
@@ -488,7 +488,7 @@
             </div>
 
             <div class="summary-value">
-                ₹{{ total_balance }}
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_balance }}
             </div>
 
         </div>
@@ -600,7 +600,7 @@
                         <td style="text-align:right;">
 
                             <span class="amount">
-                                ₹{{ invoice.total }}
+                                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.total }}
                             </span>
 
                         </td>
@@ -610,13 +610,13 @@
                             {% if invoice.amount_collected >= invoice.total %}
 
                                 <span class="collected-paid">
-                                    ₹{{ invoice.amount_collected }} ✓
+                                    {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.amount_collected }} ✓
                                 </span>
 
                             {% else %}
 
                                 <span class="collected-pending">
-                                    ₹{{ invoice.amount_collected }}
+                                    {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.amount_collected }}
                                 </span>
 
                             {% endif %}
@@ -632,12 +632,22 @@
                                 </span>
 
                             {% else %}
+                                    <span class="balance-pending">
+                                        {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ balance }}
+                                    </span>
 
                                 <span class="balance-clear">
                                     ₹0
                                 </span>
 
                             {% endif %}
+                                    <span class="balance-clear">
+                                        {{ request.user.profile.company.country.currency_symbol|default:'₹' }}0
+                                    </span>
+
+                                {% endif %}
+
+                            {% endwith %}
 
                         </td>
 

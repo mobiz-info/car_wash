@@ -90,6 +90,10 @@ def api_login(request):
             # Display name: branch name for BRANCH_ADMIN, company name for COMPANY_ADMIN
             display_name = branch_name if role == 'BRANCH_ADMIN' else company_name
 
+            currency_symbol = '₹'
+            if user.profile.company and user.profile.company.country and user.profile.company.country.currency_symbol:
+                currency_symbol = user.profile.company.country.currency_symbol
+
             return JsonResponse({
                 'success': True,
                 'token': token_obj.token,
@@ -97,6 +101,7 @@ def api_login(request):
                 'company_name': company_name,
                 'branch_name': branch_name,
                 'display_name': display_name,
+                'currency_symbol': currency_symbol,
                 'username': user.username
             })
         else:
@@ -477,6 +482,16 @@ def api_create_invoice(request):
                 auto_id=get_auto_id(InvoiceItem)
             )
             
+        booking_id = data.get('booking_id')
+        if booking_id:
+            from booking_management.models import Booking
+            try:
+                booking = Booking.objects.get(id=booking_id)
+                booking.status = Booking.STATUS_COMPLETED
+                booking.save()
+            except Booking.DoesNotExist:
+                pass
+            
         return JsonResponse({
             'success': True,
             'message': 'Invoice created successfully',
@@ -734,7 +749,7 @@ def api_list_customers(request):
             )
 
         customers_data = []
-        for c in customers_qs.select_related('customer_type')[:100]:
+        for c in customers_qs.select_related('customer_type'):
             customers_data.append({
                 'id': str(c.id),
                 'name': c.name,
@@ -1022,12 +1037,13 @@ def api_validate_voucher(request):
             is_deleted=False,
         ).first()
 
+        currency_symbol = user.profile.company.country.currency_symbol if user.profile.company.country else '₹'
         if voucher:
             return JsonResponse({
                 'success': True,
                 'voucher_id': str(voucher.id),
                 'discount': float(voucher.discount),
-                'message': f'Voucher applied! ₹{voucher.discount} off',
+                'message': f'Voucher applied! {currency_symbol}{voucher.discount} off',
             })
         else:
             return JsonResponse({'success': False, 'message': 'Invalid or already used voucher'}, status=404)
