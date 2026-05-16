@@ -448,7 +448,7 @@
 
             </select>
 
-            <select name="status" class="select-input">
+            {% comment %} <select name="status" class="select-input">
 
                 <option value="">
                     All Status
@@ -482,7 +482,7 @@
                     Cancelled
                 </option>
 
-            </select>
+            </select> {% endcomment %}
 
             <button type="submit" class="filter-btn">
 
@@ -507,7 +507,7 @@
 
     <div class="summary-grid">
 
-        <div class="summary-card total">
+        {% comment %} <div class="summary-card total">
 
             <div class="summary-top">
 
@@ -525,14 +525,14 @@
                 {{ total_jobs }}
             </div>
 
-        </div>
+        </div> {% endcomment %}
 
         <div class="summary-card completed">
 
             <div class="summary-top">
 
                 <div class="summary-label">
-                    Completed Jobs
+                    Total Revenue
                 </div>
 
                 <div class="summary-icon">
@@ -542,7 +542,7 @@
             </div>
 
             <div class="summary-value">
-                {{ completed_jobs }}
+                ₹{{ total_revenue }}
             </div>
 
         </div>
@@ -552,7 +552,7 @@
             <div class="summary-top">
 
                 <div class="summary-label">
-                    Pending Jobs
+                    Total Collection
                 </div>
 
                 <div class="summary-icon">
@@ -562,7 +562,7 @@
             </div>
 
             <div class="summary-value">
-                {{ pending_jobs }}
+                ₹{{ total_collected }}
             </div>
 
         </div>
@@ -572,7 +572,7 @@
             <div class="summary-top">
 
                 <div class="summary-label">
-                    Cancelled Jobs
+                    Pending Balance
                 </div>
 
                 <div class="summary-icon">
@@ -582,7 +582,7 @@
             </div>
 
             <div class="summary-value">
-                {{ cancelled_jobs }}
+                ₹{{ total_balance }}
             </div>
 
         </div>
@@ -599,9 +599,9 @@
 
                 <h3>Booking Job Report</h3>
 
-                <span>
+                {% comment %} <span>
                     Total Jobs : {{ bookings|length }}
-                </span>
+                </span> {% endcomment %}
 
             </div>
 
@@ -616,12 +616,14 @@
                     <tr>
 
                         <th>#</th>
+                        <th>Invoice</th>
                         <th>Date</th>
                         <th>Customer</th>
                         <th>Vehicle</th>
                         <th>Branch</th>
-                        <th>Status</th>
-                        <th>Notes</th>
+                        <th>Total</th>
+                        <th>Collected</th>
+                        <th>Balance</th>
 
                     </tr>
 
@@ -629,7 +631,7 @@
 
                 <tbody>
 
-                    {% for item in bookings %}
+                    {% for invoice in invoices %}
 
                     <tr>
 
@@ -637,30 +639,24 @@
                             {{ forloop.counter }}
                         </td>
 
-                       
+                        <td>
+
+                            <span class="booking-badge">
+                                {{ invoice.invoice_number }}
+                            </span>
+
+                        </td>
 
                         <td>
 
-                            {{ item.booking_date|date:"d M Y" }}
-
-                            <br>
-
-                            <small style="color:#94a3b8;">
-
-                                {% if item.booking_time %}
-                                    {{ item.booking_time }}
-                                {% else %}
-                                    -
-                                {% endif %}
-
-                            </small>
+                            {{ invoice.date|date:"d M Y" }}
 
                         </td>
 
                         <td>
 
                             <div class="customer-name">
-                                {{ item.customer.name }}
+                                {{ invoice.customer.name }}
                             </div>
 
                         </td>
@@ -668,7 +664,7 @@
                         <td>
 
                             <div class="vehicle-no">
-                                {{ item.vehicle.vehicle_number }}
+                                {{ invoice.vehicle.vehicle_number }}
                             </div>
 
                         </td>
@@ -676,44 +672,34 @@
                         <td>
 
                             <span class="branch-badge">
-                                {{ item.branch.name }}
+                                {{ invoice.branch.name }}
                             </span>
 
                         </td>
 
                         <td>
 
-                            {% if item.status == 'confirmed' %}
-
-                                <span class="status-badge status-confirmed">
-                                    Confirmed
-                                </span>
-
-                            {% elif item.status == 'completed' %}
-
-                                <span class="status-badge status-completed">
-                                    Completed
-                                </span>
-
-                            {% elif item.status == 'pending' %}
-
-                                <span class="status-badge status-pending">
-                                    Pending
-                                </span>
-
-                            {% else %}
-
-                                <span class="status-badge status-cancelled">
-                                    Cancelled
-                                </span>
-
-                            {% endif %}
+                            <strong>
+                                ₹{{ invoice.total }}
+                            </strong>
 
                         </td>
 
                         <td>
 
-                            {{ item.notes|default:"-" }}
+                            <strong style="color:#059669;">
+                                ₹{{ invoice.amount_collected }}
+                            </strong>
+
+                        </td>
+
+                        <td>
+
+                            <strong style="color:#dc2626;">
+
+                                ₹{{ invoice.balance }}
+
+                            </strong>
 
                         </td>
 
@@ -723,7 +709,7 @@
 
                     <tr>
 
-                        <td colspan="8">
+                        <td colspan="9">
 
                             <div class="empty-state">
 
@@ -732,7 +718,7 @@
                                 <h4>No Job Report Found</h4>
 
                                 <p>
-                                    Booking jobs will appear here.
+                                    Invoice jobs will appear here.
                                 </p>
 
                             </div>

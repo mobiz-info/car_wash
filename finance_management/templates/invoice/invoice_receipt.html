@@ -170,20 +170,31 @@
     cursor:pointer;
     font-weight:600;
 }
-
 @media print {
 
-    .print-btn{
-        display:none;
+    body * {
+        visibility: hidden;
     }
 
-    .receipt-card{
-        box-shadow:none;
-        border:none;
+    .receipt-wrapper,
+    .receipt-wrapper * {
+        visibility: visible;
     }
 
-    body{
-        background:#fff;
+    .receipt-wrapper {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    .print-btn {
+        display: none !important;
+    }
+
+    .receipt-card {
+        box-shadow: none;
+        border: none;
     }
 
 }

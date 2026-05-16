@@ -199,13 +199,48 @@ def api_list_invoices(request):
 
     return JsonResponse({'success': True, 'invoices': results})
 
-
-
 @login_required
 def sales_report(request):
 
     invoices = Invoice.objects.filter(is_deleted=False).order_by('-date')
 
+    # COMPANY FILTER
+
+    user = request.user
+
+    role = None
+
+    if hasattr(user, 'profile') and user.profile.role:
+        role = user.profile.role.name
+
+    if role == 'COMPANY_ADMIN':
+
+        if hasattr(user.profile, 'company') and user.profile.company:
+
+            company = user.profile.company
+
+            invoices = invoices.filter(
+                branch__company=company
+            )
+
+            branches = Branch.objects.filter(
+                company=company,
+                is_deleted=False
+            )
+
+        else:
+
+            branches = Branch.objects.filter(
+                is_deleted=False
+            )
+
+    else:
+
+        branches = Branch.objects.filter(
+            is_deleted=False
+        )
+    print("branches",branches)
+    
     # Filters
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
@@ -577,45 +612,57 @@ def api_receipt_list(request):
         'count': len(results),
     })
 
-
 @login_required
 def job_report(request):
+
+    from django.db.models import Sum, Count, Q
+    from finance_management.models import Invoice
+   
 
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
     branch_id = request.GET.get('branch')
-    status = request.GET.get('status')
+    search = request.GET.get('search')
 
-    bookings = Booking.objects.filter(
+    invoices = Invoice.objects.filter(
         is_deleted=False
     ).select_related(
-        'branch',
         'customer',
-        'vehicle'
+        'vehicle',
+        'branch'
+    ).prefetch_related(
+        'items'
     )
 
-    # Company Login Filter
+    # COMPANY FILTER
+
     user = request.user
 
     role = None
-    company = None
 
     if hasattr(user, 'profile') and user.profile.role:
         role = user.profile.role.name
 
     if role == 'COMPANY_ADMIN':
 
-        company = user.profile.company
+        if hasattr(user.profile, 'company') and user.profile.company:
 
-        # Filter bookings using branch company
-        bookings = bookings.filter(
-            branch__company=company
-        )
+            company = user.profile.company
 
-        branches = Branch.objects.filter(
-            company=company,
-            is_deleted=False
-        )
+            invoices = invoices.filter(
+                branch__company=company
+            )
+
+            branches = Branch.objects.filter(
+                company=company,
+                is_deleted=False
+            )
+
+        else:
+
+            branches = Branch.objects.filter(
+                is_deleted=False
+            )
 
     else:
 
@@ -623,65 +670,92 @@ def job_report(request):
             is_deleted=False
         )
 
-    # Date Filters
+    # SEARCH
+
+    if search:
+
+        invoices = invoices.filter(
+
+            Q(invoice_number__icontains=search) |
+            Q(customer__name__icontains=search) |
+            Q(customer__phone__icontains=search) |
+            Q(vehicle__vehicle_number__icontains=search)
+
+        )
+
+    # DATE FILTER
+
     if from_date:
-        bookings = bookings.filter(
-            booking_date__gte=from_date
+
+        invoices = invoices.filter(
+            date__gte=from_date
         )
 
     if to_date:
-        bookings = bookings.filter(
-            booking_date__lte=to_date
+
+        invoices = invoices.filter(
+            date__lte=to_date
         )
 
-    # Branch Filter
+    # BRANCH FILTER
+
     if branch_id:
-        bookings = bookings.filter(
+
+        invoices = invoices.filter(
             branch_id=branch_id
         )
 
-    # Status Filter
-    if status:
-        bookings = bookings.filter(
-            status=status
-        )
+    invoices = invoices.order_by(
+        '-date',
+        '-id'
+    )
+    for invoice in invoices:
+        invoice.balance = invoice.total - invoice.amount_collected
 
-    bookings = bookings.order_by('-booking_date')
+    # SUMMARY
 
-    # Summary Counts
-    total_jobs = bookings.count()
+    summary = invoices.aggregate(
 
-    completed_jobs = bookings.filter(
-        status=Booking.STATUS_COMPLETED
-    ).count()
+        total_jobs=Count('id'),
 
-    pending_jobs = bookings.filter(
-        status=Booking.STATUS_PENDING
-    ).count()
+        total_revenue=Sum('total'),
 
-    confirmed_jobs = bookings.filter(
-        status=Booking.STATUS_CONFIRMED
-    ).count()
+        total_collected=Sum('amount_collected'),
 
-    cancelled_jobs = bookings.filter(
-        status=Booking.STATUS_CANCELLED
-    ).count()
+        total_balance=Sum(
+            ExpressionWrapper(
+                F('total') - F('amount_collected'),
+                output_field=DecimalField()
+            )
+        ),
+
+
+        total_discount=Sum('discount'),
+
+    )
 
     context = {
-        'bookings': bookings,
+
+        'invoices': invoices,
 
         'branches': branches,
 
         'from_date': from_date,
         'to_date': to_date,
-        'branch_id': branch_id,
-        'status': status,
 
-        'total_jobs': total_jobs,
-        'completed_jobs': completed_jobs,
-        'pending_jobs': pending_jobs,
-        'confirmed_jobs': confirmed_jobs,
-        'cancelled_jobs': cancelled_jobs,
+        'branch_id': branch_id,
+        'search': search,
+
+        'total_jobs': summary['total_jobs'] or 0,
+
+        'total_revenue': summary['total_revenue'] or 0,
+
+        'total_collected': summary['total_collected'] or 0,
+
+        'total_balance': summary['total_balance'] or 0,
+
+        'total_discount': summary['total_discount'] or 0,
+
     }
 
     return render(

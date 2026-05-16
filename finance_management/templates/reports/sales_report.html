@@ -625,23 +625,19 @@
 
                         <td style="text-align:right;">
 
-                            {% with balance=invoice.total|add:"-"|add:invoice.amount_collected %}
+                            {% if invoice.balance > 0 %}
 
-                                {% if balance > 0 %}
+                                <span class="balance-pending">
+                                    ₹{{ invoice.balance }}
+                                </span>
 
-                                    <span class="balance-pending">
-                                        ₹{{ balance }}
-                                    </span>
+                            {% else %}
 
-                                {% else %}
+                                <span class="balance-clear">
+                                    ₹0
+                                </span>
 
-                                    <span class="balance-clear">
-                                        ₹0
-                                    </span>
-
-                                {% endif %}
-
-                            {% endwith %}
+                            {% endif %}
 
                         </td>
 
