@@ -38,6 +38,8 @@ urlpatterns = [
     # Customer Management
     path('customer/', views.customer_list, name='customer_list'),
     path('customer/create/', views.customer_create, name='customer_create'),
+    path('customer/edit/<uuid:id>/', views.customer_edit, name='customer_edit'),
+    path('customer/delete/<uuid:id>/', views.customer_delete, name='customer_delete'),
     path('ajax/load-vehicle-models/', views.ajax_load_vehicle_models, name='ajax_load_vehicle_models'),
 
     # Scheme Management

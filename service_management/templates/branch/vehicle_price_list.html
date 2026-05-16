@@ -72,7 +72,7 @@
 
                     <!-- Price -->
                     <td style="color:#64748b;">
-                        ₹ {{ obj.price }}
+                        {{ request.user.profile.company.country.currency_symbol|default:'₹' }} {{ obj.price }}
                     </td>
 
                     <!-- Status -->

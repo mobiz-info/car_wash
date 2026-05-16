@@ -27,6 +27,30 @@
             {% endif %}
         </div>
 
+        <div class="form-group">
+            <label for="{{ form.currency_code.id_for_label }}">Currency Code</label>
+            {{ form.currency_code }}
+            {% if form.currency_code.errors %}
+                <div class="error-text">
+                    {% for error in form.currency_code.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.currency_symbol.id_for_label }}">Currency Symbol/Emblem</label>
+            {{ form.currency_symbol }}
+            {% if form.currency_symbol.errors %}
+                <div class="error-text">
+                    {% for error in form.currency_symbol.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
         <div class="form-actions">
             <a href="{% url 'country_list' %}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary">

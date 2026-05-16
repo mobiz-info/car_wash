@@ -60,7 +60,7 @@
                     <td>{{ sub.start_date }}</td>
                     <td>{{ sub.end_date }}</td>
                     <td><span style="font-weight:600;">{{ sub.no_of_licenses }}</span></td>
-                    <td><span style="font-weight:600;">₹{{ sub.usage_fee }}</span></td>
+                    <td><span style="font-weight:600;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ sub.usage_fee }}</span></td>
 
                     <td>
                         <div style="display:flex; gap:5px; flex-wrap:wrap;">

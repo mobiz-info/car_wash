@@ -538,6 +538,52 @@ def customer_create(request):
         'title': 'Add Customer',
     })
 
+@login_required
+def customer_edit(request, id):
+    if request.user.profile.role.name not in ['BRANCH_ADMIN', 'COMPANY_ADMIN']:
+        messages.error(request, "Only Branch or Company Admins can edit customers.")
+        return redirect('customer_list')
+
+    customer = get_object_or_404(Customer, id=id, is_deleted=False)
+    
+    # Ensure they belong to the same company
+    if customer.company != request.user.profile.company:
+        messages.error(request, "Unauthorized to edit this customer.")
+        return redirect('customer_list')
+
+    customer_form = CustomerForm(request.POST or None, instance=customer, request=request)
+    
+    if request.method == 'POST':
+        if customer_form.is_valid():
+            customer_form.save()
+            messages.success(request, "Customer updated successfully.")
+            return redirect('customer_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    return render(request, 'customer/create.html', {
+        'customer_form': customer_form,
+        'title': 'Edit Customer',
+        'is_edit': True,
+    })
+
+@login_required
+def customer_delete(request, id):
+    if request.user.profile.role.name not in ['BRANCH_ADMIN', 'COMPANY_ADMIN']:
+        messages.error(request, "Only Branch or Company Admins can delete customers.")
+        return redirect('customer_list')
+
+    customer = get_object_or_404(Customer, id=id, is_deleted=False)
+    
+    if customer.company != request.user.profile.company:
+        messages.error(request, "Unauthorized to delete this customer.")
+        return redirect('customer_list')
+
+    customer.is_deleted = True
+    customer.save()
+    messages.success(request, "Customer deleted successfully.")
+    return redirect('customer_list')
+
 def ajax_load_vehicle_models(request):
     vehicle_type_id = request.GET.get('vehicle_type')
     if vehicle_type_id:
@@ -954,7 +1000,18 @@ def voucher_delete(request, voucher_id):
 
 @login_required
 def customer_vehicle_list(request):
-    data = CustomerVehicle.objects.filter(is_deleted=False)
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    data = CustomerVehicle.objects.filter(is_deleted=False, customer__company=company).order_by('-date_added')
+
+    # Restrict to branch if BRANCH_ADMIN
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        data = data.filter(customer__branch=request.user.managed_branch)
+
     return render(request, 'customer_vehicle/list.html', {'data': data})
 
 

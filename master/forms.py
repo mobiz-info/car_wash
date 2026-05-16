@@ -4,9 +4,11 @@ from .models import *
 class CountryForm(forms.ModelForm):
     class Meta:
         model = Country
-        fields = ['name']
+        fields = ['name', 'currency_code', 'currency_symbol']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country Name'})
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country Name'}),
+            'currency_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. INR, AED'}),
+            'currency_symbol': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. ₹, د.إ'})
         }
 
 class StateForm(forms.ModelForm):
