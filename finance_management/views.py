@@ -236,11 +236,12 @@ def sales_report(request):
                 is_deleted=False
             )
 
+    elif role == 'BRANCH_ADMIN':
+        if hasattr(user, 'managed_branch') and user.managed_branch:
+            invoices = invoices.filter(branch=user.managed_branch)
+        branches = None
     else:
-
-        branches = Branch.objects.filter(
-            is_deleted=False
-        )
+        branches = Branch.objects.filter(is_deleted=False)
     print("branches",branches)
     
     # Filters
@@ -314,6 +315,14 @@ def receipt_list(request):
         'invoice',
         'invoice__customer'
     ).order_by('-created_at')
+
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        receipts = receipts.filter(invoice__branch__company=user.profile.company)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        receipts = receipts.filter(invoice__branch=user.managed_branch)
 
     search = request.GET.get('search')
     from_date = request.GET.get('from_date')
@@ -667,11 +676,12 @@ def job_report(request):
                 is_deleted=False
             )
 
+    elif role == 'BRANCH_ADMIN':
+        if hasattr(user, 'managed_branch') and user.managed_branch:
+            invoices = invoices.filter(branch=user.managed_branch)
+        branches = None
     else:
-
-        branches = Branch.objects.filter(
-            is_deleted=False
-        )
+        branches = Branch.objects.filter(is_deleted=False)
 
     # SEARCH
 

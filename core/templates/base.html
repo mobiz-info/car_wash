@@ -713,6 +713,21 @@
             </div>
             {% endif %}
 
+            <!-- Reports -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-chart-line-up"></i>
+                    Reports
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'sales_report' %}">Sales Report</a>
+                <a href="{% url 'receipt_list' %}">Collection Report</a>
+                <a href="{% url 'job_report' %}">Job Report</a>
+                <a href="{% url 'outstanding_list' %}">Outstanding Report</a>
+            </div>
+
 
             {% else %}
             
@@ -888,6 +903,8 @@
                 <a href="#">Bookings</a>
                 <a href="#">Revenue</a>
             </div> {% endcomment %}
+
+
 
             <!-- Settings -->
             <div class="nav-item dropdown-toggle">

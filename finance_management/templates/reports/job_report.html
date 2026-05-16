@@ -427,6 +427,7 @@
                    value="{{ to_date }}"
                    class="date-input">
 
+            {% if request.user.profile.role.name != 'BRANCH_ADMIN' %}
             <select name="branch" class="select-input">
 
                 <option value="">
@@ -447,6 +448,7 @@
                 {% endfor %}
 
             </select>
+            {% endif %}
 
             {% comment %} <select name="status" class="select-input">
 
@@ -620,7 +622,9 @@
                         <th>Date</th>
                         <th>Customer</th>
                         <th>Vehicle</th>
+                        {% if request.user.profile.role.name != 'BRANCH_ADMIN' %}
                         <th>Branch</th>
+                        {% endif %}
                         <th>Total</th>
                         <th>Collected</th>
                         <th>Balance</th>
@@ -669,6 +673,7 @@
 
                         </td>
 
+                        {% if request.user.profile.role.name != 'BRANCH_ADMIN' %}
                         <td>
 
                             <span class="branch-badge">
@@ -676,6 +681,7 @@
                             </span>
 
                         </td>
+                        {% endif %}
 
                         <td>
 

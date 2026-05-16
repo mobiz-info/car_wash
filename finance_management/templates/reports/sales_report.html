@@ -520,7 +520,9 @@
                         <th>Date</th>
                         <th>Customer</th>
                         <th>Vehicle</th>
+                        {% if request.user.profile.role.name != 'BRANCH_ADMIN' %}
                         <th>Branch</th>
+                        {% endif %}
                         <th>Services</th>
                         <th style="text-align:right;">Total</th>
                         <th style="text-align:right;">Collected</th>
@@ -573,13 +575,13 @@
 
                         </td>
 
+                        {% if request.user.profile.role.name != 'BRANCH_ADMIN' %}
                         <td>
-
                             <span class="branch-badge">
                                 {{ invoice.branch.name }}
                             </span>
-
                         </td>
+                        {% endif %}
 
                         <td>
 

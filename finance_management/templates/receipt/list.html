@@ -142,7 +142,7 @@
                     <th>Invoice No</th>
                     <th>Amount</th>
                     <th>Mode Of Payment</th>
-                    <th>Remarks</th>
+
                     <th style="text-align:center;">Actions</th>
 
                 </tr>
@@ -206,7 +206,7 @@
 
                     </td>
 
-                    <td style="text-align:right;">
+                    <td>
 
                         <span style="font-weight:700; color:#000080;">
                             {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ receipt.amount }}
@@ -259,32 +259,7 @@
 
                     </td>
 
-                    <td>
 
-                        {% if receipt.payment_mode == 'cheque' %}
-
-                            <div style="font-size:0.78rem; line-height:1.5;">
-
-                                <strong>Cheque No:</strong>
-                                {{ receipt.cheque_no }} <br>
-
-                                <strong>Date:</strong>
-                                {{ receipt.cheque_date }} <br>
-
-                                <strong>Bank:</strong>
-                                {{ receipt.bank_name }}
-
-                            </div>
-
-                        {% else %}
-
-                            <span style="color:#64748b;">
-                                {{ receipt.remarks|default:"—" }}
-                            </span>
-
-                        {% endif %}
-
-                    </td>
 
                     <td>
 
