@@ -70,8 +70,11 @@ urlpatterns = [
     path('api/customer/edit/', api_views.api_edit_customer, name='api_edit_customer'),
     path('api/vehicle/search/', api_views.api_vehicle_search, name='api_vehicle_search'),
     path('api/dashboard/stats/', api_views.api_dashboard_stats, name='api_dashboard_stats'),
+    path('api/company/branches/', api_views.api_company_branches, name='api_company_branches'),
     path('api/schemes/available/', api_views.api_available_schemes, name='api_available_schemes'),
     path('api/schemes/branch/', api_views.api_branch_schemes, name='api_branch_schemes'),
+    path('api/schemes/options/', api_views.api_scheme_options, name='api_scheme_options'),
+    path('api/schemes/create/', api_views.api_create_scheme, name='api_create_scheme'),
     path('api/schemes/validate-voucher/', api_views.api_validate_voucher, name='api_validate_voucher'),
 
     # Reports
@@ -79,7 +82,27 @@ urlpatterns = [
     path('api/reports/scheme-beneficiary/', api_views.api_report_scheme_beneficiary, name='api_report_scheme_beneficiary'),
     path('api/reports/collection/', api_views.api_report_collection, name='api_report_collection'),
     path('api/reports/outstanding/', api_views.api_report_outstanding, name='api_report_outstanding'),
-    
-    
     path('customer-ledger/',views.customer_ledger,name='customer_ledger'),
+    path('api/reports/bookings/', api_views.api_report_bookings, name='api_report_bookings'),
+    path('api/reports/cancellations/', api_views.api_report_cancellations, name='api_report_cancellations'),
+
+    # Complaint Management
+    path('api/complaint-types/', api_views.api_list_complaint_types, name='api_list_complaint_types'),
+    path('api/complaint-types/create/', api_views.api_create_complaint_type, name='api_create_complaint_type'),
+    path('api/complaints/create/', api_views.api_create_complaint, name='api_create_complaint'),
+    path('api/complaints/list/', api_views.api_list_complaints, name='api_list_complaints'),
+    path('api/complaints/update-status/', api_views.api_update_complaint_status, name='api_update_complaint_status'),
+
+    # Complaint Web views
+    path('complaint/', views.complaint_list, name='complaint_list'),
+    path('complaint/create/', views.complaint_create, name='complaint_create'),
+    path('complaint/resolve/<uuid:id>/', views.complaint_resolve, name='complaint_resolve'),
+    path('complaint/type/create/', views.complaint_type_create, name='complaint_type_create'),
+
+    # Company Web Settings (WhatsApp & Template)
+    path('settings/whatsapp/', views.whatsapp_settings, name='whatsapp_settings'),
+    path('settings/templates/', views.whatsapp_template_list, name='whatsapp_template_list'),
+    path('settings/templates/create/', views.whatsapp_template_create, name='whatsapp_template_create'),
+    path('settings/templates/edit/<uuid:id>/', views.whatsapp_template_edit, name='whatsapp_template_edit'),
+    path('settings/templates/delete/<uuid:id>/', views.whatsapp_template_delete, name='whatsapp_template_delete'),
 ]

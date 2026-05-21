@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}WhatsApp Templates - Car Wash Admin{% endblock %}
+{% block page_title %}WhatsApp Templates{% endblock %}
+{% block breadcrumb_active %}WhatsApp Templates{% endblock %}
+
+{% block content %}
+<div class="list-container">
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{ search }}" placeholder="Search templates..." class="search-input">
+        </form>
+        <div style="display:flex; gap: 8px;">
+            <a href="{% url 'whatsapp_template_create' %}" class="btn-create" style="background:#000080; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="ph-bold ph-plus"></i> Add Template
+            </a>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>Template ID</th>
+                    <th>Template Name</th>
+                    <th>Content</th>
+                    <th>Date Added</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in page_obj %}
+                <tr>
+                    <td style="font-weight: 600; color: #000080;">#{{ t.auto_id }}</td>
+                    <td><span style="font-weight: 600; color: #1e293b;">{{ t.template_name }}</span></td>
+                    <td style="max-width: 400px; line-height: 1.4; color: #475569; white-space: pre-wrap;">{{ t.content }}</td>
+                    <td style="white-space: nowrap; font-size: 0.85rem; color: #64748b;">{{ t.date_added|date:"d-m-Y" }}</td>
+                    <td style="text-align:right; white-space: nowrap;">
+                        <a href="{% url 'whatsapp_template_edit' t.id %}" class="btn-create" style="background: #3b82f6; padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
+                            <i class="ph ph-pencil-simple"></i> Edit
+                        </a>
+                        <a href="{% url 'whatsapp_template_delete' t.id %}" onclick="return confirm('Are you sure you want to delete this template?');" class="btn-create" style="background: #ef4444; padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; margin-left: 4px;">
+                            <i class="ph ph-trash"></i> Delete
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align:center; padding: 40px; color:#94a3b8;">
+                        <i class="ph ph-file-text" style="font-size: 2.5rem; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                        No templates found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

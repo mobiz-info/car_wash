@@ -1150,3 +1150,311 @@ def customer_ledger(request):
     }
 
     return render(request, 'customer/customer_ledger.html', context)
+
+
+def complaint_list(request):
+    search = request.GET.get('search', '')
+    branch_id = request.GET.get('branch', '')
+    
+    role = request.user.profile.role.name if request.user.profile.role else None
+    company = request.user.profile.company
+    
+    if not company:
+        messages.error(request, "No company associated with user.")
+        return redirect('dashboard')
+        
+    from .models import Complaint, Branch
+    queryset = Complaint.objects.filter(company=company, is_deleted=False).select_related('branch', 'complaint_type').order_by('-date_added', '-auto_id')
+    
+    branches = Branch.objects.filter(company=company, is_deleted=False)
+    
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch') and request.user.managed_branch:
+        queryset = queryset.filter(branch=request.user.managed_branch)
+    elif role == 'COMPANY_ADMIN':
+        if branch_id:
+            queryset = queryset.filter(branch_id=branch_id)
+    else:
+        # Super admin / other roles
+        pass
+        
+    if search:
+        queryset = queryset.filter(complaint_description__icontains=search)
+        
+    from django.utils import timezone
+    today = timezone.localtime(timezone.now()).date()
+    
+    for c in queryset:
+        if c.status == 'resolved':
+            c.computed_status = 'resolved'
+            c.status_bg = '#d1fae5'
+            c.status_fg = '#065f46'
+        else:
+            added_date = timezone.localtime(c.date_added).date()
+            if added_date == today:
+                c.computed_status = 'new'
+                c.status_bg = '#dbeafe'
+                c.status_fg = '#1e40af'
+            else:
+                c.computed_status = 'pending'
+                c.status_bg = '#ffedd5'
+                c.status_fg = '#9a3412'
+                
+    paginator = Paginator(queryset, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'complaint/list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'selected_branch': branch_id,
+        'branches': branches,
+        'role': role,
+        'title': 'Complaints',
+    })
+
+
+@login_required
+def complaint_create(request):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role != 'BRANCH_ADMIN':
+        messages.error(request, "Only Branch Admin can create complaints.")
+        return redirect('complaint_list')
+        
+    company = request.user.profile.company
+    branch = getattr(request.user, 'managed_branch', None)
+    
+    if not branch or not company:
+        messages.error(request, "Branch configuration missing.")
+        return redirect('complaint_list')
+        
+    from .models import ComplaintType, Complaint
+    from core.functions import get_auto_id
+    
+    complaint_types = ComplaintType.objects.filter(company=company, is_deleted=False)
+    
+    if request.method == 'POST':
+        complaint_type_id = request.POST.get('complaint_type')
+        priority = request.POST.get('priority', 'low').lower()
+        description = request.POST.get('description', '').strip()
+        
+        if not complaint_type_id or not description:
+            messages.error(request, "Complaint type and description are required.")
+        else:
+            complaint_type = get_object_or_404(ComplaintType, id=complaint_type_id, company=company)
+            Complaint.objects.create(
+                company=company,
+                branch=branch,
+                complaint_type=complaint_type,
+                priority=priority,
+                complaint_description=description,
+                status='new',
+                auto_id=get_auto_id(Complaint),
+                creator=request.user
+            )
+            messages.success(request, "Complaint created successfully.")
+            return redirect('complaint_list')
+            
+    return render(request, 'complaint/create.html', {
+        'complaint_types': complaint_types,
+        'title': 'Create Complaint',
+    })
+
+
+@login_required
+def complaint_resolve(request, id):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        messages.error(request, "Only Owner can resolve complaints.")
+        return redirect('complaint_list')
+        
+    from .models import Complaint
+    complaint = get_object_or_404(Complaint, id=id, company=request.user.profile.company)
+    
+    if request.method == 'POST':
+        remarks = request.POST.get('remarks', '').strip()
+        if not remarks:
+            messages.error(request, "Resolution remarks are required.")
+        else:
+            complaint.status = 'resolved'
+            complaint.resolve_remarks = remarks
+            complaint.save()
+            messages.success(request, "Complaint resolved successfully.")
+            
+    return redirect('complaint_list')
+
+
+@login_required
+def complaint_type_create(request):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role != 'BRANCH_ADMIN':
+        messages.error(request, "Only Branch Admin can create complaint types.")
+        return redirect('complaint_list')
+        
+    company = request.user.profile.company
+    if not company:
+        messages.error(request, "Company missing.")
+        return redirect('complaint_list')
+        
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if not name:
+            messages.error(request, "Name is required.")
+        else:
+            from .models import ComplaintType
+            from core.functions import get_auto_id
+            
+            if ComplaintType.objects.filter(company=company, name__iexact=name, is_deleted=False).exists():
+                messages.error(request, "This complaint type already exists.")
+            else:
+                ComplaintType.objects.create(
+                    company=company,
+                    name=name,
+                    auto_id=get_auto_id(ComplaintType),
+                    creator=request.user
+                )
+                messages.success(request, "Complaint type added successfully.")
+                return redirect('complaint_create')
+                
+    return render(request, 'complaint/create_type.html', {
+        'title': 'Add Complaint Type',
+    })
+
+
+@login_required
+def whatsapp_settings(request):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        messages.error(request, "Access denied. Only Company Admins can manage settings.")
+        return redirect('dashboard')
+
+    company = request.user.profile.company
+    if not company:
+        messages.error(request, "No company associated with user.")
+        return redirect('dashboard')
+
+    try:
+        setting = WhatsAppSetting.objects.get(company=company)
+    except WhatsAppSetting.DoesNotExist:
+        setting = WhatsAppSetting(company=company)
+
+    if request.method == 'POST':
+        form = WhatsAppSettingForm(request.POST, instance=setting)
+        if form.is_valid():
+            inst = form.save(commit=False)
+            if not inst.auto_id:
+                inst.auto_id = get_auto_id(WhatsAppSetting)
+            if not inst.creator:
+                inst.creator = request.user
+            inst.updater = request.user
+            inst.save()
+            messages.success(request, "WhatsApp settings updated successfully.")
+            return redirect('whatsapp_settings')
+    else:
+        form = WhatsAppSettingForm(instance=setting)
+
+    return render(request, 'settings/whatsapp_settings.html', {
+        'form': form,
+        'title': 'WhatsApp Settings',
+    })
+
+
+@login_required
+def whatsapp_template_list(request):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+
+    company = request.user.profile.company
+    if not company:
+        messages.error(request, "No company associated with user.")
+        return redirect('dashboard')
+
+    search = request.GET.get('search', '')
+    queryset = WhatsAppTemplate.objects.filter(company=company, is_deleted=False).order_by('-date_added')
+
+    if search:
+        queryset = queryset.filter(template_name__icontains=search)
+
+    paginator = Paginator(queryset, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'settings/template_list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'WhatsApp Templates',
+    })
+
+
+@login_required
+def whatsapp_template_create(request):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+
+    company = request.user.profile.company
+    if not company:
+        messages.error(request, "No company associated with user.")
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        form = WhatsAppTemplateForm(request.POST)
+        if form.is_valid():
+            template = form.save(commit=False)
+            template.company = company
+            template.auto_id = get_auto_id(WhatsAppTemplate)
+            template.creator = request.user
+            template.save()
+            messages.success(request, "WhatsApp template created successfully.")
+            return redirect('whatsapp_template_list')
+    else:
+        form = WhatsAppTemplateForm()
+
+    return render(request, 'settings/template_create.html', {
+        'form': form,
+        'title': 'Create Template',
+        'is_edit': False,
+    })
+
+
+@login_required
+def whatsapp_template_edit(request, id):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+
+    company = request.user.profile.company
+    template = get_object_or_404(WhatsAppTemplate, id=id, company=company, is_deleted=False)
+
+    if request.method == 'POST':
+        form = WhatsAppTemplateForm(request.POST, instance=template)
+        if form.is_valid():
+            inst = form.save(commit=False)
+            inst.updater = request.user
+            inst.save()
+            messages.success(request, "WhatsApp template updated successfully.")
+            return redirect('whatsapp_template_list')
+    else:
+        form = WhatsAppTemplateForm(instance=template)
+
+    return render(request, 'settings/template_create.html', {
+        'form': form,
+        'title': 'Edit Template',
+        'is_edit': True,
+    })
+
+
+@login_required
+def whatsapp_template_delete(request, id):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+
+    company = request.user.profile.company
+    template = get_object_or_404(WhatsAppTemplate, id=id, company=company)
+    template.is_deleted = True
+    template.save()
+    messages.success(request, "WhatsApp template deleted successfully.")
+    return redirect('whatsapp_template_list')

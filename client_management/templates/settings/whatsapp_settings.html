@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}WhatsApp Settings - Car Wash Admin{% endblock %}
+{% block page_title %}WhatsApp Settings{% endblock %}
+{% block breadcrumb_active %}WhatsApp Settings{% endblock %}
+
+{% block content %}
+<style>
+    .form-group input[type="password"] {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: all 0.2s;
+        outline: none;
+        font-family: 'Inter', sans-serif;
+    }
+    .form-group input[type="password"]:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-whatsapp-logo" style="color: #25d366; font-size: 1.5rem;"></i>
+        WhatsApp Integration Settings
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <span style="font-size: 0.8rem; color: #64748b;">{{ field.help_text }}</span>
+                {% endif %}
+                {% for error in field.errors %}
+                    <span style="font-size: 0.8rem; color: #ef4444; font-weight: 500;">{{ error }}</span>
+                {% endfor %}
+            </div>
+        {% endfor %}
+
+        <div class="form-actions">
+            <a href="{% url 'dashboard' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary" style="background:#000080;">Save Settings</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 from core.models import APIToken
 from core.functions import get_auto_id
-from .models import Customer, CustomerVehicle, Scheme
+from .models import Customer, CustomerVehicle, Scheme, CustomerType
 from service_management.models import Service
 
 
@@ -187,6 +187,51 @@ def api_dashboard_stats(request):
         'outstanding_count': outstanding_count,
         'total_customers': customers_qs.count(),
         'recent_invoices': recent,
+    })
+
+
+def _company_branch_from_request(user, branch_id):
+    if not branch_id:
+        return None
+    company = user.profile.company
+    if not company:
+        return None
+    from .models import Branch
+    return Branch.objects.filter(
+        id=branch_id,
+        company=company,
+        is_deleted=False,
+    ).first()
+
+
+def api_company_branches(request):
+    """Mobile API: branches available to the logged-in company/branch user."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    role = user.profile.role.name if user.profile.role else None
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        branches = [user.managed_branch]
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        branches = user.profile.company.branches.filter(is_deleted=False).order_by('name')
+    else:
+        branches = []
+
+    return JsonResponse({
+        'success': True,
+        'branches': [
+            {
+                'id': str(branch.id),
+                'name': branch.name,
+                'phone': branch.phone or '',
+                'address': branch.address or '',
+            }
+            for branch in branches
+        ],
     })
 
 def api_customer_search(request):
@@ -741,6 +786,9 @@ def api_list_customers(request):
         if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
             customers_qs = customers_qs.filter(branch=user.managed_branch)
 
+        from django.db.models import Max
+        customers_qs = customers_qs.annotate(last_invoice_date=Max('invoices__date'))
+
         search = request.GET.get('search', '').strip()
         if search:
             from django.db.models import Q
@@ -756,6 +804,8 @@ def api_list_customers(request):
                 'phone': c.phone,
                 'customer_type': c.customer_type.name if c.customer_type else '',
                 'vehicle_count': c.vehicles.filter(is_deleted=False).count(),
+                'date_added': c.date_added.strftime('%Y-%m-%d') if c.date_added else '',
+                'last_invoice_date': c.last_invoice_date.strftime('%Y-%m-%d') if c.last_invoice_date else '',
             })
 
         return JsonResponse({'success': True, 'customers': customers_data})
@@ -1100,11 +1150,160 @@ def api_branch_schemes(request):
     return JsonResponse({'success': True, 'schemes': result})
 
 
+def api_scheme_options(request):
+    """Mobile API: options needed to create a company scheme."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    role = user.profile.role.name if user.profile.role else None
+    if role != 'COMPANY_ADMIN' or not user.profile.company:
+        return JsonResponse({'success': False, 'message': 'Only Company Admin can add schemes'}, status=403)
+
+    from service_management.models import CompanyService
+    from master.models import VehicleType
+
+    company = user.profile.company
+    enabled_service_ids = CompanyService.objects.filter(
+        company=company,
+        is_enabled=True,
+    ).values_list('service_id', flat=True)
+
+    services = Service.objects.filter(
+        id__in=enabled_service_ids,
+        is_deleted=False,
+        is_active=True,
+    ).order_by('name')
+    customer_types = CustomerType.objects.filter(is_deleted=False).order_by('name')
+    vehicle_types = VehicleType.objects.filter(is_deleted=False, is_active=True).order_by('name')
+
+    def serialize(items):
+        return [{'id': str(item.id), 'name': item.name} for item in items]
+
+    return JsonResponse({
+        'success': True,
+        'scheme_types': serialize(company.scheme_types.all().order_by('name')),
+        'services': serialize(services),
+        'customer_types': serialize(customer_types),
+        'vehicle_types': serialize(vehicle_types),
+    })
+
+
+@csrf_exempt
+def api_create_scheme(request):
+    """Mobile API: create a scheme for the logged-in company."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    role = user.profile.role.name if user.profile.role else None
+    if role != 'COMPANY_ADMIN' or not user.profile.company:
+        return JsonResponse({'success': False, 'message': 'Only Company Admin can add schemes'}, status=403)
+
+    try:
+        from datetime import datetime
+        from decimal import Decimal
+        from master.models import VehicleType
+        from service_management.models import CompanyService
+
+        data = json.loads(request.body)
+        company = user.profile.company
+        scheme_type_id = data.get('scheme_type_id')
+        scheme_type = company.scheme_types.filter(id=scheme_type_id).first()
+        if not scheme_type:
+            return JsonResponse({'success': False, 'message': 'Select a valid scheme type'}, status=400)
+
+        name = (data.get('name') or '').strip()
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Scheme name is required'}, status=400)
+
+        def parse_date(field):
+            value = data.get(field)
+            if not value:
+                raise ValueError(f'{field.replace("_", " ").title()} is required')
+            return datetime.strptime(value, '%Y-%m-%d').date()
+
+        start_date = parse_date('start_date')
+        end_date = parse_date('end_date')
+        if end_date < start_date:
+            return JsonResponse({'success': False, 'message': 'End date cannot be before start date'}, status=400)
+
+        type_name = scheme_type.name.lower()
+        paid_visits = data.get('paid_visits')
+        free_visits = data.get('free_visits')
+        discount_percentage = data.get('discount_percentage')
+        vouchers = data.get('vouchers') or []
+
+        if 'quantity' in type_name and (not paid_visits or not free_visits):
+            return JsonResponse({'success': False, 'message': 'Enter paid and free visits'}, status=400)
+        if 'discount' in type_name and not discount_percentage:
+            return JsonResponse({'success': False, 'message': 'Enter discount percentage'}, status=400)
+        if 'voucher' in type_name and not vouchers:
+            return JsonResponse({'success': False, 'message': 'Add at least one voucher'}, status=400)
+
+        scheme = Scheme.objects.create(
+            company=company,
+            scheme_type=scheme_type,
+            name=name,
+            start_date=start_date,
+            end_date=end_date,
+            paid_visits=paid_visits or None,
+            free_visits=free_visits or None,
+            discount_percentage=discount_percentage or None,
+            auto_id=get_auto_id(Scheme),
+            creator=user,
+        )
+
+        enabled_service_ids = set(CompanyService.objects.filter(
+            company=company,
+            is_enabled=True,
+        ).values_list('service_id', flat=True))
+
+        service_ids = [item for item in data.get('service_ids', []) if item]
+        if service_ids:
+            scheme.services.set(Service.objects.filter(id__in=service_ids).filter(id__in=enabled_service_ids))
+        customer_type_ids = [item for item in data.get('customer_type_ids', []) if item]
+        if customer_type_ids:
+            scheme.customer_types.set(CustomerType.objects.filter(id__in=customer_type_ids, is_deleted=False))
+        vehicle_type_ids = [item for item in data.get('vehicle_type_ids', []) if item]
+        if vehicle_type_ids:
+            scheme.vehicle_types.set(VehicleType.objects.filter(id__in=vehicle_type_ids, is_deleted=False, is_active=True))
+
+        if 'voucher' in type_name:
+            for voucher in vouchers:
+                voucher_number = (voucher.get('voucher_number') or '').strip()
+                discount = voucher.get('discount')
+                if voucher_number and discount is not None:
+                    SchemeVoucher.objects.create(
+                        scheme=scheme,
+                        voucher_number=voucher_number,
+                        discount=Decimal(str(discount)),
+                        auto_id=get_auto_id(SchemeVoucher),
+                        creator=user,
+                    )
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Scheme created successfully',
+            'scheme_id': str(scheme.id),
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # REPORTS API
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _report_scope(user):
+def _report_scope(user, branch_id=None):
     """Returns (company, branch_filter_kwargs) for the logged-in user."""
     company = user.profile.company
     role = user.profile.role.name if user.profile.role else None
@@ -1112,7 +1311,11 @@ def _report_scope(user):
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         qs_filter['branch'] = user.managed_branch
     elif role == 'COMPANY_ADMIN':
-        qs_filter['branch__company'] = company
+        branch = _company_branch_from_request(user, branch_id)
+        if branch:
+            qs_filter['branch'] = branch
+        else:
+            qs_filter['branch__company'] = company
     return company, qs_filter
 
 
@@ -1151,7 +1354,7 @@ def api_report_jobs(request):
     from django.db.models import Sum
 
     from_date, to_date = _parse_dates(request)
-    company, scope = _report_scope(user)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
 
     qs = Invoice.objects.filter(
         is_deleted=False, date__gte=from_date, date__lte=to_date, **scope
@@ -1207,7 +1410,7 @@ def api_report_scheme_beneficiary(request):
     from django.db.models import Sum, Count
 
     from_date, to_date = _parse_dates(request)
-    company, scope = _report_scope(user)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
 
     qs = Invoice.objects.filter(
         is_deleted=False, date__gte=from_date, date__lte=to_date,
@@ -1257,7 +1460,7 @@ def api_report_collection(request):
     from django.db.models import Sum
 
     from_date, to_date = _parse_dates(request)
-    company, scope = _report_scope(user)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
 
     receipt_scope = {}
     if 'branch' in scope:
@@ -1311,7 +1514,7 @@ def api_report_outstanding(request):
     from django.db.models import Sum, F, ExpressionWrapper, DecimalField
 
     from_date, to_date = _parse_dates(request)
-    company, scope = _report_scope(user)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
 
     qs = Invoice.objects.filter(
         is_deleted=False, date__gte=from_date, date__lte=to_date, **scope
@@ -1346,4 +1549,340 @@ def api_report_outstanding(request):
         'count': agg['count'] or 0,
         'rows': rows,
     })
+
+
+@csrf_exempt
+def api_report_bookings(request):
+    """Booking report: all bookings in date range."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from booking_management.models import Booking
+    from django.db.models import Count
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    qs = Booking.objects.filter(
+        is_deleted=False, booking_date__gte=from_date, booking_date__lte=to_date, **scope
+    ).select_related('customer', 'vehicle', 'branch').order_by('-booking_date', '-auto_id')
+
+    rows = []
+    for b in qs:
+        rows.append({
+            'id': str(b.id),
+            'auto_id': b.auto_id,
+            'date': b.booking_date.strftime('%d-%m-%Y'),
+            'time': b.booking_time.strftime('%I:%M %p') if b.booking_time else '',
+            'customer': b.customer.name,
+            'phone': b.customer.phone,
+            'vehicle': b.vehicle.vehicle_number if b.vehicle else '',
+            'branch': b.branch.name if b.branch else '',
+            'status': b.status,
+            'notes': b.notes or '',
+        })
+
+    totals = qs.aggregate(
+        total_bookings=Count('id'),
+        total_pending=Count('id', filter=models.Q(status='pending')),
+        total_confirmed=Count('id', filter=models.Q(status='confirmed')),
+        total_completed=Count('id', filter=models.Q(status='completed')),
+        total_cancelled=Count('id', filter=models.Q(status='cancelled')),
+    )
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_bookings': totals['total_bookings'] or 0,
+        'total_pending': totals['total_pending'] or 0,
+        'total_confirmed': totals['total_confirmed'] or 0,
+        'total_completed': totals['total_completed'] or 0,
+        'total_cancelled': totals['total_cancelled'] or 0,
+        'rows': rows,
+    })
+
+
+@csrf_exempt
+def api_report_cancellations(request):
+    """Cancellation report: all cancelled bookings in date range."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from booking_management.models import Booking
+    from django.db.models import Count
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    qs = Booking.objects.filter(
+        is_deleted=False, status='cancelled', booking_date__gte=from_date, booking_date__lte=to_date, **scope
+    ).select_related('customer', 'vehicle', 'branch').order_by('-booking_date', '-auto_id')
+
+    rows = []
+    for b in qs:
+        rows.append({
+            'id': str(b.id),
+            'auto_id': b.auto_id,
+            'date': b.booking_date.strftime('%d-%m-%Y'),
+            'time': b.booking_time.strftime('%I:%M %p') if b.booking_time else '',
+            'customer': b.customer.name,
+            'phone': b.customer.phone,
+            'vehicle': b.vehicle.vehicle_number if b.vehicle else '',
+            'branch': b.branch.name if b.branch else '',
+            'status': b.status,
+            'notes': b.notes or '',
+        })
+
+    totals = qs.aggregate(
+        total_cancelled=Count('id'),
+    )
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_cancelled': totals['total_cancelled'] or 0,
+        'rows': rows,
+    })
+
+
+@csrf_exempt
+def api_list_complaint_types(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    company = user.profile.company
+    if not company:
+        return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+    
+    from .models import ComplaintType
+    types = ComplaintType.objects.filter(company=company, is_deleted=False).order_by('name')
+    
+    return JsonResponse({
+        'success': True,
+        'complaint_types': [{'id': str(t.id), 'name': t.name} for t in types]
+    })
+
+
+@csrf_exempt
+def api_create_complaint_type(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    company = user.profile.company
+    if not company:
+        return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+    
+    try:
+        data = json.loads(request.body)
+        name = data.get('name', '').strip()
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Name is required'}, status=400)
+        
+        from .models import ComplaintType
+        from core.functions import get_auto_id
+        
+        if ComplaintType.objects.filter(company=company, name__iexact=name, is_deleted=False).exists():
+            return JsonResponse({'success': False, 'message': 'This complaint type already exists'}, status=400)
+        
+        complaint_type = ComplaintType.objects.create(
+            company=company,
+            name=name,
+            auto_id=get_auto_id(ComplaintType)
+        )
+        return JsonResponse({
+            'success': True,
+            'complaint_type': {'id': str(complaint_type.id), 'name': complaint_type.name}
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_create_complaint(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    role = user.profile.role.name if user.profile.role else None
+    branch = None
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        branch = user.managed_branch
+    
+    if not branch:
+        return JsonResponse({'success': False, 'message': 'Only Branch Admin can create complaints'}, status=403)
+    
+    company = user.profile.company
+    if not company:
+        return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+    
+    try:
+        data = json.loads(request.body)
+        complaint_type_id = data.get('complaint_type_id')
+        priority = data.get('priority', 'low').lower()
+        complaint_description = data.get('complaint', '').strip()
+        
+        if not complaint_type_id or not complaint_description:
+            return JsonResponse({'success': False, 'message': 'Complaint type and description are required'}, status=400)
+        
+        if priority not in ['low', 'medium', 'high']:
+            return JsonResponse({'success': False, 'message': 'Invalid priority level'}, status=400)
+        
+        from .models import ComplaintType, Complaint
+        from core.functions import get_auto_id
+        
+        complaint_type = ComplaintType.objects.filter(id=complaint_type_id, company=company, is_deleted=False).first()
+        if not complaint_type:
+            return JsonResponse({'success': False, 'message': 'Invalid complaint type'}, status=400)
+            
+        complaint = Complaint.objects.create(
+            company=company,
+            branch=branch,
+            complaint_type=complaint_type,
+            priority=priority,
+            complaint_description=complaint_description,
+            status='new',
+            auto_id=get_auto_id(Complaint)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Complaint created successfully',
+            'complaint': {
+                'id': str(complaint.id),
+                'auto_id': complaint.auto_id,
+                'complaint_type': complaint.complaint_type.name,
+                'priority': complaint.priority,
+                'complaint': complaint.complaint_description,
+                'status': complaint.status,
+                'branch': complaint.branch.name,
+                'date_added': complaint.date_added.strftime('%d-%m-%Y')
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_list_complaints(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    role = user.profile.role.name if user.profile.role else None
+    company = user.profile.company
+    if not company:
+        return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+        
+    from .models import Complaint
+    from django.utils import timezone
+    
+    qs = Complaint.objects.filter(company=company, is_deleted=False).select_related('branch', 'complaint_type').order_by('-date_added', '-auto_id')
+    
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        qs = qs.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN':
+        pass
+    else:
+        return JsonResponse({'success': False, 'message': 'Unauthorized role for viewing complaints'}, status=403)
+        
+    today = timezone.localtime(timezone.now()).date()
+    complaints = []
+    for c in qs:
+        # Dynamic status evaluation
+        if c.status == 'resolved':
+            computed_status = 'resolved'
+        else:
+            added_date = timezone.localtime(c.date_added).date()
+            if added_date == today:
+                computed_status = 'new'
+            else:
+                computed_status = 'pending'
+                
+        complaints.append({
+            'id': str(c.id),
+            'auto_id': c.auto_id,
+            'complaint_type_id': str(c.complaint_type.id),
+            'complaint_type': c.complaint_type.name,
+            'priority': c.priority,
+            'complaint': c.complaint_description,
+            'status': computed_status,
+            'resolve_remarks': c.resolve_remarks or '',
+            'branch': c.branch.name,
+            'date_added': timezone.localtime(c.date_added).strftime('%d-%m-%Y')
+        })
+        
+    return JsonResponse({
+        'success': True,
+        'complaints': complaints
+    })
+
+
+@csrf_exempt
+def api_update_complaint_status(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    role = user.profile.role.name if user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        return JsonResponse({'success': False, 'message': 'Only Owner/Company Admin can resolve complaints'}, status=403)
+        
+    company = user.profile.company
+    if not company:
+        return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+        
+    try:
+        data = json.loads(request.body)
+        complaint_id = data.get('complaint_id')
+        status = data.get('status', '').lower().strip()
+        remarks = data.get('remarks', data.get('resolve_remarks', '')).strip()
+        
+        if not complaint_id or not status:
+            return JsonResponse({'success': False, 'message': 'Complaint ID and status are required'}, status=400)
+            
+        if status not in ['new', 'pending', 'resolved']:
+            return JsonResponse({'success': False, 'message': 'Invalid status. Choose from: new, pending, resolved'}, status=400)
+            
+        from .models import Complaint
+        complaint = Complaint.objects.filter(id=complaint_id, company=company, is_deleted=False).first()
+        if not complaint:
+            return JsonResponse({'success': False, 'message': 'Complaint not found'}, status=404)
+            
+        complaint.status = status
+        if remarks:
+            complaint.resolve_remarks = remarks
+        complaint.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Complaint status updated to {status}',
+            'complaint': {
+                'id': str(complaint.id),
+                'auto_id': complaint.auto_id,
+                'status': complaint.status,
+                'resolve_remarks': complaint.resolve_remarks or ''
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 

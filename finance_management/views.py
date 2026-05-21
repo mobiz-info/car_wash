@@ -447,6 +447,9 @@ def api_outstanding_list(request):
         invoices = invoices.filter(branch=user.managed_branch)
     elif role == 'COMPANY_ADMIN' and user.profile.company:
         invoices = invoices.filter(branch__company=user.profile.company)
+        branch_id = request.GET.get('branch_id')
+        if branch_id:
+            invoices = invoices.filter(branch_id=branch_id)
 
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
@@ -576,6 +579,9 @@ def api_receipt_list(request):
         receipts = receipts.filter(invoice__branch=user.managed_branch)
     elif role == 'COMPANY_ADMIN' and user.profile.company:
         receipts = receipts.filter(invoice__branch__company=user.profile.company)
+        branch_id = request.GET.get('branch_id')
+        if branch_id:
+            receipts = receipts.filter(invoice__branch_id=branch_id)
 
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')

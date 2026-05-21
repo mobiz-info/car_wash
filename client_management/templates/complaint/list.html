@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+
+{% block title %}Complaints - Car Wash Admin{% endblock %}
+{% block page_title %}Complaints{% endblock %}
+{% block breadcrumb_active %}Complaints{% endblock %}
+
+{% block content %}
+<style>
+    .priority-badge {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+    .priority-low { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .priority-medium { background-color: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; }
+    .priority-high { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+
+    /* Modal styling */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .modal-card {
+        background: white;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 480px;
+        padding: 24px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e2e8f0;
+    }
+    .modal-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 12px;
+    }
+    .modal-body {
+        margin-bottom: 20px;
+    }
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+    .remarks-textarea {
+        width: 100%;
+        height: 100px;
+        padding: 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.9rem;
+        outline: none;
+        resize: none;
+        transition: border 0.2s;
+    }
+    .remarks-textarea:focus {
+        border-color: #3b82f6;
+    }
+    .branch-filter-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 16px;
+    }
+    .branch-select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        outline: none;
+        background: #f8fafc;
+        min-width: 200px;
+    }
+</style>
+
+{% if role == 'COMPANY_ADMIN' %}
+<!-- Branch Filter for Company Admin -->
+<div class="branch-filter-container">
+    <span style="font-weight: 600; font-size: 0.9rem; color: #475569;">Filter by Branch:</span>
+    <form method="GET" id="branchFilterForm" style="display:flex; align-items:center; gap: 12px; flex: 1;">
+        <input type="hidden" name="search" value="{{ search }}">
+        <select name="branch" class="branch-select" onchange="document.getElementById('branchFilterForm').submit()">
+            <option value="">All Branches</option>
+            {% for b in branches %}
+                <option value="{{ b.id }}" {% if selected_branch == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+{% endif %}
+
+<div class="list-container">
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            {% if selected_branch %}
+                <input type="hidden" name="branch" value="{{ selected_branch }}">
+            {% endif %}
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{ search }}" placeholder="Search complaints..." class="search-input">
+        </form>
+        {% if role == 'BRANCH_ADMIN' %}
+        <div style="display:flex; gap: 8px;">
+            <a href="{% url 'complaint_create' %}" class="btn-create">
+                <i class="ph-bold ph-plus"></i> Add Complaint
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>Ticket ID</th>
+                    <th>Date</th>
+                    {% if role == 'COMPANY_ADMIN' %}
+                        <th>Branch</th>
+                    {% endif %}
+                    <th>Type</th>
+                    <th>Priority</th>
+                    <th>Complaint Description</th>
+                    <th>Status</th>
+                    <th>Resolution Remarks</th>
+                    {% if role == 'COMPANY_ADMIN' %}
+                        <th style="text-align:right;">Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in page_obj %}
+                <tr>
+                    <td style="font-weight: 600; color: #000080;">#{{ c.auto_id }}</td>
+                    <td style="white-space: nowrap; font-size: 0.85rem; color: #64748b;">{{ c.date_added|date:"d-m-Y" }}</td>
+                    {% if role == 'COMPANY_ADMIN' %}
+                        <td style="font-weight: 600;">{{ c.branch.name }}</td>
+                    {% endif %}
+                    <td><span style="font-weight: 600; color: #1e293b;">{{ c.complaint_type.name }}</span></td>
+                    <td>
+                        <span class="priority-badge priority-{{ c.priority }}">
+                            {{ c.priority }}
+                        </span>
+                    </td>
+                    <td style="max-width: 320px; line-height: 1.4; color: #475569;">
+                        {{ c.complaint_description }}
+                    </td>
+                    <td>
+                        <span class="status-badge" style="background-color: {{ c.status_bg }}; color: {{ c.status_fg }};">
+                            {{ c.computed_status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if c.resolve_remarks %}
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; color: #475569; display: flex; align-items: flex-start; gap: 6px; max-width: 260px;">
+                                <i class="ph ph-chat-teardrop" style="color: #64748b; margin-top: 2px;"></i>
+                                <span>{{ c.resolve_remarks }}</span>
+                            </div>
+                        {% else %}
+                            <span style="color: #cbd5e1; font-size: 0.85rem;">-</span>
+                        {% endif %}
+                    </td>
+                    {% if role == 'COMPANY_ADMIN' %}
+                        <td style="text-align:right;">
+                            {% if c.computed_status != 'resolved' %}
+                                <button onclick="openResolveModal('{{ c.id }}', '{{ c.auto_id }}')" class="btn-create" style="background: #10b981; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px;">
+                                    <i class="ph ph-check-circle"></i> Resolve
+                                </button>
+                            {% else %}
+                                <span style="color: #10b981; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="ph-bold ph-check"></i> Done
+                                </span>
+                            {% endif %}
+                        </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{% if role == 'COMPANY_ADMIN' %}9{% else %}7{% endif %}" style="text-align:center; padding: 40px; color:#94a3b8;">
+                        <i class="ph ph-chats-teardrop" style="font-size: 2.5rem; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                        No complaints recorded.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&branch={{ selected_branch }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&branch={{ selected_branch }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Resolve Modal -->
+<div class="modal-overlay" id="resolveModal">
+    <div class="modal-card">
+        <div class="modal-title">Resolve Complaint <span id="modalTicketId" style="color: #000080;"></span></div>
+        <form method="POST" id="resolveForm">
+            {% csrf_token %}
+            <div class="modal-body">
+                <label style="display:block; font-weight: 500; font-size: 0.85rem; color: #475569; margin-bottom: 6px;">Resolution Remarks</label>
+                <textarea name="remarks" class="remarks-textarea" placeholder="Describe how this issue was resolved..." required></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeResolveModal()">Cancel</button>
+                <button type="submit" class="btn-primary" style="background:#10b981;">Submit & Resolve</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openResolveModal(complaintId, ticketAutoId) {
+        const modal = document.getElementById('resolveModal');
+        const form = document.getElementById('resolveForm');
+        const ticketSpan = document.getElementById('modalTicketId');
+        
+        ticketSpan.innerText = '#' + ticketAutoId;
+        form.action = '/complaint/resolve/' + complaintId + '/';
+        modal.style.display = 'flex';
+    }
+
+    function closeResolveModal() {
+        const modal = document.getElementById('resolveModal');
+        modal.style.display = 'none';
+    }
+</script>
+{% endblock %}

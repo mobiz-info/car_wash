@@ -445,3 +445,36 @@ class CustomersVehicleForm(forms.ModelForm):
             )
         else:
             self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
+
+
+class WhatsAppSettingForm(forms.ModelForm):
+    class Meta:
+        model = WhatsAppSetting
+        fields = ['username', 'password', 'whatsapp_number']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp username'}),
+            'password': forms.PasswordInput(render_value=True, attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp password'}),
+            'whatsapp_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp number with country code'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            if 'class' not in field.widget.attrs:
+                field.widget.attrs['class'] = 'form-control'
+
+
+class WhatsAppTemplateForm(forms.ModelForm):
+    class Meta:
+        model = WhatsAppTemplate
+        fields = ['template_name', 'content']
+        widgets = {
+            'template_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter template name'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter template content', 'rows': 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            if 'class' not in field.widget.attrs:
+                field.widget.attrs['class'] = 'form-control'

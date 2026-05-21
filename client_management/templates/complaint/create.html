@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Complaint - Car Wash Admin{% endblock %}
+{% block page_title %}Create Complaint{% endblock %}
+{% block breadcrumb_active %}Create Complaint{% endblock %}
+
+{% block content %}
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-warning-circle" style="color: #000080; font-size: 1.5rem;"></i>
+        New Complaint
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="complaint_type">Complaint Type</label>
+            <div style="display:flex; gap: 8px; align-items: center;">
+                <select name="complaint_type" id="complaint_type" required style="flex: 1;">
+                    <option value="" disabled selected>Select Complaint Type</option>
+                    {% for type in complaint_types %}
+                        <option value="{{ type.id }}">{{ type.name }}</option>
+                    {% endfor %}
+                </select>
+                <a href="{% url 'complaint_type_create' %}" class="btn-create" style="padding: 10px 14px; background:#000080; flex-shrink: 0;" title="Add Complaint Type">
+                    <i class="ph-bold ph-plus"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="priority">Priority</label>
+            <select name="priority" id="priority" required>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Complaint Details</label>
+            <textarea name="description" id="description" required placeholder="Describe the issue in detail..." style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 0.95rem; outline: none;"></textarea>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'complaint_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary" style="background:#000080;">Submit Complaint</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

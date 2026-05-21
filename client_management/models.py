@@ -204,3 +204,61 @@ class SchemeVoucher(BaseModel):
 
     def __str__(self):
         return f"{self.scheme.name} - {self.voucher_number}"
+
+
+class ComplaintType(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='complaint_types')
+    name = models.CharField(max_length=200)
+
+    def __str__(self):
+        return f"{self.name} ({self.company.company_name})"
+
+
+class Complaint(BaseModel):
+    PRIORITY_LOW = 'low'
+    PRIORITY_MEDIUM = 'medium'
+    PRIORITY_HIGH = 'high'
+    PRIORITY_CHOICES = [
+        (PRIORITY_LOW, 'Low'),
+        (PRIORITY_MEDIUM, 'Medium'),
+        (PRIORITY_HIGH, 'High'),
+    ]
+
+    STATUS_NEW = 'new'
+    STATUS_PENDING = 'pending'
+    STATUS_RESOLVED = 'resolved'
+    STATUS_CHOICES = [
+        (STATUS_NEW, 'New'),
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_RESOLVED, 'Resolved'),
+    ]
+
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='complaints')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='complaints')
+    complaint_type = models.ForeignKey(ComplaintType, on_delete=models.CASCADE, related_name='complaints')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default=PRIORITY_LOW)
+    complaint_description = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NEW)
+    resolve_remarks = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Complaint #{self.auto_id} - {self.branch.name} ({self.status})"
+
+
+class WhatsAppSetting(BaseModel):
+    company = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='whatsapp_setting')
+    username = models.CharField(max_length=150)
+    password = models.CharField(max_length=150)
+    whatsapp_number = models.CharField(max_length=30)
+
+    def __str__(self):
+        return f"WhatsApp Setting - {self.company.company_name}"
+
+
+class WhatsAppTemplate(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='whatsapp_templates')
+    template_name = models.CharField(max_length=200)
+    content = models.TextField()
+
+    def __str__(self):
+        return f"{self.template_name} - {self.company.company_name}"
