@@ -542,9 +542,9 @@
             <div class="nav-submenu">
                 <a href="{% url 'customer_type_list' %}">Customer Type</a>
                 <a href="{% url 'customer_list' %}">Customers</a>
-                <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
+                <a href="{% url 'new_customer_report' %}">New Customers</a>
                 <a href="{% url 'inactive_customer_report' %}">Inactive Customers</a> 
-
+                <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
             </div>
 
             {% if request.user.profile.company.scheme_types.exists %}
@@ -657,7 +657,7 @@
                 <a href="{% url 'booking_list' %}">Bookings</a>
             </div>
 
-            <div class="nav-item dropdown-toggle">
+            {% comment %} <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
                     <i class="ph ph-users-three"></i>
                     Client Management
@@ -665,9 +665,9 @@
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                <a href="{% url 'customer_list' %}">Customer List</a>
+                
                 <a href="{% url 'customer_create' %}">Add Customer</a>
-            </div>
+            </div> {% endcomment %}
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
                     <i class="ph ph-users-three"></i>
@@ -676,7 +676,8 @@
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                {% comment %} <a href="{% url 'customer_type_list' %}">Customer Type</a>{% endcomment %}
+                <a href="{% url 'customer_list' %}">Customer List</a>
+                <a href="{% url 'new_customer_report' %}">New Customers</a>
                 <a href="{% url 'inactive_customer_report' %}">Inactive Customers</a> 
                 <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
             </div>

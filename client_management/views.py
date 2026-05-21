@@ -1190,7 +1190,7 @@ def customer_ledger(request):
 
 
 @login_required
-def inactive_customer_report(request):
+def inactive_customer(request):
     
     inactive_days = 60
 
@@ -1254,9 +1254,74 @@ def inactive_customer_report(request):
 
     return render(
         request,
-        'customer/inactive_customer_report.html',
+        'customer/inactive_customer.html',
         context
     )
+    
+
+@login_required
+def new_customer(request):
+
+    new_days = 30
+
+    cutoff_date = now().date() - timedelta(days=new_days)
+
+    customers = Customer.objects.filter(
+        is_deleted=False,
+        date_added__date__gte=cutoff_date
+    ).select_related(
+        'branch',
+        'customer_type'
+    ).prefetch_related(
+        'vehicles'
+    )
+
+    role = request.user.profile.role.name if request.user.profile.role else None
+
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+        customers = customers.filter(
+            branch=request.user.managed_branch
+        )
+
+    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+        customers = customers.filter(
+            company=request.user.profile.company
+        )
+
+    search = request.GET.get('search', '')
+
+    if search:
+
+        customers = customers.filter(
+            Q(name__icontains=search) |
+            Q(phone__icontains=search) |
+            Q(vehicles__vehicle_number__icontains=search)
+        ).distinct()
+
+    customers = customers.order_by(
+        '-date_added',
+        '-id'
+    )
+
+    paginator = Paginator(customers, 20)
+
+    page_number = request.GET.get('page')
+
+    page_obj = paginator.get_page(page_number)
+
+    total_new_customers = customers.count()
+
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'total_new_customers': total_new_customers,
+        'new_days': new_days,
+    }
+
+    return render(request,'customer/new_customer.html',context)
+    
 
 def complaint_list(request):
     search = request.GET.get('search', '')

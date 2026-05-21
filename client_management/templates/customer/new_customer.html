@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Inactive Customer Report{% endblock %}
-{% block page_title %}Inactive Customer Report{% endblock %}
-{% block breadcrumb_active %}Inactive Customers{% endblock %}
+{% block title %}New Customer Report{% endblock %}
+{% block page_title %}New Customer Report{% endblock %}
+{% block breadcrumb_active %}New Customers{% endblock %}
 
 {% block content %}
 
@@ -17,22 +17,24 @@
 /* SUMMARY */
 
 .summary-card{
-    background:linear-gradient(135deg,#60a5fa,#3b82f6);
+    background:#ffffff;
     border-radius:18px;
     padding:24px;
-    color:#fff;
-    box-shadow:0 4px 20px rgba(96,165,250,0.25);
+    border:1px solid #e5e7eb;
+    box-shadow:0 4px 20px rgba(0,0,0,0.05);
 }
 
 .summary-title{
     font-size:15px;
-    opacity:0.9;
+    color:#6b7280;
+    font-weight:500;
 }
 
 .summary-count{
     font-size:34px;
     font-weight:700;
     margin-top:10px;
+    color:#111827;
 }
 
 /* FILTER */
@@ -41,8 +43,8 @@
     background:#fff;
     border-radius:18px;
     padding:24px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.06);
-    border:1px solid #eef2ff;
+    box-shadow:0 4px 20px rgba(0,0,0,0.05);
+    border:1px solid #e5e7eb;
 }
 
 .filter-grid{
@@ -71,18 +73,19 @@
     outline:none;
     transition:0.3s;
     font-size:14px;
+    background:#fff;
 }
 
 .form-control-custom:focus{
-    border-color:#60a5fa;
-    box-shadow:0 0 0 3px rgba(96,165,250,0.15);
+    border-color:#9ca3af;
+    box-shadow:none;
 }
 
 .filter-btn{
     height:46px;
     border:none;
     border-radius:12px;
-    background:linear-gradient(135deg,#60a5fa,#3b82f6);
+    background:#111827;
     color:#fff;
     font-weight:600;
     cursor:pointer;
@@ -90,8 +93,7 @@
 }
 
 .filter-btn:hover{
-    transform:translateY(-1px);
-    box-shadow:0 6px 16px rgba(96,165,250,0.25);
+    opacity:0.9;
 }
 
 /* TABLE */
@@ -100,8 +102,8 @@
     background:#fff;
     border-radius:18px;
     overflow:hidden;
-    box-shadow:0 4px 20px rgba(0,0,0,0.06);
-    border:1px solid #eef2ff;
+    box-shadow:0 4px 20px rgba(0,0,0,0.05);
+    border:1px solid #e5e7eb;
 }
 
 .table-responsive{
@@ -115,33 +117,34 @@
 }
 
 .report-table thead{
-    background:linear-gradient(135deg,#60a5fa,#3b82f6);
+    background:#f9fafb;
 }
 
 .report-table thead th{
-    color:#fff;
+    color:#111827;
     padding:16px;
     font-size:14px;
     font-weight:600;
     text-align:left;
     white-space:nowrap;
+    border-bottom:1px solid #e5e7eb;
 }
 
 .report-table tbody td{
     padding:16px;
-    border-bottom:1px solid #f1f5f9;
+    border-bottom:1px solid #f3f4f6;
     font-size:14px;
     color:#374151;
     vertical-align:middle;
 }
 
 .report-table tbody tr:hover{
-    background:#eff6ff;
+    background:#f9fafb;
 }
 
-.inactive-badge{
-    background:#dbeafe;
-    color:#1d4ed8;
+.new-badge{
+    background:#f3f4f6;
+    color:#374151;
     padding:6px 12px;
     border-radius:30px;
     font-size:12px;
@@ -181,18 +184,17 @@
     color:#374151;
     font-weight:600;
     transition:0.3s;
+    background:#fff;
 }
 
 .pagination .active{
-    background:#60a5fa;
+    background:#111827;
     color:#fff;
-    border-color:#60a5fa;
+    border-color:#111827;
 }
 
 .pagination a:hover{
-    background:#60a5fa;
-    color:#fff;
-    border-color:#60a5fa;
+    background:#f3f4f6;
 }
 
 </style>
@@ -204,11 +206,11 @@
     <div class="summary-card">
 
         <div class="summary-title">
-            Customers inactive for {{ inactive_days }}+ days
+            New customers added in last {{ new_days }} days
         </div>
 
         <div class="summary-count">
-            {{ total_inactive }}
+            {{ total_new_customers }}
         </div>
 
     </div>
@@ -262,7 +264,7 @@
                         <th>Vehicle</th>
                         <th>Customer Type</th>
                         <th>Branch</th>
-                        <th>Last Visit</th>
+                        <th>Joined Date</th>
                         <th>Status</th>
                     </tr>
 
@@ -311,22 +313,12 @@
                         </td>
 
                         <td>
-
-                            {% if customer.last_invoice_date %}
-
-                                {{ customer.last_invoice_date }}
-
-                            {% else %}
-
-                                Never Visited
-
-                            {% endif %}
-
+                            {{ customer.date_added|date:"d M Y" }}
                         </td>
 
                         <td>
-                            <span class="inactive-badge">
-                                Inactive
+                            <span class="new-badge">
+                                New
                             </span>
                         </td>
 
@@ -336,7 +328,7 @@
 
                     <tr>
                         <td colspan="8" class="empty-row">
-                            No inactive customers found
+                            No new customers found
                         </td>
                     </tr>
 

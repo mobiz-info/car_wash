@@ -106,6 +106,7 @@ urlpatterns = [
     path('settings/templates/delete/<uuid:id>/', views.whatsapp_template_delete, name='whatsapp_template_delete'),
     
     path('customer-ledger/',views.customer_ledger,name='customer_ledger'),
-    path('inactive-customer-report/',views.inactive_customer_report,name='inactive_customer_report'),
+    path('inactive-customer/',views.inactive_customer,name='inactive_customer'),
+    path('new-customer/',views.new_customer,name='new_customer'),
     
 ]
