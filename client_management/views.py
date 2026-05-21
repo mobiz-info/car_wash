@@ -1063,22 +1063,42 @@ def load_vehicle_models(request):
 
 @login_required
 def customer_ledger(request):
-    customers = Customer.objects.filter(is_deleted=False)
+
+    customers = Customer.objects.filter(
+        is_deleted=False
+    )
+
+    role = request.user.profile.role.name if request.user.profile.role else None
+
+    # BRANCH ADMIN -> only own branch customers
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+        customers = customers.filter(
+            branch=request.user.managed_branch
+        )
+
+    # COMPANY ADMIN -> all branch customers under company
+    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+        customers = customers.filter(
+            company=request.user.profile.company
+        )
 
     customer_id = request.GET.get('customer')
 
     customer = None
     ledger_items = []
+
     total_services = 0
     total_amount = 0
     total_collected = 0
     total_balance = 0
 
     if customer_id:
+
         customer = get_object_or_404(
-            Customer,
-            id=customer_id,
-            is_deleted=False
+            customers,
+            id=customer_id
         )
 
         invoices = Invoice.objects.filter(
@@ -1091,7 +1111,19 @@ def customer_ledger(request):
             'items'
         ).order_by('-date', '-id')
 
-        ledger_items = []
+        # Restrict invoices by role
+
+        if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+            invoices = invoices.filter(
+                branch=request.user.managed_branch
+            )
+
+        elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+            invoices = invoices.filter(
+                branch__company=request.user.profile.company
+            )
 
         sl_no = 1
 
@@ -1107,22 +1139,20 @@ def customer_ledger(request):
                     'invoice_number': invoice.invoice_number,
                     'vehicle_no': invoice.vehicle.vehicle_number if invoice.vehicle else '',
                     'service_name': item.service_name,
-                    'price': item.rate,
+                    'price': invoice.total,
+                    'collected': invoice.amount_collected,
                     'balance': invoice_balance,
+                    'branch': invoice.branch.name if invoice.branch else '',
                 })
 
                 sl_no += 1
 
         total_services = InvoiceItem.objects.filter(
-            invoice__customer=customer,
-            invoice__is_deleted=False,
+            invoice__in=invoices,
             is_deleted=False
         ).count()
 
-        totals = Invoice.objects.filter(
-            customer=customer,
-            is_deleted=False
-        ).aggregate(
+        totals = invoices.aggregate(
             total_amount=Coalesce(
                 Sum('total'),
                 0,
@@ -1149,7 +1179,11 @@ def customer_ledger(request):
         'total_balance': total_balance,
     }
 
-    return render(request, 'customer/customer_ledger.html', context)
+    return render(
+        request,
+        'customer/customer_ledger.html',
+        context
+    )
 
 
 def complaint_list(request):

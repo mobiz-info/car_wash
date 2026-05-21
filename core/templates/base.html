@@ -664,6 +664,18 @@
                 <a href="{% url 'customer_list' %}">Customer List</a>
                 <a href="{% url 'customer_create' %}">Add Customer</a>
             </div>
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-users-three"></i>
+                    Customer Management
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                {% comment %} <a href="{% url 'customer_type_list' %}">Customer Type</a>
+                <a href="{% url 'customer_list' %}">Customers</a> {% endcomment %}
+                <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
+            </div>
             <!-- Service Management -->
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
