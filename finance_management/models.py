@@ -26,9 +26,11 @@ class InvoiceItem(BaseModel):
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True)
     service_name = models.CharField(max_length=150)
     rate = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # per-item scheme/manual discount
 
     def __str__(self):
         return f"{self.invoice.invoice_number} - {self.service_name}"
+
 
 
 class Receipt(BaseModel):

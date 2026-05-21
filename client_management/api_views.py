@@ -523,6 +523,7 @@ def api_create_invoice(request):
                 service=service_obj,
                 service_name=svc.get('name', 'Unknown Service'),
                 rate=svc.get('rate', 0),
+                discount=svc.get('discount', 0),  # per-item scheme/manual discount
                 creator=user,
                 auto_id=get_auto_id(InvoiceItem)
             )
@@ -1000,8 +1001,10 @@ def api_available_schemes(request):
         if service_id:
             schemes_qs = schemes_qs.filter(services__id=service_id)
 
-        # Total paid visits (invoices without any scheme)
-        total_paid_visits = Invoice.objects.filter(vehicle=vehicle, scheme__isnull=True, is_deleted=False).count()
+        # Total paid visits for this vehicle (all invoices, not just scheme-free ones)
+        total_paid_visits = Invoice.objects.filter(
+            vehicle=vehicle, is_deleted=False
+        ).count()
 
         result = []
         for scheme in schemes_qs.distinct():
@@ -1015,23 +1018,30 @@ def api_available_schemes(request):
             if scheme_type == 'Quantity' or scheme_type == scheme.SCHEME_BENEFIT_QTY:
                 paid = scheme.paid_visits or 0
                 free = scheme.free_visits or 0
-                
-                # Count how many times this specific scheme was already used by this vehicle
-                free_washes_taken = Invoice.objects.filter(vehicle=vehicle, scheme=scheme, is_deleted=False).count()
-                
-                # Calculate current progress towards the next free wash
-                current_progress = total_paid_visits - (free_washes_taken * paid)
-                if current_progress < 0:
-                    current_progress = 0
-                    
-                is_eligible = paid > 0 and current_progress >= paid
+
+                # How many free washes this vehicle has already redeemed for this scheme
+                free_washes_taken = Invoice.objects.filter(
+                    vehicle=vehicle, scheme=scheme, is_deleted=False
+                ).count()
+
+                # Progress within the current cycle:
+                # Each cycle = paid_visits normal washes + 1 free wash
+                # Current cycle starts after the last completed cycle
+                cycle_length = paid + free  # e.g. 3 paid + 1 free = cycle of 4
+                completed_cycles = free_washes_taken  # each free wash = one cycle done
+                visits_in_current_cycle = total_paid_visits - (completed_cycles * paid)
+                if visits_in_current_cycle < 0:
+                    visits_in_current_cycle = 0
+
+                is_eligible = paid > 0 and visits_in_current_cycle >= paid
                 entry.update({
                     'description': f'Get {free} free wash after every {paid} paid washes',
                     'paid_visits': paid,
                     'free_visits': free,
-                    'visits_count': current_progress,
+                    'visits_count': min(visits_in_current_cycle, paid),  # cap at paid for UI bar
                     'is_eligible': is_eligible,
                 })
+
             elif scheme_type == 'Discount' or scheme_type == scheme.SCHEME_BENEFIT_DISCOUNT:
                 pct = float(scheme.discount_percentage or 0)
                 entry.update({
