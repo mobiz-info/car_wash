@@ -543,6 +543,8 @@
                 <a href="{% url 'customer_type_list' %}">Customer Type</a>
                 <a href="{% url 'customer_list' %}">Customers</a>
                 <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
+                <a href="{% url 'inactive_customer_report' %}">Inactive Customers</a> 
+
             </div>
 
             {% if request.user.profile.company.scheme_types.exists %}
@@ -596,6 +598,8 @@
                 <a href="{% url 'sales_report' %}">Sales</a>
                 <a href="{% url 'receipt_list' %}">Receipt</a>
                 <a href="{% url 'job_report' %}">Job Report</a>
+                <a href="{% url 'booking_report' %}">Booking Report</a>
+                <a href="{% url 'cancellation_report' %}">Cancellation Report</a>
                 <!-- <a href="#">Revenue</a> -->
             </div>
 
@@ -672,8 +676,8 @@
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                {% comment %} <a href="{% url 'customer_type_list' %}">Customer Type</a>
-                <a href="{% url 'customer_list' %}">Customers</a> {% endcomment %}
+                {% comment %} <a href="{% url 'customer_type_list' %}">Customer Type</a>{% endcomment %}
+                <a href="{% url 'inactive_customer_report' %}">Inactive Customers</a> 
                 <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
             </div>
             <!-- Service Management -->
@@ -747,6 +751,8 @@
                 <a href="{% url 'receipt_list' %}">Collection Report</a>
                 <a href="{% url 'job_report' %}">Job Report</a>
                 <a href="{% url 'outstanding_list' %}">Outstanding Report</a>
+                <a href="{% url 'booking_report' %}">Booking Report</a>
+                <a href="{% url 'cancellation_report' %}">Cancellation Report</a>
             </div>
 
             <a href="{% url 'complaint_list' %}" class="nav-item">
@@ -807,6 +813,7 @@
             <div class="nav-submenu">
                 <li><a href="{% url 'client_list' %}">Clients</a></li>
                 <li><a href="{% url 'subscription_list' %}">Subscription</a></li>
+
                
             </div>
 

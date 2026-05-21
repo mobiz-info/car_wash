@@ -19,5 +19,7 @@ urlpatterns = [
     path('api/receipt/list/', views.api_receipt_list, name='api_receipt_list'),
     
     path('reports/job-report/',views.job_report,name='job_report'),
+    path('booking-report/', views.booking_report, name='booking_report'),
+    path('cancellation-report/',views.cancellation_report,name='cancellation_report'),
     
 ]

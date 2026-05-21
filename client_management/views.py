@@ -6,8 +6,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.http import JsonResponse
-from django.db.models import Sum, Count, F, DecimalField
+from django.db.models import Sum, Count, F, DecimalField, Max, Q
 from django.db.models.functions import Coalesce
+from datetime import timedelta
+from django.core.paginator import Paginator
+from django.utils.timezone import now
 
 from .models import *
 from finance_management.models import Invoice,InvoiceItem
@@ -1185,6 +1188,75 @@ def customer_ledger(request):
         context
     )
 
+
+@login_required
+def inactive_customer_report(request):
+    
+    inactive_days = 60
+
+    cutoff_date = now().date() - timedelta(days=inactive_days)
+
+    customers = Customer.objects.filter(
+        is_deleted=False
+    ).annotate(
+        last_invoice_date=Max('invoices__date')
+    )
+
+    role = request.user.profile.role.name if request.user.profile.role else None
+
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+        customers = customers.filter(
+            branch=request.user.managed_branch
+        )
+
+    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+        customers = customers.filter(
+            company=request.user.profile.company
+        )
+
+    customers = customers.filter(
+        Q(last_invoice_date__lt=cutoff_date) |
+        Q(last_invoice_date__isnull=True)
+    )
+
+    search = request.GET.get('search', '')
+
+    if search:
+
+        customers = customers.filter(
+            Q(name__icontains=search) |
+            Q(phone__icontains=search) |
+            Q(vehicles__vehicle_number__icontains=search)
+        ).distinct()
+
+
+    customers = customers.order_by(
+        'last_invoice_date',
+        '-id'
+    )
+
+    paginator = Paginator(customers, 20)
+
+    page_number = request.GET.get('page')
+
+    page_obj = paginator.get_page(page_number)
+
+    total_inactive = customers.count()
+
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'total_inactive': total_inactive,
+        'inactive_days': inactive_days,
+    }
+
+    return render(
+        request,
+        'customer/inactive_customer_report.html',
+        context
+    )
 
 def complaint_list(request):
     search = request.GET.get('search', '')

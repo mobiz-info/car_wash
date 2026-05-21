@@ -1,0 +1,399 @@
+{% extends 'base.html' %}
+
+{% block title %}Inactive Customer Report{% endblock %}
+{% block page_title %}Inactive Customer Report{% endblock %}
+{% block breadcrumb_active %}Inactive Customers{% endblock %}
+
+{% block content %}
+
+<style>
+
+.report-wrapper{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+/* SUMMARY */
+
+.summary-card{
+    background:linear-gradient(135deg,#60a5fa,#3b82f6);
+    border-radius:18px;
+    padding:24px;
+    color:#fff;
+    box-shadow:0 4px 20px rgba(96,165,250,0.25);
+}
+
+.summary-title{
+    font-size:15px;
+    opacity:0.9;
+}
+
+.summary-count{
+    font-size:34px;
+    font-weight:700;
+    margin-top:10px;
+}
+
+/* FILTER */
+
+.filter-card{
+    background:#fff;
+    border-radius:18px;
+    padding:24px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    border:1px solid #eef2ff;
+}
+
+.filter-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:20px;
+}
+
+.form-group{
+    display:flex;
+    flex-direction:column;
+}
+
+.form-group label{
+    margin-bottom:8px;
+    font-size:14px;
+    font-weight:600;
+    color:#374151;
+}
+
+.form-control-custom{
+    height:46px;
+    border:1px solid #d1d5db;
+    border-radius:12px;
+    padding:0 14px;
+    outline:none;
+    transition:0.3s;
+    font-size:14px;
+}
+
+.form-control-custom:focus{
+    border-color:#60a5fa;
+    box-shadow:0 0 0 3px rgba(96,165,250,0.15);
+}
+
+.filter-btn{
+    height:46px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg,#60a5fa,#3b82f6);
+    color:#fff;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+.filter-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 6px 16px rgba(96,165,250,0.25);
+}
+
+/* TABLE */
+
+.table-card{
+    background:#fff;
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    border:1px solid #eef2ff;
+}
+
+.table-responsive{
+    overflow-x:auto;
+}
+
+.report-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:1100px;
+}
+
+.report-table thead{
+    background:linear-gradient(135deg,#60a5fa,#3b82f6);
+}
+
+.report-table thead th{
+    color:#fff;
+    padding:16px;
+    font-size:14px;
+    font-weight:600;
+    text-align:left;
+    white-space:nowrap;
+}
+
+.report-table tbody td{
+    padding:16px;
+    border-bottom:1px solid #f1f5f9;
+    font-size:14px;
+    color:#374151;
+    vertical-align:middle;
+}
+
+.report-table tbody tr:hover{
+    background:#eff6ff;
+}
+
+.inactive-badge{
+    background:#dbeafe;
+    color:#1d4ed8;
+    padding:6px 12px;
+    border-radius:30px;
+    font-size:12px;
+    font-weight:600;
+    display:inline-block;
+}
+
+.empty-row{
+    text-align:center;
+    padding:40px !important;
+    color:#9ca3af;
+}
+
+/* PAGINATION */
+
+.pagination-wrapper{
+    padding:20px;
+    display:flex;
+    justify-content:flex-end;
+}
+
+.pagination{
+    display:flex;
+    gap:8px;
+}
+
+.pagination a,
+.pagination span{
+    width:38px;
+    height:38px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:10px;
+    text-decoration:none;
+    border:1px solid #e5e7eb;
+    color:#374151;
+    font-weight:600;
+    transition:0.3s;
+}
+
+.pagination .active{
+    background:#60a5fa;
+    color:#fff;
+    border-color:#60a5fa;
+}
+
+.pagination a:hover{
+    background:#60a5fa;
+    color:#fff;
+    border-color:#60a5fa;
+}
+
+</style>
+
+<div class="report-wrapper">
+
+    <!-- SUMMARY -->
+
+    <div class="summary-card">
+
+        <div class="summary-title">
+            Customers inactive for {{ inactive_days }}+ days
+        </div>
+
+        <div class="summary-count">
+            {{ total_inactive }}
+        </div>
+
+    </div>
+
+    <!-- FILTER -->
+
+    <div class="filter-card">
+
+        <form method="GET">
+
+            <div class="filter-grid">
+
+                <div class="form-group">
+                    <label>Search</label>
+
+                    <input type="text"
+                           name="search"
+                           value="{{ search }}"
+                           class="form-control-custom"
+                           placeholder="Customer / Phone / Vehicle">
+                </div>
+
+                <div class="form-group">
+                    <label>&nbsp;</label>
+
+                    <button type="submit" class="filter-btn">
+                        Filter
+                    </button>
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+    <!-- TABLE -->
+
+    <div class="table-card">
+
+        <div class="table-responsive">
+
+            <table class="report-table">
+
+                <thead>
+
+                    <tr>
+                        <th>#</th>
+                        <th>Customer</th>
+                        <th>Phone</th>
+                        <th>Vehicle</th>
+                        <th>Customer Type</th>
+                        <th>Branch</th>
+                        <th>Last Visit</th>
+                        <th>Status</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for customer in page_obj %}
+
+                    <tr>
+
+                        <td>
+                            {{ forloop.counter }}
+                        </td>
+
+                        <td>
+                            {{ customer.name }}
+                        </td>
+
+                        <td>
+                            {{ customer.phone }}
+                        </td>
+
+                        <td>
+
+                            {% for vehicle in customer.vehicles.all %}
+
+                                {{ vehicle.vehicle_number }}
+
+                                {% if not forloop.last %}
+                                    ,
+                                {% endif %}
+
+                            {% empty %}
+                                -
+                            {% endfor %}
+
+                        </td>
+
+                        <td>
+                            {{ customer.customer_type.name }}
+                        </td>
+
+                        <td>
+                            {{ customer.branch.name }}
+                        </td>
+
+                        <td>
+
+                            {% if customer.last_invoice_date %}
+
+                                {{ customer.last_invoice_date }}
+
+                            {% else %}
+
+                                Never Visited
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            <span class="inactive-badge">
+                                Inactive
+                            </span>
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="8" class="empty-row">
+                            No inactive customers found
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <!-- PAGINATION -->
+
+        {% if page_obj.has_other_pages %}
+
+        <div class="pagination-wrapper">
+
+            <div class="pagination">
+
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}">
+                        ‹
+                    </a>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+
+                    {% if page_obj.number == num %}
+
+                        <span class="active">
+                            {{ num }}
+                        </span>
+
+                    {% else %}
+
+                        <a href="?page={{ num }}">
+                            {{ num }}
+                        </a>
+
+                    {% endif %}
+
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}">
+                        ›
+                    </a>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

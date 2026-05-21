@@ -1,0 +1,431 @@
+<!-- templates/booking/report.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Booking Report{% endblock %}
+{% block page_title %}Booking Report{% endblock %}
+{% block breadcrumb_active %}Booking Report{% endblock %}
+
+{% block content %}
+
+<style>
+
+.booking-report-wrapper{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+/* FILTER CARD */
+
+.filter-card{
+    background:#fff;
+    border-radius:18px;
+    padding:24px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    border:1px solid #eef2ff;
+}
+
+.filter-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:20px;
+}
+
+.form-group{
+    display:flex;
+    flex-direction:column;
+}
+
+.form-group label{
+    font-size:14px;
+    font-weight:600;
+    margin-bottom:8px;
+    color:#374151;
+}
+
+.form-control-custom{
+    height:46px;
+    border:1px solid #d1d5db;
+    border-radius:12px;
+    padding:0 14px;
+    font-size:14px;
+    transition:0.3s;
+    outline:none;
+}
+
+.form-control-custom:focus{
+    border-color:#7c3aed;
+    box-shadow:0 0 0 3px rgba(124,58,237,0.15);
+}
+
+.filter-btn{
+    height:46px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg,#7c3aed,#5b21b6);
+    color:#fff;
+    font-weight:600;
+    padding:0 24px;
+    transition:0.3s;
+}
+
+.filter-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 6px 16px rgba(124,58,237,0.25);
+}
+
+/* TABLE CARD */
+
+.table-card{
+    background:#fff;
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    border:1px solid #eef2ff;
+}
+
+.table-responsive{
+    overflow-x:auto;
+}
+
+.booking-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:1100px;
+}
+
+.booking-table thead{
+    background:linear-gradient(135deg,#7c3aed,#5b21b6);
+}
+
+.booking-table thead th{
+    color:#fff;
+    padding:16px;
+    font-size:14px;
+    font-weight:600;
+    text-align:left;
+    white-space:nowrap;
+}
+
+.booking-table tbody td{
+    padding:16px;
+    border-bottom:1px solid #f1f5f9;
+    font-size:14px;
+    color:#374151;
+    vertical-align:middle;
+}
+
+.booking-table tbody tr:hover{
+    background:#faf5ff;
+}
+
+/* STATUS BADGES */
+
+.status-badge{
+    padding:6px 12px;
+    border-radius:30px;
+    font-size:12px;
+    font-weight:600;
+    display:inline-block;
+}
+
+.status-pending{
+    background:#fef3c7;
+    color:#92400e;
+}
+
+.status-confirmed{
+    background:#dbeafe;
+    color:#1d4ed8;
+}
+
+.status-completed{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.status-cancelled{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+/* EMPTY */
+
+.empty-row{
+    text-align:center;
+    padding:40px !important;
+    color:#9ca3af;
+}
+
+/* PAGINATION */
+
+.pagination-wrapper{
+    padding:20px;
+    display:flex;
+    justify-content:flex-end;
+}
+
+.pagination{
+    display:flex;
+    gap:8px;
+}
+
+.pagination a,
+.pagination span{
+    width:38px;
+    height:38px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:10px;
+    text-decoration:none;
+    font-size:14px;
+    font-weight:600;
+    border:1px solid #e5e7eb;
+    color:#374151;
+    transition:0.3s;
+}
+
+.pagination a:hover{
+    background:#7c3aed;
+    color:#fff;
+    border-color:#7c3aed;
+}
+
+.pagination .active{
+    background:#7c3aed;
+    color:#fff;
+    border-color:#7c3aed;
+}
+
+</style>
+
+<div class="booking-report-wrapper">
+
+    <!-- FILTER SECTION -->
+
+    <div class="filter-card">
+
+        <form method="GET">
+
+            <div class="filter-grid">
+
+                <div class="form-group">
+                    <label>Search</label>
+
+                    <input type="text"
+                           name="search"
+                           value="{{ search }}"
+                           class="form-control-custom"
+                           placeholder="Customer / Vehicle">
+                </div>
+
+                <div class="form-group">
+                    <label>Status</label>
+
+                    <select name="status" class="form-control-custom">
+
+                        <option value="">All</option>
+
+                        {% for key, value in status_choices %}
+
+                        <option value="{{ key }}"
+                                {% if status == key %}selected{% endif %}>
+                            {{ value }}
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>From Date</label>
+
+                    <input type="date"
+                           name="from_date"
+                           value="{{ from_date }}"
+                           class="form-control-custom">
+                </div>
+
+                <div class="form-group">
+                    <label>To Date</label>
+
+                    <input type="date"
+                           name="to_date"
+                           value="{{ to_date }}"
+                           class="form-control-custom">
+                </div>
+
+                <div class="form-group">
+                    <label>&nbsp;</label>
+
+                    <button type="submit" class="filter-btn">
+                        Filter
+                    </button>
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+    <!-- TABLE SECTION -->
+
+    <div class="table-card">
+
+        <div class="table-responsive">
+
+            <table class="booking-table">
+
+                <thead>
+
+                    <tr>
+                        <th>#</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Customer</th>
+                        <th>Mobile</th>
+                        <th>Vehicle</th>
+                        <th>Branch</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for booking in page_obj %}
+
+                    <tr>
+
+                        <td>{{ forloop.counter }}</td>
+
+                        <td>
+                            {{ booking.booking_date }}
+                        </td>
+
+                        <td>
+                            {{ booking.booking_time|default:"-" }}
+                        </td>
+
+                        <td>
+                            {{ booking.customer.name }}
+                        </td>
+
+                        <td>
+                            {{ booking.customer.mobile }}
+                        </td>
+
+                        <td>
+                            {{ booking.vehicle.vehicle_number }}
+                        </td>
+
+                        <td>
+                            {{ booking.branch.name }}
+                        </td>
+
+                        <td>
+
+                            {% if booking.status == 'pending' %}
+
+                                <span class="status-badge status-pending">
+                                    Pending
+                                </span>
+
+                            {% elif booking.status == 'confirmed' %}
+
+                                <span class="status-badge status-confirmed">
+                                    Confirmed
+                                </span>
+
+                            {% elif booking.status == 'completed' %}
+
+                                <span class="status-badge status-completed">
+                                    Completed
+                                </span>
+
+                            {% elif booking.status == 'cancelled' %}
+
+                                <span class="status-badge status-cancelled">
+                                    Cancelled
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            {{ booking.notes|default:"-" }}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="9" class="empty-row">
+                            No bookings found
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <!-- PAGINATION -->
+
+        {% if page_obj.has_other_pages %}
+
+        <div class="pagination-wrapper">
+
+            <div class="pagination">
+
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}">
+                        ‹
+                    </a>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+
+                    {% if page_obj.number == num %}
+
+                        <span class="active">
+                            {{ num }}
+                        </span>
+
+                    {% else %}
+
+                        <a href="?page={{ num }}">
+                            {{ num }}
+                        </a>
+
+                    {% endif %}
+
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}">
+                        ›
+                    </a>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

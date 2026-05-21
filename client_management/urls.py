@@ -82,7 +82,6 @@ urlpatterns = [
     path('api/reports/scheme-beneficiary/', api_views.api_report_scheme_beneficiary, name='api_report_scheme_beneficiary'),
     path('api/reports/collection/', api_views.api_report_collection, name='api_report_collection'),
     path('api/reports/outstanding/', api_views.api_report_outstanding, name='api_report_outstanding'),
-    path('customer-ledger/',views.customer_ledger,name='customer_ledger'),
     path('api/reports/bookings/', api_views.api_report_bookings, name='api_report_bookings'),
     path('api/reports/cancellations/', api_views.api_report_cancellations, name='api_report_cancellations'),
 
@@ -105,4 +104,8 @@ urlpatterns = [
     path('settings/templates/create/', views.whatsapp_template_create, name='whatsapp_template_create'),
     path('settings/templates/edit/<uuid:id>/', views.whatsapp_template_edit, name='whatsapp_template_edit'),
     path('settings/templates/delete/<uuid:id>/', views.whatsapp_template_delete, name='whatsapp_template_delete'),
+    
+    path('customer-ledger/',views.customer_ledger,name='customer_ledger'),
+    path('inactive-customer-report/',views.inactive_customer_report,name='inactive_customer_report'),
+    
 ]

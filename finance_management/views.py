@@ -4,13 +4,15 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.db.models import Q, Sum, F, DecimalField, ExpressionWrapper
 from django.views.decorators.csrf import csrf_exempt
+from decimal import Decimal
+from django.core.paginator import Paginator
+
 from core.functions import get_auto_id, log_activity
 from client_management.api_views import get_user_from_token
 from .models import Invoice, Receipt
 from booking_management.models import Booking
 from client_management.models import Branch
 from service_management.models import ServiceType
-from decimal import Decimal
 
 
 @login_required
@@ -782,3 +784,149 @@ def job_report(request):
         'reports/job_report.html',
         context
     )
+
+
+@login_required
+def booking_report(request):
+
+    bookings = Booking.objects.select_related('customer','vehicle','branch').filter(is_deleted=False)
+
+    role = request.user.profile.role.name if request.user.profile.role else None
+
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+        bookings = bookings.filter(
+            branch=request.user.managed_branch
+        )
+
+    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+        bookings = bookings.filter(
+            branch__company=request.user.profile.company
+        )
+
+    search = request.GET.get('search', '')
+    status = request.GET.get('status', '')
+    from_date = request.GET.get('from_date', '')
+    to_date = request.GET.get('to_date', '')
+
+    if search:
+
+        bookings = bookings.filter(
+            Q(customer__name__icontains=search) |
+            Q(customer__phone__icontains=search) |
+            Q(vehicle__vehicle_number__icontains=search)
+        )
+
+    # STATUS
+
+    if status:
+
+        bookings = bookings.filter(
+            status=status
+        )
+
+    if from_date:
+
+        bookings = bookings.filter(
+            booking_date__gte=from_date
+        )
+
+    if to_date:
+
+        bookings = bookings.filter(
+            booking_date__lte=to_date
+        )
+
+    bookings = bookings.order_by('-booking_date','-id')
+
+    paginator = Paginator(bookings, 20)
+
+    page_number = request.GET.get('page')
+
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'status': status,
+        'from_date': from_date,
+        'to_date': to_date,
+        'status_choices': Booking.STATUS_CHOICES,
+    }
+
+    return render(request, 'reports/booking_report.html', context)
+
+
+@login_required
+def cancellation_report(request):
+
+    cancellations = Booking.objects.select_related(
+        'customer',
+        'vehicle',
+        'branch'
+    ).filter(
+        is_deleted=False,
+        status='cancelled'
+    )
+
+    role = request.user.profile.role.name if request.user.profile.role else None
+
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+        cancellations = cancellations.filter(
+            branch=request.user.managed_branch
+        )
+
+    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+        cancellations = cancellations.filter(
+            branch__company=request.user.profile.company
+        )
+
+    search = request.GET.get('search', '')
+    from_date = request.GET.get('from_date', '')
+    to_date = request.GET.get('to_date', '')
+
+    if search:
+
+        cancellations = cancellations.filter(
+            Q(customer__name__icontains=search) |
+            Q(customer__mobile__icontains=search) |
+            Q(vehicle__vehicle_number__icontains=search)
+        )
+
+    if from_date:
+
+        cancellations = cancellations.filter(
+            booking_date__gte=from_date
+        )
+
+    if to_date:
+
+        cancellations = cancellations.filter(
+            booking_date__lte=to_date
+        )
+
+    cancellations = cancellations.order_by(
+        '-booking_date',
+        '-id'
+    )
+
+    paginator = Paginator(cancellations, 20)
+
+    page_number = request.GET.get('page')
+
+    page_obj = paginator.get_page(page_number)
+
+    total_cancelled = cancellations.count()
+
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'from_date': from_date,
+        'to_date': to_date,
+        'total_cancelled': total_cancelled,
+    }
+
+    return render(request,'reports/cancellation_report.html',context)

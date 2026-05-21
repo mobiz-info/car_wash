@@ -1,0 +1,394 @@
+<!-- templates/booking/cancellation_report.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Cancellation Report{% endblock %}
+{% block page_title %}Cancellation Report{% endblock %}
+{% block breadcrumb_active %}Cancellation Report{% endblock %}
+
+{% block content %}
+
+<style>
+
+.report-wrapper{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+/* SUMMARY CARD */
+
+.summary-card{
+    background:linear-gradient(135deg,#ef4444,#b91c1c);
+    border-radius:18px;
+    padding:24px;
+    color:#fff;
+    box-shadow:0 4px 20px rgba(239,68,68,0.25);
+}
+
+.summary-title{
+    font-size:15px;
+    font-weight:500;
+    opacity:0.9;
+}
+
+.summary-count{
+    font-size:34px;
+    font-weight:700;
+    margin-top:8px;
+}
+
+/* FILTER CARD */
+
+.filter-card{
+    background:#fff;
+    border-radius:18px;
+    padding:24px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    border:1px solid #eef2ff;
+}
+
+.filter-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:20px;
+}
+
+.form-group{
+    display:flex;
+    flex-direction:column;
+}
+
+.form-group label{
+    font-size:14px;
+    font-weight:600;
+    margin-bottom:8px;
+    color:#374151;
+}
+
+.form-control-custom{
+    height:46px;
+    border:1px solid #d1d5db;
+    border-radius:12px;
+    padding:0 14px;
+    font-size:14px;
+    outline:none;
+    transition:0.3s;
+}
+
+.form-control-custom:focus{
+    border-color:#dc2626;
+    box-shadow:0 0 0 3px rgba(220,38,38,0.15);
+}
+
+.filter-btn{
+    height:46px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg,#ef4444,#b91c1c);
+    color:#fff;
+    font-weight:600;
+    transition:0.3s;
+}
+
+.filter-btn:hover{
+    transform:translateY(-1px);
+}
+
+/* TABLE */
+
+.table-card{
+    background:#fff;
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    border:1px solid #eef2ff;
+}
+
+.table-responsive{
+    overflow-x:auto;
+}
+
+.report-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:1000px;
+}
+
+.report-table thead{
+    background:linear-gradient(135deg,#ef4444,#b91c1c);
+}
+
+.report-table thead th{
+    padding:16px;
+    color:#fff;
+    font-size:14px;
+    font-weight:600;
+    text-align:left;
+}
+
+.report-table tbody td{
+    padding:16px;
+    border-bottom:1px solid #f1f5f9;
+    font-size:14px;
+    color:#374151;
+}
+
+.report-table tbody tr:hover{
+    background:#fef2f2;
+}
+
+.cancel-badge{
+    background:#fee2e2;
+    color:#b91c1c;
+    padding:6px 12px;
+    border-radius:30px;
+    font-size:12px;
+    font-weight:600;
+    display:inline-block;
+}
+
+.empty-row{
+    text-align:center;
+    padding:40px !important;
+    color:#9ca3af;
+}
+
+/* PAGINATION */
+
+.pagination-wrapper{
+    padding:20px;
+    display:flex;
+    justify-content:flex-end;
+}
+
+.pagination{
+    display:flex;
+    gap:8px;
+}
+
+.pagination a,
+.pagination span{
+    width:38px;
+    height:38px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:10px;
+    text-decoration:none;
+    border:1px solid #e5e7eb;
+    color:#374151;
+    font-weight:600;
+}
+
+.pagination .active{
+    background:#dc2626;
+    color:#fff;
+    border-color:#dc2626;
+}
+
+.pagination a:hover{
+    background:#dc2626;
+    color:#fff;
+    border-color:#dc2626;
+}
+
+</style>
+
+<div class="report-wrapper">
+
+    <!-- SUMMARY -->
+
+    <div class="summary-card">
+
+        <div class="summary-title">
+            Total Cancelled Bookings
+        </div>
+
+        <div class="summary-count">
+            {{ total_cancelled }}
+        </div>
+
+    </div>
+
+    <!-- FILTER -->
+
+    <div class="filter-card">
+
+        <form method="GET">
+
+            <div class="filter-grid">
+
+                <div class="form-group">
+                    <label>Search</label>
+
+                    <input type="text"
+                           name="search"
+                           value="{{ search }}"
+                           class="form-control-custom"
+                           placeholder="Customer / Vehicle">
+                </div>
+
+                <div class="form-group">
+                    <label>From Date</label>
+
+                    <input type="date"
+                           name="from_date"
+                           value="{{ from_date }}"
+                           class="form-control-custom">
+                </div>
+
+                <div class="form-group">
+                    <label>To Date</label>
+
+                    <input type="date"
+                           name="to_date"
+                           value="{{ to_date }}"
+                           class="form-control-custom">
+                </div>
+
+                <div class="form-group">
+                    <label>&nbsp;</label>
+
+                    <button type="submit" class="filter-btn">
+                        Filter
+                    </button>
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+    <!-- TABLE -->
+
+    <div class="table-card">
+
+        <div class="table-responsive">
+
+            <table class="report-table">
+
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Customer</th>
+                        <th>Mobile</th>
+                        <th>Vehicle</th>
+                        <th>Branch</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for booking in page_obj %}
+
+                    <tr>
+
+                        <td>{{ forloop.counter }}</td>
+
+                        <td>
+                            {{ booking.booking_date }}
+                        </td>
+
+                        <td>
+                            {{ booking.booking_time|default:"-" }}
+                        </td>
+
+                        <td>
+                            {{ booking.customer.name }}
+                        </td>
+
+                        <td>
+                            {{ booking.customer.mobile }}
+                        </td>
+
+                        <td>
+                            {{ booking.vehicle.vehicle_number }}
+                        </td>
+
+                        <td>
+                            {{ booking.branch.name }}
+                        </td>
+
+                        <td>
+                            <span class="cancel-badge">
+                                Cancelled
+                            </span>
+                        </td>
+
+                        <td>
+                            {{ booking.notes|default:"-" }}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="9" class="empty-row">
+                            No cancelled bookings found
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <!-- PAGINATION -->
+
+        {% if page_obj.has_other_pages %}
+
+        <div class="pagination-wrapper">
+
+            <div class="pagination">
+
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}">
+                        ‹
+                    </a>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+
+                    {% if page_obj.number == num %}
+
+                        <span class="active">
+                            {{ num }}
+                        </span>
+
+                    {% else %}
+
+                        <a href="?page={{ num }}">
+                            {{ num }}
+                        </a>
+
+                    {% endif %}
+
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}">
+                        ›
+                    </a>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}
