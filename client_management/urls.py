@@ -79,4 +79,7 @@ urlpatterns = [
     path('api/reports/scheme-beneficiary/', api_views.api_report_scheme_beneficiary, name='api_report_scheme_beneficiary'),
     path('api/reports/collection/', api_views.api_report_collection, name='api_report_collection'),
     path('api/reports/outstanding/', api_views.api_report_outstanding, name='api_report_outstanding'),
+    
+    
+    path('customer-ledger/',views.customer_ledger,name='customer_ledger'),
 ]

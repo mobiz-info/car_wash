@@ -542,7 +542,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'customer_type_list' %}">Customer Type</a>
                 <a href="{% url 'customer_list' %}">Customers</a>
-                <!-- <a href="#">Memberships</a> -->
+                <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
             </div>
 
             {% if request.user.profile.company.scheme_types.exists %}

@@ -6,8 +6,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.http import JsonResponse
+from django.db.models import Sum, Count, F, DecimalField
+from django.db.models.functions import Coalesce
 
 from .models import *
+from finance_management.models import Invoice,InvoiceItem
 from .forms import *
 from master.models import State, Area, District
 from core.functions import get_auto_id
@@ -1056,3 +1059,94 @@ def load_vehicle_models(request):
     vehicle_type_id = request.GET.get('vehicle_type_id')
     models = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id).values('id', 'name')
     return JsonResponse(list(models), safe=False)
+
+
+@login_required
+def customer_ledger(request):
+    customers = Customer.objects.filter(is_deleted=False)
+
+    customer_id = request.GET.get('customer')
+
+    customer = None
+    ledger_items = []
+    total_services = 0
+    total_amount = 0
+    total_collected = 0
+    total_balance = 0
+
+    if customer_id:
+        customer = get_object_or_404(
+            Customer,
+            id=customer_id,
+            is_deleted=False
+        )
+
+        invoices = Invoice.objects.filter(
+            customer=customer,
+            is_deleted=False
+        ).select_related(
+            'vehicle',
+            'branch'
+        ).prefetch_related(
+            'items'
+        ).order_by('-date', '-id')
+
+        ledger_items = []
+
+        sl_no = 1
+
+        for invoice in invoices:
+
+            invoice_balance = invoice.total - invoice.amount_collected
+
+            for item in invoice.items.all():
+
+                ledger_items.append({
+                    'sl_no': sl_no,
+                    'date': invoice.date,
+                    'invoice_number': invoice.invoice_number,
+                    'vehicle_no': invoice.vehicle.vehicle_number if invoice.vehicle else '',
+                    'service_name': item.service_name,
+                    'price': item.rate,
+                    'balance': invoice_balance,
+                })
+
+                sl_no += 1
+
+        total_services = InvoiceItem.objects.filter(
+            invoice__customer=customer,
+            invoice__is_deleted=False,
+            is_deleted=False
+        ).count()
+
+        totals = Invoice.objects.filter(
+            customer=customer,
+            is_deleted=False
+        ).aggregate(
+            total_amount=Coalesce(
+                Sum('total'),
+                0,
+                output_field=DecimalField()
+            ),
+            total_collected=Coalesce(
+                Sum('amount_collected'),
+                0,
+                output_field=DecimalField()
+            )
+        )
+
+        total_amount = totals['total_amount']
+        total_collected = totals['total_collected']
+        total_balance = total_amount - total_collected
+
+    context = {
+        'customers': customers,
+        'customer': customer,
+        'ledger_items': ledger_items,
+        'total_services': total_services,
+        'total_amount': total_amount,
+        'total_collected': total_collected,
+        'total_balance': total_balance,
+    }
+
+    return render(request, 'customer/customer_ledger.html', context)

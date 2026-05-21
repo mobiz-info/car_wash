@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+
+{% block title %}Customer Ledger{% endblock %}
+{% block page_title %}Customer Ledger{% endblock %}
+{% block breadcrumb_active %}Customer Ledger{% endblock %}
+
+{% block content %}
+
+<style>
+
+.ledger-wrapper{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+/* Filter Card */
+
+.filter-card{
+    background:#fff;
+    border-radius:18px;
+    padding:24px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    border:1px solid #eef2ff;
+}
+
+.filter-grid{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:16px;
+    align-items:end;
+}
+
+.filter-label{
+    font-size:14px;
+    font-weight:600;
+    color:#374151;
+    margin-bottom:8px;
+}
+
+.form-select-custom{
+    width:100%;
+    height:48px;
+    border-radius:12px;
+    border:1px solid #d1d5db;
+    padding:0 14px;
+    font-size:15px;
+    transition:all .2s ease;
+}
+
+.form-select-custom:focus{
+    outline:none;
+    border-color:#7c3aed;
+    box-shadow:0 0 0 4px rgba(124,58,237,.15);
+}
+
+.search-btn{
+    height:48px;
+    padding:0 28px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg,#7c3aed,#5b21b6);
+    color:#fff;
+    font-weight:600;
+    transition:.3s;
+}
+
+.search-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 6px 18px rgba(124,58,237,.25);
+}
+
+/* Customer Card */
+
+.customer-card{
+    background:#fff;
+    border-radius:20px;
+    padding:28px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    border:1px solid #eef2ff;
+}
+
+.section-title{
+    font-size:20px;
+    font-weight:700;
+    color:#111827;
+    margin-bottom:22px;
+}
+
+.customer-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:20px;
+}
+
+.customer-item{
+    background:#f9fafb;
+    border-radius:14px;
+    padding:18px;
+}
+
+.customer-item label{
+    display:block;
+    font-size:13px;
+    color:#6b7280;
+    margin-bottom:6px;
+}
+
+.customer-item span{
+    font-size:15px;
+    font-weight:600;
+    color:#111827;
+}
+
+/* Summary Cards */
+
+.summary-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:20px;
+}
+
+.summary-card{
+    background:#fff;
+    border-radius:20px;
+    padding:24px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+    position:relative;
+    overflow:hidden;
+}
+
+.summary-card::before{
+    content:'';
+    position:absolute;
+    top:0;
+    left:0;
+    width:5px;
+    height:100%;
+    background:#7c3aed;
+}
+
+.summary-title{
+    font-size:14px;
+    color:#6b7280;
+    margin-bottom:10px;
+}
+
+.summary-value{
+    font-size:28px;
+    font-weight:700;
+    color:#111827;
+}
+
+/* Table */
+
+.table-card{
+    background:#fff;
+    border-radius:20px;
+    padding:24px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.06);
+}
+
+.table-responsive{
+    overflow-x:auto;
+}
+
+.custom-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:950px;
+}
+
+.custom-table thead{
+    background:linear-gradient(135deg,#7c3aed,#5b21b6);
+}
+
+.custom-table thead th{
+    color:#fff;
+    padding:16px;
+    font-size:14px;
+    font-weight:600;
+    text-align:left;
+    white-space:nowrap;
+}
+
+.custom-table tbody td{
+    padding:16px;
+    border-bottom:1px solid #f1f5f9;
+    font-size:14px;
+    color:#374151;
+    vertical-align:middle;
+}
+
+.custom-table tbody tr:hover{
+    background:#faf5ff;
+}
+
+.badge-balance{
+    padding:6px 12px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+    background:#fee2e2;
+    color:#dc2626;
+}
+
+.empty-row{
+    text-align:center;
+    padding:30px !important;
+    color:#9ca3af !important;
+}
+
+/* Responsive */
+
+@media(max-width:991px){
+
+    .customer-grid,
+    .summary-grid{
+        grid-template-columns:repeat(2,1fr);
+    }
+}
+
+@media(max-width:767px){
+
+    .filter-grid,
+    .customer-grid,
+    .summary-grid{
+        grid-template-columns:1fr;
+    }
+}
+
+</style>
+
+<div class="ledger-wrapper">
+
+    <!-- Filter -->
+
+    <div class="filter-card">
+
+        <form method="GET">
+
+            <div class="filter-grid">
+
+                <div>
+
+                    <label class="filter-label">
+                        Select Customer
+                    </label>
+
+                    <select name="customer" class="form-select-custom" required>
+
+                        <option value="">
+                            Choose Customer
+                        </option>
+
+                        {% for c in customers %}
+
+                        <option value="{{ c.id }}"
+                            {% if customer and customer.id == c.id %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ c.name }} - {{ c.phone }}
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+                <div>
+                    <button type="submit" class="search-btn">
+                        Search Ledger
+                    </button>
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+    {% if customer %}
+
+    <!-- Customer Details -->
+
+    <div class="customer-card">
+
+        <div class="section-title">
+            Customer Details
+        </div>
+
+        <div class="customer-grid">
+
+            <div class="customer-item">
+                <label>Customer Name</label>
+                <span>{{ customer.name }}</span>
+            </div>
+
+            <div class="customer-item">
+                <label>Phone Number</label>
+                <span>{{ customer.phone }}</span>
+            </div>
+
+            <div class="customer-item">
+                <label>Email Address</label>
+                <span>{{ customer.email|default:'-' }}</span>
+            </div>
+
+            <div class="customer-item">
+                <label>Address</label>
+                <span>{{ customer.address|default:'-' }}</span>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Summary -->
+
+    <div class="summary-grid">
+
+        <div class="summary-card">
+            <div class="summary-title">
+                Total Services
+            </div>
+
+            <div class="summary-value">
+                {{ total_services }}
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-title">
+                Total Amount
+            </div>
+
+            <div class="summary-value">
+                ₹ {{ total_amount }}
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-title">
+                Amount Collected
+            </div>
+
+            <div class="summary-value">
+                ₹ {{ total_collected }}
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-title">
+                Pending Balance
+            </div>
+
+            <div class="summary-value">
+                ₹ {{ total_balance }}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Ledger Table -->
+
+    <div class="table-card">
+
+        <div class="section-title">
+            Customer Ledger Details
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="custom-table">
+
+                <thead>
+                    <tr>
+                        <th>SL</th>
+                        <th>Date</th>
+                        <th>Invoice No</th>
+                        <th>Vehicle No</th>
+                        <th>Service Name</th>
+                        <th>Price</th>
+                        <th>Balance</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for item in ledger_items %}
+
+                    <tr>
+
+                        <td>
+                            {{ item.sl_no }}
+                        </td>
+
+                        <td>
+                            {{ item.date }}
+                        </td>
+
+                        <td>
+                            {{ item.invoice_number }}
+                        </td>
+
+                        <td>
+                            {{ item.vehicle_no }}
+                        </td>
+
+                        <td>
+                            {{ item.service_name }}
+                        </td>
+
+                        <td>
+                            ₹ {{ item.price }}
+                        </td>
+
+                        <td>
+
+                            {% if item.balance > 0 %}
+
+                                <span class="badge-balance">
+                                    ₹ {{ item.balance }}
+                                </span>
+
+                            {% else %}
+
+                                ₹ {{ item.balance }}
+
+                            {% endif %}
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="7" class="empty-row">
+                            No ledger records found
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}
