@@ -84,6 +84,7 @@ urlpatterns = [
     path('api/reports/outstanding/', api_views.api_report_outstanding, name='api_report_outstanding'),
     path('api/reports/bookings/', api_views.api_report_bookings, name='api_report_bookings'),
     path('api/reports/cancellations/', api_views.api_report_cancellations, name='api_report_cancellations'),
+    path('api/reports/service-type/', api_views.api_report_service_type, name='api_report_service_type'),
 
     # Complaint Management
     path('api/complaint-types/', api_views.api_list_complaint_types, name='api_list_complaint_types'),

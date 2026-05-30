@@ -37,10 +37,22 @@ def invoice_list(request):
             Q(vehicle__vehicle_number__icontains=search)
         )
 
+    totals = invoices.aggregate(
+        total_subtotal=Sum('subtotal'),
+        total_discount=Sum('discount'),
+        total_tax=Sum('tax_amount'),
+        total_total=Sum('total'),
+        total_collected=Sum('amount_collected')
+    )
+    for key in totals:
+        if totals[key] is None:
+            totals[key] = Decimal('0.00')
+
     return render(request, 'invoice/list.html', {
         'invoices': invoices,
         'search': search,
-        'title': 'Invoices'
+        'title': 'Invoices',
+        'totals': totals
     })
 
 

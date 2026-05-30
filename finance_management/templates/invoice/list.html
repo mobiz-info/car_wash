@@ -109,6 +109,28 @@
                 </tr>
                 {% endfor %}
             </tbody>
+            {% if invoices %}
+            <tfoot>
+                <tr style="background-color: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1;">
+                    <td colspan="7" style="text-align: right; color: #475569; font-weight: 700; padding: 16px 24px;">Total</td>
+                    <td style="text-align: right; font-weight: 700; color: #1e293b; padding: 16px 24px;">
+                        {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ totals.total_subtotal }}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: #ef4444; padding: 16px 24px;">
+                        {% if totals.total_discount > 0 %}-{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ totals.total_discount }}{% else %}—{% endif %}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: #64748b; padding: 16px 24px;">
+                        {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ totals.total_tax }}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: #000080; font-size: 1rem; padding: 16px 24px;">
+                        {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ totals.total_total }}
+                    </td>
+                    <td style="text-align: right; font-weight: 700; color: #065f46; padding: 16px 24px;">
+                        {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ totals.total_collected }}
+                    </td>
+                </tr>
+            </tfoot>
+            {% endif %}
         </table>
     </div>
 </div>

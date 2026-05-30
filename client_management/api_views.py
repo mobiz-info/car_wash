@@ -1664,6 +1664,65 @@ def api_report_cancellations(request):
 
 
 @csrf_exempt
+def api_report_service_type(request):
+    """Service type report: Summary of services performed in date range."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import InvoiceItem
+    from django.db.models import Sum, Count, F
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    # Map scope to parent invoice fields
+    invoice_scope = {f'invoice__{k}': v for k, v in scope.items()}
+
+    qs = InvoiceItem.objects.filter(
+        invoice__is_deleted=False,
+        invoice__date__gte=from_date,
+        invoice__date__lte=to_date,
+        **invoice_scope
+    )
+
+    # Group by service_name
+    grouped = qs.values('service_name').annotate(
+        count=Count('id'),
+        revenue=Sum(F('rate') - F('discount'))
+    ).order_by('-revenue')
+
+    rows = []
+    total_count = 0
+    total_revenue = 0.0
+
+    for item in grouped:
+        service_name = item['service_name']
+        count = item['count'] or 0
+        revenue = float(item['revenue'] or 0.0)
+        
+        total_count += count
+        total_revenue += revenue
+        
+        rows.append({
+            'service_name': service_name,
+            'count': count,
+            'revenue': str(round(revenue, 2)),
+        })
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_count': total_count,
+        'total_revenue': str(round(total_revenue, 2)),
+        'rows': rows,
+    })
+
+
+@csrf_exempt
 def api_list_complaint_types(request):
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
