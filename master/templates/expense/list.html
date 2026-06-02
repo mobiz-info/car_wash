@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}Expense List - Wash Pilot Admin{% endblock %}
+{% block page_title %}Expense List{% endblock %}
+{% block breadcrumb_active %}Expense List{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <div class="list-header">
+
+        <form method="GET"
+              class="search-wrapper">
+
+            <i class="ph ph-magnifying-glass search-icon"></i>
+
+            <input type="text"
+                   name="search"
+                   value="{{ search }}"
+                   placeholder="Search Expense..."
+                   class="search-input">
+
+        </form>
+
+        <a href="{% url 'expense_create' %}"
+           class="btn-create">
+
+            <i class="ph-bold ph-plus"></i>
+
+            Add Expense
+
+        </a>
+
+    </div>
+
+    <div style="overflow-x:auto;">
+
+        <table class="premium-table">
+
+            <thead>
+
+                <tr>
+
+                    <th>#</th>
+
+                    <th>Branch</th>
+
+                    <th>Expense Head</th>
+
+                    <th>Expense</th>
+
+                    <th>Amount</th>
+
+                    <th>Date</th>
+
+                    <th>Remarks</th>
+
+                    <th style="text-align:right;">
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for obj in page_obj %}
+
+                <tr>
+
+                    <td style="color:#94a3b8;">
+                        {{ forloop.counter }}
+                    </td>
+
+                    <td style="font-weight:600;">
+                        {{ obj.branch.name }}
+                    </td>
+
+                    <td>
+                        {{ obj.expense.expense_head.name }}
+                    </td>
+
+                    <td>
+                        {{ obj.expense.name }}
+                    </td>
+
+                    <td style="font-weight:600; color:#16a34a;">
+                        ₹ {{ obj.amount }}
+                    </td>
+
+                    <td>
+                        {{ obj.expense_date }}
+                    </td>
+
+                    <td>
+                        {{ obj.remarks|default:"-" }}
+                    </td>
+
+                    <td style="text-align:right;">
+
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+
+                            <a href="{% url 'expense_edit' obj.pk %}"
+                               class="action-btn edit">
+
+                                <i class="ph ph-pencil-simple"></i>
+
+                            </a>
+
+                            <a href="{% url 'expense_delete' obj.pk %}"
+                               onclick="return confirm('Delete this Expense?')"
+                               class="action-btn delete">
+
+                                <i class="ph ph-trash"></i>
+
+                            </a>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% empty %}
+
+                <tr>
+
+                    <td colspan="8"
+                        style="text-align:center; padding:40px; color:#94a3b8;">
+
+                        <i class="ph ph-wallet"
+                           style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+
+                        No Expenses Found.
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    {% if page_obj.has_other_pages %}
+
+    <div class="pagination">
+
+        {% if page_obj.has_previous %}
+
+        <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}"
+           class="page-link">
+
+            Previous
+
+        </a>
+
+        {% endif %}
+
+        <span>
+
+            Page {{ page_obj.number }}
+            of
+            {{ page_obj.paginator.num_pages }}
+
+        </span>
+
+        {% if page_obj.has_next %}
+
+        <a href="?page={{ page_obj.next_page_number }}&search={{ search }}"
+           class="page-link">
+
+            Next
+
+        </a>
+
+        {% endif %}
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

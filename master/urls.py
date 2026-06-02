@@ -41,4 +41,16 @@ urlpatterns = [
     path('scheme-type/create/', views.scheme_type_create, name='scheme_type_create'),
     path('scheme-type/edit/<uuid:id>/', views.scheme_type_edit, name='scheme_type_edit'),
     path('scheme-type/delete/<uuid:id>/', views.scheme_type_delete, name='scheme_type_delete'),
+    
+    # Expense Head
+    path('expense-head/', views.expense_head_list, name='expense_head_list'),
+    path('expense-head/create/', views.expense_head_create, name='expense_head_create'),
+    path('expense-head/edit/<uuid:id>/', views.expense_head_edit, name='expense_head_edit'),
+    path('expense-head/delete/<uuid:id>/', views.expense_head_delete, name='expense_head_delete'),
+    
+    #Expense
+    path('expense/list/',views.expense_list,name='expense_list'),
+    path('expense/create/',views.expense_create,name='expense_create'),
+    path('expense/edit/<uuid:pk>/',views.expense_edit,name='expense_edit'),
+    path('expense/delete/<uuid:pk>/',views.expense_delete,name='expense_delete'),
 ]

@@ -67,3 +67,12 @@ class SchemeTypeForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Scheme Type Name'})
         }
+        
+
+class ExpenseHeadForm(forms.ModelForm):
+    class Meta:
+        model = ExpenseHead
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Expense Head Name'})
+        }

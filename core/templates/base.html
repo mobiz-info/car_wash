@@ -446,6 +446,7 @@
     .page-link:hover {
         background-color: #f1f5f9;
     }
+    
     </style>
 </head>
 <body>
@@ -572,6 +573,21 @@
             <div class="nav-submenu">
                 <a href="{% url 'branch_service_list' %}" class="nav-item submenu-item">Enable Services</a>
                 <a href="{% url 'service_vehicle_price_redirect' %}" class="nav-item submenu-item">Service Pricing</a>
+            </div>
+
+            <!-- Expense Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-wrench"></i>
+                    Expense
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                {% comment %} <a href="{% url 'expense_head_list' %}" class="nav-item submenu-item">Expense Head</a> {% endcomment %}
+                <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense</a>
+                <!-- <a href="#" class="nav-item submenu-item">Packages</a>
+                <a href="#" class="nav-item submenu-item">Add-ons</a> -->
             </div>
 
             <div class="nav-item dropdown-toggle">
@@ -710,6 +726,20 @@
                 <a href="{% url 'staff_create' %}" class="nav-item submenu-item">Add Staff</a>
             </div>
 
+            <!-- Expense Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-wrench"></i>
+                    Expense
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                {% comment %} <a href="{% url 'expense_head_list' %}" class="nav-item submenu-item">Expense Head</a> {% endcomment %}
+                <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense</a>
+                <!-- <a href="#" class="nav-item submenu-item">Packages</a>
+                <a href="#" class="nav-item submenu-item">Add-ons</a> -->
+            </div>
 
             <!-- Vehicle Management -->
             <div class="nav-item dropdown-toggle">
@@ -847,6 +877,21 @@
             <div class="nav-submenu">
                 <a href="{% url 'service_type_list' %}" class="nav-item submenu-item">Service Types</a>
                 <a href="{% url 'service_list' %}" class="nav-item submenu-item">Services</a>
+                <!-- <a href="#" class="nav-item submenu-item">Packages</a>
+                <a href="#" class="nav-item submenu-item">Add-ons</a> -->
+            </div>
+
+            <!-- Expense Management -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-wrench"></i>
+                    Expense
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'expense_head_list' %}" class="nav-item submenu-item">Expense Head</a>
+                <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense</a>
                 <!-- <a href="#" class="nav-item submenu-item">Packages</a>
                 <a href="#" class="nav-item submenu-item">Add-ons</a> -->
             </div>

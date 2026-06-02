@@ -1,5 +1,6 @@
 from django.db import models
 from core.models import BaseModel
+from client_management.models import Branch,Client
 
 class Country(BaseModel):
     name = models.CharField(max_length=100)
@@ -66,3 +67,50 @@ class SchemeType(BaseModel):
 
     class Meta:
         ordering = ['name']
+        
+        
+class ExpenseHead(BaseModel):
+    name = models.CharField(max_length=150)
+
+    def __str__(self):
+        return self.name
+    
+class Expense(BaseModel):
+    expense_head = models.ForeignKey(
+        ExpenseHead,
+        on_delete=models.CASCADE
+    )
+    name = models.CharField(max_length=150)
+
+    def __str__(self):
+        return self.name
+    
+class ExpenseEntry(BaseModel):
+    company = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE
+    )
+
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE
+    )
+
+    expense = models.ForeignKey(
+        Expense,
+        on_delete=models.CASCADE
+    )
+
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2
+    )
+
+    expense_date = models.DateField()
+
+    remarks = models.TextField(
+        blank=True,
+        null=True
+    )
+
+    

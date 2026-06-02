@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 
-from .models import Country, State, District, Area
+from .models import *
 from .forms import *
 from core.functions import get_auto_id
 
@@ -457,3 +457,396 @@ def scheme_type_delete(request, id):
     instance.save()
     messages.success(request, "Scheme Type deleted successfully")
     return redirect('scheme_type_list')
+
+
+
+# ==========================================
+# EXPENSE HEAD
+# ==========================================
+
+
+@login_required
+def expense_head_list(request):
+    search = request.GET.get('search', '')
+    queryset = ExpenseHead.objects.filter(is_deleted=False)
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    paginator = Paginator(queryset, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'expense_head/list.html', {'page_obj': page_obj, 'search': search})
+
+
+@login_required
+def expense_head_create(request):
+    form = ExpenseHeadForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(ExpenseHead)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Expense Head created successfully")
+            return redirect('expense_head_list')
+    return render(request, 'expense_head/create.html', {'form': form, 'title': 'Create Expense Head'})
+
+
+@login_required
+def expense_head_edit(request, id):
+    instance = get_object_or_404(ExpenseHead, id=id, is_deleted=False)
+    form = ExpenseHeadForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Expense Head updated successfully")
+            return redirect('expense_head_list')
+    return render(request, 'expense_head/create.html', {'form': form, 'title': 'Edit Expense Head'})
+
+
+@login_required
+def expense_head_delete(request, id):
+    instance = get_object_or_404(ExpenseHead, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Expense Head deleted successfully")
+    return redirect('expense_head_list')
+
+
+@login_required
+def expense_list(request):
+
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    search = request.GET.get('search', '')
+
+    # =========================
+    # COMPANY ADMIN
+    # =========================
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = getattr(request.user.profile, 'company', None)
+
+        expenses = ExpenseEntry.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+    # =========================
+    # BRANCH USER
+    # =========================
+
+    else:
+
+        branch = getattr(request.user, 'managed_branch', None)
+
+        expenses = ExpenseEntry.objects.filter(
+            branch=branch,
+            is_deleted=False
+        )
+
+    # =========================
+    # SEARCH
+    # =========================
+
+    if search:
+
+        expenses = expenses.filter(
+            expense__name__icontains=search
+        )
+
+    expenses = expenses.order_by('-id')
+
+    # =========================
+    # PAGINATION
+    # =========================
+
+    paginator = Paginator(expenses, 10)
+
+    page_number = request.GET.get('page')
+
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+    }
+
+    return render(request, 'expense/list.html', context)
+
+@login_required
+def expense_create(request):
+
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+    print("role_name",role_name)
+
+    expense_heads = ExpenseHead.objects.filter(
+        is_deleted=False
+    )
+
+    expenses = Expense.objects.filter(
+        is_deleted=False
+    )
+
+    branches = None
+    branch = None
+    company = None
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = getattr(request.user.profile, 'company', None)
+        print("company",company)
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+    else:
+
+        branch = getattr(request.user, 'managed_branch', None)
+
+        if not branch:
+            messages.error(request, "No branch assigned.")
+            return redirect('dashboard')
+
+        company = branch.company
+
+
+    if request.method == 'POST':
+
+        expense_head_id = request.POST.get('expense_head')
+        expense_name = request.POST.get('expense_name')
+
+        amount = request.POST.get('amount')
+        expense_date = request.POST.get('expense_date')
+        remarks = request.POST.get('remarks')
+
+
+        if role_name == 'COMPANY_ADMIN':
+
+            branch_id = request.POST.get('branch')
+
+        else:
+
+            branch_id = branch.id
+
+        expense, created = Expense.objects.get_or_create(
+            expense_head_id=expense_head_id,
+            name=expense_name,
+            defaults={
+                'auto_id': get_auto_id(Expense),
+                'creator': request.user
+            }
+        )
+
+        ExpenseEntry.objects.create(
+            auto_id=get_auto_id(ExpenseEntry),
+            creator=request.user,
+            company=company,
+            branch_id=branch_id,
+            expense=expense,
+            amount=amount,
+            expense_date=expense_date,
+            remarks=remarks
+        )
+
+        messages.success(request, "Expense Created Successfully")
+        return redirect('expense_list')
+
+    context = {
+        'expense_heads': expense_heads,
+        'expenses': expenses,
+        'branches': branches,
+        'role_name': role_name,
+        'title': 'Expense Create'
+    }
+
+    return render(request, 'expense/create.html', context)
+
+
+@login_required
+def expense_edit(request, pk):
+
+    expense_entry = get_object_or_404(
+        ExpenseEntry,
+        pk=pk,
+        is_deleted=False
+    )
+
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    # =========================
+    # EXPENSE HEADS
+    # =========================
+
+    expense_heads = ExpenseHead.objects.filter(
+        is_deleted=False
+    )
+
+    branches = None
+    branch = None
+
+    # =========================
+    # COMPANY ADMIN
+    # =========================
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = getattr(
+            request.user.profile,
+            'company',
+            None
+        )
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+    # =========================
+    # BRANCH USER
+    # =========================
+
+    else:
+
+        branch = getattr(
+            request.user,
+            'managed_branch',
+            None
+        )
+
+        if expense_entry.branch != branch:
+
+            messages.error(
+                request,
+                "Permission denied"
+            )
+
+            return redirect('expense_list')
+
+    # =========================
+    # UPDATE
+    # =========================
+
+    if request.method == 'POST':
+
+        expense_head_id = request.POST.get(
+            'expense_head'
+        )
+
+        expense_name = request.POST.get(
+            'expense_name'
+        )
+
+        amount = request.POST.get(
+            'amount'
+        )
+
+        expense_date = request.POST.get(
+            'expense_date'
+        )
+
+        remarks = request.POST.get(
+            'remarks'
+        )
+
+        # =========================
+        # BRANCH
+        # =========================
+
+        if role_name == 'COMPANY_ADMIN':
+
+            branch_id = request.POST.get(
+                'branch'
+            )
+
+            expense_entry.branch_id = branch_id
+
+        else:
+
+            expense_entry.branch = branch
+
+        # =========================
+        # GET OR CREATE EXPENSE
+        # =========================
+
+        expense, created = Expense.objects.get_or_create(
+            expense_head_id=expense_head_id,
+            name=expense_name,
+            defaults={
+                'auto_id': get_auto_id(Expense),
+                'creator': request.user
+            }
+        )
+
+        # =========================
+        # UPDATE ENTRY
+        # =========================
+
+        expense_entry.expense = expense
+
+        expense_entry.amount = amount
+
+        expense_entry.expense_date = expense_date
+
+        expense_entry.remarks = remarks
+
+        expense_entry.save()
+
+        messages.success(
+            request,
+            "Expense Updated Successfully"
+        )
+
+        return redirect('expense_list')
+
+    # =========================
+    # CONTEXT
+    # =========================
+
+    context = {
+        'expense_entry': expense_entry,
+        'expense_heads': expense_heads,
+        'branches': branches,
+        'role_name': role_name,
+        'title': 'Expense Update'
+    }
+
+    return render(
+        request,
+        'expense/create.html',
+        context
+    )
+
+
+@login_required
+def expense_delete(request, pk):
+
+    expense = get_object_or_404(
+        ExpenseEntry,
+        pk=pk,
+        is_deleted=False
+    )
+
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    # BRANCH USER VALIDATION
+    if role_name != 'COMPANY_ADMIN':
+
+        branch = getattr(request.user, 'managed_branch', None)
+
+        if expense.branch != branch:
+            messages.error(request, "Permission denied")
+            return redirect('expense_list')
+
+    expense.is_deleted = True
+    expense.save()
+
+    messages.success(request, "Expense Deleted Successfully")
+
+    return redirect('expense_list')

@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} - Wash Pilot Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<style>
+
+.form-control,
+textarea,
+select,
+input[type="date"],
+input[type="number"],
+input[type="text"] {
+
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    background: #fff;
+    transition: all 0.2s ease;
+    outline: none;
+
+}
+
+.form-control:focus,
+textarea:focus,
+select:focus,
+input:focus {
+
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.10);
+
+}
+
+textarea.form-control {
+
+    min-height: 120px;
+    resize: vertical;
+
+}
+
+</style>
+<div class="premium-form-container">
+
+    <div class="premium-form-title">
+        <i class="ph ph-wallet" style="color:#3b82f6;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+
+        {% csrf_token %}
+
+        <div class="row">
+
+            {% if role_name == 'COMPANY_ADMIN' %}
+
+            <div class="col-md-6">
+
+                <div class="form-group">
+
+                    <label>
+                        Branch
+                        <span style="color:red;">*</span>
+                    </label>
+
+                    <select name="branch"
+                            class="form-control"
+                            required>
+
+                        <option value="">
+                            Select Branch
+                        </option>
+
+                        {% for branch in branches %}
+
+                        <option value="{{ branch.id }}"
+                        {% if expense_entry.branch.id == branch.id %}
+                        selected
+                        {% endif %}>
+
+                            {{ branch.name }}
+
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            {% endif %}
+
+            <!-- Expense Head -->
+
+            <div class="col-md-6">
+
+                <div class="form-group">
+
+                    <label>
+                        Expense Head
+                        <span style="color:red;">*</span>
+                    </label>
+
+                    <select name="expense_head"
+                        id="expense_head"
+                        class="form-control"
+                        required>
+
+                    <option value="">
+                        Select Expense Head
+                    </option>
+
+                    {% for head in expense_heads %}
+
+                    <option value="{{ head.id }}"
+
+                    {% if expense_entry %}
+
+                        {% if expense_entry.expense.expense_head.id == head.id %}
+                        selected
+                        {% endif %}
+
+                    {% endif %}>
+
+                        {{ head.name }}
+
+                    </option>
+
+                    {% endfor %}
+
+                </select>
+
+                </div>
+
+            </div>
+
+
+            <!-- Expense -->
+
+            <div class="col-md-6">
+
+                <div class="form-group">
+
+                    <label>
+                        Expense
+                        <span style="color:red;">*</span>
+                    </label>
+
+                    <input type="text"
+                        name="expense_name"
+                        class="form-control"
+                        placeholder="Enter Expense Name"
+                        value="{{ expense_entry.expense.name }}"
+                        required>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-6">
+
+                <div class="form-group">
+
+                    <label>
+                        Amount
+                        <span style="color:red;">*</span>
+                    </label>
+
+                    <input type="number"
+                           step="0.01"
+                           name="amount"
+                           class="form-control"
+                           value="{{ expense_entry.amount }}"
+                           required>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-6">
+
+                <div class="form-group">
+
+                    <label>
+                        Expense Date
+                        <span style="color:red;">*</span>
+                    </label>
+
+                    <input type="date"
+                           name="expense_date"
+                           class="form-control"
+                           value="{{ expense_entry.expense_date|date:'Y-m-d' }}"
+                           required>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-12">
+
+                <div class="form-group">
+
+                    <label>
+                        Remarks
+                    </label>
+
+                    <textarea name="remarks"
+                              rows="4"
+                              class="form-control">{{ expense_entry.remarks }}</textarea>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="form-actions">
+
+            <a href="{% url 'expense_list' %}"
+               class="btn-secondary">
+
+                Cancel
+
+            </a>
+
+            <button type="submit"
+                    class="btn-primary">
+
+                <i class="ph ph-check-circle"></i>
+
+                Save Expense
+
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}
