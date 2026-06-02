@@ -28,6 +28,14 @@ urlpatterns = [
     path('staff/create/', views.staff_create, name='staff_create'),
     path('staff/edit/<uuid:id>/', views.staff_edit, name='staff_edit'),
     path('staff/delete/<uuid:id>/', views.staff_delete, name='staff_delete'),
+    path('staff/salary/', views.staff_salary_list, name='staff_salary_list'),
+    path('staff/salary/edit/<uuid:id>/', views.staff_salary_edit, name='staff_salary_edit'),
+
+    # Stock Management
+    path('stock/', views.stock_list, name='stock_list'),
+    path('stock/create/', views.stock_create, name='stock_create'),
+    path('stock/edit/<uuid:id>/', views.stock_edit, name='stock_edit'),
+    path('stock/delete/<uuid:id>/', views.stock_delete, name='stock_delete'),
 
     # Customer Type
     path('customer-type/', views.customer_type_list, name='customer_type_list'),

@@ -13,10 +13,12 @@ from django.core.paginator import Paginator
 from django.utils.timezone import now
 
 from .models import *
-from finance_management.models import Invoice,InvoiceItem
+from finance_management.models import Invoice, InvoiceItem
 from .forms import *
-from master.models import State, Area, District
+from master.models import State, Area, District, VehicleType
+from service_management.models import Service
 from core.functions import get_auto_id
+import json
 
 
 def _index_to_invoice_prefix(index):
@@ -342,12 +344,22 @@ def staff_list(request):
 @login_required
 def staff_create(request):
     form = StaffForm(request.POST or None, request.FILES or None, request=request)
+    services = Service.objects.filter(is_active=True, is_deleted=False).order_by('name')
+    vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')
     if request.method == 'POST':
         if form.is_valid():
             staff = form.save(commit=False)
             staff.auto_id = get_auto_id(Staff)
             staff.creator = request.user
             staff.save()
+            # Handle commission data
+            commission_json = request.POST.get('commission_data', '[]')
+            try:
+                commission_data = json.loads(commission_json)
+            except (json.JSONDecodeError, ValueError):
+                commission_data = []
+            if staff.salary_mode == Staff.SALARY_MODE_COMMISSION:
+                form.save_commissions(staff, commission_data)
             messages.success(request, "Staff member created successfully")
             return redirect('staff_list')
         else:
@@ -356,6 +368,8 @@ def staff_create(request):
     return render(request, 'staff/create.html', {
         'form': form,
         'title': 'Create Staff',
+        'services': services,
+        'vehicle_types': vehicle_types,
     })
 
 @login_required
@@ -383,6 +397,84 @@ def staff_edit(request, id):
         'form': form,
         'title': 'Edit Staff',
         'is_edit': True,
+    })
+
+@login_required
+def staff_salary_list(request):
+    search = request.GET.get('search', '')
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    staffs = Staff.objects.filter(is_deleted=False, company=company).order_by('-date_added')
+    
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        staffs = staffs.filter(branch=request.user.managed_branch)
+    
+    if search:
+        staffs = staffs.filter(name__icontains=search)
+        
+    paginator = Paginator(staffs, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'staff/salary_list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Salary Settings',
+    })
+
+@login_required
+def staff_salary_edit(request, id):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    instance = get_object_or_404(Staff, id=id, company=company, is_deleted=False)
+    form = StaffSalaryForm(request.POST or None, instance=instance, request=request)
+    services = Service.objects.filter(is_active=True, is_deleted=False).order_by('name')
+    vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')
+    
+    existing_commissions = list(
+        instance.commissions.values('service_id', 'vehicle_type_id', 'commission_type', 'amount')
+    )
+    
+    if request.method == 'POST':
+        if form.is_valid():
+            staff = form.save(commit=False)
+            staff.updater = request.user
+            staff.save()
+            
+            # Handle commission data
+            commission_json = request.POST.get('commission_data', '[]')
+            try:
+                commission_data = json.loads(commission_json)
+            except (json.JSONDecodeError, ValueError):
+                commission_data = []
+                
+            if staff.salary_mode == Staff.SALARY_MODE_COMMISSION:
+                form.save_commissions(staff, commission_data)
+            else:
+                # Clear commissions if mode changed away from commission
+                StaffCommission.objects.filter(staff=staff).delete()
+                
+            messages.success(request, f"Salary settings updated for {staff.name}")
+            return redirect('staff_salary_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'staff/salary_edit.html', {
+        'form': form,
+        'staff': instance,
+        'title': f'Manage Salary - {instance.name}',
+        'services': services,
+        'vehicle_types': vehicle_types,
+        'existing_commissions': json.dumps(existing_commissions, default=str),
     })
 
 @login_required
@@ -593,7 +685,7 @@ def customer_delete(request, id):
 def ajax_load_vehicle_models(request):
     vehicle_type_id = request.GET.get('vehicle_type')
     if vehicle_type_id:
-        models = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id, is_active=True).order_by('name')
+        models = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id, is_active=True, is_deleted=False).order_by('name')
         return JsonResponse({'models': list(models.values('id', 'name'))})
     return JsonResponse({'models': []})
 
@@ -1060,7 +1152,11 @@ def customer_vehicle_delete(request, pk):
 @login_required
 def load_vehicle_models(request):
     vehicle_type_id = request.GET.get('vehicle_type_id')
-    models = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id).values('id', 'name')
+    models = VehicleTypeModel.objects.filter(
+        vehicle_type_id=vehicle_type_id,
+        is_active=True,
+        is_deleted=False
+    ).values('id', 'name')
     return JsonResponse(list(models), safe=False)
 
 
@@ -1629,3 +1725,110 @@ def whatsapp_template_delete(request, id):
     template.save()
     messages.success(request, "WhatsApp template deleted successfully.")
     return redirect('whatsapp_template_list')
+
+
+@login_required
+def stock_list(request):
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role.name == 'COMPANY_ADMIN')):
+        messages.error(request, "You do not have permission to access Stock Management.")
+        return redirect('dashboard')
+
+    search = request.GET.get('search', '')
+    
+    if request.user.is_superuser:
+        stocks = Stock.objects.filter(is_deleted=False).order_by('-date_added')
+    else:
+        company = request.user.profile.company
+        stocks = Stock.objects.filter(
+            Q(company=company) | Q(company__isnull=True),
+            is_deleted=False
+        ).order_by('-date_added')
+
+    if search:
+        stocks = stocks.filter(item_name__icontains=search)
+
+    paginator = Paginator(stocks, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'stock/list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Stock Management',
+    })
+
+
+@login_required
+def stock_create(request):
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role.name == 'COMPANY_ADMIN')):
+        messages.error(request, "You do not have permission to access Stock Management.")
+        return redirect('dashboard')
+
+    form = StockForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            stock = form.save(commit=False)
+            stock.auto_id = get_auto_id(Stock)
+            stock.creator = request.user
+            
+            if not request.user.is_superuser:
+                stock.company = request.user.profile.company
+
+            stock.save()
+            messages.success(request, "Stock item created successfully")
+            return redirect('stock_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    return render(request, 'stock/create.html', {
+        'form': form,
+        'title': 'Create Stock Item',
+    })
+
+
+@login_required
+def stock_edit(request, id):
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role.name == 'COMPANY_ADMIN')):
+        messages.error(request, "You do not have permission to access Stock Management.")
+        return redirect('dashboard')
+
+    if request.user.is_superuser:
+        stock = get_object_or_404(Stock, id=id, is_deleted=False)
+    else:
+        company = request.user.profile.company
+        stock = get_object_or_404(Stock, id=id, company=company, is_deleted=False)
+
+    form = StockForm(request.POST or None, instance=stock)
+    if request.method == 'POST':
+        if form.is_valid():
+            s = form.save(commit=False)
+            s.updater = request.user
+            s.save()
+            messages.success(request, "Stock item updated successfully")
+            return redirect('stock_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    return render(request, 'stock/create.html', {
+        'form': form,
+        'title': 'Edit Stock Item',
+        'is_edit': True,
+    })
+
+
+@login_required
+def stock_delete(request, id):
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role.name == 'COMPANY_ADMIN')):
+        messages.error(request, "You do not have permission to access Stock Management.")
+        return redirect('dashboard')
+
+    if request.user.is_superuser:
+        stock = get_object_or_404(Stock, id=id, is_deleted=False)
+    else:
+        company = request.user.profile.company
+        stock = get_object_or_404(Stock, id=id, company=company, is_deleted=False)
+
+    stock.is_deleted = True
+    stock.save()
+    messages.success(request, "Stock item deleted successfully")
+    return redirect('stock_list')
