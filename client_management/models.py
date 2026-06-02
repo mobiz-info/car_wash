@@ -122,6 +122,15 @@ class Staff(BaseModel):
         ('SERVICE', 'Service'),
     )
 
+    SALARY_MODE_SALARIED = 'SALARIED'
+    SALARY_MODE_WAGE = 'WAGE'
+    SALARY_MODE_COMMISSION = 'COMMISSION'
+    SALARY_MODE_CHOICES = (
+        (SALARY_MODE_SALARIED, 'Salaried'),
+        (SALARY_MODE_WAGE, 'Wage'),
+        (SALARY_MODE_COMMISSION, 'Commissioned'),
+    )
+
     company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='staffs')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='staffs')
     designation = models.CharField(max_length=50, choices=DESIGNATION_CHOICES)
@@ -130,8 +139,41 @@ class Staff(BaseModel):
     phone = models.CharField(max_length=50, blank=True, null=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='staff_profile')
 
+    # Salary
+    salary_mode = models.CharField(
+        max_length=20,
+        choices=SALARY_MODE_CHOICES,
+        default=SALARY_MODE_SALARIED
+    )
+    monthly_salary = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,
+                                          help_text='Applicable when Salary Mode is Salaried')
+    daily_wage = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,
+                                      help_text='Applicable when Salary Mode is Wage')
+
     def __str__(self):
         return f"{self.name} ({self.employee_id}) - {self.get_designation_display()}"
+
+
+class StaffCommission(BaseModel):
+    """Commission configuration for a commissioned staff member per service + vehicle type."""
+    COMMISSION_TYPE_PERCENTAGE = 'PERCENTAGE'
+    COMMISSION_TYPE_EXACT = 'EXACT'
+    COMMISSION_TYPE_CHOICES = (
+        (COMMISSION_TYPE_PERCENTAGE, 'Percentage (%)'),
+        (COMMISSION_TYPE_EXACT, 'Exact Amount (₹)'),
+    )
+
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='commissions')
+    service = models.ForeignKey('service_management.Service', on_delete=models.CASCADE, related_name='staff_commissions')
+    vehicle_type = models.ForeignKey('master.VehicleType', on_delete=models.CASCADE, related_name='staff_commissions')
+    commission_type = models.CharField(max_length=20, choices=COMMISSION_TYPE_CHOICES, default=COMMISSION_TYPE_PERCENTAGE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, help_text='Percentage or exact amount depending on commission_type')
+
+    class Meta:
+        unique_together = ('staff', 'service', 'vehicle_type')
+
+    def __str__(self):
+        return f"{self.staff.name} | {self.service.name} | {self.vehicle_type.name} → {self.amount}"
 
 
 class CustomerType(BaseModel):
@@ -262,3 +304,27 @@ class WhatsAppTemplate(BaseModel):
 
     def __str__(self):
         return f"{self.template_name} - {self.company.company_name}"
+
+
+class Stock(BaseModel):
+    UNIT_CHOICES = (
+        ('Litre', 'Litre (Ltr)'),
+        ('Millilitre', 'Millilitre (ml)'),
+        ('Kilogram', 'Kilogram (Kg)'),
+        ('Gram', 'Gram (g)'),
+        ('Piece', 'Piece (Pcs)'),
+        ('Box', 'Box'),
+        ('Packet', 'Packet'),
+        ('Bottle', 'Bottle'),
+        ('Can', 'Can'),
+        ('Roll', 'Roll'),
+    )
+
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='stocks', null=True, blank=True)
+    item_name = models.CharField(max_length=200)
+    unit = models.CharField(max_length=50, choices=UNIT_CHOICES)
+
+    def __str__(self):
+        if self.company:
+            return f"{self.item_name} ({self.get_unit_display()}) - {self.company.company_name}"
+        return f"{self.item_name} ({self.get_unit_display()}) - Global"

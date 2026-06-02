@@ -2,7 +2,7 @@
 
 {% block title %}{{ title }} - Wash Pilot Admin{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
-{% block breadcrumb_active %}Staff{% endblock %}
+{% block breadcrumb_active %}Salary{% endblock %}
 
 {% block content %}
 <style>
@@ -185,70 +185,25 @@
 
 <div class="premium-form-container">
     <div class="premium-form-title">
-        <i class="ph ph-identification-badge" style="color:#3b82f6;font-size:1.5rem;"></i>
+        <i class="ph ph-currency-circle-dollar" style="color:#3b82f6;font-size:1.5rem;"></i>
         {{ title }}
     </div>
+    
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:16px; border-radius:8px; display:flex; gap:16px; align-items:center; margin-bottom:24px;">
+        <div style="width:40px; height:40px; border-radius:50%; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:1.3rem;">
+            <i class="ph ph-user"></i>
+        </div>
+        <div>
+            <h3 style="margin:0; font-size:1rem; color:#0f172a;">{{ staff.name }}</h3>
+            <p style="margin:2px 0 0 0; font-size:0.8rem; color:#64748b;">
+                <strong>Branch:</strong> {{ staff.branch.name }} | <strong>Designation:</strong> {{ staff.get_designation_display }}
+            </p>
+        </div>
+    </div>
 
-    <form method="POST" id="staffForm">
+    <form method="POST" id="salaryForm">
         {% csrf_token %}
         <input type="hidden" name="commission_data" id="commission_data_field" value="[]">
-
-        {# ── Employment ── #}
-        <div class="form-section-label"><i class="ph ph-briefcase"></i> Employment Details</div>
-        <div class="form-grid">
-            {% if not form.branch.is_hidden %}
-            <div class="form-group">
-                <label for="{{ form.branch.id_for_label }}">Select Branch <span style="color:red">*</span></label>
-                {{ form.branch }}
-                {% if form.branch.errors %}<div class="error-text">{{ form.branch.errors.0 }}</div>{% endif %}
-            </div>
-            {% else %}
-                {{ form.branch }}
-            {% endif %}
-            <div class="form-group">
-                <label for="{{ form.designation.id_for_label }}">Designation <span style="color:red">*</span></label>
-                {{ form.designation }}
-                {% if form.designation.errors %}<div class="error-text">{{ form.designation.errors.0 }}</div>{% endif %}
-            </div>
-        </div>
-
-        {# ── Personal ── #}
-        <div class="form-section-label"><i class="ph ph-user"></i> Personal Details</div>
-        <div class="form-grid">
-            <div class="form-group full-width">
-                <label for="{{ form.name.id_for_label }}">Full Name <span style="color:red">*</span></label>
-                {{ form.name }}
-                {% if form.name.errors %}<div class="error-text">{{ form.name.errors.0 }}</div>{% endif %}
-            </div>
-            <div class="form-group">
-                <label for="{{ form.phone.id_for_label }}">Phone Number</label>
-                {{ form.phone }}
-                {% if form.phone.errors %}<div class="error-text">{{ form.phone.errors.0 }}</div>{% endif %}
-            </div>
-        </div>
-
-        {# ── Credentials ── #}
-        <div class="form-section-label"><i class="ph ph-lock-key"></i> System Login Credentials</div>
-        <p style="font-size:0.85rem;color:#64748b;margin-top:-8px;margin-bottom:16px;">
-            {% if is_edit %}Update login credentials. Leave password blank to keep it unchanged.
-            {% else %}These credentials will be used to log into the system.{% endif %}
-        </p>
-        <div class="form-grid">
-            <div class="form-group">
-                <label for="{{ form.username.id_for_label }}">Username <span style="color:red">*</span></label>
-                {{ form.username }}
-                {% if form.username.errors %}<div class="error-text">{{ form.username.errors.0 }}</div>{% endif %}
-            </div>
-            <div class="form-group">
-                <label for="{{ form.password.id_for_label }}">Password{% if not is_edit %} <span style="color:red">*</span>{% endif %}</label>
-                {{ form.password }}
-                {% if form.password.errors %}<div class="error-text">{{ form.password.errors.0 }}</div>{% endif %}
-            </div>
-        </div>
-
-        {% if not is_edit %}
-        {# ── Salary ── #}
-        <div class="form-section-label"><i class="ph ph-currency-circle-dollar"></i> Salary &amp; Compensation</div>
 
         {# Hidden real form field for salary_mode #}
         <div style="display:none;">{{ form.salary_mode }}</div>
@@ -298,20 +253,17 @@
                 <i class="ph ph-plus-circle"></i> Add Service
             </button>
         </div>
-        {% endif %}
 
         {# ── Actions ── #}
         <div class="form-actions" style="margin-top:32px;">
-            <a href="{% url 'staff_list' %}" class="btn-secondary">Cancel</a>
+            <a href="{% url 'staff_salary_list' %}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary" id="submitBtn">
-                <i class="ph ph-check-circle"></i>
-                {% if is_edit %}Save Changes{% else %}Create Staff{% endif %}
+                <i class="ph ph-check-circle"></i> Save Salary Settings
             </button>
         </div>
     </form>
 </div>
 
-{% if not is_edit %}
 <script>
 // ── Server data ──────────────────────────────────────────────────────────────
 var SERVICES = [{% for s in services %}{"id":"{{ s.id }}","name":"{{ s.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -441,10 +393,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Wire form submit to collect commission data
-    document.getElementById('staffForm').addEventListener('submit', function() {
+    document.getElementById('salaryForm').addEventListener('submit', function() {
         document.getElementById('commission_data_field').value = JSON.stringify(collectCommissionData());
     });
 });
 </script>
-{% endif %}
 {% endblock %}

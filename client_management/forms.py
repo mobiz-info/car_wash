@@ -1,6 +1,7 @@
 from django import forms
 from .models import *
-from master.models import State, Area,SchemeType
+from master.models import State, Area, SchemeType, VehicleType
+from service_management.models import Service
 
 class ClientForm(forms.ModelForm):
     scheme_types = forms.ModelMultipleChoiceField(
@@ -173,7 +174,7 @@ class StaffForm(forms.ModelForm):
 
     class Meta:
         model = Staff
-        fields = ['branch', 'designation', 'name', 'phone']
+        fields = ['branch', 'designation', 'name', 'phone', 'salary_mode', 'monthly_salary', 'daily_wage']
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
@@ -200,10 +201,20 @@ class StaffForm(forms.ModelForm):
                 if not isinstance(field.widget, forms.Select):
                     field.widget.attrs['placeholder'] = f"Enter {field.label}"
         
+        # Widget overrides for salary fields
+        self.fields['salary_mode'].widget.attrs['class'] = 'form-control'
+        self.fields['monthly_salary'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Enter monthly salary'})
+        self.fields['daily_wage'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Enter daily wage'})
+        self.fields['monthly_salary'].required = False
+        self.fields['daily_wage'].required = False
         if self.instance and not self.instance._state.adding:
             if self.instance.user:
                 self.fields['username'].initial = self.instance.user.username
             self.fields['password'].required = False
+            # Remove salary fields on edit to prevent overwriting
+            for f in ['salary_mode', 'monthly_salary', 'daily_wage']:
+                if f in self.fields:
+                    del self.fields[f]
         else:
             self.fields['password'].required = True
 
@@ -289,6 +300,68 @@ class StaffForm(forms.ModelForm):
             
         return staff
 
+    def save_commissions(self, staff, commission_data):
+        """
+        Save commission records.
+        commission_data: list of dicts with keys:
+            service_id, vehicle_type_id, commission_type, amount
+        """
+        # Remove old commissions for this staff
+        StaffCommission.objects.filter(staff=staff).delete()
+        for row in commission_data:
+            service_id = row.get('service_id')
+            vehicle_type_id = row.get('vehicle_type_id')
+            commission_type = row.get('commission_type', 'PERCENTAGE')
+            amount = row.get('amount', 0)
+            if service_id and vehicle_type_id and amount:
+                try:
+                    StaffCommission.objects.create(
+                        staff=staff,
+                        service_id=service_id,
+                        vehicle_type_id=vehicle_type_id,
+                        commission_type=commission_type,
+                        amount=amount,
+                        auto_id=get_auto_id(StaffCommission),
+                        creator=self.request.user,
+                    )
+                except Exception:
+                    pass
+
+class StaffSalaryForm(forms.ModelForm):
+    class Meta:
+        model = Staff
+        fields = ['salary_mode', 'monthly_salary', 'daily_wage']
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        self.fields['salary_mode'].widget.attrs['class'] = 'form-control'
+        self.fields['monthly_salary'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Enter monthly salary'})
+        self.fields['daily_wage'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Enter daily wage'})
+        self.fields['monthly_salary'].required = False
+        self.fields['daily_wage'].required = False
+
+    def save_commissions(self, staff, commission_data):
+        StaffCommission.objects.filter(staff=staff).delete()
+        for row in commission_data:
+            service_id = row.get('service_id')
+            vehicle_type_id = row.get('vehicle_type_id')
+            commission_type = row.get('commission_type', 'PERCENTAGE')
+            amount = row.get('amount', 0)
+            if service_id and vehicle_type_id and amount:
+                try:
+                    StaffCommission.objects.create(
+                        staff=staff,
+                        service_id=service_id,
+                        vehicle_type_id=vehicle_type_id,
+                        commission_type=commission_type,
+                        amount=amount,
+                        auto_id=get_auto_id(StaffCommission),
+                        creator=self.request.user,
+                    )
+                except Exception:
+                    pass
+
 class SubscriptionForm(forms.ModelForm):
     class Meta:
         model = Subscription
@@ -354,7 +427,7 @@ from master.models import VehicleType, VehicleTypeModel
 
 class CustomerVehicleForm(forms.ModelForm):
     vehicle_type = forms.ModelChoiceField(
-        queryset=VehicleType.objects.filter(is_active=True),
+        queryset=VehicleType.objects.filter(is_active=True, is_deleted=False),
         required=True,
         empty_label="---------",
         widget=forms.Select(attrs={'class': 'form-control'})
@@ -374,16 +447,15 @@ class CustomerVehicleForm(forms.ModelForm):
             if not isinstance(field.widget, forms.Select):
                 field.widget.attrs['placeholder'] = f"Enter {field.label}"
                 
-        # Handle dynamic vehicle model selection
         if 'vehicle_type' in self.data:
             try:
                 vehicle_type_id = int(self.data.get('vehicle_type'))
-                self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id, is_active=True).order_by('name')
+                self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(vehicle_type_id=vehicle_type_id, is_active=True, is_deleted=False).order_by('name')
             except (ValueError, TypeError):
                 pass
         elif not self.instance._state.adding and getattr(self.instance, 'vehicle_type_model_id', None):
             self.fields['vehicle_type'].initial = self.instance.vehicle_type_model.vehicle_type.id
-            self.fields['vehicle_type_model'].queryset = self.instance.vehicle_type_model.vehicle_type.models.filter(is_active=True).order_by('name')
+            self.fields['vehicle_type_model'].queryset = self.instance.vehicle_type_model.vehicle_type.models.filter(is_active=True, is_deleted=False).order_by('name')
         else:
             self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
 
@@ -434,14 +506,18 @@ class CustomersVehicleForm(forms.ModelForm):
 
             if vehicle_type_id:
                 self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(
-                    vehicle_type_id=vehicle_type_id
+                    vehicle_type_id=vehicle_type_id,
+                    is_active=True,
+                    is_deleted=False
                 )
             else:
                 self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
 
         elif self.instance.pk and self.instance.vehicle_type:
             self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(
-                vehicle_type=self.instance.vehicle_type
+                vehicle_type=self.instance.vehicle_type,
+                is_active=True,
+                is_deleted=False
             )
         else:
             self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
@@ -478,3 +554,15 @@ class WhatsAppTemplateForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'
+
+
+class StockForm(forms.ModelForm):
+    class Meta:
+        model = Stock
+        fields = ['item_name', 'unit']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = 'form-control'
+            field.widget.attrs['placeholder'] = f"Enter {field.label}"

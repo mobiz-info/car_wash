@@ -5,6 +5,9 @@
 {% block breadcrumb_active %}Staff{% endblock %}
 
 {% block content %}
+<style>
+    .action-btn.salary:hover { background-color: #f0fdf4; color: #166534; }
+</style>
 
 <div class="list-container">
 
@@ -77,6 +80,9 @@
 
                     <td style="text-align:right;">
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'staff_salary_edit' staff.id %}" class="action-btn salary" title="Salary Settings">
+                                <i class="ph ph-currency-circle-dollar"></i>
+                            </a>
                             <a href="{% url 'staff_edit' staff.id %}" class="action-btn edit">
                                 <i class="ph ph-pencil-simple"></i>
                             </a>

@@ -529,8 +529,16 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'staff_list' %}">Staffs</a>
+                <a href="{% url 'staff_salary_list' %}">Salary Settings</a>
                 <!-- <a href="#">Attendance</a> -->
             </div>
+
+            <a href="{% url 'stock_list' %}" class="nav-item">
+                <div class="nav-item-left">
+                    <i class="ph ph-package"></i>
+                    Stock Management
+                </div>
+            </a>
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
@@ -708,6 +716,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'staff_list' %}" class="nav-item submenu-item">Staff List</a>
                 <a href="{% url 'staff_create' %}" class="nav-item submenu-item">Add Staff</a>
+                <a href="{% url 'staff_salary_list' %}" class="nav-item submenu-item">Salary Settings</a>
             </div>
 
 
@@ -877,6 +886,13 @@
                 <a href="{% url 'scheme_type_list' %}" class="nav-item submenu-item">Scheme Types</a>
                 <a href="{% url 'scheme_type_create' %}" class="nav-item submenu-item">Add Scheme Type</a>
             </div>
+
+            <a href="{% url 'stock_list' %}" class="nav-item">
+                <div class="nav-item-left">
+                    <i class="ph ph-package"></i>
+                    Stock Management
+                </div>
+            </a>
 
             {% comment %} <div class="nav-section-title">OPERATIONS</div>
 

@@ -77,7 +77,8 @@ def api_login(request):
                 return JsonResponse({'success': False, 'message': 'User profile not found'}, status=403)
             
             role = user.profile.role.name if user.profile.role else None
-            if role not in ['COMPANY_ADMIN', 'BRANCH_ADMIN']:
+            allowed_roles = ['COMPANY_ADMIN', 'BRANCH_ADMIN', 'BRANCH_MANAGER', 'MARKETING', 'CLERICAL', 'SERVICE']
+            if role not in allowed_roles:
                 return JsonResponse({'success': False, 'message': 'Unauthorized role'}, status=403)
                 
             token_obj, created = APIToken.objects.get_or_create(user=user)
@@ -86,9 +87,14 @@ def api_login(request):
             branch_name = ''
             if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
                 branch_name = user.managed_branch.name
+            elif role in ['BRANCH_MANAGER', 'MARKETING', 'CLERICAL', 'SERVICE'] and hasattr(user, 'staff_profile') and user.staff_profile and user.staff_profile.branch:
+                branch_name = user.staff_profile.branch.name
 
-            # Display name: branch name for BRANCH_ADMIN, company name for COMPANY_ADMIN
-            display_name = branch_name if role == 'BRANCH_ADMIN' else company_name
+            # Display name: staff name for staff, branch name for BRANCH_ADMIN, company name for COMPANY_ADMIN
+            if role in ['BRANCH_MANAGER', 'MARKETING', 'CLERICAL', 'SERVICE'] and hasattr(user, 'staff_profile') and user.staff_profile:
+                display_name = user.staff_profile.name
+            else:
+                display_name = branch_name if role == 'BRANCH_ADMIN' else company_name
 
             currency_symbol = '₹'
             if user.profile.company and user.profile.company.country and user.profile.company.country.currency_symbol:
@@ -115,7 +121,15 @@ def get_user_from_token(request):
         token = auth_header.split(' ')[1]
         try:
             token_obj = APIToken.objects.get(token=token)
-            return token_obj.user
+            user = token_obj.user
+            # Handle staff members
+            if hasattr(user, 'staff_profile') and user.staff_profile:
+                # Scope to their branch
+                user.managed_branch = user.staff_profile.branch
+                # In-memory role override to 'BRANCH_ADMIN' to reuse all branch scoping logic
+                if hasattr(user, 'profile') and user.profile and user.profile.role:
+                    user.profile.role.name = 'BRANCH_ADMIN'
+            return user
         except APIToken.DoesNotExist:
             return None
     return None
@@ -303,6 +317,7 @@ def api_customer_search(request):
             'id': str(v.id),
             'no': v.vehicle_number,
             'type': v.vehicle_type_model.name if v.vehicle_type_model else 'Unknown',
+            'vehicle_type': v.vehicle_type_model.vehicle_type.name if (v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
             'scheme_name': scheme_name,
             'paid_visits': paid_visits,
             'free_visits': free_visits,
@@ -740,6 +755,7 @@ def api_add_customer(request):
                 cv = CustomerVehicle.objects.create(
                     customer=customer,
                     vehicle_type_model=vm,
+                    vehicle_type=vm.vehicle_type if vm else None,
                     vehicle_number=vehicle_number,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
@@ -748,6 +764,7 @@ def api_add_customer(request):
                     'id': str(cv.id),
                     'no': cv.vehicle_number,
                     'type': vm.name,
+                    'vehicle_type': vm.vehicle_type.name if vm.vehicle_type else '',
                 })
 
         return JsonResponse({
@@ -927,6 +944,7 @@ def api_edit_customer(request):
                     vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
                     if vm:
                         cv.vehicle_type_model = vm
+                        cv.vehicle_type = vm.vehicle_type
                 cv.save()
 
             # Add new vehicles
@@ -941,6 +959,7 @@ def api_edit_customer(request):
                 CustomerVehicle.objects.create(
                     customer=customer,
                     vehicle_type_model=vm,
+                    vehicle_type=vm.vehicle_type if vm else None,
                     vehicle_number=vehicle_number,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),

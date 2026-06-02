@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block title %}Salary Settings - Wash Pilot Admin{% endblock %}
+{% block page_title %}Salary Management{% endblock %}
+{% block breadcrumb_active %}Salary{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search staff name..." class="search-input">
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Employee ID</th>
+                    <th>Name</th>
+                    <th>Branch</th>
+                    <th>Designation</th>
+                    <th>Salary Mode</th>
+                    <th>Current Value</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for staff in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td><span style="font-weight:600; color:#3b82f6;">{{ staff.employee_id }}</span></td>
+
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;color:#2563eb;">
+                                <i class="ph-fill ph-user"></i>
+                            </div>
+                            <strong>{{ staff.name }}</strong>
+                        </div>
+                    </td>
+
+                    <td>{{ staff.branch.name }}</td>
+
+                    <td>
+                        <span class="badge" style="background:#f1f5f9;color:#475569;padding:4px 8px;border-radius:4px;font-size:0.8rem;">
+                            {{ staff.get_designation_display }}
+                        </span>
+                    </td>
+
+                    <td>
+                        {% if staff.salary_mode == 'SALARIED' %}
+                            <span class="badge" style="background:#eff6ff;color:#1d4ed8;padding:4px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">
+                                <i class="ph ph-money" style="vertical-align:middle;margin-right:4px;"></i>Salaried
+                            </span>
+                        {% elif staff.salary_mode == 'WAGE' %}
+                            <span class="badge" style="background:#fef3c7;color:#d97706;padding:4px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">
+                                <i class="ph ph-calendar" style="vertical-align:middle;margin-right:4px;"></i>Wage
+                            </span>
+                        {% elif staff.salary_mode == 'COMMISSION' %}
+                            <span class="badge" style="background:#f0fdf4;color:#166534;padding:4px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">
+                                <i class="ph ph-percent" style="vertical-align:middle;margin-right:4px;"></i>Commissioned
+                            </span>
+                        {% else %}
+                            <span class="badge" style="background:#f1f5f9;color:#64748b;padding:4px 8px;border-radius:4px;font-size:0.8rem;">
+                                Unconfigured
+                            </span>
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        {% if staff.salary_mode == 'SALARIED' %}
+                            <strong style="color:#0f172a;">₹{{ staff.monthly_salary|default:"0.00" }}</strong> <span style="font-size:0.8rem;color:#64748b;">/ month</span>
+                        {% elif staff.salary_mode == 'WAGE' %}
+                            <strong style="color:#0f172a;">₹{{ staff.daily_wage|default:"0.00" }}</strong> <span style="font-size:0.8rem;color:#64748b;">/ day</span>
+                        {% elif staff.salary_mode == 'COMMISSION' %}
+                            <span style="font-weight:500;color:#166534;">{{ staff.commissions.count }} configured commissions</span>
+                        {% else %}
+                            <span style="color:#94a3b8;">-</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'staff_salary_edit' staff.id %}" class="btn-primary" style="padding:6px 12px; font-size:0.82rem; border-radius:6px; background:#3b82f6; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Manage Salary">
+                                <i class="ph ph-currency-circle-dollar" style="font-size:1.05rem;"></i> Setup Salary
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; padding: 30px; color:#94a3b8;">
+                        No staff found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}
