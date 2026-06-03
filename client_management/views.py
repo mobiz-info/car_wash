@@ -1832,3 +1832,113 @@ def stock_delete(request, id):
     stock.save()
     messages.success(request, "Stock item deleted successfully")
     return redirect('stock_list')
+
+
+@login_required
+def staff_leave_list(request):
+    from .models import StaffLeave
+    from django.core.paginator import Paginator
+    
+    search = request.GET.get('search', '')
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    leaves = StaffLeave.objects.filter(is_deleted=False, staff__company=company).order_by('-start_date')
+    
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        leaves = leaves.filter(staff__branch=request.user.managed_branch)
+    
+    if search:
+        leaves = leaves.filter(staff__name__icontains=search)
+        
+    paginator = Paginator(leaves, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'staff/leave_list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Staff Leaves',
+    })
+
+
+@login_required
+def staff_leave_create(request):
+    from .forms import StaffLeaveForm
+    from .models import StaffLeave
+    
+    form = StaffLeaveForm(request.POST or None, request=request)
+    if request.method == 'POST':
+        if form.is_valid():
+            leave = form.save(commit=False)
+            leave.auto_id = get_auto_id(StaffLeave)
+            leave.creator = request.user
+            leave.save()
+            messages.success(request, "Staff leave recorded successfully")
+            return redirect('staff_leave_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'staff/leave_create.html', {
+        'form': form,
+        'title': 'Record Staff Leave',
+    })
+
+
+@login_required
+def staff_leave_edit(request, id):
+    from .forms import StaffLeaveForm
+    from .models import StaffLeave
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        leave = get_object_or_404(StaffLeave, id=id, staff__company=company, staff__branch=request.user.managed_branch, is_deleted=False)
+    else:
+        leave = get_object_or_404(StaffLeave, id=id, staff__company=company, is_deleted=False)
+        
+    form = StaffLeaveForm(request.POST or None, instance=leave, request=request)
+    if request.method == 'POST':
+        if form.is_valid():
+            l = form.save(commit=False)
+            l.updater = request.user
+            l.save()
+            messages.success(request, "Staff leave updated successfully")
+            return redirect('staff_leave_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'staff/leave_create.html', {
+        'form': form,
+        'title': 'Edit Staff Leave',
+        'is_edit': True,
+    })
+
+
+@login_required
+def staff_leave_delete(request, id):
+    from .models import StaffLeave
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        leave = get_object_or_404(StaffLeave, id=id, staff__company=company, staff__branch=request.user.managed_branch, is_deleted=False)
+    else:
+        leave = get_object_or_404(StaffLeave, id=id, staff__company=company, is_deleted=False)
+        
+    leave.is_deleted = True
+    leave.save()
+    messages.success(request, "Staff leave deleted successfully")
+    return redirect('staff_leave_list')

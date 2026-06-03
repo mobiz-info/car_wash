@@ -328,3 +328,21 @@ class Stock(BaseModel):
         if self.company:
             return f"{self.item_name} ({self.get_unit_display()}) - {self.company.company_name}"
         return f"{self.item_name} ({self.get_unit_display()}) - Global"
+
+
+class StaffLeave(BaseModel):
+    STATUS_CHOICES = (
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    )
+
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='leaves')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.TextField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
+
+    def __str__(self):
+        return f"{self.staff.name} ({self.start_date} to {self.end_date})"

@@ -1974,3 +1974,244 @@ def api_update_complaint_status(request):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
+
+@csrf_exempt
+def api_get_expense_heads(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+    
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import ExpenseHead
+        heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
+        head_list = [{'id': str(h.id), 'name': h.name} for h in heads]
+        return JsonResponse({'success': True, 'expense_heads': head_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_create_expense_entry(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import ExpenseHead, Expense, ExpenseEntry
+        from .models import Branch
+        from django.shortcuts import get_object_or_404
+        
+        data = json.loads(request.body)
+        expense_head_id = data.get('expense_head_id')
+        expense_name = data.get('expense_name')
+        amount = data.get('amount')
+        expense_date = data.get('date')  # 'yyyy-mm-dd'
+        remarks = data.get('remarks', '')
+        
+        if not expense_head_id or not expense_name or not amount or not expense_date:
+            return JsonResponse({'success': False, 'message': 'expense_head_id, expense_name, amount, and date are required'}, status=400)
+            
+        role = user.profile.role.name if user.profile.role else None
+        company = user.profile.company
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        branch = None
+        if hasattr(user, 'managed_branch') and user.managed_branch:
+            branch = user.managed_branch
+        elif role == 'COMPANY_ADMIN':
+            branch_id = data.get('branch_id')
+            if branch_id:
+                branch = get_object_or_404(Branch, id=branch_id, company=company)
+            else:
+                branch = company.branches.filter(is_deleted=False).first()
+                
+        if not branch:
+            return JsonResponse({'success': False, 'message': 'No branch associated with user'}, status=400)
+            
+        # Get or create the Expense
+        expense_head = get_object_or_404(ExpenseHead, id=expense_head_id, is_deleted=False)
+        expense, created = Expense.objects.get_or_create(
+            expense_head=expense_head,
+            name=expense_name,
+            defaults={
+                'auto_id': get_auto_id(Expense),
+                'creator': user
+            }
+        )
+        
+        # Create ExpenseEntry
+        entry = ExpenseEntry.objects.create(
+            auto_id=get_auto_id(ExpenseEntry),
+            creator=user,
+            company=company,
+            branch=branch,
+            expense=expense,
+            amount=amount,
+            expense_date=expense_date,
+            remarks=remarks
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Expense created successfully',
+            'expense_entry_id': str(entry.id)
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_staff_list(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from .models import Staff
+        company = user.profile.company
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        role = user.profile.role.name if user.profile.role else None
+        staffs = Staff.objects.filter(company=company, is_deleted=False)
+        
+        # If Branch Admin/Staff, restrict to their managed branch
+        if role in ['BRANCH_ADMIN', 'BRANCH_MANAGER', 'MARKETING', 'CLERICAL', 'SERVICE']:
+            if hasattr(user, 'managed_branch') and user.managed_branch:
+                staffs = staffs.filter(branch=user.managed_branch)
+            elif hasattr(user, 'staff_profile') and user.staff_profile and user.staff_profile.branch:
+                staffs = staffs.filter(branch=user.staff_profile.branch)
+                
+        staff_list = [{
+            'id': str(s.id),
+            'name': s.name,
+            'employee_id': s.employee_id,
+            'branch_name': s.branch.name if s.branch else ''
+        } for s in staffs.order_by('name')]
+        
+        return JsonResponse({'success': True, 'staffs': staff_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_staff_leaves(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from .models import StaffLeave
+        company = user.profile.company
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        role = user.profile.role.name if user.profile.role else None
+        leaves = StaffLeave.objects.filter(staff__company=company, is_deleted=False)
+        
+        if hasattr(user, 'staff_profile') and user.staff_profile:
+            leaves = leaves.filter(staff=user.staff_profile)
+        elif role == 'BRANCH_ADMIN':
+            if hasattr(user, 'managed_branch') and user.managed_branch:
+                leaves = leaves.filter(staff__branch=user.managed_branch)
+                
+        leave_list = [{
+            'id': str(l.id),
+            'staff_name': l.staff.name,
+            'employee_id': l.staff.employee_id,
+            'branch_name': l.staff.branch.name if l.staff.branch else '',
+            'start_date': str(l.start_date),
+            'end_date': str(l.end_date),
+            'reason': l.reason or '',
+            'remarks': l.remarks or '',
+            'status': l.status
+        } for l in leaves.order_by('-start_date')]
+        
+        return JsonResponse({'success': True, 'leaves': leave_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_create_staff_leave(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from .models import Staff, StaffLeave
+        from django.shortcuts import get_object_or_404
+        
+        data = json.loads(request.body)
+        staff_id = data.get('staff_id')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        reason = data.get('reason', '')
+        remarks = data.get('remarks', '')
+        status = data.get('status', 'APPROVED')
+        
+        company = user.profile.company
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        role = user.profile.role.name if user.profile.role else None
+        
+        if not staff_id:
+            if hasattr(user, 'staff_profile') and user.staff_profile:
+                staff = user.staff_profile
+            else:
+                return JsonResponse({'success': False, 'message': 'staff_id is required'}, status=400)
+        else:
+            staff = get_object_or_404(Staff, id=staff_id, company=company, is_deleted=False)
+            
+        if not start_date or not end_date:
+            return JsonResponse({'success': False, 'message': 'start_date and end_date are required'}, status=400)
+        
+        # Verify branch scope if they are branch admin
+        role = user.profile.role.name if user.profile.role else None
+        if role in ['BRANCH_ADMIN', 'BRANCH_MANAGER', 'MARKETING', 'CLERICAL', 'SERVICE']:
+            user_branch = None
+            if hasattr(user, 'managed_branch') and user.managed_branch:
+                user_branch = user.managed_branch
+            elif hasattr(user, 'staff_profile') and user.staff_profile and user.staff_profile.branch:
+                user_branch = user.staff_profile.branch
+            
+            if user_branch and staff.branch != user_branch:
+                return JsonResponse({'success': False, 'message': 'Permission denied for this branch staff member'}, status=403)
+                
+        # Create StaffLeave
+        leave = StaffLeave.objects.create(
+            auto_id=get_auto_id(StaffLeave),
+            creator=user,
+            staff=staff,
+            start_date=start_date,
+            end_date=end_date,
+            reason=reason,
+            remarks=remarks,
+            status=status
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Staff leave recorded successfully',
+            'leave_id': str(leave.id)
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+

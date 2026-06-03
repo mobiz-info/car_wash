@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Staff Leaves - Wash Pilot Admin{% endblock %}
+{% block page_title %}Staff Leaves{% endblock %}
+{% block breadcrumb_active %}Leaves{% endblock %}
+
+{% block content %}
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search by staff name..." class="search-input">
+        </form>
+        <a href="{% url 'staff_leave_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Record Leave
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Staff Name</th>
+                    <th>Branch</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Reason</th>
+                    <th>Remarks</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                    <td><strong>{{ leave.staff.name }}</strong></td>
+                    <td>{{ leave.staff.branch.name }}</td>
+                    <td>{{ leave.start_date|date:"d-m-Y" }}</td>
+                    <td>{{ leave.end_date|date:"d-m-Y" }}</td>
+                    <td>{{ leave.reason|default:"-" }}</td>
+                    <td>{{ leave.remarks|default:"-" }}</td>
+                    <td>
+                        {% if leave.status == 'APPROVED' %}
+                            <span class="badge" style="background:#dcfce7;color:#15803d;">Approved</span>
+                        {% elif leave.status == 'PENDING' %}
+                            <span class="badge" style="background:#fef9c3;color:#854d0e;">Pending</span>
+                        {% else %}
+                            <span class="badge" style="background:#fee2e2;color:#b91c1c;">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'staff_leave_edit' leave.id %}" class="action-btn edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'staff_leave_delete' leave.id %}" onclick="return confirm('Delete this leave entry?')" class="action-btn delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align:center; padding: 30px; color:#94a3b8;">
+                        No staff leaves recorded.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

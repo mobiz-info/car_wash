@@ -31,6 +31,12 @@ urlpatterns = [
     path('staff/salary/', views.staff_salary_list, name='staff_salary_list'),
     path('staff/salary/edit/<uuid:id>/', views.staff_salary_edit, name='staff_salary_edit'),
 
+    # Staff Leaves
+    path('staff/leaves/', views.staff_leave_list, name='staff_leave_list'),
+    path('staff/leaves/create/', views.staff_leave_create, name='staff_leave_create'),
+    path('staff/leaves/edit/<uuid:id>/', views.staff_leave_edit, name='staff_leave_edit'),
+    path('staff/leaves/delete/<uuid:id>/', views.staff_leave_delete, name='staff_leave_delete'),
+
     # Stock Management
     path('stock/', views.stock_list, name='stock_list'),
     path('stock/create/', views.stock_create, name='stock_create'),
@@ -72,6 +78,16 @@ urlpatterns = [
     path('api/invoice/services/', api_views.api_get_services, name='api_get_services'),
     path('api/invoice/create/', api_views.api_create_invoice, name='api_create_invoice'),
     path('api/customer/form-data/', api_views.api_get_form_data, name='api_get_form_data'),
+    
+    # Expense APIs
+    path('api/expenses/heads/', api_views.api_get_expense_heads, name='api_get_expense_heads'),
+    path('api/expenses/create/', api_views.api_create_expense_entry, name='api_create_expense_entry'),
+    
+    # Staff Leaves APIs
+    path('api/staff/list/', api_views.api_get_staff_list, name='api_get_staff_list'),
+    path('api/staff/leaves/', api_views.api_get_staff_leaves, name='api_get_staff_leaves'),
+    path('api/staff/leaves/create/', api_views.api_create_staff_leave, name='api_create_staff_leave'),
+
     path('api/customer/add/', api_views.api_add_customer, name='api_add_customer'),
     path('api/customer/list/', api_views.api_list_customers, name='api_list_customers'),
     path('api/customer/get/', api_views.api_get_customer, name='api_get_customer'),

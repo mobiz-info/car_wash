@@ -566,3 +566,34 @@ class StockForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = 'form-control'
             field.widget.attrs['placeholder'] = f"Enter {field.label}"
+
+
+from .models import StaffLeave
+
+class StaffLeaveForm(forms.ModelForm):
+    class Meta:
+        model = StaffLeave
+        fields = ['staff', 'start_date', 'end_date', 'reason', 'remarks', 'status']
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'end_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'reason': forms.Textarea(attrs={'rows': 2, 'class': 'form-control', 'placeholder': 'Enter reason for leave'}),
+            'remarks': forms.Textarea(attrs={'rows': 2, 'class': 'form-control', 'placeholder': 'Enter remarks'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        
+        # Restrict staffs based on the user's company and branch
+        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
+            company = self.request.user.profile.company
+            staff_qs = Staff.objects.filter(company=company, is_deleted=False)
+            if self.request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(self.request.user, 'managed_branch'):
+                staff_qs = staff_qs.filter(branch=self.request.user.managed_branch)
+            self.fields['staff'].queryset = staff_qs.order_by('name')
+        
+        for field_name, field in self.fields.items():
+            if field_name not in ['start_date', 'end_date', 'reason', 'remarks', 'status']:
+                field.widget.attrs['class'] = 'form-control'
