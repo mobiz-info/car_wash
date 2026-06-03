@@ -23,6 +23,6 @@ urlpatterns = [
     path('cancellation-report/',views.cancellation_report,name='cancellation_report'),
     
     path('profit-report/',views.profit_report,name='profit_report'),
-    
+    path('expense-report/',views.expense_report,name='expense_report'),
     
 ]
