@@ -521,9 +521,6 @@ def expense_list(request):
 
     search = request.GET.get('search', '')
 
-    # =========================
-    # COMPANY ADMIN
-    # =========================
 
     if role_name == 'COMPANY_ADMIN':
 
@@ -534,10 +531,6 @@ def expense_list(request):
             is_deleted=False
         )
 
-    # =========================
-    # BRANCH USER
-    # =========================
-
     else:
 
         branch = getattr(request.user, 'managed_branch', None)
@@ -547,9 +540,6 @@ def expense_list(request):
             is_deleted=False
         )
 
-    # =========================
-    # SEARCH
-    # =========================
 
     if search:
 
@@ -558,10 +548,6 @@ def expense_list(request):
         )
 
     expenses = expenses.order_by('-id')
-
-    # =========================
-    # PAGINATION
-    # =========================
 
     paginator = Paginator(expenses, 10)
 
@@ -679,20 +665,12 @@ def expense_edit(request, pk):
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
 
-    # =========================
-    # EXPENSE HEADS
-    # =========================
-
     expense_heads = ExpenseHead.objects.filter(
         is_deleted=False
     )
 
     branches = None
     branch = None
-
-    # =========================
-    # COMPANY ADMIN
-    # =========================
 
     if role_name == 'COMPANY_ADMIN':
 
@@ -707,9 +685,6 @@ def expense_edit(request, pk):
             is_deleted=False
         )
 
-    # =========================
-    # BRANCH USER
-    # =========================
 
     else:
 
@@ -728,9 +703,6 @@ def expense_edit(request, pk):
 
             return redirect('expense_list')
 
-    # =========================
-    # UPDATE
-    # =========================
 
     if request.method == 'POST':
 
@@ -754,9 +726,6 @@ def expense_edit(request, pk):
             'remarks'
         )
 
-        # =========================
-        # BRANCH
-        # =========================
 
         if role_name == 'COMPANY_ADMIN':
 
@@ -770,9 +739,6 @@ def expense_edit(request, pk):
 
             expense_entry.branch = branch
 
-        # =========================
-        # GET OR CREATE EXPENSE
-        # =========================
 
         expense, created = Expense.objects.get_or_create(
             expense_head_id=expense_head_id,
@@ -782,11 +748,7 @@ def expense_edit(request, pk):
                 'creator': request.user
             }
         )
-
-        # =========================
-        # UPDATE ENTRY
-        # =========================
-
+        
         expense_entry.expense = expense
 
         expense_entry.amount = amount
@@ -803,10 +765,6 @@ def expense_edit(request, pk):
         )
 
         return redirect('expense_list')
-
-    # =========================
-    # CONTEXT
-    # =========================
 
     context = {
         'expense_entry': expense_entry,
@@ -835,7 +793,6 @@ def expense_delete(request, pk):
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
 
-    # BRANCH USER VALIDATION
     if role_name != 'COMPANY_ADMIN':
 
         branch = getattr(request.user, 'managed_branch', None)

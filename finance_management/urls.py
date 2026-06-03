@@ -22,4 +22,7 @@ urlpatterns = [
     path('booking-report/', views.booking_report, name='booking_report'),
     path('cancellation-report/',views.cancellation_report,name='cancellation_report'),
     
+    path('profit-report/',views.profit_report,name='profit_report'),
+    
+    
 ]

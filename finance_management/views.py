@@ -6,6 +6,7 @@ from django.db.models import Q, Sum, F, DecimalField, ExpressionWrapper
 from django.views.decorators.csrf import csrf_exempt
 from decimal import Decimal
 from django.core.paginator import Paginator
+from datetime import datetime
 
 from core.functions import get_auto_id, log_activity
 from client_management.api_views import get_user_from_token
@@ -13,6 +14,7 @@ from .models import Invoice, Receipt
 from booking_management.models import Booking
 from client_management.models import Branch
 from service_management.models import ServiceType
+from master.models import ExpenseEntry
 
 
 @login_required
@@ -942,3 +944,137 @@ def cancellation_report(request):
     }
 
     return render(request,'reports/cancellation_report.html',context)
+
+
+
+@login_required
+def profit_report(request):
+
+    role = getattr(
+        getattr(request.user, 'profile', None),
+        'role',
+        None
+    )
+
+    role_name = role.name if role else None
+
+    from_date = request.GET.get('from_date')
+
+    to_date = request.GET.get('to_date')
+
+    branch_id = request.GET.get('branch')
+
+    if not from_date:
+        from_date = datetime.today().date()
+
+    if not to_date:
+        to_date = datetime.today().date()
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = getattr(
+            request.user.profile,
+            'company',
+            None
+        )
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+        receipts = Receipt.objects.filter(
+            invoice__branch__company=company,
+            created_at__date__gte=from_date,
+            created_at__date__lte=to_date,
+            is_deleted=False
+        )
+
+        expenses = ExpenseEntry.objects.filter(
+            company=company,
+            expense_date__gte=from_date,
+            expense_date__lte=to_date,
+            is_deleted=False
+        )
+
+        invoices = Invoice.objects.filter(
+            branch__company=company,
+            date__gte=from_date,
+            date__lte=to_date,
+            is_deleted=False
+        )
+
+        if branch_id:
+
+            receipts = receipts.filter(
+                invoice__branch_id=branch_id
+            )
+
+            expenses = expenses.filter(
+                branch_id=branch_id
+            )
+
+            invoices = invoices.filter(
+                branch_id=branch_id
+            )
+
+    else:
+
+        branch = getattr(
+            request.user,
+            'managed_branch',
+            None
+        )
+
+        branches = None
+
+        receipts = Receipt.objects.filter(
+            invoice__branch=branch,
+            created_at__date__gte=from_date,
+            created_at__date__lte=to_date,
+            is_deleted=False
+        )
+
+        expenses = ExpenseEntry.objects.filter(
+            branch=branch,
+            expense_date__gte=from_date,
+            expense_date__lte=to_date,
+            is_deleted=False
+        )
+
+        invoices = Invoice.objects.filter(
+            branch=branch,
+            date__gte=from_date,
+            date__lte=to_date,
+            is_deleted=False
+        )
+
+    total_sales = invoices.aggregate(
+        total=Sum('total')
+    )['total'] or 0
+
+    total_collection = receipts.aggregate(
+        total=Sum('amount')
+    )['total'] or 0
+
+    total_expense = expenses.aggregate(
+        total=Sum('amount')
+    )['total'] or 0
+
+    net_profit = total_collection - total_expense
+
+    context = {
+        'receipts': receipts,
+        'expenses': expenses,
+        'branches': branches,
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'total_sales': total_sales,
+        'total_collection': total_collection,
+        'total_expense': total_expense,
+        'net_profit': net_profit,
+        'title': 'Profit Report'
+    }
+
+    return render(request,'reports/profit_report.html',context)
