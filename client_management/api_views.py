@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 from core.models import APIToken
 from core.functions import get_auto_id
-from .models import Customer, CustomerVehicle, Scheme, CustomerType
+from .models import Customer, CustomerVehicle, Scheme, CustomerType,SchemeVoucher
 from service_management.models import Service
 
 
