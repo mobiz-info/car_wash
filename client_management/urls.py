@@ -134,4 +134,16 @@ urlpatterns = [
     path('inactive-customer/',views.inactive_customer,name='inactive_customer'),
     path('new-customer/',views.new_customer,name='new_customer'),
     
+    # Purchase Requests
+    path('purchase-requests/', views.purchase_request_list, name='purchase_request_list'),
+    path('purchase-requests/create/', views.purchase_request_create, name='purchase_request_create'),
+    path('purchase-requests/edit/<uuid:id>/', views.purchase_request_edit, name='purchase_request_edit'),
+    path('purchase-requests/delete/<uuid:id>/', views.purchase_request_delete, name='purchase_request_delete'),
+    path('purchase-requests/approve/<uuid:id>/', views.purchase_request_approve, name='purchase_request_approve'),
+    path('purchase-requests/reject/<uuid:id>/', views.purchase_request_reject, name='purchase_request_reject'),
+    
+    # API endpoints for Purchase Requests
+    path('api/stock/list/', api_views.api_get_stock_list, name='api_get_stock_list'),
+    path('api/purchase-requests/list/', api_views.api_get_purchase_requests, name='api_get_purchase_requests'),
+    path('api/purchase-requests/create/', api_views.api_create_purchase_request, name='api_create_purchase_request'),
 ]

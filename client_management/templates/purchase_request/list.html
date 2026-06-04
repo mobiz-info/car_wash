@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Purchase Requests - Wash Pilot Admin{% endblock %}
+{% block page_title %}Purchase Requests{% endblock %}
+{% block breadcrumb_active %}Purchase Requests{% endblock %}
+
+{% block content %}
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search by material..." class="search-input">
+        </form>
+        <a href="{% url 'purchase_request_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Submit Request
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Material (Stock)</th>
+                    <th>Unit</th>
+                    <th>Qty</th>
+                    <th>Branch</th>
+                    <th>Requested By</th>
+                    <th>Remarks</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for purchase in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                    <td><strong>{{ purchase.date|date:"d-m-Y" }}</strong></td>
+                    <td>{{ purchase.material.item_name }}</td>
+                    <td>{{ purchase.material.get_unit_display }}</td>
+                    <td>{{ purchase.qty }}</td>
+                    <td>{{ purchase.branch.name|default:"-" }}</td>
+                    <td>{{ purchase.requested_by.username|default:"-" }}</td>
+                    <td>{{ purchase.remarks|default:"-" }}</td>
+                    <td>
+                        {% if purchase.status == 'APPROVED' %}
+                            <span class="badge" style="background:#dcfce7;color:#15803d;">Approved</span>
+                        {% elif purchase.status == 'PENDING' %}
+                            <span class="badge" style="background:#fef9c3;color:#854d0e;">Pending</span>
+                        {% else %}
+                            <span class="badge" style="background:#fee2e2;color:#b91c1c;">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
+                            {% if purchase.status == 'PENDING' %}
+                            <a href="{% url 'purchase_request_approve' purchase.id %}" class="action-btn edit" style="background:#dcfce7;color:#15803d;" title="Approve">
+                                <i class="ph-bold ph-check"></i>
+                            </a>
+                            <a href="{% url 'purchase_request_reject' purchase.id %}" class="action-btn delete" style="background:#fee2e2;color:#b91c1c;" title="Reject">
+                                <i class="ph-bold ph-x"></i>
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'purchase_request_edit' purchase.id %}" class="action-btn edit" title="Edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'purchase_request_delete' purchase.id %}" onclick="return confirm('Delete this purchase request?')" class="action-btn delete" title="Delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" style="text-align:center; padding: 30px; color:#94a3b8;">
+                        No purchase requests recorded.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

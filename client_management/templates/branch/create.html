@@ -62,7 +62,7 @@
         {{ title }}
     </div>
 
-    {% comment %} <!-- General Error Messages -->
+    <!-- General Error Messages -->
     {% if messages %}
         {% for message in messages %}
         <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; display:flex; align-items:center; gap:8px;">
@@ -71,10 +71,14 @@
         {% endfor %}
     {% endif %}
     {% if form.non_field_errors %}
-        <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca;">
-            {{ form.non_field_errors }}
+        <div style="margin-bottom:16px; padding:12px 16px; border-radius:8px; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-weight: 500;">
+            {% for error in form.non_field_errors %}
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph-bold ph-warning-circle"></i> {{ error }}
+                </div>
+            {% endfor %}
         </div>
-    {% endif %} {% endcomment %}
+    {% endif %}
 
     <form method="POST" enctype="multipart/form-data">
         {% csrf_token %}

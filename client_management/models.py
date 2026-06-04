@@ -346,3 +346,23 @@ class StaffLeave(BaseModel):
 
     def __str__(self):
         return f"{self.staff.name} ({self.start_date} to {self.end_date})"
+
+
+class PurchaseRequest(BaseModel):
+    STATUS_CHOICES = (
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    )
+
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='purchase_requests')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='purchase_requests', null=True, blank=True)
+    date = models.DateField()
+    material = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name='purchase_requests')
+    qty = models.DecimalField(max_digits=10, decimal_places=2)
+    requested_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_requests')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    remarks = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.material.item_name} - {self.qty} ({self.date})"

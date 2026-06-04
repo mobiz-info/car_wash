@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Record Purchase Request - Wash Pilot Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Purchase Requests{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container { max-width: 600px; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-package" style="color:#3b82f6;font-size:1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="{{ form.date.id_for_label }}">Date <span style="color:red">*</span></label>
+                {{ form.date }}
+                {% if form.date.errors %}<div class="error-text">{{ form.date.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.material.id_for_label }}">Material (Stock) <span style="color:red">*</span></label>
+                {{ form.material }}
+                {% if form.material.errors %}<div class="error-text">{{ form.material.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.qty.id_for_label }}">Quantity <span style="color:red">*</span></label>
+                {{ form.qty }}
+                {% if form.qty.errors %}<div class="error-text">{{ form.qty.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.remarks.id_for_label }}">Remarks / Notes</label>
+                {{ form.remarks }}
+                {% if form.remarks.errors %}<div class="error-text">{{ form.remarks.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.status.id_for_label }}">Status <span style="color:red">*</span></label>
+                {{ form.status }}
+                {% if form.status.errors %}<div class="error-text">{{ form.status.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'purchase_request_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i>
+                {% if is_edit %}Save Changes{% else %}Submit Request{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

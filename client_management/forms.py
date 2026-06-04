@@ -597,3 +597,33 @@ class StaffLeaveForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             if field_name not in ['start_date', 'end_date', 'reason', 'remarks', 'status']:
                 field.widget.attrs['class'] = 'form-control'
+
+
+class PurchaseRequestForm(forms.ModelForm):
+    class Meta:
+        model = PurchaseRequest
+        fields = ['date', 'material', 'qty', 'status', 'remarks']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'material': forms.Select(attrs={'class': 'form-control'}),
+            'qty': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0.01'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'remarks': forms.Textarea(attrs={'rows': 2, 'class': 'form-control', 'placeholder': 'Enter remarks'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        from django.db.models import Q
+        
+        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
+            company = self.request.user.profile.company
+            stock_qs = Stock.objects.filter(
+                Q(company=company) | Q(company__isnull=True),
+                is_deleted=False
+            )
+            self.fields['material'].queryset = stock_qs.order_by('item_name')
+        
+        for field_name, field in self.fields.items():
+            if field_name not in ['date', 'material', 'qty', 'status', 'remarks']:
+                field.widget.attrs['class'] = 'form-control'

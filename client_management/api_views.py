@@ -165,6 +165,17 @@ def api_dashboard_stats(request):
     today_revenue = today_invoices.aggregate(t=Sum('total'))['t'] or Decimal('0')
     today_collected = today_invoices.aggregate(c=Sum('amount_collected'))['c'] or Decimal('0')
 
+    # Today Net Profit (Revenue - Expense)
+    from master.models import ExpenseEntry
+    today_expenses_qs = ExpenseEntry.objects.filter(expense_date=today, is_deleted=False)
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        today_expenses_qs = today_expenses_qs.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        today_expenses_qs = today_expenses_qs.filter(company=user.profile.company)
+    
+    today_expense = today_expenses_qs.aggregate(e=Sum('amount'))['e'] or Decimal('0')
+    today_net_profit = today_revenue - today_expense
+
     # Total outstanding (all time)
     outstanding_qs = all_invoices.annotate(
         bal=ExpressionWrapper(F('total') - F('amount_collected'), output_field=DecimalField())
@@ -197,6 +208,8 @@ def api_dashboard_stats(request):
         'total_jobs': today_jobs,        # backward compat
         'today_revenue': str(today_revenue),
         'today_collected': str(today_collected),
+        'today_expense': str(today_expense),
+        'today_net_profit': str(today_net_profit),
         'total_outstanding': str(total_outstanding),
         'outstanding_count': outstanding_count,
         'total_customers': customers_qs.count(),
@@ -2211,6 +2224,143 @@ def api_create_staff_leave(request):
             'success': True,
             'message': 'Staff leave recorded successfully',
             'leave_id': str(leave.id)
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_stock_list(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from .models import Stock
+        from django.db.models import Q
+        company = user.profile.company
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        stocks = Stock.objects.filter(
+            Q(company=company) | Q(company__isnull=True),
+            is_deleted=False
+        ).order_by('item_name')
+        
+        stock_list = [{
+            'id': str(s.id),
+            'item_name': s.item_name,
+            'unit': s.unit,
+            'unit_display': s.get_unit_display()
+        } for s in stocks]
+        
+        return JsonResponse({'success': True, 'stocks': stock_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_purchase_requests(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from .models import PurchaseRequest
+        company = user.profile.company
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        role = user.profile.role.name if user.profile.role else None
+        purchases = PurchaseRequest.objects.filter(company=company, is_deleted=False)
+        
+        if role == 'BRANCH_ADMIN' or hasattr(user, 'managed_branch') or (hasattr(user, 'staff_profile') and user.staff_profile):
+            user_branch = None
+            if hasattr(user, 'managed_branch') and user.managed_branch:
+                user_branch = user.managed_branch
+            elif hasattr(user, 'staff_profile') and user.staff_profile and user.staff_profile.branch:
+                user_branch = user.staff_profile.branch
+            
+            if user_branch:
+                purchases = purchases.filter(branch=user_branch)
+                
+        purchase_list = [{
+            'id': str(p.id),
+            'date': str(p.date),
+            'material_id': str(p.material.id),
+            'material_name': p.material.item_name,
+            'unit': p.material.unit,
+            'unit_display': p.material.get_unit_display(),
+            'qty': float(p.qty),
+            'requested_by_name': p.requested_by.username if p.requested_by else 'Unknown',
+            'status': p.status,
+            'remarks': p.remarks or ''
+        } for p in purchases.order_by('-date', '-date_added')]
+        
+        return JsonResponse({'success': True, 'purchase_requests': purchase_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_create_purchase_request(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from .models import Stock, PurchaseRequest
+        from django.shortcuts import get_object_or_404
+        
+        data = json.loads(request.body)
+        date = data.get('date')
+        material_id = data.get('material_id')
+        qty = data.get('qty')
+        remarks = data.get('remarks', '')
+        
+        company = user.profile.company
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        if not date or not material_id or qty is None:
+            return JsonResponse({'success': False, 'message': 'date, material_id, and qty are required'}, status=400)
+            
+        material = get_object_or_404(Stock, id=material_id, is_deleted=False)
+        if material.company and material.company != company:
+            return JsonResponse({'success': False, 'message': 'Permission denied for this stock material'}, status=403)
+            
+        user_branch = None
+        if hasattr(user, 'managed_branch') and user.managed_branch:
+            user_branch = user.managed_branch
+        elif hasattr(user, 'staff_profile') and user.staff_profile and user.staff_profile.branch:
+            user_branch = user.staff_profile.branch
+            
+        purchase = PurchaseRequest.objects.create(
+            auto_id=get_auto_id(PurchaseRequest),
+            creator=user,
+            company=company,
+            branch=user_branch,
+            date=date,
+            material=material,
+            qty=qty,
+            requested_by=user,
+            remarks=remarks,
+            status='PENDING'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Purchase request submitted successfully',
+            'purchase_id': str(purchase.id)
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)

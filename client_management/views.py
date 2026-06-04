@@ -1942,3 +1942,159 @@ def staff_leave_delete(request, id):
     leave.save()
     messages.success(request, "Staff leave deleted successfully")
     return redirect('staff_leave_list')
+
+
+@login_required
+def purchase_request_list(request):
+    from .models import PurchaseRequest
+    from django.core.paginator import Paginator
+    
+    search = request.GET.get('search', '')
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    purchases = PurchaseRequest.objects.filter(is_deleted=False, company=company).order_by('-date')
+    
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        purchases = purchases.filter(branch=request.user.managed_branch)
+    
+    if search:
+        purchases = purchases.filter(material__item_name__icontains=search)
+        
+    paginator = Paginator(purchases, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'purchase_request/list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Purchase Requests',
+    })
+
+
+@login_required
+def purchase_request_create(request):
+    from .forms import PurchaseRequestForm
+    from .models import PurchaseRequest
+    
+    form = PurchaseRequestForm(request.POST or None, request=request)
+    if request.method == 'POST':
+        if form.is_valid():
+            purchase = form.save(commit=False)
+            purchase.auto_id = get_auto_id(PurchaseRequest)
+            purchase.company = request.user.profile.company
+            if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+                purchase.branch = request.user.managed_branch
+            purchase.requested_by = request.user
+            purchase.creator = request.user
+            purchase.save()
+            messages.success(request, "Purchase request submitted successfully")
+            return redirect('purchase_request_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'purchase_request/create.html', {
+        'form': form,
+        'title': 'Submit Purchase Request',
+    })
+
+
+@login_required
+def purchase_request_edit(request, id):
+    from .forms import PurchaseRequestForm
+    from .models import PurchaseRequest
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        purchase = get_object_or_404(PurchaseRequest, id=id, company=company, branch=request.user.managed_branch, is_deleted=False)
+    else:
+        purchase = get_object_or_404(PurchaseRequest, id=id, company=company, is_deleted=False)
+        
+    form = PurchaseRequestForm(request.POST or None, instance=purchase, request=request)
+    if request.method == 'POST':
+        if form.is_valid():
+            p = form.save(commit=False)
+            p.updater = request.user
+            p.save()
+            messages.success(request, "Purchase request updated successfully")
+            return redirect('purchase_request_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+            
+    return render(request, 'purchase_request/create.html', {
+        'form': form,
+        'title': 'Edit Purchase Request',
+        'is_edit': True,
+    })
+
+
+@login_required
+def purchase_request_delete(request, id):
+    from .models import PurchaseRequest
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        purchase = get_object_or_404(PurchaseRequest, id=id, company=company, branch=request.user.managed_branch, is_deleted=False)
+    else:
+        purchase = get_object_or_404(PurchaseRequest, id=id, company=company, is_deleted=False)
+        
+    purchase.is_deleted = True
+    purchase.save()
+    messages.success(request, "Purchase request deleted successfully")
+    return redirect('purchase_request_list')
+
+
+@login_required
+def purchase_request_approve(request, id):
+    from .models import PurchaseRequest
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        purchase = get_object_or_404(PurchaseRequest, id=id, company=company, branch=request.user.managed_branch, is_deleted=False)
+    else:
+        purchase = get_object_or_404(PurchaseRequest, id=id, company=company, is_deleted=False)
+        
+    purchase.status = 'APPROVED'
+    purchase.save()
+    messages.success(request, "Purchase request approved successfully.")
+    return redirect('purchase_request_list')
+
+
+@login_required
+def purchase_request_reject(request, id):
+    from .models import PurchaseRequest
+    
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+        
+    if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        purchase = get_object_or_404(PurchaseRequest, id=id, company=company, branch=request.user.managed_branch, is_deleted=False)
+    else:
+        purchase = get_object_or_404(PurchaseRequest, id=id, company=company, is_deleted=False)
+        
+    purchase.status = 'REJECTED'
+    purchase.save()
+    messages.success(request, "Purchase request rejected successfully.")
+    return redirect('purchase_request_list')
