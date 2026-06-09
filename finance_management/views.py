@@ -8,6 +8,9 @@ from decimal import Decimal
 from django.core.paginator import Paginator
 from datetime import datetime
 from django.utils import timezone
+from django.db.models import DecimalField, Value
+from django.db.models.functions import Coalesce, TruncDate
+
 
 from core.functions import get_auto_id, log_activity
 from client_management.api_views import get_user_from_token
@@ -1194,3 +1197,205 @@ def expense_report(request):
     }
 
     return render(request,'reports/expense_report.html',context)
+
+
+@login_required
+def expense_head_report(request):
+
+    role = getattr(
+        getattr(request.user, 'profile', None),
+        'role',
+        None
+    )
+
+    role_name = role.name if role else None
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    branch_id = request.GET.get('branch')
+
+    today = timezone.now().date()
+
+    if not from_date:
+        from_date = today
+
+    if not to_date:
+        to_date = today
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = request.user.profile.company
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+        expenses = ExpenseEntry.objects.filter(
+            company=company,
+            expense_date__gte=from_date,
+            expense_date__lte=to_date,
+            is_deleted=False
+        )
+
+        if branch_id:
+
+            expenses = expenses.filter(
+                branch_id=branch_id
+            )
+
+    else:
+
+        branch = request.user.managed_branch
+
+        branches = None
+
+        expenses = ExpenseEntry.objects.filter(
+            branch=branch,
+            expense_date__gte=from_date,
+            expense_date__lte=to_date,
+            is_deleted=False
+        )
+        
+    expense_head_data = expenses.values(
+        'expense__expense_head__id',
+        'expense__expense_head__name'
+    ).annotate(
+        total_amount=Coalesce(
+        Sum('amount'),
+        Value(0),
+        output_field=DecimalField()
+    )
+    ).order_by(
+        '-total_amount'
+    )
+
+    total_expense = expenses.aggregate(
+        total=Sum('amount')
+    )['total'] or 0
+
+    context = {
+
+        'expense_head_data': expense_head_data,
+        'branches': branches,
+
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+
+        'total_expense': total_expense,
+        'title': 'Expense Head Report'
+    }
+
+    return render(request,'reports/expense_head_report.html',context)
+    
+    
+@login_required
+def expense_head_detail_report(request, pk):
+
+    expense_head = get_object_or_404(
+        ExpenseHead,
+        pk=pk,
+        is_deleted=False
+    )
+
+    role = getattr(
+        getattr(request.user, 'profile', None),
+        'role',
+        None
+    )
+
+    role_name = role.name if role else None
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    branch_id = request.GET.get('branch')
+
+    try:
+        if from_date:
+            from_date = datetime.strptime(
+                from_date,
+                '%Y-%m-%d'
+            ).date()
+    except:
+        from_date = None
+
+    try:
+        if to_date:
+            to_date = datetime.strptime(
+                to_date,
+                '%Y-%m-%d'
+            ).date()
+    except:
+        to_date = None
+
+    expenses = ExpenseEntry.objects.filter(
+        is_deleted=False,
+        expense__expense_head=expense_head
+    ).select_related(
+        'expense',
+        'branch'
+    ).order_by('-expense_date')
+
+    branches = None
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = request.user.profile.company
+
+        expenses = expenses.filter(
+            company=company
+        )
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+    else:
+
+        branch = request.user.managed_branch
+
+        expenses = expenses.filter(
+            branch=branch
+        )
+
+    if from_date:
+
+        expenses = expenses.filter(
+            expense_date__gte=from_date
+        )
+
+    if to_date:
+
+        expenses = expenses.filter(
+            expense_date__lte=to_date
+        )
+
+    if branch_id:
+
+        expenses = expenses.filter(
+            branch_id=branch_id
+        )
+
+    total_expense = expenses.aggregate(
+        total=Sum('amount')
+    )['total'] or 0
+
+    context = {
+
+        'expense_head': expense_head,
+
+        'expenses': expenses,
+
+        'total_expense': total_expense,
+
+        'from_date': from_date,
+        'to_date': to_date,
+
+        'branches': branches,
+        'branch_id': branch_id,
+
+    }
+
+    return render(request,'reports/expense_head_detail_report.html',context)

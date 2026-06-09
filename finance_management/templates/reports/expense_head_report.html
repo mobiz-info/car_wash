@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Expense Report{% endblock %}
-{% block page_title %}Expense Report{% endblock %}
-{% block breadcrumb_active %}Expense Report{% endblock %}
+{% block title %}Expense Head Report{% endblock %}
+{% block page_title %}Expense Head Report{% endblock %}
+{% block breadcrumb_active %}Expense Head Report{% endblock %}
 
 {% block content %}
 
@@ -14,17 +14,19 @@
     gap:24px;
 }
 
+/* FILTER */
+
 .filter-card{
     background:#fff;
     border-radius:18px;
     padding:24px;
-    box-shadow:0 2px 12px rgba(15,23,42,.06);
+    box-shadow:0 4px 20px rgba(15,23,42,.06);
 }
 
 .filter-row{
     display:flex;
-    align-items:end;
     gap:16px;
+    align-items:end;
     flex-wrap:wrap;
 }
 
@@ -36,29 +38,45 @@
 .filter-label{
     font-size:13px;
     font-weight:600;
-    color:#475569;
+    color:#64748b;
     margin-bottom:8px;
     display:block;
 }
 
 .form-control{
     width:100%;
-    height:46px;
+    height:48px;
     border:1px solid #dbe2ea;
     border-radius:12px;
     padding:0 14px;
+    font-size:14px;
+    transition:.2s;
 }
+
+.form-control:focus{
+    border-color:#7c3aed;
+    box-shadow:0 0 0 3px rgba(124,58,237,.12);
+    outline:none;
+}
+
+/* BUTTON */
 
 .btn-filter{
-    height:46px;
-    padding:0 22px;
+    height:48px;
     border:none;
+    padding:0 24px;
     border-radius:12px;
-    background:linear-gradient(135deg,#dc2626,#ef4444);
+    background:linear-gradient(135deg,#7c3aed,#9333ea);
     color:#fff;
     font-weight:600;
+    transition:.3s;
 }
 
+.btn-filter:hover{
+    transform:translateY(-2px);
+}
+
+/* SUMMARY */
 .summary-card{
     background:#fff;
     border-radius:18px;
@@ -96,22 +114,28 @@
     font-size:34px;
 }
 
+/* TABLE */
+
 .table-card{
     background:#fff;
     border-radius:18px;
     overflow:hidden;
-    box-shadow:0 2px 12px rgba(15,23,42,.06);
+    box-shadow:0 4px 20px rgba(15,23,42,.06);
 }
 
 .table-header{
-    padding:20px 24px;
+    padding:22px 24px;
     border-bottom:1px solid #edf2f7;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
 }
 
 .table-title{
+    margin:0;
     font-size:18px;
     font-weight:700;
-    margin:0;
+    color:#0f172a;
 }
 
 .premium-table{
@@ -124,33 +148,65 @@
 }
 
 .premium-table thead th{
-    padding:16px;
-    font-size:12px;
+    padding:18px;
     text-transform:uppercase;
+    font-size:12px;
+    letter-spacing:.4px;
     color:#64748b;
     border-bottom:1px solid #e2e8f0;
 }
 
 .premium-table tbody td{
-    padding:16px;
+    padding:18px;
     border-bottom:1px solid #f1f5f9;
     font-size:14px;
+    color:#334155;
+}
+
+.premium-table tbody tr{
+    transition:.2s;
 }
 
 .premium-table tbody tr:hover{
-    background:#fafafa;
+    background:#faf5ff;
 }
 
 .amount-text{
     font-weight:700;
-    color:#dc2626;
+    color:#059669;
+}
+
+.expense-head{
+    font-weight:700;
+    color:#0f172a;
+}
+
+.btn-view{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 16px;
+    border-radius:10px;
+    background:linear-gradient(135deg,#3b82f6,#2563eb);
+    color:#fff;
+    text-decoration:none;
+    font-size:13px;
+    font-weight:600;
+    transition:.3s;
+}
+
+.btn-view:hover{
+    transform:translateY(-2px);
+    color:#fff;
 }
 
 .empty-row{
     text-align:center;
-    padding:50px !important;
+    padding:60px !important;
     color:#94a3b8;
 }
+
+/* MOBILE */
 
 @media(max-width:768px){
 
@@ -241,36 +297,6 @@
 
                 {% endif %}
 
-                <div class="filter-item">
-
-                    <label class="filter-label">
-                        Expense Head
-                    </label>
-
-                    <select name="expense_head"
-                            class="form-control">
-
-                        <option value="">
-                            All Expense Heads
-                        </option>
-
-                        {% for head in expense_heads %}
-
-                        <option value="{{ head.id }}"
-                        {% if expense_head_id == head.id|stringformat:"s" %}
-                        selected
-                        {% endif %}>
-
-                            {{ head.name }}
-
-                        </option>
-
-                        {% endfor %}
-
-                    </select>
-
-                </div>
-
                 <div>
 
                     <button type="submit"
@@ -291,12 +317,14 @@
     </div>
 
 
+    <!-- SUMMARY -->
+
     <div class="summary-card">
 
         <div>
 
             <div class="summary-title">
-                Total Expense
+                Total Expense Amount
             </div>
 
             <h2 class="summary-value">
@@ -320,9 +348,9 @@
 
         <div class="table-header">
 
-            <h5 class="table-title">
-                Expense Details
-            </h5>
+            <h4 class="table-title">
+                Expense Head Summary
+            </h4>
 
         </div>
 
@@ -335,12 +363,9 @@
                     <tr>
 
                         <th>#</th>
-                        <th>Branch</th>
                         <th>Expense Head</th>
-                        <th>Expense</th>
-                        <th>Amount</th>
-                        <th>Date</th>
-                        <th>Remarks</th>
+                        <th>Total Amount</th>
+                        <th>Action</th>
 
                     </tr>
 
@@ -348,7 +373,7 @@
 
                 <tbody>
 
-                    {% for item in expenses %}
+                    {% for item in expense_head_data %}
 
                     <tr>
 
@@ -356,28 +381,29 @@
                             {{ forloop.counter }}
                         </td>
 
-                        <td>
-                            {{ item.branch.name }}
-                        </td>
+                        <td class="expense-head">
 
-                        <td>
-                            {{ item.expense.expense_head.name }}
-                        </td>
+                            {{ item.expense__expense_head__name }}
 
-                        <td>
-                            {{ item.expense.name }}
                         </td>
 
                         <td class="amount-text">
-                            ₹ {{ item.amount }}
+
+                            ₹ {{ item.total_amount }}
+
                         </td>
 
                         <td>
-                            {{ item.expense_date|date:"d-m-Y" }}
-                        </td>
 
-                        <td>
-                            {{ item.remarks|default:"-" }}
+                            <a href="{% url 'expense_head_detail_report' item.expense__expense_head__id %}?from_date={{ from_date }}&to_date={{ to_date }}"
+                               class="btn-view">
+
+                                <i class="ph ph-eye"></i>
+
+                                View Details
+
+                            </a>
+
                         </td>
 
                     </tr>
@@ -386,10 +412,14 @@
 
                     <tr>
 
-                        <td colspan="7"
+                        <td colspan="4"
                             class="empty-row">
 
-                            No Expense Found
+                            <i class="ph ph-folder-open"
+                               style="font-size:52px; display:block; margin-bottom:12px;">
+                            </i>
+
+                            No Expense Data Found
 
                         </td>
 
