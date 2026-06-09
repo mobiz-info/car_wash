@@ -1168,10 +1168,6 @@ def expense_report(request):
             expense__expense_head_id=expense_head_id
         )
 
-    # =========================
-    # TOTAL
-    # =========================
-
     total_expense = expenses.aggregate(
         total=Sum('amount')
     )['total'] or 0
