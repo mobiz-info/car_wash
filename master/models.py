@@ -70,6 +70,7 @@ class SchemeType(BaseModel):
         
         
 class ExpenseHead(BaseModel):
+    company = models.ForeignKey(Client,on_delete=models.CASCADE)
     name = models.CharField(max_length=150)
 
     def __str__(self):

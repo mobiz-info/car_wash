@@ -467,32 +467,84 @@ def scheme_type_delete(request, id):
 
 @login_required
 def expense_head_list(request):
-    search = request.GET.get('search', '')
-    queryset = ExpenseHead.objects.filter(is_deleted=False)
-    if search:
-        queryset = queryset.filter(name__icontains=search)
-    paginator = Paginator(queryset, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-    return render(request, 'expense_head/list.html', {'page_obj': page_obj, 'search': search})
 
+    company = request.user.profile.company
+
+    search = request.GET.get('search', '')
+
+    queryset = ExpenseHead.objects.filter(
+        company=company,
+        is_deleted=False
+    )
+
+    if search:
+
+        queryset = queryset.filter(
+            name__icontains=search
+        )
+
+    paginator = Paginator(queryset, 10)
+
+    page_obj = paginator.get_page(
+        request.GET.get('page')
+    )
+
+    return render(
+        request,
+        'expense_head/list.html',
+        {
+            'page_obj': page_obj,
+            'search': search
+        }
+    )
 
 @login_required
 def expense_head_create(request):
+
     form = ExpenseHeadForm(request.POST or None)
+
     if request.method == 'POST':
+
         if form.is_valid():
+
             instance = form.save(commit=False)
+
             instance.auto_id = get_auto_id(ExpenseHead)
             instance.creator = request.user
-            instance.save()
-            messages.success(request, "Expense Head created successfully")
-            return redirect('expense_head_list')
-    return render(request, 'expense_head/create.html', {'form': form, 'title': 'Create Expense Head'})
 
+            instance.company = request.user.profile.company
+
+            instance.save()
+
+            messages.success(
+                request,
+                "Expense Head created successfully"
+            )
+
+            return redirect('expense_head_list')
+
+    return render(
+        request,
+        'expense_head/create.html',
+        {
+            'form': form,
+            'title': 'Create Expense Head'
+        }
+    )
 
 @login_required
 def expense_head_edit(request, id):
-    instance = get_object_or_404(ExpenseHead, id=id, is_deleted=False)
+    if request.user.profile.role.name == "COMPANY_ADMIN":
+        company = request.user.profile.company
+    else:
+        company = request.user.managed_branch.company
+
+    instance = get_object_or_404(
+        ExpenseHead,
+        id=id,
+        company=company,
+        is_deleted=False
+    )
     form = ExpenseHeadForm(request.POST or None, instance=instance)
     if request.method == 'POST':
         if form.is_valid():
@@ -506,7 +558,17 @@ def expense_head_edit(request, id):
 
 @login_required
 def expense_head_delete(request, id):
-    instance = get_object_or_404(ExpenseHead, id=id)
+    if request.user.profile.role.name == "COMPANY_ADMIN":
+        company = request.user.profile.company
+    else:
+        company = request.user.managed_branch.company
+
+    instance = get_object_or_404(
+        ExpenseHead,
+        company=company,
+        id=id,
+        is_deleted=False
+    )
     instance.is_deleted = True
     instance.save()
     messages.success(request, "Expense Head deleted successfully")
@@ -569,7 +631,28 @@ def expense_create(request):
     role_name = role.name if role else None
     print("role_name",role_name)
 
+    if role_name == 'COMPANY_ADMIN':
+
+        company = request.user.profile.company
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+    else:
+
+        branch = request.user.managed_branch
+
+        if not branch:
+            messages.error(request, "No branch assigned.")
+            return redirect('dashboard')
+
+        company = branch.company
+
+
     expense_heads = ExpenseHead.objects.filter(
+        company=company,
         is_deleted=False
     )
 
@@ -656,16 +739,38 @@ def expense_create(request):
 @login_required
 def expense_edit(request, pk):
 
-    expense_entry = get_object_or_404(
-        ExpenseEntry,
-        pk=pk,
-        is_deleted=False
-    )
+    if role_name == 'COMPANY_ADMIN':
+
+        expense_entry = get_object_or_404(
+            ExpenseEntry,
+            pk=pk,
+            company=request.user.profile.company,
+            is_deleted=False
+        )
+
+    else:
+
+        expense_entry = get_object_or_404(
+            ExpenseEntry,
+            pk=pk,
+            branch=request.user.managed_branch,
+            is_deleted=False
+        )
 
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
 
+    if role_name == 'COMPANY_ADMIN':
+
+        company = request.user.profile.company
+
+    else:
+
+        company = request.user.managed_branch.company
+
+
     expense_heads = ExpenseHead.objects.filter(
+        company=company,
         is_deleted=False
     )
 
@@ -784,11 +889,23 @@ def expense_edit(request, pk):
 @login_required
 def expense_delete(request, pk):
 
-    expense = get_object_or_404(
-        ExpenseEntry,
-        pk=pk,
-        is_deleted=False
-    )
+    if role_name == 'COMPANY_ADMIN':
+
+        expense = get_object_or_404(
+            ExpenseEntry,
+            pk=pk,
+            company=request.user.profile.company,
+            is_deleted=False
+        )
+
+    else:
+
+        expense = get_object_or_404(
+            ExpenseEntry,
+            pk=pk,
+            branch=request.user.managed_branch,
+            is_deleted=False
+        )
 
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
