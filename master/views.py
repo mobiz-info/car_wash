@@ -472,10 +472,25 @@ def expense_head_list(request):
 
     search = request.GET.get('search', '')
 
-    queryset = ExpenseHead.objects.filter(
-        company=company,
-        is_deleted=False
-    )
+    from django.db.models import Q
+
+    role_name = request.user.profile.role.name
+
+    if role_name == "SUPER_ADMIN":
+
+        queryset = ExpenseHead.objects.filter(
+            is_deleted=False,company=None
+        )
+
+    else:
+
+        company = request.user.profile.company
+
+        queryset = ExpenseHead.objects.filter(
+            Q(company=company) |
+            Q(company__isnull=True),
+            is_deleted=False
+        )
 
     if search:
 
@@ -512,7 +527,13 @@ def expense_head_create(request):
             instance.auto_id = get_auto_id(ExpenseHead)
             instance.creator = request.user
 
-            instance.company = request.user.profile.company
+            if request.user.profile.role.name == "SUPER_ADMIN":
+
+                instance.company = None
+
+            else:
+
+                instance.company = request.user.profile.company
 
             instance.save()
 
@@ -534,45 +555,102 @@ def expense_head_create(request):
 
 @login_required
 def expense_head_edit(request, id):
-    if request.user.profile.role.name == "COMPANY_ADMIN":
-        company = request.user.profile.company
+
+    role_name = request.user.profile.role.name
+
+    if role_name == "SUPER_ADMIN":
+
+        instance = get_object_or_404(
+            ExpenseHead,
+            id=id,
+            is_deleted=False
+        )
+
     else:
-        company = request.user.managed_branch.company
 
-    instance = get_object_or_404(
-        ExpenseHead,
-        id=id,
-        company=company,
-        is_deleted=False
+        company = request.user.profile.company
+
+        instance = get_object_or_404(
+            ExpenseHead,
+            id=id,
+            company=company,
+            is_deleted=False
+        )
+
+    form = ExpenseHeadForm(
+        request.POST or None,
+        instance=instance
     )
-    form = ExpenseHeadForm(request.POST or None, instance=instance)
-    if request.method == 'POST':
-        if form.is_valid():
-            instance = form.save(commit=False)
-            instance.updater = request.user
-            instance.save()
-            messages.success(request, "Expense Head updated successfully")
-            return redirect('expense_head_list')
-    return render(request, 'expense_head/create.html', {'form': form, 'title': 'Edit Expense Head'})
+    if not request.user.is_superuser and instance.company is None:
+        messages.error(request, "You cannot edit system expense heads.")
+        return redirect('expense_head_list')
+    if request.method == "POST":
 
+        if form.is_valid():
+
+            obj = form.save(commit=False)
+
+            obj.updater = request.user
+
+            # Don't change company for global heads
+            if role_name != "SUPER_ADMIN":
+                obj.company = company
+
+            obj.save()
+
+            messages.success(
+                request,
+                "Expense Head updated successfully"
+            )
+
+            return redirect("expense_head_list")
+
+    return render(
+        request,
+        "expense_head/create.html",
+        {
+            "form": form,
+            "title": "Edit Expense Head"
+        }
+    )
 
 @login_required
 def expense_head_delete(request, id):
-    if request.user.profile.role.name == "COMPANY_ADMIN":
-        company = request.user.profile.company
-    else:
-        company = request.user.managed_branch.company
 
-    instance = get_object_or_404(
-        ExpenseHead,
-        company=company,
-        id=id,
-        is_deleted=False
-    )
+    role_name = request.user.profile.role.name
+
+    if role_name == "SUPER_ADMIN":
+
+        instance = get_object_or_404(
+            ExpenseHead,
+            id=id,
+            is_deleted=False
+        )
+
+    else:
+
+        company = request.user.profile.company
+
+        instance = get_object_or_404(
+            ExpenseHead,
+            id=id,
+            company=company,
+            is_deleted=False
+        )
+
     instance.is_deleted = True
     instance.save()
-    messages.success(request, "Expense Head deleted successfully")
-    return redirect('expense_head_list')
+    
+    if not request.user.is_superuser and instance.company is None:
+        messages.error(request, "You cannot delete system expense heads.")
+        return redirect('expense_head_list')
+    
+    messages.success(
+        request,
+        "Expense Head deleted successfully"
+    )
+
+    return redirect("expense_head_list")
 
 
 @login_required
@@ -651,10 +729,13 @@ def expense_create(request):
         company = branch.company
 
 
+    from django.db.models import Q
+
     expense_heads = ExpenseHead.objects.filter(
-        company=company,
+        Q(company=company) |
+        Q(company__isnull=True),
         is_deleted=False
-    )
+    ).order_by('name')
 
     expenses = Expense.objects.filter(
         is_deleted=False
@@ -786,9 +867,10 @@ def expense_edit(request, pk):
 
 
     expense_heads = ExpenseHead.objects.filter(
-        company=company,
+        Q(company=company) |
+        Q(company__isnull=True),
         is_deleted=False
-    )
+    ).order_by('name')
 
     branches = None
     branch = None

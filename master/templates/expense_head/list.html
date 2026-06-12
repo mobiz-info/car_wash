@@ -44,12 +44,43 @@
                     <td style="font-weight:600; color:#1e293b;">{{ obj.name }}</td>
                     <td style="text-align:right;">
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
-                            <a href="{% url 'expense_head_edit' obj.pk %}" class="action-btn edit">
-                                <i class="ph ph-pencil-simple"></i>
-                            </a>
-                            <a href="{% url 'expense_head_delete' obj.pk %}" onclick="return confirm('Delete this Expense Head?')" class="action-btn delete">
-                                <i class="ph ph-trash"></i>
-                            </a>
+
+                            {% if request.user.is_superuser %}
+
+                                <a href="{% url 'expense_head_edit' obj.pk %}" class="action-btn edit">
+                                    <i class="ph ph-pencil-simple"></i>
+                                </a>
+
+                                <a href="{% url 'expense_head_delete' obj.pk %}"
+                                onclick="return confirm('Delete this Expense Head?')"
+                                class="action-btn delete">
+                                    <i class="ph ph-trash"></i>
+                                </a>
+
+                            {% else %}
+
+                                {% if obj.company %}
+
+                                    <a href="{% url 'expense_head_edit' obj.pk %}" class="action-btn edit">
+                                        <i class="ph ph-pencil-simple"></i>
+                                    </a>
+
+                                    <a href="{% url 'expense_head_delete' obj.pk %}"
+                                    onclick="return confirm('Delete this Expense Head?')"
+                                    class="action-btn delete">
+                                        <i class="ph ph-trash"></i>
+                                    </a>
+
+                                {% else %}
+
+                                    <span class="badge bg-secondary">
+                                        
+                                    </span>
+
+                                {% endif %}
+
+                            {% endif %}
+
                         </div>
                     </td>
                 </tr>

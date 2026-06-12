@@ -1173,6 +1173,7 @@ def expense_report(request):
     )['total'] or 0
 
     expense_heads = ExpenseHead.objects.filter(
+        company=company,
         is_deleted=False
     )
 
@@ -1289,12 +1290,6 @@ def expense_head_report(request):
 @login_required
 def expense_head_detail_report(request, pk):
 
-    expense_head = get_object_or_404(
-        ExpenseHead,
-        pk=pk,
-        is_deleted=False
-    )
-
     role = getattr(
         getattr(request.user, 'profile', None),
         'role',
@@ -1303,6 +1298,23 @@ def expense_head_detail_report(request, pk):
 
     role_name = role.name if role else None
 
+    if role_name == 'COMPANY_ADMIN':
+
+        company = request.user.profile.company
+
+    else:
+
+        branch = request.user.managed_branch
+        company = branch.company
+
+    expense_head = get_object_or_404(
+        ExpenseHead,
+        pk=pk,
+        company=company,
+        is_deleted=False
+    )
+
+   
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
     branch_id = request.GET.get('branch')

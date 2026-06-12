@@ -908,7 +908,7 @@
             </div>
 
             <!-- Expense Management -->
-            {% comment %} <div class="nav-item dropdown-toggle">
+            <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
                     <i class="ph ph-wrench"></i>
                     Expense
@@ -917,10 +917,10 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'expense_head_list' %}" class="nav-item submenu-item">Expense Head</a>
-                <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense</a>
+                {% comment %} <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense</a> {% endcomment %}
                 <!-- <a href="#" class="nav-item submenu-item">Packages</a>
                 <a href="#" class="nav-item submenu-item">Add-ons</a> -->
-            </div> {% endcomment %}
+            </div> 
 
             <!-- Vehicle Management -->
             <div class="nav-item dropdown-toggle">
