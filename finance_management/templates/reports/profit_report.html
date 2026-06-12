@@ -14,6 +14,9 @@
 }
 
 .report-title{
+    margin:0;
+}
+.report-title{
     font-size:28px;
     font-weight:700;
     color:#1e293b;
@@ -149,11 +152,13 @@
 </style>
 
 <div class="report-header">
+    <h2 class="report-title"></h2>
 
-    {% comment %} <a href="{% url 'profit_report_pdf' %}?from_date={{ from_date }}&to_date={{ to_date }}&branch={{ branch_id }}"
+    <a href="{% url 'profit_report_pdf' %}?from_date={{ from_date }}&to_date={{ to_date }}&branch={{ branch_id }}"
+       target="_blank"
        class="pdf-btn">
         Export PDF
-    </a> {% endcomment %}
+    </a>
 </div>
 
 <div class="filter-card">

@@ -10,6 +10,9 @@ from datetime import datetime
 from django.utils import timezone
 from django.db.models import DecimalField, Value
 from django.db.models.functions import Coalesce, TruncDate
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+from weasyprint import HTML
 
 
 from core.functions import get_auto_id, log_activity
@@ -1075,6 +1078,135 @@ def profit_report(request):
         'reports/profit_report.html',
         context
     )
+    
+
+@login_required
+def profit_report_pdf(request):
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    branch_id = request.GET.get('branch')
+
+    income_rows = []
+    expense_rows = []
+
+    total_income = 0
+    total_expense = 0
+    net_profit = 0
+
+    role = request.user.profile.role.name if request.user.profile.role else None
+
+    branches = Branch.objects.filter(is_deleted=False)
+    print("companny",request.user.profile.company)
+
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        branches = branches.filter(
+            id=request.user.managed_branch.id
+        )
+
+    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+        branches = branches.filter(
+            company=request.user.profile.company
+        )
+
+    invoice_filter = {
+        'invoice__is_deleted': False,
+    }
+
+    expense_filter = {
+        'is_deleted': False,
+    }
+
+    if from_date:
+        invoice_filter['invoice__date__gte'] = from_date
+        expense_filter['expense_date__gte'] = from_date
+
+    if to_date:
+        invoice_filter['invoice__date__lte'] = to_date
+        expense_filter['expense_date__lte'] = to_date
+
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+        invoice_filter['invoice__branch'] = request.user.managed_branch
+        expense_filter['branch'] = request.user.managed_branch
+
+    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+        invoice_filter['invoice__branch__company'] = request.user.profile.company
+        expense_filter['branch__company'] = request.user.profile.company
+
+    if branch_id and branches.filter(id=branch_id).exists():
+
+        invoice_filter['invoice__branch_id'] = branch_id
+        expense_filter['branch_id'] = branch_id
+
+    income_rows = (
+        InvoiceItem.objects
+        .filter(**invoice_filter)
+        .values('service_name')
+        .annotate(
+            amount=Sum(F('rate') - F('discount'))
+        )
+        .order_by('-amount')
+    )
+
+    total_income = sum(
+        float(item['amount'] or 0)
+        for item in income_rows
+    )
+
+    expense_rows = (
+        ExpenseEntry.objects
+        .filter(**expense_filter)
+        .values(
+            'expense__expense_head__name'
+        )
+        .annotate(
+            amount=Sum('amount')
+        )
+        .order_by('-amount')
+    )
+
+    total_expense = sum(
+        float(item['amount'] or 0)
+        for item in expense_rows
+    )
+
+    net_profit = total_income - total_expense
+
+    context = {
+        'from_date': from_date,
+        'to_date': to_date,
+        'income_rows': income_rows,
+        'expense_rows': expense_rows,
+        'total_income': total_income,
+        'total_expense': total_expense,
+        'net_profit': net_profit,
+        "company": request.user.profile.company,
+    }
+
+    html_string = render_to_string(
+        'reports/profit_report_pdf.html',
+        context
+    )
+
+    html = HTML(
+        string=html_string,
+        base_url=request.build_absolute_uri('/')
+    )
+
+    pdf = html.write_pdf()
+
+    response = HttpResponse(
+        pdf,
+        content_type='application/pdf'
+    )
+
+    response['Content-Disposition'] = (
+        'inline; filename="profit_report.pdf"'
+    )
+
+    return response
 
 @login_required
 def expense_report(request):
