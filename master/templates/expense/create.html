@@ -148,16 +148,18 @@ textarea.form-control {
                 <div class="form-group">
 
                     <label>
-                        Expense
+                        Expense Name
                         <span style="color:red;">*</span>
                     </label>
 
-                    <input type="text"
-                        name="expense_name"
-                        class="form-control"
-                        placeholder="Enter Expense Name"
-                        value="{{ expense_entry.expense.name }}"
-                        required>
+                    <div id="expense_name_container">
+                        <input type="text"
+                            name="expense_name"
+                            class="form-control"
+                            placeholder="Enter Expense Name"
+                            value="{{ expense_entry.expense.name }}"
+                            required>
+                    </div>
 
                 </div>
 
@@ -243,5 +245,120 @@ textarea.form-control {
     </form>
 
 </div>
+
+<script>
+    const stocks = [
+        {% for stock in stocks %}
+        {
+            "id": "{{ stock.id|escapejs }}",
+            "name": "{{ stock.item_name|escapejs }}",
+            "expense_head_id": "{{ stock.expense_head.id|escapejs }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const staffs = [
+        {% for staff in staffs %}
+        {
+            "id": "{{ staff.id|escapejs }}",
+            "name": "{{ staff.name|escapejs }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    const initialExpenseName = "{{ expense_entry.expense.name|escapejs }}";
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const expenseHeadSelect = document.getElementById('expense_head');
+        const expenseNameContainer = document.getElementById('expense_name_container');
+        
+        function updateExpenseNameField() {
+            const selectedHeadId = expenseHeadSelect.value;
+            const selectedHeadText = expenseHeadSelect.options[expenseHeadSelect.selectedIndex]?.text || '';
+            
+            // Clear container first
+            expenseNameContainer.innerHTML = '';
+            
+            if (!selectedHeadId) {
+                // No head selected, show disabled text input
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = 'expense_name';
+                input.className = 'form-control';
+                input.placeholder = 'Select Expense Head first';
+                input.disabled = true;
+                input.required = true;
+                expenseNameContainer.appendChild(input);
+                return;
+            }
+            
+            // 1. If Salary
+            if (selectedHeadText.toLowerCase().trim() === 'salary' || selectedHeadText.toLowerCase().includes('salary')) {
+                const select = document.createElement('select');
+                select.name = 'expense_name';
+                select.className = 'form-control';
+                select.required = true;
+                
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = 'Select Employee';
+                select.appendChild(defaultOpt);
+                
+                staffs.forEach(staff => {
+                    const opt = document.createElement('option');
+                    opt.value = staff.name;
+                    opt.textContent = staff.name;
+                    if (staff.name === initialExpenseName) {
+                        opt.selected = true;
+                    }
+                    select.appendChild(opt);
+                });
+                
+                expenseNameContainer.appendChild(select);
+            }
+            // 2. Filter stocks by expense_head_id
+            else {
+                const filteredStocks = stocks.filter(stock => stock.expense_head_id === selectedHeadId);
+                
+                if (filteredStocks.length > 0) {
+                    const select = document.createElement('select');
+                    select.name = 'expense_name';
+                    select.className = 'form-control';
+                    select.required = true;
+                    
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = '';
+                    defaultOpt.textContent = 'Select Stock Item';
+                    select.appendChild(defaultOpt);
+                    
+                    filteredStocks.forEach(stock => {
+                        const opt = document.createElement('option');
+                        opt.value = stock.name;
+                        opt.textContent = stock.name;
+                        if (stock.name === initialExpenseName) {
+                            opt.selected = true;
+                        }
+                        select.appendChild(opt);
+                    });
+                    
+                    expenseNameContainer.appendChild(select);
+                } else {
+                    // 3. Fallback to text input
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.name = 'expense_name';
+                    input.className = 'form-control';
+                    input.placeholder = 'Enter Expense Name';
+                    input.value = initialExpenseName;
+                    input.required = true;
+                    expenseNameContainer.appendChild(input);
+                }
+            }
+        }
+        
+        expenseHeadSelect.addEventListener('change', updateExpenseNameField);
+        updateExpenseNameField();
+    });
+</script>
 
 {% endblock %}

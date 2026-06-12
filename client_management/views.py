@@ -1764,7 +1764,7 @@ def stock_create(request):
         messages.error(request, "You do not have permission to access Stock Management.")
         return redirect('dashboard')
 
-    form = StockForm(request.POST or None)
+    form = StockForm(request.POST or None, request=request)
     if request.method == 'POST':
         if form.is_valid():
             stock = form.save(commit=False)
@@ -1798,7 +1798,7 @@ def stock_edit(request, id):
         company = request.user.profile.company
         stock = get_object_or_404(Stock, id=id, company=company, is_deleted=False)
 
-    form = StockForm(request.POST or None, instance=stock)
+    form = StockForm(request.POST or None, instance=stock, request=request)
     if request.method == 'POST':
         if form.is_valid():
             s = form.save(commit=False)

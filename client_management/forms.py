@@ -559,13 +559,24 @@ class WhatsAppTemplateForm(forms.ModelForm):
 class StockForm(forms.ModelForm):
     class Meta:
         model = Stock
-        fields = ['item_name', 'unit']
+        fields = ['item_name', 'unit', 'expense_head']
 
     def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
+        
+        # Filter expense head queryset by company
+        from master.models import ExpenseHead
+        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
+            company = self.request.user.profile.company
+            self.fields['expense_head'].queryset = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
+        else:
+            self.fields['expense_head'].queryset = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
+
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = 'form-control'
-            field.widget.attrs['placeholder'] = f"Enter {field.label}"
+            if field_name != 'expense_head':
+                field.widget.attrs['placeholder'] = f"Enter {field.label}"
 
 
 from .models import StaffLeave

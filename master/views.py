@@ -725,10 +725,26 @@ def expense_create(request):
         messages.success(request, "Expense Created Successfully")
         return redirect('expense_list')
 
+    from client_management.models import Stock, Staff
+    from django.db.models import Q
+    stocks = Stock.objects.filter(
+        Q(company=company) | Q(company__isnull=True),
+        is_deleted=False
+    ).select_related('expense_head')
+
+    staffs = Staff.objects.filter(
+        company=company,
+        is_deleted=False
+    )
+    if branch:
+        staffs = staffs.filter(branch=branch)
+
     context = {
         'expense_heads': expense_heads,
         'expenses': expenses,
         'branches': branches,
+        'stocks': stocks,
+        'staffs': staffs,
         'role_name': role_name,
         'title': 'Expense Create'
     }
@@ -871,10 +887,26 @@ def expense_edit(request, pk):
 
         return redirect('expense_list')
 
+    from client_management.models import Stock, Staff
+    from django.db.models import Q
+    stocks = Stock.objects.filter(
+        Q(company=company) | Q(company__isnull=True),
+        is_deleted=False
+    ).select_related('expense_head')
+
+    staffs = Staff.objects.filter(
+        company=company,
+        is_deleted=False
+    )
+    if branch:
+        staffs = staffs.filter(branch=branch)
+
     context = {
         'expense_entry': expense_entry,
         'expense_heads': expense_heads,
         'branches': branches,
+        'stocks': stocks,
+        'staffs': staffs,
         'role_name': role_name,
         'title': 'Expense Update'
     }

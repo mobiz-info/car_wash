@@ -36,6 +36,12 @@
                 {{ form.unit }}
                 {% if form.unit.errors %}<div class="error-text">{{ form.unit.errors.0 }}</div>{% endif %}
             </div>
+
+            <div class="form-group">
+                <label for="{{ form.expense_head.id_for_label }}">Expense Head</label>
+                {{ form.expense_head }}
+                {% if form.expense_head.errors %}<div class="error-text">{{ form.expense_head.errors.0 }}</div>{% endif %}
+            </div>
         </div>
 
         <div class="form-actions">

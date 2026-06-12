@@ -51,6 +51,7 @@
                     <th>#</th>
                     <th>Item Name</th>
                     <th>Unit</th>
+                    <th>Expense Head</th>
                     <th>Scope</th>
                     <th style="text-align:right;">Actions</th>
                 </tr>
@@ -71,6 +72,14 @@
 
                     <td>
                         <span style="font-weight:500; color:#475569;">{{ stock.get_unit_display }}</span>
+                    </td>
+
+                    <td>
+                        {% if stock.expense_head %}
+                            <span style="font-weight:500; color:#475569;">{{ stock.expense_head.name }}</span>
+                        {% else %}
+                            <span style="font-weight:400; color:#94a3b8; font-style:italic;">None</span>
+                        {% endif %}
                     </td>
 
                     <td>
@@ -107,7 +116,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" style="text-align:center; padding: 30px; color:#94a3b8;">
+                    <td colspan="6" style="text-align:center; padding: 30px; color:#94a3b8;">
                         No stock items found.
                     </td>
                 </tr>

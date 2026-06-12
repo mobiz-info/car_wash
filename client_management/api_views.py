@@ -2161,7 +2161,11 @@ def api_get_expense_heads(request):
         
     try:
         from master.models import ExpenseHead
-        heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company:
+            heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
+        else:
+            heads = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
         head_list = [{'id': str(h.id), 'name': h.name} for h in heads]
         return JsonResponse({'success': True, 'expense_heads': head_list})
     except Exception as e:
@@ -2410,13 +2414,15 @@ def api_get_stock_list(request):
         stocks = Stock.objects.filter(
             Q(company=company) | Q(company__isnull=True),
             is_deleted=False
-        ).order_by('item_name')
+        ).select_related('expense_head').order_by('item_name')
         
         stock_list = [{
             'id': str(s.id),
             'item_name': s.item_name,
             'unit': s.unit,
-            'unit_display': s.get_unit_display()
+            'unit_display': s.get_unit_display(),
+            'expense_head_id': str(s.expense_head.id) if s.expense_head else None,
+            'expense_head_name': s.expense_head.name if s.expense_head else None,
         } for s in stocks]
         
         return JsonResponse({'success': True, 'stocks': stock_list})
@@ -2591,6 +2597,7 @@ def api_create_stock(request):
         data = json.loads(request.body)
         item_name = data.get('item_name', '').strip()
         unit = data.get('unit', '').strip()
+        expense_head_id = data.get('expense_head_id')
         
         if not item_name or not unit:
             return JsonResponse({'success': False, 'message': 'item_name and unit are required'}, status=400)
@@ -2602,10 +2609,16 @@ def api_create_stock(request):
         if Stock.objects.filter(company=company, item_name__iexact=item_name, is_deleted=False).exists():
             return JsonResponse({'success': False, 'message': 'Stock item already exists'}, status=400)
             
+        expense_head = None
+        if expense_head_id:
+            from master.models import ExpenseHead
+            expense_head = get_object_or_404(ExpenseHead, id=expense_head_id, company=company, is_deleted=False)
+            
         stock = Stock.objects.create(
             company=company,
             item_name=item_name,
             unit=unit,
+            expense_head=expense_head,
             auto_id=get_auto_id(Stock),
             creator=user
         )
@@ -2616,7 +2629,9 @@ def api_create_stock(request):
                 'id': str(stock.id),
                 'item_name': stock.item_name,
                 'unit': stock.unit,
-                'unit_display': stock.get_unit_display()
+                'unit_display': stock.get_unit_display(),
+                'expense_head_id': str(stock.expense_head.id) if stock.expense_head else None,
+                'expense_head_name': stock.expense_head.name if stock.expense_head else None,
             }
         })
     except Exception as e:
@@ -2649,7 +2664,7 @@ def api_report_expense_head_wise(request):
         **scope
     ).select_related('expense__expense_head')
 
-    heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
+    heads = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
     
     rows = []
     total_all = 0.0
@@ -2726,7 +2741,7 @@ def api_report_profit_loss(request):
         **scope
     ).select_related('expense__expense_head')
 
-    heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
+    heads = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
     expense_rows = []
     total_expense = 0.0
 
