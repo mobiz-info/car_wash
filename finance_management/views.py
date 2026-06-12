@@ -14,7 +14,7 @@ from django.db.models.functions import Coalesce, TruncDate
 
 from core.functions import get_auto_id, log_activity
 from client_management.api_views import get_user_from_token
-from .models import Invoice, Receipt
+from .models import Invoice, Receipt, InvoiceItem
 from booking_management.models import Booking
 from client_management.models import Branch
 from service_management.models import ServiceType
@@ -954,134 +954,127 @@ def cancellation_report(request):
 @login_required
 def profit_report(request):
 
-    role = getattr(
-        getattr(request.user, 'profile', None),
-        'role',
-        None
-    )
-
-    role_name = role.name if role else None
-
     from_date = request.GET.get('from_date')
-
     to_date = request.GET.get('to_date')
-
     branch_id = request.GET.get('branch')
 
-    if not from_date:
-        from_date = datetime.today().date()
+    income_rows = []
+    expense_rows = []
 
-    if not to_date:
-        to_date = datetime.today().date()
+    total_income = 0
+    total_expense = 0
+    net_profit = 0
 
-    if role_name == 'COMPANY_ADMIN':
+    role = request.user.profile.role.name if request.user.profile.role else None
 
-        company = getattr(
-            request.user.profile,
-            'company',
-            None
+    branches = Branch.objects.filter(is_deleted=False)
+
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+        branches = branches.filter(
+            id=request.user.managed_branch.id
         )
 
-        branches = Branch.objects.filter(
-            company=company,
-            is_deleted=False
+    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+        branches = branches.filter(
+            company=request.user.profile.company
         )
 
-        receipts = Receipt.objects.filter(
-            invoice__branch__company=company,
-            created_at__date__gte=from_date,
-            created_at__date__lte=to_date,
-            is_deleted=False
-        )
+    if from_date and to_date:
 
-        expenses = ExpenseEntry.objects.filter(
-            company=company,
-            expense_date__gte=from_date,
-            expense_date__lte=to_date,
-            is_deleted=False
-        )
+        invoice_filter = {
+            'invoice__is_deleted': False,
+            'invoice__date__gte': from_date,
+            'invoice__date__lte': to_date,
+        }
 
-        invoices = Invoice.objects.filter(
-            branch__company=company,
-            date__gte=from_date,
-            date__lte=to_date,
-            is_deleted=False
-        )
+        expense_filter = {
+            'is_deleted': False,
+            'expense_date__gte': from_date,
+            'expense_date__lte': to_date,
+        }
+
+        if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+
+            invoice_filter['invoice__branch'] = (
+                request.user.managed_branch
+            )
+
+            expense_filter['branch'] = (
+                request.user.managed_branch
+            )
+
+        elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+
+            invoice_filter['invoice__branch__company'] = (
+                request.user.profile.company
+            )
+
+            expense_filter['branch__company'] = (
+                request.user.profile.company
+            )
 
         if branch_id:
 
-            receipts = receipts.filter(
-                invoice__branch_id=branch_id
+            if branches.filter(id=branch_id).exists():
+
+                invoice_filter['invoice__branch_id'] = branch_id
+                expense_filter['branch_id'] = branch_id
+
+        income_rows = (
+            InvoiceItem.objects
+            .filter(**invoice_filter)
+            .values('service_name')
+            .annotate(
+                amount=Sum(
+                    F('rate') - F('discount')
+                )
             )
+            .order_by('-amount')
+        )
 
-            expenses = expenses.filter(
-                branch_id=branch_id
+        total_income = sum(
+            float(item['amount'] or 0)
+            for item in income_rows
+        )
+        
+        expense_rows = (
+            ExpenseEntry.objects
+            .filter(**expense_filter)
+            .values(
+                'expense__expense_head__name'
             )
-
-            invoices = invoices.filter(
-                branch_id=branch_id
+            .annotate(
+                amount=Sum('amount')
             )
-
-    else:
-
-        branch = getattr(
-            request.user,
-            'managed_branch',
-            None
+            .order_by('-amount')
         )
 
-        branches = None
-
-        receipts = Receipt.objects.filter(
-            invoice__branch=branch,
-            created_at__date__gte=from_date,
-            created_at__date__lte=to_date,
-            is_deleted=False
+        total_expense = sum(
+            float(item['amount'] or 0)
+            for item in expense_rows
         )
 
-        expenses = ExpenseEntry.objects.filter(
-            branch=branch,
-            expense_date__gte=from_date,
-            expense_date__lte=to_date,
-            is_deleted=False
-        )
-
-        invoices = Invoice.objects.filter(
-            branch=branch,
-            date__gte=from_date,
-            date__lte=to_date,
-            is_deleted=False
-        )
-
-    total_sales = invoices.aggregate(
-        total=Sum('total')
-    )['total'] or 0
-
-    total_collection = receipts.aggregate(
-        total=Sum('amount')
-    )['total'] or 0
-
-    total_expense = expenses.aggregate(
-        total=Sum('amount')
-    )['total'] or 0
-
-    net_profit = total_collection - total_expense
+        net_profit = total_income - total_expense
 
     context = {
-        'receipts': receipts,
-        'expenses': expenses,
         'branches': branches,
+        'branch_id': branch_id,
         'from_date': from_date,
         'to_date': to_date,
-        'branch_id': branch_id,
-        'total_sales': total_sales,
-        'total_collection': total_collection,
+        'income_rows': income_rows,
+        'expense_rows': expense_rows,
+        'total_income': total_income,
         'total_expense': total_expense,
         'net_profit': net_profit,
-        'title': 'Profit Report'
     }
 
-    return render(request,'reports/profit_report.html',context)
+    return render(
+        request,
+        'reports/profit_report.html',
+        context
+    )
 
 @login_required
 def expense_report(request):
