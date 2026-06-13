@@ -23,6 +23,7 @@ urlpatterns = [
     path('cancellation-report/',views.cancellation_report,name='cancellation_report'),
     
     path('profit-report/',views.profit_report,name='profit_report'),
+    path('reports/profit-report/pdf/',views.profit_report_pdf,name='profit_report_pdf'),
     path('expense-report/',views.expense_report,name='expense_report'),
     path('expense-head-report/',views.expense_head_report,name='expense_head_report'),
     path('expense-head-detail/<uuid:pk>/',views.expense_head_detail_report,name='expense_head_detail_report'),
