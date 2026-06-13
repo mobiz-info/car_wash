@@ -289,21 +289,47 @@ class Complaint(BaseModel):
 
 class WhatsAppSetting(BaseModel):
     company = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='whatsapp_setting')
-    username = models.CharField(max_length=150)
-    password = models.CharField(max_length=150)
-    whatsapp_number = models.CharField(max_length=30)
+    url = models.CharField(max_length=500, blank=True, null=True)
+    username = models.CharField(max_length=150, blank=True, null=True)
+    password = models.CharField(max_length=150, blank=True, null=True)
+    sender_id = models.CharField(max_length=100, blank=True, null=True)
+    whatsapp_number = models.CharField(max_length=30, blank=True, null=True)
 
     def __str__(self):
         return f"WhatsApp Setting - {self.company.company_name}"
 
 
+class WhatsAppType(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='whatsapp_types')
+    name = models.CharField(max_length=100)
+    account = models.CharField(max_length=150, blank=True, null=True)
+    message_type = models.CharField(max_length=100, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.company.company_name}"
+
+
 class WhatsAppTemplate(BaseModel):
     company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='whatsapp_templates')
+    whatsapp_type = models.ForeignKey(WhatsAppType, on_delete=models.SET_NULL, null=True, blank=True, related_name='templates')
     template_name = models.CharField(max_length=200)
     content = models.TextField()
 
     def __str__(self):
         return f"{self.template_name} - {self.company.company_name}"
+
+
+class WhatsAppMessage(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='whatsapp_messages')
+    whatsapp_type = models.ForeignKey(WhatsAppType, on_delete=models.SET_NULL, null=True, blank=True, related_name='messages')
+    recipient_number = models.CharField(max_length=30)
+    message = models.TextField()
+    status = models.CharField(max_length=50, default='Sent')
+    attachment = models.FileField(upload_to='whatsapp_attachments/', blank=True, null=True)
+
+    def __str__(self):
+        return f"To {self.recipient_number} - {self.status}"
+
 
 
 class Stock(BaseModel):
@@ -377,3 +403,36 @@ class Extra(BaseModel):
         if self.company:
             return f"{self.name} - {self.company.company_name}"
         return self.name
+
+
+class FirebaseSetting(BaseModel):
+    company = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='firebase_setting')
+    api_key = models.CharField(max_length=255, blank=True, null=True)
+    project_id = models.CharField(max_length=255, blank=True, null=True)
+    messaging_sender_id = models.CharField(max_length=255, blank=True, null=True)
+    app_id = models.CharField(max_length=255, blank=True, null=True)
+    server_key = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Firebase Setting - {self.company.company_name}"
+
+
+class BulkSmsSetting(BaseModel):
+    company = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='bulk_sms_setting')
+    api_key = models.CharField(max_length=255, blank=True, null=True)
+    sender_id = models.CharField(max_length=100, blank=True, null=True)
+    sms_url = models.URLField(max_length=500, blank=True, null=True)
+
+    def __str__(self):
+        return f"Bulk SMS Setting - {self.company.company_name}"
+
+
+class GmailCredential(BaseModel):
+    company = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='gmail_credential')
+    email_address = models.EmailField(max_length=255, blank=True, null=True)
+    app_password = models.CharField(max_length=255, blank=True, null=True)
+    smtp_server = models.CharField(max_length=255, default='smtp.gmail.com')
+    smtp_port = models.IntegerField(default=587)
+
+    def __str__(self):
+        return f"Gmail Credential - {self.company.company_name}"

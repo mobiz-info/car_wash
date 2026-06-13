@@ -1586,16 +1586,27 @@ def complaint_type_create(request):
     })
 
 
+def get_company_for_admin_view(request):
+    role = request.user.profile.role.name if request.user.profile.role else None
+    if role not in ['COMPANY_ADMIN', 'SUPER_ADMIN']:
+        return None, "Access denied. Only Admins can manage settings."
+    
+    company = request.user.profile.company
+    if not company and role == 'SUPER_ADMIN':
+        from .models import Client
+        company = Client.objects.filter(is_deleted=False).first()
+        
+    if not company:
+        return None, "No company associated with user."
+        
+    return company, None
+
+
 @login_required
 def whatsapp_settings(request):
-    role = request.user.profile.role.name if request.user.profile.role else None
-    if role != 'COMPANY_ADMIN':
-        messages.error(request, "Access denied. Only Company Admins can manage settings.")
-        return redirect('dashboard')
-
-    company = request.user.profile.company
-    if not company:
-        messages.error(request, "No company associated with user.")
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
         return redirect('dashboard')
 
     try:
@@ -1626,14 +1637,9 @@ def whatsapp_settings(request):
 
 @login_required
 def whatsapp_template_list(request):
-    role = request.user.profile.role.name if request.user.profile.role else None
-    if role != 'COMPANY_ADMIN':
-        messages.error(request, "Access denied.")
-        return redirect('dashboard')
-
-    company = request.user.profile.company
-    if not company:
-        messages.error(request, "No company associated with user.")
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
         return redirect('dashboard')
 
     search = request.GET.get('search', '')
@@ -1654,18 +1660,13 @@ def whatsapp_template_list(request):
 
 @login_required
 def whatsapp_template_create(request):
-    role = request.user.profile.role.name if request.user.profile.role else None
-    if role != 'COMPANY_ADMIN':
-        messages.error(request, "Access denied.")
-        return redirect('dashboard')
-
-    company = request.user.profile.company
-    if not company:
-        messages.error(request, "No company associated with user.")
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
         return redirect('dashboard')
 
     if request.method == 'POST':
-        form = WhatsAppTemplateForm(request.POST)
+        form = WhatsAppTemplateForm(request.POST, request=request)
         if form.is_valid():
             template = form.save(commit=False)
             template.company = company
@@ -1675,7 +1676,7 @@ def whatsapp_template_create(request):
             messages.success(request, "WhatsApp template created successfully.")
             return redirect('whatsapp_template_list')
     else:
-        form = WhatsAppTemplateForm()
+        form = WhatsAppTemplateForm(request=request)
 
     return render(request, 'settings/template_create.html', {
         'form': form,
@@ -1686,16 +1687,14 @@ def whatsapp_template_create(request):
 
 @login_required
 def whatsapp_template_edit(request, id):
-    role = request.user.profile.role.name if request.user.profile.role else None
-    if role != 'COMPANY_ADMIN':
-        messages.error(request, "Access denied.")
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
         return redirect('dashboard')
-
-    company = request.user.profile.company
     template = get_object_or_404(WhatsAppTemplate, id=id, company=company, is_deleted=False)
 
     if request.method == 'POST':
-        form = WhatsAppTemplateForm(request.POST, instance=template)
+        form = WhatsAppTemplateForm(request.POST, instance=template, request=request)
         if form.is_valid():
             inst = form.save(commit=False)
             inst.updater = request.user
@@ -1703,7 +1702,7 @@ def whatsapp_template_edit(request, id):
             messages.success(request, "WhatsApp template updated successfully.")
             return redirect('whatsapp_template_list')
     else:
-        form = WhatsAppTemplateForm(instance=template)
+        form = WhatsAppTemplateForm(instance=template, request=request)
 
     return render(request, 'settings/template_create.html', {
         'form': form,
@@ -1714,12 +1713,10 @@ def whatsapp_template_edit(request, id):
 
 @login_required
 def whatsapp_template_delete(request, id):
-    role = request.user.profile.role.name if request.user.profile.role else None
-    if role != 'COMPANY_ADMIN':
-        messages.error(request, "Access denied.")
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
         return redirect('dashboard')
-
-    company = request.user.profile.company
     template = get_object_or_404(WhatsAppTemplate, id=id, company=company)
     template.is_deleted = True
     template.save()
@@ -2098,3 +2095,268 @@ def purchase_request_reject(request, id):
     purchase.save()
     messages.success(request, "Purchase request rejected successfully.")
     return redirect('purchase_request_list')
+
+
+@login_required
+def firebase_settings(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    try:
+        setting = FirebaseSetting.objects.get(company=company)
+    except FirebaseSetting.DoesNotExist:
+        setting = FirebaseSetting(company=company)
+
+    if request.method == 'POST':
+        form = FirebaseSettingForm(request.POST, instance=setting)
+        if form.is_valid():
+            inst = form.save(commit=False)
+            if not inst.auto_id:
+                inst.auto_id = get_auto_id(FirebaseSetting)
+            if not inst.creator:
+                inst.creator = request.user
+            inst.updater = request.user
+            inst.save()
+            messages.success(request, "Firebase settings updated successfully.")
+            return redirect('firebase_settings')
+    else:
+        form = FirebaseSettingForm(instance=setting)
+
+    return render(request, 'settings/firebase_settings.html', {
+        'form': form,
+        'title': 'Firebase Settings',
+    })
+
+
+@login_required
+def bulk_sms_settings(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    try:
+        setting = BulkSmsSetting.objects.get(company=company)
+    except BulkSmsSetting.DoesNotExist:
+        setting = BulkSmsSetting(company=company)
+
+    if request.method == 'POST':
+        form = BulkSmsSettingForm(request.POST, instance=setting)
+        if form.is_valid():
+            inst = form.save(commit=False)
+            if not inst.auto_id:
+                inst.auto_id = get_auto_id(BulkSmsSetting)
+            if not inst.creator:
+                inst.creator = request.user
+            inst.updater = request.user
+            inst.save()
+            messages.success(request, "Bulk SMS settings updated successfully.")
+            return redirect('bulk_sms_settings')
+    else:
+        form = BulkSmsSettingForm(instance=setting)
+
+    return render(request, 'settings/bulk_sms_settings.html', {
+        'form': form,
+        'title': 'Bulk SMS Settings',
+    })
+
+
+@login_required
+def gmail_credentials(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    try:
+        setting = GmailCredential.objects.get(company=company)
+    except GmailCredential.DoesNotExist:
+        setting = GmailCredential(company=company)
+
+    if request.method == 'POST':
+        form = GmailCredentialForm(request.POST, instance=setting)
+        if form.is_valid():
+            inst = form.save(commit=False)
+            if not inst.auto_id:
+                inst.auto_id = get_auto_id(GmailCredential)
+            if not inst.creator:
+                inst.creator = request.user
+            inst.updater = request.user
+            inst.save()
+            messages.success(request, "Gmail credentials updated successfully.")
+            return redirect('gmail_credentials')
+    else:
+        form = GmailCredentialForm(instance=setting)
+
+    return render(request, 'settings/gmail_credentials.html', {
+        'form': form,
+        'title': 'Gmail Credentials',
+    })
+
+
+@login_required
+def whatsapp_type_list(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    search = request.GET.get('search', '')
+    queryset = WhatsAppType.objects.filter(company=company, is_deleted=False)
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    queryset = queryset.order_by('name')
+
+    return render(request, 'settings/whatsapp_type_list.html', {
+        'whatsapp_types': queryset,
+        'search': search,
+        'title': 'WhatsApp Message Types',
+    })
+
+
+@login_required
+def whatsapp_type_create(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        form = WhatsAppTypeForm(request.POST, request=request)
+        if form.is_valid():
+            inst = form.save(commit=False)
+            inst.company = company
+            inst.auto_id = get_auto_id(WhatsAppType)
+            inst.creator = request.user
+            inst.updater = request.user
+            inst.save()
+            messages.success(request, "WhatsApp message type created successfully.")
+            return redirect('whatsapp_type_list')
+    else:
+        form = WhatsAppTypeForm(request=request)
+
+    return render(request, 'settings/whatsapp_type_create.html', {
+        'form': form,
+        'title': 'Create WhatsApp Message Type',
+        'is_edit': False,
+    })
+
+
+@login_required
+def whatsapp_type_edit(request, id):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+    inst = get_object_or_404(WhatsAppType, id=id, company=company, is_deleted=False)
+
+    if request.method == 'POST':
+        form = WhatsAppTypeForm(request.POST, instance=inst, request=request)
+        if form.is_valid():
+            type_inst = form.save(commit=False)
+            type_inst.updater = request.user
+            type_inst.save()
+            messages.success(request, "WhatsApp message type updated successfully.")
+            return redirect('whatsapp_type_list')
+    else:
+        form = WhatsAppTypeForm(instance=inst, request=request)
+
+    return render(request, 'settings/whatsapp_type_create.html', {
+        'form': form,
+        'title': 'Edit WhatsApp Message Type',
+        'is_edit': True,
+    })
+
+
+@login_required
+def whatsapp_type_delete(request, id):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+    inst = get_object_or_404(WhatsAppType, id=id, company=company)
+    inst.is_deleted = True
+    inst.save()
+    messages.success(request, "WhatsApp message type deleted successfully.")
+    return redirect('whatsapp_type_list')
+
+
+@login_required
+def whatsapp_compose(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    from .models import Client
+
+    if request.method == 'POST':
+        form = WhatsAppComposeForm(request.POST, request.FILES, request=request)
+        if form.is_valid():
+            recipient_type = request.POST.get('recipient_type', 'all_users')
+            
+            if recipient_type == 'client_specific':
+                selected_ids = request.POST.getlist('selected_clients')
+                recipients = Client.objects.filter(id__in=selected_ids, is_deleted=False)
+            else:
+                recipients = Client.objects.filter(is_deleted=False)
+                
+            if not recipients.exists():
+                messages.warning(request, "No recipients selected or found.")
+            else:
+                attachment = request.FILES.get('attachment')
+                whatsapp_type = form.cleaned_data.get('whatsapp_type')
+                message_content = form.cleaned_data.get('message')
+                
+                for r in recipients:
+                    phone_number = r.phone or ''
+                    if phone_number:
+                        WhatsAppMessage.objects.create(
+                            company=company,
+                            whatsapp_type=whatsapp_type,
+                            recipient_number=phone_number,
+                            message=message_content,
+                            attachment=attachment,
+                            status='Sent',
+                            auto_id=get_auto_id(WhatsAppMessage),
+                            creator=request.user,
+                            updater=request.user
+                        )
+                messages.success(request, f"WhatsApp message composed and sent to {recipients.count()} recipients.")
+                return redirect('whatsapp_sent_report')
+    else:
+        form = WhatsAppComposeForm(request=request)
+
+    templates = WhatsAppTemplate.objects.filter(company=company, is_deleted=False)
+    clients = Client.objects.filter(is_deleted=False).order_by('company_name')
+
+    return render(request, 'settings/whatsapp_compose.html', {
+        'form': form,
+        'templates': templates,
+        'clients': clients,
+        'title': 'Compose WhatsApp Message',
+    })
+
+
+@login_required
+def whatsapp_sent_report(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    search = request.GET.get('search', '')
+    queryset = WhatsAppMessage.objects.filter(company=company, is_deleted=False)
+    if search:
+        queryset = queryset.filter(recipient_number__icontains=search) | queryset.filter(message__icontains=search)
+    queryset = queryset.order_by('-date_added')
+
+    return render(request, 'settings/whatsapp_sent_report.html', {
+        'messages_list': queryset,
+        'search': search,
+        'title': 'WhatsApp Sent Report',
+    })
+
+

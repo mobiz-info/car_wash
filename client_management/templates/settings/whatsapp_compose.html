@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+
+{% block title %}Compose WhatsApp - Wash Pilot Admin{% endblock %}
+{% block page_title %}Compose WhatsApp Message{% endblock %}
+{% block breadcrumb_active %}Compose WhatsApp{% endblock %}
+
+{% block content %}
+<style>
+    .radio-group {
+        display: flex;
+        gap: 24px;
+        margin-bottom: 16px;
+    }
+    .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+    .radio-option input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    .client-selection-container {
+        display: none;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 24px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .client-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .client-table th, .client-table td {
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .client-table th {
+        font-weight: 600;
+        color: #475569;
+        font-size: 0.85rem;
+    }
+    .client-table td {
+        font-size: 0.9rem;
+    }
+    .template-preview-box {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 8px;
+        font-size: 0.9rem;
+        color: #166534;
+        display: none;
+        white-space: pre-wrap;
+    }
+</style>
+
+<div class="premium-form-container" style="max-width: 800px;">
+    <div class="premium-form-title">
+        <i class="ph ph-paper-plane-tilt" style="color: #25d366; font-size: 1.5rem;"></i>
+        Send WhatsApp Notification
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Recipient Type Selection -->
+        <div class="form-group">
+            <label style="font-weight: 600; color: #334155;">Recipient Selection</label>
+            <div class="radio-group">
+                <label class="radio-option">
+                    <input type="radio" name="recipient_type" value="all_users" checked id="radio-all">
+                    <span>All Companies (Clients)</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="recipient_type" value="client_specific" id="radio-specific">
+                    <span>Client Specific (Select Companies)</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Clients Table Container -->
+        <div class="client-selection-container" id="client-selection">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="font-weight: 600; color: #475569; font-size: 0.9rem;">Select Companies (Clients)</span>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <input type="text" id="client-search" class="form-control" style="width: 200px; padding: 6px 12px; font-size: 0.85rem;" placeholder="Search company...">
+                    <label style="font-size: 0.85rem; font-weight: 500; color: #475569; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <input type="checkbox" id="select-all-clients"> Select All
+                    </label>
+                </div>
+            </div>
+            <table class="client-table">
+                <thead>
+                    <tr>
+                        <th width="40">Select</th>
+                        <th>Company Name</th>
+                        <th>Owner Name</th>
+                        <th>Phone/WhatsApp</th>
+                    </tr>
+                </thead>
+                <tbody id="client-table-body">
+                    {% for c in clients %}
+                    <tr class="client-row">
+                        <td>
+                            <input type="checkbox" name="selected_clients" value="{{ c.id }}" class="client-checkbox">
+                        </td>
+                        <td class="client-name" style="font-weight: 500;">{{ c.company_name }}</td>
+                        <td>{{ c.owner_name }}</td>
+                        <td>{{ c.phone|default:"N/A" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #64748b;">No active client companies found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- WhatsApp Type Selection -->
+        <div class="form-group">
+            <label for="{{ form.whatsapp_type.id_for_label }}">Message Type</label>
+            {{ form.whatsapp_type }}
+            {% for error in form.whatsapp_type.errors %}
+                <span class="error-text">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <!-- Template Selection -->
+        <div class="form-group">
+            <label for="template-select">WhatsApp Template</label>
+            <select id="template-select" class="form-control">
+                <option value="">-- Select template to load (optional) --</option>
+                {% for t in templates %}
+                    <option value="{{ t.content }}" data-type="{{ t.whatsapp_type.id }}">{{ t.template_name }}</option>
+                {% endfor %}
+            </select>
+            <div id="template-preview" class="template-preview-box"></div>
+        </div>
+
+        <!-- Message Content -->
+        <div class="form-group">
+            <label for="{{ form.message.id_for_label }}">Message Body</label>
+            {{ form.message }}
+            {% for error in form.message.errors %}
+                <span class="error-text">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <!-- Attachment -->
+        <div class="form-group">
+            <label for="{{ form.attachment.id_for_label }}">Attachment (Optional)</label>
+            {{ form.attachment }}
+            {% for error in form.attachment.errors %}
+                <span class="error-text">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'whatsapp_sent_report' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary" style="background:#000080;">
+                <i class="ph ph-paper-plane-tilt"></i> Send WhatsApp
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const radioAll = document.getElementById('radio-all');
+    const radioSpecific = document.getElementById('radio-specific');
+    const clientSelection = document.getElementById('client-selection');
+    const selectAllCheckbox = document.getElementById('select-all-clients');
+    const clientCheckboxes = document.querySelectorAll('.client-checkbox');
+    const clientSearch = document.getElementById('client-search');
+    const clientRows = document.querySelectorAll('.client-row');
+
+    // Toggle client table container visibility
+    function toggleClientVisibility() {
+        if (radioSpecific.checked) {
+            clientSelection.style.display = 'block';
+        } else {
+            clientSelection.style.display = 'none';
+        }
+    }
+
+    radioAll.addEventListener('change', toggleClientVisibility);
+    radioSpecific.addEventListener('change', toggleClientVisibility);
+
+    // Select all clients checkbox toggle
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            clientCheckboxes.forEach(cb => {
+                const row = cb.closest('tr');
+                if (row.style.display !== 'none') {
+                    cb.checked = selectAllCheckbox.checked;
+                }
+            });
+        });
+    }
+
+    // Client table instant search
+    if (clientSearch) {
+        clientSearch.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            clientRows.forEach(row => {
+                const name = row.querySelector('.client-name').textContent.toLowerCase();
+                if (name.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                    const cb = row.querySelector('.client-checkbox');
+                    if (cb) cb.checked = false;
+                }
+            });
+        });
+    }
+
+    // Handle template load, type selection mapping, and template text displaying box
+    const templateSelect = document.getElementById('template-select');
+    const templatePreview = document.getElementById('template-preview');
+    const messageTextarea = document.querySelector('textarea[name="message"]');
+    const typeSelect = document.querySelector('select[name="whatsapp_type"]');
+
+    if (templateSelect) {
+        templateSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const content = selectedOption.value;
+            const typeId = selectedOption.getAttribute('data-type');
+
+            if (content) {
+                templatePreview.textContent = "Template content:\n" + content;
+                templatePreview.style.display = 'block';
+
+                if (messageTextarea) {
+                    messageTextarea.value = content;
+                }
+
+                if (typeSelect && typeId) {
+                    typeSelect.value = typeId;
+                }
+            } else {
+                templatePreview.style.display = 'none';
+                templatePreview.textContent = '';
+            }
+        });
+    }
+</script>
+{% endblock %}

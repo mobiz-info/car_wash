@@ -649,6 +649,35 @@
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
+                    <i class="ph ph-bell"></i>
+                    Notifications
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'firebase_settings' %}">Firebase Notifications</a>
+                
+                <div class="nav-item dropdown-toggle" style="padding-left: 45px;">
+                    <div class="nav-item-left">
+                        <i class="ph ph-whatsapp-logo" style="color: #25d366;"></i>
+                        Whatsapp
+                    </div>
+                    <i class="ph-bold ph-caret-right nav-right-icon" style="font-size: 0.75rem;"></i>
+                </div>
+                <div class="nav-submenu" style="background-color: rgba(0,0,0,0.15);">
+                    <a href="{% url 'whatsapp_compose' %}" style="padding-left: 65px;">Compose</a>
+                    <a href="{% url 'whatsapp_sent_report' %}" style="padding-left: 65px;">Sent Report</a>
+                    <a href="{% url 'whatsapp_template_list' %}" style="padding-left: 65px;">Templates</a>
+                    <a href="{% url 'whatsapp_type_list' %}" style="padding-left: 65px;">Type</a>
+                    <a href="{% url 'whatsapp_settings' %}" style="padding-left: 65px;">Settings</a>
+                </div>
+
+                <a href="{% url 'bulk_sms_settings' %}">Bulk Sms</a>
+                <a href="{% url 'gmail_credentials' %}">Gmail Credentials</a>
+            </div>
+
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
                     <i class="ph ph-gear"></i>
                     Settings
                 </div>
@@ -656,7 +685,6 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'company_tax_enable' %}">Tax Enable</a>
-                <a href="{% url 'whatsapp_settings' %}">WhatsApp Settings</a>
                 <a href="{% url 'whatsapp_template_list' %}">WhatsApp Templates</a>
             </div>
 
@@ -1024,6 +1052,36 @@
             </div> {% endcomment %}
 
 
+
+            <!-- Notifications Settings -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-bell"></i>
+                    Notifications
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'firebase_settings' %}">Firebase Notifications</a>
+                
+                <div class="nav-item dropdown-toggle" style="padding-left: 45px;">
+                    <div class="nav-item-left">
+                        <i class="ph ph-whatsapp-logo" style="color: #25d366;"></i>
+                        Whatsapp
+                    </div>
+                    <i class="ph-bold ph-caret-right nav-right-icon" style="font-size: 0.75rem;"></i>
+                </div>
+                <div class="nav-submenu" style="background-color: rgba(0,0,0,0.15);">
+                    <a href="{% url 'whatsapp_compose' %}" style="padding-left: 65px;">Compose</a>
+                    <a href="{% url 'whatsapp_sent_report' %}" style="padding-left: 65px;">Sent Report</a>
+                    <a href="{% url 'whatsapp_template_list' %}" style="padding-left: 65px;">Templates</a>
+                    <a href="{% url 'whatsapp_type_list' %}" style="padding-left: 65px;">Type</a>
+                    <a href="{% url 'whatsapp_settings' %}" style="padding-left: 65px;">Settings</a>
+                </div>
+
+                <a href="{% url 'bulk_sms_settings' %}">Bulk Sms</a>
+                <a href="{% url 'gmail_credentials' %}">Gmail Credentials</a>
+            </div>
 
             <!-- Settings -->
             <div class="nav-item dropdown-toggle">

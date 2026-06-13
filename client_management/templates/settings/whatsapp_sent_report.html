@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}WhatsApp Sent Report - Wash Pilot Admin{% endblock %}
+{% block page_title %}WhatsApp Sent Report{% endblock %}
+{% block breadcrumb_active %}Sent Report{% endblock %}
+
+{% block content %}
+<div class="list-container">
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" class="search-input" placeholder="Search recipient or content..." value="{{ search }}">
+        </form>
+        <a href="{% url 'whatsapp_compose' %}" class="btn-create" style="background:#25d366;">
+            <i class="ph ph-paper-plane-tilt"></i> Compose Message
+        </a>
+    </div>
+
+    <table class="premium-table">
+        <thead>
+            <tr>
+                <th>Date Sent</th>
+                <th>Recipient Number</th>
+                <th>Type</th>
+                <th>Message Content</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in messages_list %}
+            <tr>
+                <td>{{ item.date_added|date:"d-m-Y H:i" }}</td>
+                <td style="font-weight: 500;">
+                    <i class="ph ph-whatsapp-logo" style="color: #25d366;"></i> {{ item.recipient_number }}
+                </td>
+                <td>
+                    {% if item.whatsapp_type %}
+                        <span style="background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">{{ item.whatsapp_type.name }}</span>
+                    {% else %}
+                        <span style="color: #94a3b8; font-size: 0.75rem;">Uncategorized</span>
+                    {% endif %}
+                </td>
+                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ item.message }}">{{ item.message }}</td>
+                <td>
+                    <span style="background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+                        {{ item.status }}
+                    </span>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: #64748b; padding: 32px;">No sent WhatsApp messages logged.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

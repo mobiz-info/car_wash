@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Create{% endif %} WhatsApp Type - Wash Pilot Admin{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Create{% endif %} WhatsApp Message Type{% endblock %}
+{% block breadcrumb_active %}{% if is_edit %}Edit{% else %}Create{% endif %} WhatsApp Type{% endblock %}
+
+{% block content %}
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-tag" style="color: #25d366; font-size: 1.5rem;"></i>
+        {% if is_edit %}Edit{% else %}Add New{% endif %} Message Type/Category
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <span style="font-size: 0.8rem; color: #64748b;">{{ field.help_text }}</span>
+                {% endif %}
+                {% for error in field.errors %}
+                    <span style="font-size: 0.8rem; color: #ef4444; font-weight: 500;">{{ error }}</span>
+                {% endfor %}
+            </div>
+        {% endfor %}
+
+        <div class="form-actions">
+            <a href="{% url 'whatsapp_type_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary" style="background:#000080;">Save Type</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -526,11 +526,12 @@ class CustomersVehicleForm(forms.ModelForm):
 class WhatsAppSettingForm(forms.ModelForm):
     class Meta:
         model = WhatsAppSetting
-        fields = ['username', 'password', 'whatsapp_number']
+        fields = ['url', 'username', 'password', 'sender_id']
         widgets = {
+            'url': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp API Url'}),
             'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp username'}),
             'password': forms.PasswordInput(render_value=True, attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp password'}),
-            'whatsapp_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp number with country code'}),
+            'sender_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp Sender ID'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -538,22 +539,101 @@ class WhatsAppSettingForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'
+
+
+class WhatsAppTypeForm(forms.ModelForm):
+    class Meta:
+        model = WhatsAppType
+        fields = ['name', 'account', 'message_type']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Type/Category Name'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        
+        # Populate account choices dynamically from WhatsAppSetting
+        account_choices = [("", "Select A/c")]
+        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
+            company = self.request.user.profile.company
+            settings = WhatsAppSetting.objects.filter(company=company)
+            for s in settings:
+                if s.username:
+                    account_choices.append((s.username, f"{s.username} ({s.sender_id or 'No Sender ID'})"))
+        self.fields['account'] = forms.ChoiceField(
+            choices=account_choices,
+            required=False,
+            widget=forms.Select(attrs={'class': 'form-control'})
+        )
+        
+        # Populate message type choices
+        message_type_choices = [
+            ("", "Select Message Type"),
+            ("Text", "Text"),
+            ("Media", "Media"),
+            ("Template", "Template"),
+            ("Utility", "Utility"),
+            ("Marketing", "Marketing"),
+            ("Authentication", "Authentication")
+        ]
+        self.fields['message_type'] = forms.ChoiceField(
+            choices=message_type_choices,
+            required=True,
+            widget=forms.Select(attrs={'class': 'form-control'})
+        )
+        
+        for field_name, field in self.fields.items():
+            if field_name not in ['account', 'message_type']:
+                if 'class' not in field.widget.attrs:
+                    field.widget.attrs['class'] = 'form-control'
 
 
 class WhatsAppTemplateForm(forms.ModelForm):
     class Meta:
         model = WhatsAppTemplate
-        fields = ['template_name', 'content']
+        fields = ['whatsapp_type', 'template_name', 'content']
         widgets = {
+            'whatsapp_type': forms.Select(attrs={'class': 'form-control'}),
             'template_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter template name'}),
             'content': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter template content', 'rows': 4}),
         }
 
     def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
+        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
+            company = self.request.user.profile.company
+            self.fields['whatsapp_type'].queryset = WhatsAppType.objects.filter(company=company)
+        else:
+            self.fields['whatsapp_type'].queryset = WhatsAppType.objects.none()
         for field_name, field in self.fields.items():
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'
+
+
+class WhatsAppComposeForm(forms.ModelForm):
+    class Meta:
+        model = WhatsAppMessage
+        fields = ['whatsapp_type', 'message', 'attachment']
+        widgets = {
+            'whatsapp_type': forms.Select(attrs={'class': 'form-control'}),
+            'message': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter message content', 'rows': 4}),
+            'attachment': forms.FileInput(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
+            company = self.request.user.profile.company
+            self.fields['whatsapp_type'].queryset = WhatsAppType.objects.filter(company=company)
+        else:
+            self.fields['whatsapp_type'].queryset = WhatsAppType.objects.none()
+        for field_name, field in self.fields.items():
+            if 'class' not in field.widget.attrs:
+                field.widget.attrs['class'] = 'form-control'
+
 
 
 class StockForm(forms.ModelForm):
@@ -637,4 +717,58 @@ class PurchaseRequestForm(forms.ModelForm):
         
         for field_name, field in self.fields.items():
             if field_name not in ['date', 'material', 'qty', 'status', 'remarks']:
+                field.widget.attrs['class'] = 'form-control'
+
+
+class FirebaseSettingForm(forms.ModelForm):
+    class Meta:
+        model = FirebaseSetting
+        fields = ['api_key', 'project_id', 'messaging_sender_id', 'app_id', 'server_key']
+        widgets = {
+            'api_key': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Firebase API Key'}),
+            'project_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Project ID'}),
+            'messaging_sender_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Messaging Sender ID'}),
+            'app_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter App ID'}),
+            'server_key': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter Server Key / Service Account JSON', 'rows': 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            if 'class' not in field.widget.attrs:
+                field.widget.attrs['class'] = 'form-control'
+
+
+class BulkSmsSettingForm(forms.ModelForm):
+    class Meta:
+        model = BulkSmsSetting
+        fields = ['api_key', 'sender_id', 'sms_url']
+        widgets = {
+            'api_key': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Bulk SMS API Key'}),
+            'sender_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Sender ID'}),
+            'sms_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'Enter Gateway SMS URL'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            if 'class' not in field.widget.attrs:
+                field.widget.attrs['class'] = 'form-control'
+
+
+class GmailCredentialForm(forms.ModelForm):
+    class Meta:
+        model = GmailCredential
+        fields = ['email_address', 'app_password', 'smtp_server', 'smtp_port']
+        widgets = {
+            'email_address': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter Gmail Address'}),
+            'app_password': forms.PasswordInput(render_value=True, attrs={'class': 'form-control', 'placeholder': 'Enter Gmail App Password'}),
+            'smtp_server': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter SMTP Server (default: smtp.gmail.com)'}),
+            'smtp_port': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Enter SMTP Port (default: 587)'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'

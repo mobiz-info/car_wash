@@ -127,12 +127,21 @@ urlpatterns = [
     path('complaint/resolve/<uuid:id>/', views.complaint_resolve, name='complaint_resolve'),
     path('complaint/type/create/', views.complaint_type_create, name='complaint_type_create'),
 
-    # Company Web Settings (WhatsApp & Template)
+    # Company Web Settings (WhatsApp & Template & Other Integrations)
     path('settings/whatsapp/', views.whatsapp_settings, name='whatsapp_settings'),
     path('settings/templates/', views.whatsapp_template_list, name='whatsapp_template_list'),
     path('settings/templates/create/', views.whatsapp_template_create, name='whatsapp_template_create'),
     path('settings/templates/edit/<uuid:id>/', views.whatsapp_template_edit, name='whatsapp_template_edit'),
     path('settings/templates/delete/<uuid:id>/', views.whatsapp_template_delete, name='whatsapp_template_delete'),
+    path('settings/whatsapp/types/', views.whatsapp_type_list, name='whatsapp_type_list'),
+    path('settings/whatsapp/types/create/', views.whatsapp_type_create, name='whatsapp_type_create'),
+    path('settings/whatsapp/types/edit/<uuid:id>/', views.whatsapp_type_edit, name='whatsapp_type_edit'),
+    path('settings/whatsapp/types/delete/<uuid:id>/', views.whatsapp_type_delete, name='whatsapp_type_delete'),
+    path('settings/whatsapp/compose/', views.whatsapp_compose, name='whatsapp_compose'),
+    path('settings/whatsapp/sent-report/', views.whatsapp_sent_report, name='whatsapp_sent_report'),
+    path('settings/firebase/', views.firebase_settings, name='firebase_settings'),
+    path('settings/bulk-sms/', views.bulk_sms_settings, name='bulk_sms_settings'),
+    path('settings/gmail-credentials/', views.gmail_credentials, name='gmail_credentials'),
     
     path('customer-ledger/',views.customer_ledger,name='customer_ledger'),
     path('inactive-customer/',views.inactive_customer,name='inactive_customer'),
