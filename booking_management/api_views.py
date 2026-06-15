@@ -158,11 +158,11 @@ def send_whatsapp_simple(to_number, message, setting=None):
     api_password = "e36981wr6npxjbv7f"
     sender = "919496007007"
     
-    if setting:
-        base_url = setting.url or base_url
-        username = setting.username or username
-        api_password = setting.password or api_password
-        sender = setting.whatsapp_number or sender
+    # if setting:
+    #     base_url = setting.url or base_url
+    #     username = setting.username or username
+    #     api_password = setting.password or api_password
+    #     sender = setting.whatsapp_number or sender
 
     params = {
         "username": username,
