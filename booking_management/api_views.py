@@ -210,14 +210,37 @@ def api_whatsapp_webhook(request):
             return HttpResponse('OK', status=200)
 
         try:
-            # 1. Resolve WhatsAppSetting (fallback to first available)
+            # 1. Resolve WhatsAppSetting
+            # We support query parameters 'bot_number' or 'company_id' passed in the wawy.org webhook URL:
+            # e.g., http://68.183.94.11:78/api/whatsapp/webhook/?number=#whats_number#&msg=#message#&bot_number=919496007007
+            bot_number = request.GET.get('bot_number', '').strip() or request.POST.get('bot_number', '').strip()
+            company_id = request.GET.get('company_id', '').strip() or request.POST.get('company_id', '').strip()
+
+            setting = None
+            if company_id:
+                setting = WhatsAppSetting.objects.filter(company_id=company_id, is_deleted=False).first()
+
+            if not setting and bot_number:
+                bot_suffix = bot_number[-10:] if len(bot_number) >= 10 else bot_number
+                setting = WhatsAppSetting.objects.filter(whatsapp_number__endswith=bot_suffix, is_deleted=False).first()
+
+            # If not identified by parameters, try to identify by matching the incoming customer's phone number
+            # to see which company they belong to.
             phone_suffix = from_phone[-10:] if len(from_phone) >= 10 else from_phone
-            setting = (
-                WhatsAppSetting.objects.filter(
-                    whatsapp_number__endswith=phone_suffix
-                ).first()
-                or WhatsAppSetting.objects.filter(is_deleted=False).first()
-            )
+            if not setting:
+                customer = Customer.objects.filter(
+                    Q(phone__endswith=phone_suffix) | Q(whatsapp_number__endswith=phone_suffix),
+                    is_deleted=False
+                ).select_related('company').first()
+                if customer:
+                    setting = WhatsAppSetting.objects.filter(company=customer.company, is_deleted=False).first()
+
+            # Fallback to the first active WhatsAppSetting that has a username configured
+            if not setting:
+                setting = (
+                    WhatsAppSetting.objects.filter(is_deleted=False).exclude(username__isnull=True).exclude(username='').first()
+                    or WhatsAppSetting.objects.filter(is_deleted=False).first()
+                )
 
             if not setting:
                 return HttpResponse('OK', status=200)
