@@ -153,7 +153,7 @@ def api_update_booking_status(request, booking_id):
 
 
 def send_whatsapp_simple(to_number, message, setting=None):
-    base_url = "http://wawy.org/conv_wa.php"
+    base_url = "http://68.183.94.11:78/conv_wa.php"
     username = "mobiz"
     api_password = "Mobiz123@"
     sender = "9496007007"
@@ -185,84 +185,78 @@ def send_whatsapp_simple(to_number, message, setting=None):
 @csrf_exempt
 def api_whatsapp_webhook(request):
     """
-    Public-facing WhatsApp Cloud API Webhook.
-    Handles verification (GET) and incoming message routing (POST).
+    Webgenie/wawy.org WhatsApp Chatbot Webhook.
+    Webgenie sends incoming customer messages as a GET request with query parameters:
+      ?mobile=919876543210&message=Hi&sender=91XXXXXXXXXX
+    We read these parameters, look up the customer, build the reply, and call send_whatsapp_simple.
     """
-    if request.method == 'GET':
-        mode = request.GET.get('hub.mode')
-        token = request.GET.get('hub.verify_token')
-        challenge = request.GET.get('hub.challenge')
-        
-        # Verify token must match what is configured in the Meta Developer Console
-        VERIFY_TOKEN = 'mobiz_carwash_verify_token'
-        
-        if mode == 'subscribe' and token == VERIFY_TOKEN:
-            return HttpResponse(challenge)
-        return HttpResponse('Unauthorized', status=401)
+    # Webgenie sends incoming message as GET with query params
+    if request.method in ('GET', 'POST'):
+        # --- Read incoming parameters (works for both GET and POST) ---
+        if request.method == 'GET':
+            from_phone  = request.GET.get('mobile', '').strip()
+            incoming_msg = request.GET.get('message', '').strip()
+        else:
+            # Some providers send as form POST
+            try:
+                body = json.loads(request.body)
+                from_phone   = body.get('mobile', '').strip()
+                incoming_msg = body.get('message', '').strip()
+            except Exception:
+                from_phone   = request.POST.get('mobile', '').strip()
+                incoming_msg = request.POST.get('message', '').strip()
 
-    elif request.method == 'POST':
+        if not from_phone:
+            return HttpResponse('OK', status=200)
+
         try:
-            data = json.loads(request.body)
-            entry = data.get('entry', [])[0]
-            changes = entry.get('changes', [])[0]
-            value = changes.get('value', {})
-            
-            if 'messages' in value:
-                message = value['messages'][0]
-                from_phone = message.get('from', '')
-                
-                # Check for receiver business details in metadata
-                recipient_metadata = value.get('metadata', {})
-                business_phone = recipient_metadata.get('display_phone_number', '')
-                phone_id = recipient_metadata.get('phone_number_id', '')
-                
-                # Retrieve the company's WhatsAppSetting configuration
-                setting = None
-                if phone_id:
-                    setting = WhatsAppSetting.objects.filter(sender_id=phone_id).first()
-                if not setting and business_phone:
-                    # Suffix match on business phone setting to handle country prefixes flexibly
-                    setting = WhatsAppSetting.objects.filter(whatsapp_number__icontains=business_phone[-10:]).first()
-                if not setting:
-                    # Fallback to the first available WhatsAppSetting in the system if metadata lookup failed
-                    setting = WhatsAppSetting.objects.filter(is_deleted=False).first()
-                
-                if setting:
-                    company = setting.company
-                    
-                    # 1. Search for customer by phone suffix (last 10 digits)
-                    phone_suffix = from_phone[-10:] if len(from_phone) >= 10 else from_phone
-                    customer = Customer.objects.filter(
-                        Q(phone__endswith=phone_suffix) | Q(whatsapp_number__endswith=phone_suffix),
-                        company=company,
-                        is_deleted=False
-                    ).select_related('branch').first()
-                    
-                    # 2. Determine reply and branches fallback
-                    if customer:
-                        branch_name = customer.branch.name if customer.branch else "our branch"
-                        reply_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
-                    else:
-                        first_branch = company.branches.filter(is_deleted=False).first()
-                        branch_name = first_branch.name if first_branch else company.company_name
-                        reply_text = f"Thank you for contacting {branch_name}."
-                    
-                    # 3. Post reply to Webgenie API
-                    response_text = send_whatsapp_simple(from_phone, reply_text, setting=setting)
-                    status_str = 'Sent' if 'success' in response_text.lower() or 'wa_' in response_text.lower() else 'Failed'
-                    
-                    # 4. Log the message in WhatsAppMessage
-                    from core.functions import get_auto_id
-                    WhatsAppMessage.objects.create(
-                        company=company,
-                        recipient_number=from_phone,
-                        message=reply_text,
-                        status=status_str,
-                        auto_id=get_auto_id(WhatsAppMessage)
-                    )
+            # 1. Resolve WhatsAppSetting (fallback to first available)
+            phone_suffix = from_phone[-10:] if len(from_phone) >= 10 else from_phone
+            setting = (
+                WhatsAppSetting.objects.filter(
+                    whatsapp_number__endswith=phone_suffix
+                ).first()
+                or WhatsAppSetting.objects.filter(is_deleted=False).first()
+            )
+
+            if not setting:
+                return HttpResponse('OK', status=200)
+
+            company = setting.company
+
+            # 2. Search for customer by phone suffix (last 10 digits)
+            customer = Customer.objects.filter(
+                Q(phone__endswith=phone_suffix) | Q(whatsapp_number__endswith=phone_suffix),
+                company=company,
+                is_deleted=False
+            ).select_related('branch').first()
+
+            # 3. Build reply text
+            if customer:
+                branch_name = customer.branch.name if customer.branch else company.company_name
+                reply_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+            else:
+                first_branch = company.branches.filter(is_deleted=False).first()
+                branch_name = first_branch.name if first_branch else company.company_name
+                reply_text = f"Thank you for contacting {branch_name}."
+
+            # 4. Send reply via wawy.org/Webgenie API
+            response_text = send_whatsapp_simple(from_phone, reply_text, setting=setting)
+            status_str = 'Sent' if ('success' in response_text.lower() or 'wa_' in response_text.lower()) else 'Failed'
+
+            # 5. Log the outgoing message
+            from core.functions import get_auto_id
+            WhatsAppMessage.objects.create(
+                company=company,
+                recipient_number=from_phone,
+                message=reply_text,
+                status=status_str,
+                auto_id=get_auto_id(WhatsAppMessage)
+            )
+
         except Exception as e:
             import traceback
             traceback.print_exc()
-            
-        return JsonResponse({'status': 'success'})
 
+    # Always return 200 so Webgenie does not retry
+    return HttpResponse('OK', status=200)
