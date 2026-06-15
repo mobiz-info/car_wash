@@ -2,6 +2,9 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+from datetime import datetime
+
+from .utils import validate_booking
 from client_management.api_views import get_user_from_token
 from client_management.models import Customer, CustomerVehicle, Scheme
 from finance_management.models import Invoice
@@ -29,13 +32,27 @@ def api_create_booking(request):
 
         customer = Customer.objects.get(id=customer_id, is_deleted=False)
         vehicle = CustomerVehicle.objects.get(id=vehicle_id, customer=customer, is_deleted=False)
+        booking_date_obj = datetime.strptime(
+            booking_date,
+            "%Y-%m-%d"
+        ).date()
 
+        is_valid, message = validate_booking(
+            customer.branch,
+            booking_date_obj
+        )
+
+        if not is_valid:
+            return JsonResponse({
+                'success': False,
+                'message': message
+            }, status=400)
         from core.functions import get_auto_id
         booking = Booking.objects.create(
             customer=customer,
             vehicle=vehicle,
             branch=customer.branch,
-            booking_date=booking_date,
+            booking_date=booking_date_obj,
             booking_time=data.get('booking_time') or None,
             notes=data.get('notes', ''),
             creator=user,

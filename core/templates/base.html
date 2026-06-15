@@ -686,6 +686,10 @@
             <div class="nav-submenu">
                 <a href="{% url 'company_tax_enable' %}">Tax Enable</a>
                 <a href="{% url 'whatsapp_template_list' %}">WhatsApp Templates</a>
+                <a href="#">Booking Settings</a>
+                <a href="{% url 'holiday_calendar' %}">Holiday Calendar</a>
+                <a href="{% url 'weekly_off_list' %}">Weekly Off Days</a>
+                <a href="#">Pause Booking</a>
             </div>
 
             {% elif request.user.profile.role.name == 'BRANCH_ADMIN' %}

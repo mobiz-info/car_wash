@@ -27,3 +27,83 @@ class Booking(BaseModel):
 
     def __str__(self):
         return f"{self.customer.name} - {self.vehicle.vehicle_number} on {self.booking_date}"
+
+    
+class BookingSettings(BaseModel):
+    branch = models.OneToOneField(
+        Branch,
+        on_delete=models.CASCADE,
+        related_name="booking_settings"
+    )
+
+    is_booking_enabled = models.BooleanField(default=True)
+    max_booking_per_day = models.PositiveIntegerField(default=50)
+
+    booking_closing_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="No bookings allowed after this time"
+    )
+
+    def __str__(self):
+        return f"{self.branch.name}"
+    
+class HolidayCalendar(BaseModel):
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE,
+        related_name="holidays"
+    )
+
+    holiday_date = models.DateField()
+    repeat_yearly = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('branch', 'holiday_date')
+
+    def __str__(self):
+        return str(self.holiday_date)
+    
+    
+class WeeklyOffDay(BaseModel):
+    DAYS = (
+        ('monday', 'Monday'),
+        ('tuesday', 'Tuesday'),
+        ('wednesday', 'Wednesday'),
+        ('thursday', 'Thursday'),
+        ('friday', 'Friday'),
+        ('saturday', 'Saturday'),
+        ('sunday', 'Sunday'),
+    )
+
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE,
+        related_name='weekly_offs'
+    )
+
+    day = models.CharField(max_length=20, choices=DAYS)
+
+
+    def __str__(self):
+        return self.day
+    
+    
+class BookingPause(BaseModel):
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE,
+        related_name='booking_pauses'
+    )
+
+    from_date = models.DateField()
+    to_date = models.DateField()
+
+    reason = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
+    def __str__(self):
+        return f"{self.from_date} - {self.to_date}"

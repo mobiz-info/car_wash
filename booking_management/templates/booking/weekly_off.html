@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+
+{% block title %}Weekly Off Days{% endblock %}
+{% block page_title %}Weekly Off Days{% endblock %}
+{% block breadcrumb_active %}Weekly Off Days{% endblock %}
+
+{% block content %}
+
+<style>
+
+.list-container {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.list-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.search-wrapper {
+    position: relative;
+}
+
+.search-input {
+    padding: 10px 16px;
+    padding-left: 36px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    width: 300px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 10px;
+    color: #94a3b8;
+}
+
+.add-btn {
+    background: #2563eb;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.add-btn:hover {
+    color: white;
+    background: #1d4ed8;
+}
+
+.premium-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.premium-table th {
+    background-color: #f8fafc;
+    padding: 14px 24px;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+}
+
+.premium-table td {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.premium-table tr:hover {
+    background-color: #f8fafc;
+}
+
+.day-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 50px;
+    color: #94a3b8;
+}
+
+.delete-btn {
+    color: #dc2626;
+    font-size: 1.1rem;
+}
+
+.delete-btn:hover {
+    color: #991b1b;
+}
+
+.pagination {
+    padding: 16px 24px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.pagination a {
+    text-decoration: none;
+}
+
+</style>
+
+<div class="list-container">
+
+    <!-- Header -->
+
+    <div class="list-header">
+
+        <form method="GET">
+
+            <div class="search-wrapper">
+
+                <i class="ph ph-magnifying-glass search-icon"></i>
+
+                <input
+                    type="text"
+                    name="search"
+                    value="{{ search }}"
+                    placeholder="Search branch..."
+                    class="search-input"
+                >
+
+            </div>
+
+        </form>
+
+        <a href="{% url 'weekly_off_create' %}"
+           class="add-btn">
+
+            <i class="ph ph-plus"></i>
+            Add Weekly Off
+
+        </a>
+
+    </div>
+
+    <!-- Table -->
+
+    <div style="overflow-x:auto;">
+
+        <table class="premium-table">
+
+            <thead>
+
+                <tr>
+                    <th>#</th>
+                    <th>Branch</th>
+                    <th>Weekly Off Day</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for item in weekly_offs %}
+
+                <tr>
+
+                    <td>
+                        {{ forloop.counter }}
+                    </td>
+
+                    <td style="font-weight:600;color:#1e293b;">
+                        {{ item.branch.name }}
+                    </td>
+
+                    <td>
+
+                        <span class="day-badge">
+                            {{ item.get_day_display }}
+                        </span>
+
+                    </td>
+
+                    <td style="text-align:right;">
+
+                        <a href="{% url 'weekly_off_delete' item.id %}"
+                           class="delete-btn"
+                           onclick="return confirm('Delete this weekly off day?')">
+
+                            <i class="ph ph-trash"></i>
+
+                        </a>
+
+                    </td>
+
+                </tr>
+
+                {% empty %}
+
+                <tr>
+
+                    <td colspan="4" class="empty-state">
+
+                        <i class="ph ph-calendar-x"
+                           style="font-size:48px;"></i>
+
+                        <p style="margin-top:10px;">
+                            No Weekly Off Days Found
+                        </p>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}
