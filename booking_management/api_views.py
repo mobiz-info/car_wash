@@ -187,24 +187,24 @@ def api_whatsapp_webhook(request):
     """
     Webgenie/wawy.org WhatsApp Chatbot Webhook.
     Webgenie sends incoming customer messages as a GET request with query parameters:
-      ?mobile=919876543210&message=Hi&sender=91XXXXXXXXXX
-    We read these parameters, look up the customer, build the reply, and call send_whatsapp_simple.
+      ?number=#whats_number#&msg=#message#
+    wawy.org passes the sender's WhatsApp number in 'number' and the URL-encoded message in 'msg'.
     """
-    # Webgenie sends incoming message as GET with query params
+    # wawy.org sends incoming message as GET with query params: ?number=...&msg=...
     if request.method in ('GET', 'POST'):
         # --- Read incoming parameters (works for both GET and POST) ---
         if request.method == 'GET':
-            from_phone  = request.GET.get('mobile', '').strip()
-            incoming_msg = request.GET.get('message', '').strip()
+            from_phone   = request.GET.get('number', '').strip()
+            incoming_msg = request.GET.get('msg', '').strip()
         else:
             # Some providers send as form POST
             try:
                 body = json.loads(request.body)
-                from_phone   = body.get('mobile', '').strip()
-                incoming_msg = body.get('message', '').strip()
+                from_phone   = body.get('number', '').strip()
+                incoming_msg = body.get('msg', '').strip()
             except Exception:
-                from_phone   = request.POST.get('mobile', '').strip()
-                incoming_msg = request.POST.get('message', '').strip()
+                from_phone   = request.POST.get('number', '').strip()
+                incoming_msg = request.POST.get('msg', '').strip()
 
         if not from_phone:
             return HttpResponse('OK', status=200)
