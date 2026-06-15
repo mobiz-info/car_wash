@@ -638,12 +638,18 @@ def expense_head_delete(request, id):
             is_deleted=False
         )
 
-    instance.is_deleted = True
-    instance.save()
-    
+    # Check if this expense head is protected (Salary or Purchase)
+    if not instance.is_deletable:
+        messages.error(request, f"Deletion is disabled for '{instance.name}' expense head.")
+        return redirect('expense_head_list')
+
+    # Check if trying to delete a system expense head
     if not request.user.is_superuser and instance.company is None:
         messages.error(request, "You cannot delete system expense heads.")
         return redirect('expense_head_list')
+
+    instance.is_deleted = True
+    instance.save()
     
     messages.success(
         request,

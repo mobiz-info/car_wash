@@ -12,6 +12,13 @@ from django.db.models import DecimalField, Value
 from django.db.models.functions import Coalesce, TruncDate
 from django.template.loader import render_to_string
 from django.http import HttpResponse
+
+import sys
+import os
+# Ensure macOS Homebrew libraries (like libgobject for WeasyPrint) are searchable
+if sys.platform == 'darwin':
+    os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
+
 from weasyprint import HTML
 
 

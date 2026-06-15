@@ -6,6 +6,9 @@ import sys
 
 def main():
     """Run administrative tasks."""
+    # Ensure macOS Homebrew libraries (like libgobject for WeasyPrint) are searchable
+    if sys.platform == 'darwin':
+        os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'wash_pilot.settings')
     try:
         from django.core.management import execute_from_command_line

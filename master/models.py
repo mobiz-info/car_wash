@@ -75,6 +75,22 @@ class ExpenseHead(BaseModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_deletable(self):
+        if self.name:
+            return self.name.strip().lower() not in ['salary', 'purchase']
+        return True
+
+    def delete(self, *args, **kwargs):
+        if not self.is_deletable:
+            raise PermissionError("Salary and Purchase expense heads cannot be deleted.")
+        super().delete(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        if self.is_deleted and not self.is_deletable:
+            raise PermissionError("Salary and Purchase expense heads cannot be deleted.")
+        super().save(*args, **kwargs)
     
 class Expense(BaseModel):
     expense_head = models.ForeignKey(

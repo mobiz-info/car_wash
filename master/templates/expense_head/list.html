@@ -51,11 +51,17 @@
                                     <i class="ph ph-pencil-simple"></i>
                                 </a>
 
-                                <a href="{% url 'expense_head_delete' obj.pk %}"
-                                onclick="return confirm('Delete this Expense Head?')"
-                                class="action-btn delete">
-                                    <i class="ph ph-trash"></i>
-                                </a>
+                                {% if obj.is_deletable %}
+                                    <a href="{% url 'expense_head_delete' obj.pk %}"
+                                    onclick="return confirm('Delete this Expense Head?')"
+                                    class="action-btn delete">
+                                        <i class="ph ph-trash"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="action-btn delete" style="opacity: 0.4; cursor: not-allowed;" title="Deletion Disabled">
+                                        <i class="ph ph-lock"></i>
+                                    </span>
+                                {% endif %}
 
                             {% else %}
 
@@ -65,11 +71,17 @@
                                         <i class="ph ph-pencil-simple"></i>
                                     </a>
 
-                                    <a href="{% url 'expense_head_delete' obj.pk %}"
-                                    onclick="return confirm('Delete this Expense Head?')"
-                                    class="action-btn delete">
-                                        <i class="ph ph-trash"></i>
-                                    </a>
+                                    {% if obj.is_deletable %}
+                                        <a href="{% url 'expense_head_delete' obj.pk %}"
+                                        onclick="return confirm('Delete this Expense Head?')"
+                                        class="action-btn delete">
+                                            <i class="ph ph-trash"></i>
+                                        </a>
+                                    {% else %}
+                                        <span class="action-btn delete" style="opacity: 0.4; cursor: not-allowed;" title="Deletion Disabled">
+                                            <i class="ph ph-lock"></i>
+                                        </span>
+                                    {% endif %}
 
                                 {% else %}
 

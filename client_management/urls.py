@@ -163,6 +163,10 @@ urlpatterns = [
     path('api/extras/list/', api_views.api_get_extras_list, name='api_get_extras_list'),
     path('api/extras/create/', api_views.api_create_extra, name='api_create_extra'),
     path('api/reports/expense-head-wise/', api_views.api_report_expense_head_wise, name='api_report_expense_head_wise'),
+    path('api/expenses/heads/edit/<uuid:id>/', api_views.api_edit_expense_head, name='api_edit_expense_head'),
+    path('api/expenses/heads/delete/<uuid:id>/', api_views.api_delete_expense_head, name='api_delete_expense_head'),
+    path('api/stock/edit/<uuid:id>/', api_views.api_edit_stock, name='api_edit_stock'),
+    path('api/stock/delete/<uuid:id>/', api_views.api_delete_stock, name='api_delete_stock'),
     path('api/reports/expense-head-wise/detail/', api_views.api_report_expense_head_detail, name='api_report_expense_head_detail'),
     path('api/reports/leave/', api_views.api_report_leave, name='api_report_leave'),
 ]

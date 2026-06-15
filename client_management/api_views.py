@@ -2166,7 +2166,7 @@ def api_get_expense_heads(request):
             heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
         else:
             heads = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
-        head_list = [{'id': str(h.id), 'name': h.name} for h in heads]
+        head_list = [{'id': str(h.id), 'name': h.name, 'is_deletable': h.is_deletable} for h in heads]
         return JsonResponse({'success': True, 'expense_heads': head_list})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
@@ -2633,6 +2633,167 @@ def api_create_stock(request):
                 'expense_head_id': str(stock.expense_head.id) if stock.expense_head else None,
                 'expense_head_name': stock.expense_head.name if stock.expense_head else None,
             }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_edit_expense_head(request, id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    role = user.profile.role.name if user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        return JsonResponse({'success': False, 'message': 'Only Owner/Company Admin can edit expense heads'}, status=403)
+    try:
+        from master.models import ExpenseHead
+        expense_head = get_object_or_404(ExpenseHead, id=id, is_deleted=False)
+        
+        company = user.profile.company
+        if expense_head.company != company and not user.is_superuser:
+            return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+        if not expense_head.is_deletable:
+            return JsonResponse({'success': False, 'message': f"Editing is disabled for '{expense_head.name}' expense head."}, status=400)
+
+        data = json.loads(request.body)
+        name = data.get('name', '').strip()
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Name is required'}, status=400)
+
+        if ExpenseHead.objects.filter(company=company, name__iexact=name, is_deleted=False).exclude(id=id).exists():
+            return JsonResponse({'success': False, 'message': 'This expense head already exists'}, status=400)
+
+        expense_head.name = name
+        expense_head.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Expense head updated successfully',
+            'expense_head': {'id': str(expense_head.id), 'name': expense_head.name}
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_delete_expense_head(request, id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    role = user.profile.role.name if user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        return JsonResponse({'success': False, 'message': 'Only Owner/Company Admin can delete expense heads'}, status=403)
+    try:
+        from master.models import ExpenseHead
+        expense_head = get_object_or_404(ExpenseHead, id=id, is_deleted=False)
+
+        company = user.profile.company
+        if expense_head.company != company and not user.is_superuser:
+            return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+        if not expense_head.is_deletable:
+            return JsonResponse({'success': False, 'message': f"Deletion is disabled for '{expense_head.name}' expense head."}, status=400)
+
+        expense_head.is_deleted = True
+        expense_head.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Expense head deleted successfully'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_edit_stock(request, id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    role = user.profile.role.name if user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        return JsonResponse({'success': False, 'message': 'Only Owner/Company Admin can edit stock items'}, status=403)
+    try:
+        from .models import Stock
+        stock = get_object_or_404(Stock, id=id, is_deleted=False)
+
+        company = user.profile.company
+        if stock.company != company and not user.is_superuser:
+            return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+        data = json.loads(request.body)
+        item_name = data.get('item_name', '').strip()
+        unit = data.get('unit', '').strip()
+        expense_head_id = data.get('expense_head_id')
+
+        if not item_name or not unit:
+            return JsonResponse({'success': False, 'message': 'item_name and unit are required'}, status=400)
+
+        valid_units = [u[0] for u in Stock.UNIT_CHOICES]
+        if unit not in valid_units:
+            return JsonResponse({'success': False, 'message': f'Invalid unit. Valid choices are: {", ".join(valid_units)}'}, status=400)
+
+        if Stock.objects.filter(company=company, item_name__iexact=item_name, is_deleted=False).exclude(id=id).exists():
+            return JsonResponse({'success': False, 'message': 'Stock item already exists'}, status=400)
+
+        expense_head = None
+        if expense_head_id:
+            from master.models import ExpenseHead
+            expense_head = get_object_or_404(ExpenseHead, id=expense_head_id, company=company, is_deleted=False)
+
+        stock.item_name = item_name
+        stock.unit = unit
+        stock.expense_head = expense_head
+        stock.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Stock item updated successfully',
+            'stock': {
+                'id': str(stock.id),
+                'item_name': stock.item_name,
+                'unit': stock.unit,
+                'unit_display': stock.get_unit_display(),
+                'expense_head_id': str(stock.expense_head.id) if stock.expense_head else None,
+                'expense_head_name': stock.expense_head.name if stock.expense_head else None,
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_delete_stock(request, id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    role = user.profile.role.name if user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        return JsonResponse({'success': False, 'message': 'Only Owner/Company Admin can delete stock items'}, status=403)
+    try:
+        from .models import Stock
+        stock = get_object_or_404(Stock, id=id, is_deleted=False)
+
+        company = user.profile.company
+        if stock.company != company and not user.is_superuser:
+            return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+        stock.is_deleted = True
+        stock.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Stock item deleted successfully'
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)

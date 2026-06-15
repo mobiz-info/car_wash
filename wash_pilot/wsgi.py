@@ -8,6 +8,11 @@ https://docs.djangoproject.com/en/4.2/howto/deployment/wsgi/
 """
 
 import os
+import sys
+
+# Ensure macOS Homebrew libraries (like libgobject for WeasyPrint) are searchable
+if sys.platform == 'darwin':
+    os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
 
 from django.core.wsgi import get_wsgi_application
 
