@@ -153,7 +153,7 @@ def api_update_booking_status(request, booking_id):
 
 
 def send_whatsapp_simple(to_number, message, setting=None):
-    base_url = "http://68.183.94.11:78/conv_wa.php"
+    base_url = "http://wawy.org/conv_wa.php"
     username = "mobiz"
     api_password = "Mobiz123@"
     sender = "9496007007"
