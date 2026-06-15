@@ -156,7 +156,7 @@ def send_whatsapp_simple(to_number, message, setting=None):
     base_url = "http://wawy.org/conv_wa.php"
     username = "mobiz"
     api_password = "e36981wr6npxjbv7f"
-    sender = "9496007007"
+    sender = "919496007007"
     
     if setting:
         base_url = setting.url or base_url
