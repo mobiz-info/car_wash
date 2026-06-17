@@ -16,5 +16,9 @@ urlpatterns = [
     path('weekly-off/create/',views.weekly_off_create,name='weekly_off_create'),
     path('weekly-off/delete/<uuid:id>/',views.weekly_off_delete,name='weekly_off_delete'),
 
+    path('booking-settings/',views.booking_settings,name='booking_settings'),
     
+    path('pause-booking/',views.pause_booking_list,name='pause_booking_list'),
+    path('pause-booking/create/',views.pause_booking_create,name='pause_booking_create'),
+    path('pause-booking/delete/<uuid:pk>/',views.pause_booking_delete,name='pause_booking_delete'),
 ]

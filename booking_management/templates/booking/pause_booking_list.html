@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}Pause Booking{% endblock %}
+{% block page_title %}Pause Booking{% endblock %}
+{% block breadcrumb_active %}Pause Booking{% endblock %}
+
+{% block content %}
+
+<style>
+
+.list-container{
+    background:white;
+    border-radius:12px;
+    border:1px solid #e2e8f0;
+    box-shadow:0 4px 6px rgba(0,0,0,0.05);
+    overflow:hidden;
+}
+
+.list-header{
+    padding:20px 24px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom:1px solid #e2e8f0;
+}
+
+.add-btn{
+    background:#dc2626;
+    color:white;
+    padding:10px 16px;
+    border-radius:8px;
+    text-decoration:none;
+}
+
+.add-btn:hover{
+    color:white;
+    background:#b91c1c;
+}
+
+.premium-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.premium-table th{
+    background:#f8fafc;
+    padding:14px 20px;
+    text-align:left;
+}
+
+.premium-table td{
+    padding:16px 20px;
+    border-bottom:1px solid #f1f5f9;
+}
+
+.premium-table tr:hover{
+    background:#f8fafc;
+}
+
+.delete-btn{
+    color:#dc2626;
+    font-size:18px;
+}
+
+.empty-state{
+    text-align:center;
+    padding:50px;
+    color:#94a3b8;
+}
+
+</style>
+
+<div class="list-container">
+
+    <div class="list-header">
+
+        <h5 class="mb-0">
+            Paused Booking Dates
+        </h5>
+
+        <a href="{% url 'pause_booking_create' %}"
+           class="add-btn">
+
+            <i class="ph ph-plus"></i>
+            Pause Booking
+
+        </a>
+
+    </div>
+
+    <div style="overflow-x:auto;">
+
+        <table class="premium-table">
+
+            <thead>
+
+                <tr>
+                    <th>#</th>
+                    <th>Branch</th>
+                    <th>From Date</th>
+                    <th>To Date</th>
+                    <th>Reason</th>
+                    <th>Action</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for item in pauses %}
+
+                <tr>
+
+                    <td>
+                        {{ forloop.counter }}
+                    </td>
+
+                    <td>
+                        {{ item.branch.name }}
+                    </td>
+
+                    <td>
+                        {{ item.from_date|date:"d M Y" }}
+                    </td>
+
+                    <td>
+                        {{ item.to_date|date:"d M Y" }}
+                    </td>
+
+                    <td>
+                        {{ item.reason|default:"-" }}
+                    </td>
+
+                    <td>
+
+                        <a href="{% url 'pause_booking_delete' item.id %}"
+                           class="delete-btn"
+                           onclick="return confirm('Delete this pause booking?')">
+
+                            <i class="ph ph-trash"></i>
+
+                        </a>
+
+                    </td>
+
+                </tr>
+
+                {% empty %}
+
+                <tr>
+
+                    <td colspan="6"
+                        class="empty-state">
+
+                        <i class="ph ph-calendar-x"
+                           style="font-size:48px;"></i>
+
+                        <p>
+                            No pause bookings found
+                        </p>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -3,6 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.contrib import messages
 from datetime import datetime
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 
 from .models import *
 from .forms import *
@@ -342,3 +344,257 @@ def weekly_off_delete(request, id):
         "weekly_off_list"
     )
     
+    
+@login_required
+def booking_settings(request):
+
+    role = getattr(
+        getattr(request.user, 'profile', None),
+        'role',
+        None
+    )
+
+    role_name = role.name if role else None
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = getattr(
+            request.user.profile,
+            'company',
+            None
+        )
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+    else:
+
+        branch = getattr(
+            request.user,
+            'managed_branch',
+            None
+        )
+
+        branches = Branch.objects.filter(
+            id=branch.id,
+            is_deleted=False
+        ) if branch else Branch.objects.none()
+
+    if request.method == "POST":
+
+        for branch in branches:
+
+            booking_enabled = (
+                request.POST.get(
+                    f"is_booking_enabled_{branch.id}"
+                ) == "on"
+            )
+
+            max_booking = (
+                request.POST.get(
+                    f"max_booking_{branch.id}"
+                ) or 0
+            )
+
+            closing_time = request.POST.get(
+                f"closing_time_{branch.id}"
+            )
+
+            BookingSettings.objects.update_or_create(
+                branch=branch,
+                defaults={
+                    "is_booking_enabled": booking_enabled,
+                    "max_booking_per_day": max_booking,
+                    "booking_closing_time": (
+                        closing_time if closing_time else None
+                    ),
+                    "creator": request.user,
+                }
+            )
+
+        messages.success(
+            request,
+            "Booking settings updated successfully"
+        )
+
+        return HttpResponseRedirect(
+            reverse('booking_settings')
+        )
+
+    for branch in branches:
+
+        BookingSettings.objects.get_or_create(
+            branch=branch,
+            defaults={
+                "creator": request.user,
+                "auto_id": get_auto_id(BookingSettings),
+            }
+        )
+
+    booking_settings = {
+        item.branch_id: item
+        for item in BookingSettings.objects.filter(
+            branch__in=branches,
+            is_deleted=False
+        )
+    }
+
+    context = {
+        "branches": branches,
+        "booking_settings": booking_settings,
+    }
+
+    return render(
+        request,
+        "booking/booking_settings.html",
+        context
+    )
+    
+@login_required
+def pause_booking_create(request):
+
+    role = getattr(
+        getattr(request.user, 'profile', None),
+        'role',
+        None
+    )
+
+    role_name = role.name if role else None
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = request.user.profile.company
+
+        branches = Branch.objects.filter(
+            company=company,
+            is_deleted=False
+        )
+
+    else:
+
+        branch = getattr(
+            request.user,
+            'managed_branch',
+            None
+        )
+
+        branches = Branch.objects.filter(
+            id=branch.id,
+            is_deleted=False
+        ) if branch else Branch.objects.none()
+
+    if request.method == "POST":
+
+        branch_id = request.POST.get("branch")
+        from_date = request.POST.get("from_date")
+        to_date = request.POST.get("to_date")
+        reason = request.POST.get("reason")
+
+        if not branches.filter(id=branch_id).exists():
+
+            messages.error(
+                request,
+                "Invalid branch selected."
+            )
+
+            return redirect(
+                "pause_booking_create"
+            )
+
+        BookingPause.objects.create(
+            branch_id=branch_id,
+            from_date=from_date,
+            to_date=to_date,
+            reason=reason,
+            creator=request.user,
+            auto_id=get_auto_id(BookingPause)
+        )
+
+        messages.success(
+            request,
+            "Booking pause created successfully."
+        )
+
+        return redirect(
+            "pause_booking_list"
+        )
+
+    context = {
+        "branches": branches
+    }
+
+    return render(
+        request,
+        "booking/pause_booking_create.html",
+        context
+    )
+    
+@login_required
+def pause_booking_list(request):
+
+    role = getattr(
+        getattr(request.user, 'profile', None),
+        'role',
+        None
+    )
+
+    role_name = role.name if role else None
+
+    if role_name == 'COMPANY_ADMIN':
+
+        company = request.user.profile.company
+
+        pauses = BookingPause.objects.filter(
+            branch__company=company,
+            is_deleted=False
+        ).select_related(
+            'branch'
+        )
+
+    else:
+
+        branch = getattr(
+            request.user,
+            'managed_branch',
+            None
+        )
+
+        pauses = BookingPause.objects.filter(
+            branch=branch,
+            is_deleted=False
+        ).select_related(
+            'branch'
+        )
+
+    context = {
+        "pauses": pauses
+    }
+
+    return render(
+        request,
+        "booking/pause_booking_list.html",
+        context
+    )
+    
+@login_required
+def pause_booking_delete(request, pk):
+
+    item = get_object_or_404(
+        BookingPause,
+        pk=pk,
+        is_deleted=False
+    )
+
+    item.is_deleted = True
+    item.save()
+
+    messages.success(
+        request,
+        "Booking pause deleted successfully."
+    )
+
+    return redirect(
+        "pause_booking_list"
+    )
