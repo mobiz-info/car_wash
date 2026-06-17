@@ -526,12 +526,13 @@ class CustomersVehicleForm(forms.ModelForm):
 class WhatsAppSettingForm(forms.ModelForm):
     class Meta:
         model = WhatsAppSetting
-        fields = ['url', 'username', 'password', 'sender_id']
+        fields = ['url', 'username', 'password', 'sender_id', 'whatsapp_number']
         widgets = {
             'url': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp API Url'}),
             'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp username'}),
             'password': forms.PasswordInput(render_value=True, attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp password'}),
             'sender_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp Sender ID'}),
+            'whatsapp_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp Sender Number (with country code)'}),
         }
 
     def __init__(self, *args, **kwargs):
