@@ -166,16 +166,20 @@ def send_whatsapp_simple(to_number, message, setting=None):
         "message": message
     }
     
-    import requests as req
+    # Use built-in urllib instead of requests (no pip install needed on server)
+    from urllib.request import urlopen
+    from urllib.error import URLError
     try:
-        response = req.get(f"{base_url}?{urlencode(params)}", timeout=15)
-        result = response.text if response.status_code == 200 else f"Error {response.status_code}: {response.text}"
+        url = f"{base_url}?{urlencode(params)}"
+        with urlopen(url, timeout=15) as resp:
+            result = resp.read().decode('utf-8')
+    except URLError as e:
+        result = f"URLError: {str(e)}"
     except Exception as e:
         result = f"Exception: {str(e)}"
 
     # Write debug log on server so we can check what happened
     try:
-        import os
         log_path = '/tmp/whatsapp_webhook.log'
         with open(log_path, 'a') as f:
             from datetime import datetime
