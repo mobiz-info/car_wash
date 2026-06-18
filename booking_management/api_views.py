@@ -203,7 +203,7 @@ def api_whatsapp_debug(request):
     try:
         with open('/tmp/whatsapp_webhook.log', 'r') as f:
             lines = f.readlines()
-            log_contents = ''.join(lines[-20:])  # last 20 lines
+            log_contents = ''.join(lines[-100:])  # last 100 lines
     except Exception as e:
         log_contents = f'Log not found: {e}'
 
@@ -259,6 +259,14 @@ def api_whatsapp_webhook(request):
 
         if not from_phone:
             return HttpResponse('OK', status=200)
+
+        # Log incoming request
+        try:
+            with open('/tmp/whatsapp_webhook.log', 'a') as f:
+                from datetime import datetime
+                f.write(f"[{datetime.now()}] INCOMING: from_phone={from_phone}, msg={incoming_msg}\n")
+        except Exception:
+            pass
 
         try:
             # 1. Resolve WhatsAppSetting
@@ -327,6 +335,14 @@ def api_whatsapp_webhook(request):
                 status=status_str,
                 auto_id=get_auto_id(WhatsAppMessage)
             )
+
+            # Log outgoing reply
+            try:
+                with open('/tmp/whatsapp_webhook.log', 'a') as f:
+                    from datetime import datetime
+                    f.write(f"[{datetime.now()}] OUTGOING: to={from_phone}, reply={reply_text}, response={response_text}, status={status_str}\n")
+            except Exception:
+                pass
 
         except Exception as e:
             import traceback
