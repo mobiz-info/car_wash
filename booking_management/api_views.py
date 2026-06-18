@@ -241,6 +241,14 @@ def api_whatsapp_webhook(request):
       ?number=#whats_number#&msg=#message#
     wawy.org passes the sender's WhatsApp number in 'number' and the URL-encoded message in 'msg'.
     """
+    # Write a raw log of the request to debug connectivity
+    try:
+        with open('/tmp/whatsapp_webhook.log', 'a') as f:
+            from datetime import datetime
+            f.write(f"[{datetime.now()}] RAW REQUEST: method={request.method}, path={request.path}, GET={dict(request.GET)}, POST={dict(request.POST)}, body={request.body[:500]}\n")
+    except Exception:
+        pass
+
     # wawy.org sends incoming message as GET with query params: ?number=...&msg=...
     if request.method in ('GET', 'POST'):
         # --- Read incoming parameters (works for both GET and POST) ---
