@@ -225,11 +225,22 @@ def api_whatsapp_debug(request):
     # Try sending a real message
     api_result = send_whatsapp_simple(test_number, f'Debug test to {test_number}')
 
+    import os
+    env_info = {k: v for k, v in os.environ.items() if 'PASS' not in k.upper() and 'SECRET' not in k.upper() and 'KEY' not in k.upper()}
+
     return JsonResponse({
         'test_number': test_number,
         'api_result': api_result,
         'settings_in_db': settings_info,
         'server_log_last_20_lines': log_contents,
+        'request_meta': {
+            'HTTP_HOST': request.META.get('HTTP_HOST'),
+            'HTTP_X_FORWARDED_FOR': request.META.get('HTTP_X_FORWARDED_FOR'),
+            'HTTP_X_FORWARDED_PROTO': request.META.get('HTTP_X_FORWARDED_PROTO'),
+            'SERVER_PORT': request.META.get('SERVER_PORT'),
+            'scheme': request.scheme,
+        },
+        'env_info': env_info,
     }, json_dumps_params={'indent': 2})
 
 
