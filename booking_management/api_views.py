@@ -152,31 +152,78 @@ def api_update_booking_status(request, booking_id):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
-def send_whatsapp_simple(to_number, message, setting=None):
+def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None):
     base_url = "http://wawy.org/conv_wa.php"
     username = "mobiz"
     api_password = "e36981wr6npxjbv7f"
     sender = "919496007007"
 
-    params = {
-        "username": username,
-        "api_password": api_password,
-        "sender": sender,
-        "to": to_number,
-        "message": message
-    }
-    
-    # Use built-in urllib instead of requests (no pip install needed on server)
-    from urllib.request import urlopen
-    from urllib.error import URLError
-    try:
-        url = f"{base_url}?{urlencode(params)}"
-        with urlopen(url, timeout=15) as resp:
-            result = resp.read().decode('utf-8')
-    except URLError as e:
-        result = f"URLError: {str(e)}"
-    except Exception as e:
-        result = f"Exception: {str(e)}"
+    if setting:
+        if setting.url:
+            base_url = setting.url
+        if setting.username:
+            username = setting.username
+        if setting.password:
+            api_password = setting.password
+        if setting.sender_id:
+            sender = setting.sender_id
+
+    # If it is interactive
+    if interactive_data:
+        # Construct the JSON payload
+        import json
+        payload = {
+            "username": username,
+            "api_password": api_password,
+            "sender": sender,
+            "interactive_type": "1",
+            "data": [
+                {
+                    "number": to_number,
+                    "message": message,
+                    "header_message": "Choose service",
+                    "footer_message": "",
+                    "interactive": interactive_data
+                }
+            ]
+        }
+        
+        # Send via POST request
+        from urllib.request import Request, urlopen
+        from urllib.error import URLError
+        
+        try:
+            req = Request(base_url, method='POST')
+            req.add_header('Content-Type', 'application/json; charset=utf-8')
+            jsondata = json.dumps(payload).encode('utf-8')
+            req.add_header('Content-Length', len(jsondata))
+            
+            with urlopen(req, jsondata, timeout=15) as resp:
+                result = resp.read().decode('utf-8')
+        except URLError as e:
+            result = f"URLError: {str(e)}"
+        except Exception as e:
+            result = f"Exception: {str(e)}"
+    else:
+        # Standard GET message
+        from urllib.request import urlopen
+        from urllib.error import URLError
+        
+        params = {
+            "username": username,
+            "api_password": api_password,
+            "sender": sender,
+            "to": to_number,
+            "message": message
+        }
+        try:
+            url = f"{base_url}?{urlencode(params)}"
+            with urlopen(url, timeout=15) as resp:
+                result = resp.read().decode('utf-8')
+        except URLError as e:
+            result = f"URLError: {str(e)}"
+        except Exception as e:
+            result = f"Exception: {str(e)}"
 
     # Write debug log on server so we can check what happened
     try:
@@ -263,18 +310,22 @@ def api_whatsapp_webhook(request):
     # wawy.org sends incoming message as GET with query params: ?number=...&msg=...
     if request.method in ('GET', 'POST'):
         # --- Read incoming parameters (works for both GET and POST) ---
+        choice_id = ''
         if request.method == 'GET':
             from_phone   = request.GET.get('number', '').strip()
             incoming_msg = request.GET.get('msg', '').strip()
+            choice_id    = request.GET.get('id', '').strip() or request.GET.get('button_id', '').strip()
         else:
             # Some providers send as form POST
             try:
                 body = json.loads(request.body)
                 from_phone   = body.get('number', '').strip()
                 incoming_msg = body.get('msg', '').strip()
+                choice_id    = body.get('id', '').strip() or body.get('button_id', '').strip()
             except Exception:
                 from_phone   = request.POST.get('number', '').strip()
                 incoming_msg = request.POST.get('msg', '').strip()
+                choice_id    = request.POST.get('id', '').strip() or request.POST.get('button_id', '').strip()
 
         if not from_phone:
             return HttpResponse('OK', status=200)
@@ -332,17 +383,67 @@ def api_whatsapp_webhook(request):
                 is_deleted=False
             ).select_related('branch').first()
 
-            # 3. Build reply text
-            if customer:
-                branch_name = customer.branch.name if customer.branch else company.company_name
-                reply_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+            # 3. Build reply text and check for interactive menu selections
+            choice = (choice_id or '').lower().strip() or (incoming_msg or '').lower().strip()
+            
+            interactive_menu = None
+            is_menu = True
+            
+            if "scheme" in choice:
+                reply_text = "Here are our active schemes. Please reply or contact us for more details."
+                is_menu = False
+            elif "book" in choice and "cancel" not in choice:
+                reply_text = "To book a wash appointment, please open the Wash Pilot App or visit our branch."
+                is_menu = False
+            elif "cancel" in choice:
+                reply_text = "To cancel your booking, please contact our support team."
+                is_menu = False
+            elif "status" in choice:
+                reply_text = "To check your vehicle's work status, please reply with your vehicle number."
+                is_menu = False
+            elif "feedback" in choice:
+                reply_text = "Thank you for your feedback! Please reply with your comments."
+                is_menu = False
+            elif "complaint" in choice:
+                reply_text = "Please describe your complaint, and our manager will contact you shortly."
+                is_menu = False
+            elif "location" in choice or "map" in choice:
+                reply_text = "Here is our location: https://maps.google.com/?q=Dirty+Bee+Auto+Hub"
+                is_menu = False
+            elif "call" in choice:
+                reply_text = "You can call us directly at +919496007007."
+                is_menu = False
             else:
-                first_branch = company.branches.filter(is_deleted=False).first()
-                branch_name = first_branch.name if first_branch else company.company_name
-                reply_text = f"Thank you for contacting {branch_name}."
+                # Default greeting + main menu
+                if customer:
+                    branch_name = customer.branch.name if customer.branch else company.company_name
+                    reply_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+                else:
+                    first_branch = company.branches.filter(is_deleted=False).first()
+                    branch_name = first_branch.name if first_branch else company.company_name
+                    reply_text = f"Thank you for contacting {branch_name}."
+                
+                interactive_menu = {
+                    "list_title": "Choose service",
+                    "sections": [
+                        {
+                            "title": "Services",
+                            "choices": [
+                                { "title": "Schemes", "choice_id": "menu_schemes", "description": "View active schemes" },
+                                { "title": "Book", "choice_id": "menu_book", "description": "Book a wash appointment" },
+                                { "title": "Cancel booking", "choice_id": "menu_cancel", "description": "Cancel your booking" },
+                                { "title": "Work Status", "choice_id": "menu_status", "description": "Check vehicle wash status" },
+                                { "title": "Feedback", "choice_id": "menu_feedback", "description": "Share your experience" },
+                                { "title": "Complaint", "choice_id": "menu_complaint", "description": "Raise a complaint" },
+                                { "title": "Location Map", "choice_id": "menu_location", "description": "Find our branch" },
+                                { "title": "Call Us", "choice_id": "menu_call", "description": "Contact support" }
+                            ]
+                        }
+                    ]
+                }
 
             # 4. Send reply via wawy.org/Webgenie API
-            response_text = send_whatsapp_simple(from_phone, reply_text, setting=setting)
+            response_text = send_whatsapp_simple(from_phone, reply_text, setting=setting, interactive_data=interactive_menu)
             status_str = 'Sent' if ('success' in response_text.lower() or 'wa_' in response_text.lower()) else 'Failed'
 
             # 5. Log the outgoing message
