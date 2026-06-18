@@ -157,12 +157,6 @@ def send_whatsapp_simple(to_number, message, setting=None):
     username = "mobiz"
     api_password = "e36981wr6npxjbv7f"
     sender = "919496007007"
-    
-    # if setting:
-    #     base_url = setting.url or base_url
-    #     username = setting.username or username
-    #     api_password = setting.password or api_password
-    #     sender = setting.whatsapp_number or sender
 
     params = {
         "username": username,
@@ -172,14 +166,67 @@ def send_whatsapp_simple(to_number, message, setting=None):
         "message": message
     }
     
-    import requests
+    import requests as req
     try:
-        response = requests.get(f"{base_url}?{urlencode(params)}")
-        if response.status_code == 200:
-            return response.text
-        return f"Error {response.status_code}: {response.text}"
+        response = req.get(f"{base_url}?{urlencode(params)}", timeout=15)
+        result = response.text if response.status_code == 200 else f"Error {response.status_code}: {response.text}"
     except Exception as e:
-        return f"Exception: {str(e)}"
+        result = f"Exception: {str(e)}"
+
+    # Write debug log on server so we can check what happened
+    try:
+        import os
+        log_path = '/tmp/whatsapp_webhook.log'
+        with open(log_path, 'a') as f:
+            from datetime import datetime
+            f.write(f"[{datetime.now()}] to={to_number} result={result}\n")
+    except Exception:
+        pass
+
+    return result
+
+
+@csrf_exempt
+def api_whatsapp_debug(request):
+    """Debug endpoint — returns JSON showing exactly what the webhook would do.
+    Hit: http://68.183.94.11:78/api/whatsapp/debug/?number=917510720297
+    """
+    test_number = request.GET.get('number', '917510720297').strip()
+    test_msg = request.GET.get('msg', 'test').strip()
+
+    # Read server log file
+    log_contents = ''
+    try:
+        with open('/tmp/whatsapp_webhook.log', 'r') as f:
+            lines = f.readlines()
+            log_contents = ''.join(lines[-20:])  # last 20 lines
+    except Exception as e:
+        log_contents = f'Log not found: {e}'
+
+    # Check settings in DB
+    settings_info = []
+    try:
+        for s in WhatsAppSetting.objects.filter(is_deleted=False):
+            settings_info.append({
+                'company': s.company.company_name if s.company else None,
+                'url': s.url,
+                'username': s.username,
+                'password_set': bool(s.password),
+                'whatsapp_number': s.whatsapp_number,
+                'sender_id': s.sender_id,
+            })
+    except Exception as e:
+        settings_info = [f'Error: {e}']
+
+    # Try sending a real message
+    api_result = send_whatsapp_simple(test_number, f'Debug test to {test_number}')
+
+    return JsonResponse({
+        'test_number': test_number,
+        'api_result': api_result,
+        'settings_in_db': settings_info,
+        'server_log_last_20_lines': log_contents,
+    }, json_dumps_params={'indent': 2})
 
 
 @csrf_exempt
@@ -279,7 +326,15 @@ def api_whatsapp_webhook(request):
 
         except Exception as e:
             import traceback
+            tb = traceback.format_exc()
             traceback.print_exc()
+            # Write exception to log file
+            try:
+                with open('/tmp/whatsapp_webhook.log', 'a') as f:
+                    from datetime import datetime
+                    f.write(f"[{datetime.now()}] EXCEPTION from_phone={from_phone}: {tb}\n")
+            except Exception:
+                pass
 
     # Always return 200 so Webgenie does not retry
     return HttpResponse('OK', status=200)
