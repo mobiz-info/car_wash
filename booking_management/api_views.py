@@ -172,11 +172,16 @@ def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None
     if interactive_data:
         # Construct the JSON payload
         import json
+        # Determine interactive_type: 1 for List, 2 for Button
+        interactive_type = "1"
+        if "buttons" in interactive_data:
+            interactive_type = "2"
+
         payload = {
             "username": username,
             "api_password": api_password,
             "sender": sender,
-            "interactive_type": "1",
+            "interactive_type": interactive_type,
             "data": [
                 {
                     "number": to_number,
@@ -389,12 +394,175 @@ def api_whatsapp_webhook(request):
             interactive_menu = None
             is_menu = True
             
+            # Resolve branch
+            branch = None
+            if customer:
+                branch = customer.branch
+            if not branch:
+                branch = company.branches.filter(is_deleted=False).first()
+
+            from booking_management.models import BookingSettings, HolidayCalendar, WeeklyOffDay, BookingPause
+            from datetime import timedelta
+            
             if "scheme" in choice:
                 reply_text = "Here are our active schemes. Please reply or contact us for more details."
                 is_menu = False
-            elif "book" in choice and "cancel" not in choice:
-                reply_text = "To book a wash appointment, please open the Wash Pilot App or visit our branch."
-                is_menu = False
+            elif choice == "menu_book" or (choice == "book" and not choice.startswith("book_date_") and not choice.startswith("book_veh_")):
+                if not customer:
+                    reply_text = "Please register as a customer first to use our booking services."
+                    is_menu = False
+                elif not branch:
+                    reply_text = "Sorry, no active branch is associated with your account."
+                    is_menu = False
+                else:
+                    # Check if booking is enabled
+                    booking_setting = BookingSettings.objects.filter(branch=branch).first()
+                    if booking_setting and not booking_setting.is_booking_enabled:
+                        reply_text = "Sorry, bookings are currently disabled for this branch."
+                        is_menu = False
+                    else:
+                        reply_text = "Bookings are open! Please select the booking date below:"
+                        interactive_menu = {
+                            "buttons": [
+                                { "title": "Today", "button_id": "book_date_today" },
+                                { "title": "Tomorrow", "button_id": "book_date_tomorrow" }
+                            ]
+                        }
+            elif choice == "book_date_today" or choice == "today":
+                if not customer or not branch:
+                    reply_text = "Please register as a customer first to use our booking services."
+                    is_menu = False
+                else:
+                    booking_date = timezone.localdate()
+                    # Check holiday
+                    holiday_exists = HolidayCalendar.objects.filter(branch=branch, holiday_date=booking_date).exists()
+                    weekday = booking_date.strftime("%A").lower()
+                    weekly_off = WeeklyOffDay.objects.filter(branch=branch, day=weekday).exists()
+                    
+                    if holiday_exists or weekly_off:
+                        reply_text = "Sorry, today is a holiday / weekly off. Bookings are closed."
+                        is_menu = False
+                    else:
+                        # Check paused
+                        pause_exists = BookingPause.objects.filter(
+                            branch=branch,
+                            from_date__lte=booking_date,
+                            to_date__gte=booking_date
+                        ).exists()
+                        if pause_exists:
+                            reply_text = "Sorry, booking is paused for today."
+                            is_menu = False
+                        else:
+                            # Show vehicles
+                            vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
+                            if not vehicles.exists():
+                                reply_text = "No registered vehicles found. Please add a vehicle to your account first."
+                                is_menu = False
+                            else:
+                                reply_text = "Choose a vehicle to book for Today:"
+                                choices_list = []
+                                for v in vehicles:
+                                    model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                    choices_list.append({
+                                        "title": v.vehicle_number[:20], # limit to 20 chars
+                                        "choice_id": f"book_veh_{v.id}_today",
+                                        "description": model_name[:72] # limit to 72 chars
+                                    })
+                                interactive_menu = {
+                                    "list_title": "Choose Vehicle",
+                                    "sections": [
+                                        {
+                                            "title": "Your Vehicles",
+                                            "choices": choices_list
+                                        }
+                                    ]
+                                }
+            elif choice == "book_date_tomorrow" or choice == "tomorrow":
+                if not customer or not branch:
+                    reply_text = "Please register as a customer first to use our booking services."
+                    is_menu = False
+                else:
+                    booking_date = timezone.localdate() + timedelta(days=1)
+                    # Check holiday
+                    holiday_exists = HolidayCalendar.objects.filter(branch=branch, holiday_date=booking_date).exists()
+                    weekday = booking_date.strftime("%A").lower()
+                    weekly_off = WeeklyOffDay.objects.filter(branch=branch, day=weekday).exists()
+                    
+                    if holiday_exists or weekly_off:
+                        reply_text = "Sorry, tomorrow is a holiday / weekly off. Bookings are closed."
+                        is_menu = False
+                    else:
+                        # Check paused
+                        pause_exists = BookingPause.objects.filter(
+                            branch=branch,
+                            from_date__lte=booking_date,
+                            to_date__gte=booking_date
+                        ).exists()
+                        if pause_exists:
+                            reply_text = "Sorry, booking is paused for tomorrow."
+                            is_menu = False
+                        else:
+                            # Show vehicles
+                            vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
+                            if not vehicles.exists():
+                                reply_text = "No registered vehicles found. Please add a vehicle to your account first."
+                                is_menu = False
+                            else:
+                                reply_text = "Choose a vehicle to book for Tomorrow:"
+                                choices_list = []
+                                for v in vehicles:
+                                    model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                    choices_list.append({
+                                        "title": v.vehicle_number[:20],
+                                        "choice_id": f"book_veh_{v.id}_tomorrow",
+                                        "description": model_name[:72]
+                                    })
+                                interactive_menu = {
+                                    "list_title": "Choose Vehicle",
+                                    "sections": [
+                                        {
+                                            "title": "Your Vehicles",
+                                            "choices": choices_list
+                                        }
+                                    ]
+                                }
+            elif choice.startswith("book_veh_"):
+                if not customer:
+                    reply_text = "Please register as a customer first to use our booking services."
+                    is_menu = False
+                else:
+                    parts = choice.split("_")
+                    vehicle_id = parts[2]
+                    day_str = parts[3]
+                    
+                    booking_date = timezone.localdate()
+                    if day_str == "tomorrow":
+                        booking_date += timedelta(days=1)
+                    
+                    try:
+                        vehicle = CustomerVehicle.objects.get(id=vehicle_id, customer=customer)
+                        
+                        # Validate booking availability
+                        from .utils import validate_booking
+                        is_valid, validation_msg = validate_booking(branch, booking_date)
+                        if not is_valid:
+                            reply_text = f"Sorry, booking is not available for this date: {validation_msg}."
+                        else:
+                            # Create the booking record
+                            from core.functions import get_auto_id
+                            booking = Booking.objects.create(
+                                customer=customer,
+                                vehicle=vehicle,
+                                branch=branch,
+                                booking_date=booking_date,
+                                status=Booking.STATUS_PENDING,
+                                auto_id=get_auto_id(Booking)
+                            )
+                            reply_text = f"Booking confirmed! Your appointment for {vehicle.vehicle_number} has been scheduled for {booking_date.strftime('%d-%b-%Y')} ({day_str.capitalize()})."
+                    except Exception as e:
+                        reply_text = f"Sorry, there was an error processing your booking: {e}"
+                    
+                    is_menu = False
             elif "cancel" in choice:
                 reply_text = "To cancel your booking, please contact our support team."
                 is_menu = False
