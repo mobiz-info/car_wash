@@ -219,7 +219,8 @@ def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None
             "api_password": api_password,
             "sender": sender,
             "to": to_number,
-            "message": message
+            "message": message,
+            "jsonapi": "1"
         }
         try:
             url = f"{base_url}?{urlencode(params)}"
