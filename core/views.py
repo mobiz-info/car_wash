@@ -150,7 +150,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 @login_required
 def user_list(request):
     search_query = request.GET.get('search', '')
-    users = User.objects.all().order_by('-date_joined')
+    users = User.objects.exclude(
+        profile__role__name='SUPER_ADMIN'
+    ).order_by('-date_joined')
+
     if search_query:
         users = users.filter(username__icontains=search_query) | users.filter(email__icontains=search_query)
 

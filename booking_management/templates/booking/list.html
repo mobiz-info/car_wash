@@ -9,16 +9,30 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper" style="display:flex; gap:12px; flex-wrap:wrap;">
             <div style="position:relative; flex:1; min-width:200px;">
-                <i class="ph ph-magnifying-glass search-icon"></i>
+                {% comment %} <i class="ph ph-magnifying-glass search-icon"></i> {% endcomment %}
                 <input type="text" name="search" value="{{ search }}" class="search-input" placeholder="Search by name, phone, vehicle...">
             </div>
             <select name="status" onchange="this.form.submit()" style="padding:10px 16px; border-radius:10px; border:1px solid #e2e8f0; background:#fff; font-size:0.875rem; cursor:pointer;">
-                <option value="">All Statuses</option>
+                <option value="">All </option>
                 <option value="pending"   {% if status_filter == 'pending'   %}selected{% endif %}>Pending</option>
                 <option value="confirmed" {% if status_filter == 'confirmed' %}selected{% endif %}>Confirmed</option>
                 <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
                 <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelled</option>
             </select>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+
+                <input type="date" name="from_date" value="{{ from_date }}"
+                    style="padding:10px;border-radius:10px;border:1px solid #e2e8f0;">
+
+                <input type="date" name="to_date" value="{{ to_date }}"
+                    style="padding:10px;border-radius:10px;border:1px solid #e2e8f0;">
+
+                <button type="submit"
+                        style="padding:10px 16px;background:#2563eb;color:#fff;border:none;border-radius:10px;">
+                    Filter
+                </button>
+
+            </div>
         </form>
     </div>
 

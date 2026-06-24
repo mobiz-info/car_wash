@@ -1115,7 +1115,7 @@ def customer_vehicle_list(request):
 
 @login_required
 def customer_vehicle_create(request):
-    form = CustomersVehicleForm(request.POST or None)
+    form = CustomersVehicleForm(request.POST or None, request.FILES or None, request=request)
 
     if request.method == 'POST':
         if form.is_valid():
