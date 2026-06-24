@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Vehicle Type Class - Wash Pilot Admin{% endblock %}
+{% block title %}Vehicle Type Class - Mobiz Car Wash Solution{% endblock %}
 {% block page_title %}Vehicle Type Class{% endblock %}
 {% block breadcrumb_active %}Vehicle Management{% endblock %}
 
@@ -12,11 +12,11 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Type Model..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Type Class..." class="search-input">
         </form>
 
         <a href="{% url 'vehicle_type_model_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Vehicle Type Model
+            <i class="ph-bold ph-plus"></i> Add Vehicle Type Class
         </a>
     </div>
 
@@ -32,34 +32,37 @@
                 </tr>
             </thead>
             <tbody>
-                {% for obj in data %}
-                <tr>
-                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+    {% regroup data by vehicle_type as vehicle_groups %}
 
-                    <td>{{ obj.vehicle_type.name }}</td>
-                    <td>{{ obj.name }}</td>
+    {% for group in vehicle_groups %}
+        <tr style="background:#f8fafc;">
+            <td colspan="4">
+                <strong>{{ group.grouper.name }}</strong>
+            </td>
+        </tr>
 
-                    <!-- Actions -->
-                    <td style="text-align:right;">
-                        <div style="display:flex; gap:8px; justify-content:flex-end;">
-                            <a href="{% url 'vehicle_type_model_edit' obj.pk %}" class="action-btn edit">
-                                <i class="ph ph-pencil-simple"></i>
-                            </a>
-                            <a href="{% url 'vehicle_type_model_delete' obj.pk %}" onclick="return confirm('Delete this area?')" class="action-btn delete">
-                                <i class="ph ph-trash"></i>
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" style="text-align:center; padding:40px; color:#94a3b8;">
-                        <i class="ph ph-map-pin-line" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
-                        No areas found.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+        {% for obj in group.list %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td></td>
+            <td>{{ obj.name }}</td>
+
+            <td style="text-align:right;">
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <a href="{% url 'vehicle_type_model_edit' obj.pk %}" class="action-btn edit">
+                        <i class="ph ph-pencil-simple"></i>
+                    </a>
+                    <a href="{% url 'vehicle_type_model_delete' obj.pk %}"
+                       onclick="return confirm('Delete this vehicle type class?')"
+                       class="action-btn delete">
+                        <i class="ph ph-trash"></i>
+                    </a>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    {% endfor %}
+</tbody>
         </table>
     </div>
 
