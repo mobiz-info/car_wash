@@ -351,12 +351,35 @@ def vehicle_type_delete(request, id):
     messages.success(request, "Vehicle Type deleted successfully")
     return redirect('vehicle_type_list')
 
-
 @login_required
 def vehicle_type_model_list(request):
-    data = VehicleTypeModel.objects.filter(is_deleted=False)
-    return render(request, 'vehicle_type_model/list.html', {'data': data})
+    search = request.GET.get('search', '')
 
+    data = VehicleTypeModel.objects.filter(
+        is_deleted=False
+    ).select_related('vehicle_type')
+
+    if search:
+        data = data.filter(
+            Q(name__icontains=search) |
+            Q(vehicle_type__name__icontains=search)
+        )
+
+    data = data.order_by('vehicle_type__name', 'name')
+
+    paginator = Paginator(data, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request,
+        'vehicle_type_model/list.html',
+        {
+            'data': page_obj,
+            'page_obj': page_obj,
+            'search': search
+        }
+    )
 
 @login_required
 def vehicle_type_model_create(request):
@@ -367,7 +390,7 @@ def vehicle_type_model_create(request):
             instance = form.save(commit=False)
             instance.auto_id = get_auto_id(VehicleTypeModel)
             instance.save()
-            messages.success(request, "Vehicle Model created successfully")
+            messages.success(request, "Vehicle Class created successfully")
             return redirect('vehicle_type_model_list')
 
     return render(request, 'vehicle_type_model/create.html', {
@@ -387,7 +410,7 @@ def vehicle_type_model_edit(request, id):
             instance = form.save(commit=False)
             instance.updater = request.user
             instance.save()
-            messages.success(request, "Vehicle Model updated successfully")
+            messages.success(request, "Vehicle Class updated successfully")
             return redirect('vehicle_type_model_list')
 
     return render(request, 'vehicle_type_model/create.html', {
@@ -401,7 +424,7 @@ def vehicle_type_model_delete(request, id):
     instance = get_object_or_404(VehicleTypeModel, id=id)
     instance.is_deleted = True
     instance.save()
-    messages.success(request, "Vehicle Model deleted successfully")
+    messages.success(request, "Vehicle Class deleted successfully")
     return redirect('vehicle_type_model_list')
 
 

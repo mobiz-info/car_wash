@@ -25,6 +25,15 @@ def booking_list(request):
     elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         bookings = bookings.filter(branch=user.managed_branch)
 
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    if from_date:
+        bookings = bookings.filter(booking_date__gte=from_date)
+
+    if to_date:
+        bookings = bookings.filter(booking_date__lte=to_date)
+
     search = request.GET.get('search', '').strip()
     if search:
         bookings = bookings.filter(
@@ -41,6 +50,8 @@ def booking_list(request):
         'bookings': bookings,
         'search': search,
         'status_filter': status_filter,
+        'from_date': from_date,
+        'to_date': to_date,
         'title': 'Bookings',
     })
 

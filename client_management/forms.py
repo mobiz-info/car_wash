@@ -498,7 +498,29 @@ class CustomersVehicleForm(forms.ModelForm):
         fields = ['customer', 'vehicle_type', 'vehicle_type_model', 'vehicle_number']
 
     def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
+
+        if self.request:
+            try:
+                user_profile = self.request.user.profile
+                user_role = user_profile.role.name
+
+                # default branch
+                branch = None
+
+                if user_role == 'BRANCH_ADMIN' and hasattr(self.request.user, 'managed_branch'):
+                    branch = self.request.user.managed_branch
+                else:
+                    branch = user_profile.branch  # adjust if your profile has branch FK
+
+                self.fields['customer'].queryset = Customer.objects.filter(
+                    is_deleted=False,
+                    branch=branch
+                ).order_by('name')
+
+            except AttributeError:
+                self.fields['customer'].queryset = Customer.objects.none()
 
         # 🚨 IMPORTANT: Always set queryset based on POST or instance
         if self.data:

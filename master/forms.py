@@ -59,6 +59,12 @@ class VehicleTypeModelForm(forms.ModelForm):
         model = VehicleTypeModel
         fields = ['vehicle_type', 'name', 'description', 'is_active']
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['vehicle_type'].queryset = VehicleType.objects.filter(
+            is_deleted=False
+        )
 
 class SchemeTypeForm(forms.ModelForm):
     class Meta:
