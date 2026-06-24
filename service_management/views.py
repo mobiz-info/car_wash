@@ -147,23 +147,46 @@ def service_delete(request, id):
 
 @login_required
 def branch_service_list(request):
-    """List view — COMPANY_ADMIN sees company-level services; BRANCH_ADMIN sees their branch."""
+    """List view — COMPANY_ADMIN sees all branches of their company; BRANCH_ADMIN sees their branch."""
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
 
+    search = request.GET.get('search', '')
+
     if role_name == 'COMPANY_ADMIN':
-        # Redirect directly to company-level service management
-        return redirect('company_service_manage')
+        company = getattr(request.user.profile, 'company', None)
+        if not company:
+            messages.error(request, "No company assigned.")
+            return redirect('dashboard')
+        
+        branches = company.branches.filter(is_deleted=False)
+        if search:
+            branches = branches.filter(name__icontains=search)
+            
+        data = []
+        for branch in branches:
+            services = BranchService.objects.filter(branch=branch, is_enabled=True).select_related('service')
+            data.append({
+                'branch': branch,
+                'services': services
+            })
     else:
-        # BRANCH_ADMIN: show their branch's enabled services
         branch = getattr(request.user, 'managed_branch', None)
         if not branch:
             messages.error(request, "No branch assigned.")
             return redirect('dashboard')
+        
         services = BranchService.objects.filter(branch=branch, is_enabled=True).select_related('service')
-        data = [{'branch': branch, 'services': services}]
+        if search and search.lower() not in branch.name.lower():
+            data = []
+        else:
+            data = [{'branch': branch, 'services': services}]
 
-    return render(request, 'branch/branch_service_list.html', {'data': data})
+    return render(request, 'branch/branch_service_list.html', {
+        'data': data,
+        'search': search,
+        'role_name': role_name
+    })
 
 
 @login_required

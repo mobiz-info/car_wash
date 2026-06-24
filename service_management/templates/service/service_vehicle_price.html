@@ -136,8 +136,18 @@
 
 </form>
 
+    {% if not services %}
+    <div style="padding:48px 0; text-align:center; color:#94a3b8;">
+        <i class="ph ph-warning-circle" style="font-size:2.5rem; display:block; margin-bottom:10px; color:#f59e0b;"></i>
+        <div style="font-weight:700; color:#1e293b; font-size:1.1rem;">No Services Enabled for this Branch</div>
+        <div style="font-size:.875rem; margin-top:6px; margin-bottom: 20px; color:#64748b;">You must enable services for this branch first before setting their vehicle pricing.</div>
+        <a href="{% url 'branch_service_manage' branch.id %}" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; justify-content: center; margin: auto; max-width: 250px;">
+            <i class="ph ph-gear"></i> Enable Branch Services
+        </a>
+    </div>
+    {% endif %}
 
-    {% if selected_vehicle_type %}
+    {% if selected_vehicle_type and services %}
 
 <form method="POST">
 

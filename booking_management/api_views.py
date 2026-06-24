@@ -145,6 +145,16 @@ def api_update_booking_status(request, booking_id):
             return JsonResponse({'success': False, 'message': 'Invalid status'}, status=400)
         booking.status = new_status
         booking.save()
+        
+        # Trigger ready alert automatically if status is changed to completed
+        if new_status == 'completed':
+            import threading
+            threading.Thread(
+                target=send_booking_ready_alert_background,
+                args=(str(booking.id),),
+                daemon=True
+            ).start()
+            
         return JsonResponse({'success': True, 'message': 'Status updated', 'status': booking.status})
     except Booking.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Booking not found'}, status=404)
@@ -152,7 +162,27 @@ def api_update_booking_status(request, booking_id):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
-def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None):
+def safe_create_model(model, **kwargs):
+    from django.db import IntegrityError
+    from core.functions import get_auto_id
+    import time
+    
+    for attempt in range(5):
+        try:
+            kwargs['auto_id'] = get_auto_id(model)
+            return model.objects.create(**kwargs)
+        except IntegrityError as e:
+            if 'auto_id' in str(e).lower() or 'duplicate' in str(e).lower():
+                time.sleep(0.1)  # Sleep 100ms and try again
+                continue
+            raise e
+    kwargs['auto_id'] = get_auto_id(model)
+    return model.objects.create(**kwargs)
+
+
+def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None, media_url=None, location_data=None):
+    with open('/tmp/wa_debug.log', 'a') as f:
+        f.write(f"SEND_WA_SIMPLE CALL: to={to_number}, message='{message}', loc={bool(location_data)}\n")
     base_url = "http://wawy.org/conv_wa.php"
     username = "mobiz"
     api_password = "e36981wr6npxjbv7f"
@@ -168,14 +198,59 @@ def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None
         if setting.sender_id:
             sender = setting.sender_id
 
+    # If it is a location map pin
+    if location_data:
+        import json
+        payload = {
+            "username": username,
+            "api_password": api_password,
+            "sender": sender,
+            "is_contact": "0",
+            "data": [
+                {
+                    "number": to_number
+                }
+            ],
+            "location": {
+                "latitude": str(location_data.get("lat", "11.2588")),
+                "longitude": str(location_data.get("lng", "75.7804")),
+                "name": str(location_data.get("address", "")),
+                "address": str(location_data.get("address", ""))
+            }
+        }
+        from urllib.request import Request, urlopen
+        from urllib.error import URLError
+        
+        try:
+            req = Request(base_url, method='POST')
+            req.add_header('Content-Type', 'application/json; charset=utf-8')
+            jsondata = json.dumps(payload).encode('utf-8')
+            req.add_header('Content-Length', len(jsondata))
+            
+            with open('/tmp/wa_debug.log', 'a') as f:
+                f.write(f"LOCATION PAYLOAD: {jsondata.decode()}\n")
+            
+            with urlopen(req, jsondata, timeout=15) as resp:
+                result = resp.read().decode('utf-8')
+                
+            with open('/tmp/wa_debug.log', 'a') as f:
+                f.write(f"LOCATION RESPONSE: {result}\n")
+        except URLError as e:
+            result = f"URLError: {str(e)}"
+        except Exception as e:
+            result = f"Exception: {str(e)}"
+
     # If it is interactive
-    if interactive_data:
+    elif interactive_data:
         # Construct the JSON payload
         import json
         # Determine interactive_type: 1 for List, 2 for Button
         interactive_type = "1"
         if "buttons" in interactive_data:
             interactive_type = "2"
+
+        header_msg = interactive_data.pop("header_message", "") if isinstance(interactive_data, dict) else ""
+        footer_msg = interactive_data.pop("footer_message", "") if isinstance(interactive_data, dict) else ""
 
         payload = {
             "username": username,
@@ -186,8 +261,8 @@ def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None
                 {
                     "number": to_number,
                     "message": message,
-                    "header_message": "Choose service",
-                    "footer_message": "",
+                    "header_message": header_msg,
+                    "footer_message": footer_msg,
                     "interactive": interactive_data
                 }
             ]
@@ -222,10 +297,19 @@ def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None
             "message": message,
             "jsonapi": "1"
         }
+        if media_url:
+            params["media_url"] = media_url
+            
         try:
             url = f"{base_url}?{urlencode(params)}"
+            with open('/tmp/wa_debug.log', 'a') as f:
+                f.write(f"GET URL: {url}\n")
+            
             with urlopen(url, timeout=15) as resp:
                 result = resp.read().decode('utf-8')
+                
+            with open('/tmp/wa_debug.log', 'a') as f:
+                f.write(f"GET RESPONSE: {result}\n")
         except URLError as e:
             result = f"URLError: {str(e)}"
         except Exception as e:
@@ -296,6 +380,11 @@ def api_whatsapp_debug(request):
         'env_info': env_info,
     }, json_dumps_params={'indent': 2})
 
+def get_local_date():
+    from zoneinfo import ZoneInfo
+    from django.utils import timezone
+    return timezone.now().astimezone(ZoneInfo('Asia/Kolkata')).date()
+
 
 @csrf_exempt
 def api_whatsapp_webhook(request):
@@ -313,34 +402,72 @@ def api_whatsapp_webhook(request):
     except Exception:
         pass
 
-    # wawy.org sends incoming message as GET with query params: ?number=...&msg=...
+    # wawy.org sends incoming message as GET/POST with query params or JSON body
     if request.method in ('GET', 'POST'):
         # --- Read incoming parameters (works for both GET and POST) ---
         choice_id = ''
+        incoming_msg = ''
+        from_phone = ''
+
         if request.method == 'GET':
             from_phone   = request.GET.get('number', '').strip()
-            incoming_msg = request.GET.get('msg', '').strip()
-            choice_id    = request.GET.get('id', '').strip() or request.GET.get('button_id', '').strip()
+            incoming_msg = (request.GET.get('msg', '').strip() or 
+                            request.GET.get('message_in', '').strip() or 
+                            request.GET.get('message', '').strip())
+            choice_id    = (request.GET.get('id', '').strip() or 
+                            request.GET.get('button_id', '').strip() or 
+                            request.GET.get('choice_id', '').strip())
         else:
-            # Some providers send as form POST
+            # POST request
             try:
                 body = json.loads(request.body)
-                from_phone   = body.get('number', '').strip()
-                incoming_msg = body.get('msg', '').strip()
-                choice_id    = body.get('id', '').strip() or body.get('button_id', '').strip()
+                from_phone   = str(body.get('number', '')).strip()
+                incoming_msg = str(body.get('message_in', '') or 
+                                   body.get('msg', '') or 
+                                   body.get('message', '')).strip()
+                
+                # Check interactive dict first (for wawy.org list/button selection)
+                interactive_data = body.get('interactive') or {}
+                interactive_type = str(interactive_data.get('type', '')).strip()
+                if interactive_type == '1':
+                    # For list messages (type 1), wawy.org replaces the custom choice ID with a random 
+                    # numeric 'btnid'. The actual selection title/ID is preserved in the 'id' field.
+                    choice_id = str(interactive_data.get('id', '')).strip()
+                elif interactive_type == '2':
+                    # For button messages (type 2), the custom button_id is preserved in 'btnid'.
+                    choice_id = str(interactive_data.get('btnid', '') or interactive_data.get('id', '')).strip()
+                else:
+                    choice_id = str(
+                        interactive_data.get('btnid', '') or 
+                        interactive_data.get('id', '') or 
+                        body.get('id', '') or 
+                        body.get('button_id', '') or 
+                        body.get('choice_id', '')
+                    ).strip()
             except Exception:
+                # Form POST or fallback
                 from_phone   = request.POST.get('number', '').strip()
-                incoming_msg = request.POST.get('msg', '').strip()
-                choice_id    = request.POST.get('id', '').strip() or request.POST.get('button_id', '').strip()
+                incoming_msg = (request.POST.get('message_in', '').strip() or 
+                                request.POST.get('msg', '').strip() or 
+                                request.POST.get('message', '').strip())
+                choice_id    = (request.POST.get('btnid', '').strip() or
+                                request.POST.get('id', '').strip() or 
+                                request.POST.get('button_id', '').strip() or 
+                                request.POST.get('choice_id', '').strip())
 
         if not from_phone:
             return HttpResponse('OK', status=200)
+
+        # Decode URL-encoded parameters (like + or %20) from wawy.org
+        from urllib.parse import unquote_plus
+        choice_id = unquote_plus(choice_id)
+        incoming_msg = unquote_plus(incoming_msg)
 
         # Log incoming request
         try:
             with open('/tmp/whatsapp_webhook.log', 'a') as f:
                 from datetime import datetime
-                f.write(f"[{datetime.now()}] INCOMING: from_phone={from_phone}, msg={incoming_msg}\n")
+                f.write(f"[{datetime.now()}] INCOMING: from_phone={from_phone}, msg={incoming_msg}, choice_id={choice_id}\n")
         except Exception:
             pass
 
@@ -390,9 +517,69 @@ def api_whatsapp_webhook(request):
             ).select_related('branch').first()
 
             # 3. Build reply text and check for interactive menu selections
+            from booking_management.models import ChatSession
+            session = ChatSession.objects.filter(phone_number=from_phone, is_deleted=False).first()
             choice = (choice_id or '').lower().strip() or (incoming_msg or '').lower().strip()
             
+            # Check if this is a vehicle selection (either via choice ID or via text title fallback)
+            is_vehicle_selection = False
+            vehicle_match = None
+            day_str = ""
+            
+            if choice.startswith("book_veh_"):
+                is_vehicle_selection = True
+                parts = choice.split("_")
+                vehicle_id = parts[2]
+                day_str = parts[3]
+                try:
+                    vehicle_match = CustomerVehicle.objects.get(id=vehicle_id, customer=customer)
+                except Exception:
+                    pass
+            elif customer:
+                # Try matching via vehicle number in the message text
+                cleaned_choice = choice.lower().strip()
+                target_day = None
+                veh_no_part = ""
+                
+                # Check for list selection text fallback
+                if "choose a vehicle to book for" in cleaned_choice:
+                    lines = [l.strip() for l in cleaned_choice.split("\n") if l.strip()]
+                    if len(lines) >= 2:
+                        header_line = lines[0]
+                        if "tomorrow" in header_line:
+                            target_day = "tomorrow"
+                        elif "today" in header_line:
+                            target_day = "today"
+                        veh_no_part = lines[1]
+                else:
+                    if " today" in cleaned_choice:
+                        target_day = "today"
+                        veh_no_part = cleaned_choice.split(" today")[0].strip()
+                    elif " tom" in cleaned_choice:
+                        target_day = "tomorrow"
+                        veh_no_part = cleaned_choice.split(" tom")[0].strip()
+                    elif session and session.state == 'book_select_vehicle':
+                        target_day = session.data.get('booking_date_str', 'today')
+                        veh_no_part = cleaned_choice
+                
+                if target_day and veh_no_part:
+                    # Look for a vehicle matching this number / description for this customer
+                    best_match = None
+                    best_match_len = 0
+                    option_line_cleaned = ''.join(c for c in veh_no_part.lower() if c.isalnum())
+                    for v in CustomerVehicle.objects.filter(customer=customer, is_deleted=False):
+                        v_num_cleaned = ''.join(c for c in v.vehicle_number.lower() if c.isalnum())
+                        if v_num_cleaned and v_num_cleaned in option_line_cleaned:
+                            if len(v_num_cleaned) > best_match_len:
+                                best_match = v
+                                best_match_len = len(v_num_cleaned)
+                    if best_match:
+                        vehicle_match = best_match
+                        is_vehicle_selection = True
+                        day_str = target_day
+
             interactive_menu = None
+            location_pin = None
             is_menu = True
             
             # Resolve branch
@@ -402,227 +589,1506 @@ def api_whatsapp_webhook(request):
             if not branch:
                 branch = company.branches.filter(is_deleted=False).first()
 
-            from booking_management.models import BookingSettings, HolidayCalendar, WeeklyOffDay, BookingPause
+            from booking_management.models import BookingSettings, HolidayCalendar, WeeklyOffDay, BookingPause, ChatSession
             from datetime import timedelta
-            
-            if "scheme" in choice:
-                reply_text = "Here are our active schemes. Please reply or contact us for more details."
-                is_menu = False
-            elif choice == "menu_book" or (choice == "book" and not choice.startswith("book_date_") and not choice.startswith("book_veh_")):
+            if session and (choice.startswith("menu_") or choice in ["cancel", "abort", "reset", "hi", "hello", "hey", "menu"]):
+                session.delete()
+                session = None
+
+            if session:
+                interactive_menu = None
+                is_menu = True
+                
+                if session.state == 'register_select_branch':
+                    from client_management.models import Branch
+                    br = company.branches.filter(name__iexact=choice, is_deleted=False).first()
+                    if not br and choice.startswith('reg_br_'):
+                        br_id = choice.replace('reg_br_', '').strip()
+                        br = company.branches.filter(id=br_id, is_deleted=False).first()
+                        
+                    if br:
+                        session.data['branch_id'] = str(br.id)
+                        session.data['branch_name'] = br.name
+                        session.state = 'select_vehicle_type'
+                        session.save()
+                        
+                        from master.models import VehicleType
+                        vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False)
+                        if not vehicle_types.exists():
+                            reply_text = "Sorry, no vehicle types are available for registration right now."
+                            is_menu = False
+                        else:
+                            reply_text = "Please select your vehicle type:"
+                            choices_list = []
+                            for vt in vehicle_types:
+                                choices_list.append({
+                                    "title": vt.name[:20],
+                                    "choice_id": f"reg_vt_{vt.id}",
+                                    "id": f"reg_vt_{vt.id}",
+                                    "button_id": f"reg_vt_{vt.id}",
+                                    "description": vt.description[:72] if vt.description else ""
+                                })
+                            interactive_menu = {
+                                "header_message": "",
+                                "list_title": "Choose Vehicle Type",
+                                "sections": [{"title": "Vehicle Types", "choices": choices_list}]
+                            }
+                    else:
+                        reply_text = "Please select a branch from the list to continue:"
+                        branches = company.branches.filter(is_deleted=False)
+                        choices_list = []
+                        for b in branches:
+                            choices_list.append({
+                                "title": b.name[:20],
+                                "choice_id": f"reg_br_{b.id}",
+                                "id": f"reg_br_{b.id}",
+                                "button_id": f"reg_br_{b.id}",
+                                "description": ""
+                            })
+                        interactive_menu = {
+                            "header_message": "",
+                            "list_title": "Choose Branch",
+                            "sections": [{"title": "Our Branches", "choices": choices_list}]
+                        }
+
+                elif session.state == 'scheme_select_branch':
+                    from client_management.models import Branch, Scheme
+                    
+                    # Similar to booking branch selection
+                    all_branches = company.branches.filter(is_deleted=False)
+                    if all_branches.count() == 1:
+                        br = all_branches.first()
+                    else:
+                        br = all_branches.filter(name__iexact=choice, is_deleted=False).first()
+                        if not br and choice.startswith('sch_br_'):
+                            br_id = choice.replace('sch_br_', '').strip()
+                            br = all_branches.filter(id=br_id).first()
+                            
+                    if br:
+                        today_date = get_local_date()
+                        active_schemes = Scheme.objects.filter(
+                            company=company,
+                            is_deleted=False,
+                            start_date__lte=today_date,
+                            end_date__gte=today_date
+                        )
+                        if not active_schemes.exists():
+                            reply_text = f"There are currently no active schemes at {br.name}."
+                            is_menu = False
+                            session.delete()
+                        else:
+                            msg_lines = [f"🌟 *Active Schemes at {br.name}* 🌟\n"]
+                            for sch in active_schemes:
+                                msg_lines.append(f"🔹 *{sch.name}*")
+                                
+                                scheme_services = sch.services.all()
+                                if scheme_services.exists():
+                                    srv_names = ", ".join([s.name for s in scheme_services])
+                                    msg_lines.append(f"   Services: {srv_names}")
+                                    
+                                if sch.paid_visits and sch.free_visits:
+                                    msg_lines.append(f"   Pay for {sch.paid_visits} washes, get {sch.free_visits} FREE!")
+                                elif sch.discount_percentage:
+                                    msg_lines.append(f"   Enjoy a {sch.discount_percentage}% discount!")
+                                msg_lines.append(f"   Valid until: {sch.end_date.strftime('%d %b %Y')}\n")
+                            
+                            msg_lines.append("\nTap below to check which schemes apply to your vehicles.")
+                            reply_text = "\n".join(msg_lines)
+                            
+                            session.data['scheme_branch_id'] = str(br.id)
+                            session.state = 'scheme_show_all'
+                            session.save()
+
+                            
+                            interactive_menu = {
+                                "header_message": "",
+                                "buttons": [
+                                    {"title": "Check Eligibility", "id": "btn_check_scheme_eligibility", "button_id": "btn_check_scheme_eligibility"}
+                                ]
+                            }
+                    else:
+                        reply_text = "Please select a branch from the list to view schemes:"
+                        choices_list = []
+                        for b in all_branches:
+                            choices_list.append({
+                                "title": b.name[:20],
+                                "choice_id": f"sch_br_{b.id}",
+                                "id": f"sch_br_{b.id}",
+                                "button_id": f"sch_br_{b.id}",
+                                "description": ""
+                            })
+                        interactive_menu = {
+                            "header_message": "",
+                            "list_title": "Choose Branch",
+                            "sections": [{"title": "Our Branches", "choices": choices_list}]
+                        }
+                        
+                elif session.state == 'scheme_select_vehicle':
+                    from client_management.models import Scheme
+                    br_id = session.data.get('scheme_branch_id')
+                    
+                    vehicle_match = None
+                    if choice.startswith('sch_veh_'):
+                        v_id = choice.replace('sch_veh_', '').strip()
+                        vehicle_match = CustomerVehicle.objects.filter(id=v_id, customer=customer, is_deleted=False).first()
+                    else:
+                        # Fallback for text: "Choose a vehicle to check its eligible schemes:\nKL53L8330 Normal Bus"
+                        cleaned_choice = choice.lower().strip()
+                        if "choose a vehicle to check" in cleaned_choice:
+                            lines = [l.strip() for l in cleaned_choice.split("\n") if l.strip()]
+                            if len(lines) >= 2:
+                                veh_no_part = lines[1]
+                                best_match = None
+                                best_match_len = 0
+                                option_line_cleaned = ''.join(c for c in veh_no_part.lower() if c.isalnum())
+                                for v in CustomerVehicle.objects.filter(customer=customer, is_deleted=False):
+                                    v_num_cleaned = ''.join(c for c in v.vehicle_number.lower() if c.isalnum())
+                                    if v_num_cleaned and v_num_cleaned in option_line_cleaned:
+                                        if len(v_num_cleaned) > best_match_len:
+                                            best_match = v
+                                            best_match_len = len(v_num_cleaned)
+                                if best_match:
+                                    vehicle_match = best_match
+                        
+                    if vehicle_match:
+                        today_date = get_local_date()
+                        active_schemes = Scheme.objects.filter(
+                            company=company,
+                            is_deleted=False,
+                            start_date__lte=today_date,
+                            end_date__gte=today_date,
+                            vehicle_types=vehicle_match.vehicle_type
+                        )
+                        
+                        veh_name = f"{vehicle_match.vehicle_number} {vehicle_match.vehicle_type_model.name if vehicle_match.vehicle_type_model else ''}"
+                        
+                        if not active_schemes.exists():
+                            reply_text = f"Sorry, there are currently no active schemes eligible for your {veh_name}."
+                        else:
+                            msg_lines = [f"🌟 *Eligible Schemes for {veh_name}* 🌟\n"]
+                            for sch in active_schemes:
+                                msg_lines.append(f"✅ *{sch.name}*")
+                                
+                                scheme_services = sch.services.all()
+                                if scheme_services.exists():
+                                    srv_names = ", ".join([s.name for s in scheme_services])
+                                    msg_lines.append(f"   Services: {srv_names}")
+                                    
+                                if sch.paid_visits and sch.free_visits:
+                                    msg_lines.append(f"   Pay for {sch.paid_visits} washes, get {sch.free_visits} FREE!")
+                                elif sch.discount_percentage:
+                                    msg_lines.append(f"   Enjoy a {sch.discount_percentage}% discount!")
+                                msg_lines.append("")
+
+                            reply_text = "\n".join(msg_lines)
+                        
+                        is_menu = False
+                        session.delete()
+                    else:
+                        reply_text = "⚠️ We couldn't identify that vehicle. Please select your vehicle from the list below:"
+                        vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
+                        choices_list = []
+                        for v in vehicles:
+                            model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                            choices_list.append({
+                                "title": f"{v.vehicle_number} {model_name}"[:24],
+                                "choice_id": f"sch_veh_{v.id}",
+                                "id": f"sch_veh_{v.id}",
+                                "button_id": f"sch_veh_{v.id}",
+                                "description": ""
+                            })
+                        interactive_menu = {
+                            "header_message": "",
+                            "list_title": "Choose Vehicle",
+                            "sections": [{"title": "Your Vehicles", "choices": choices_list}]
+                        }
+
+                elif choice == "btn_check_scheme_eligibility":
+                    if not customer:
+                        reply_text = "Please register as a customer first to check scheme eligibility."
+                        is_menu = False
+                    else:
+                        vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
+                        if not vehicles.exists():
+                            reply_text = "⚠️ No registered vehicles found on your account. Please visit us or contact our team to add your vehicle."
+                            is_menu = False
+                        elif vehicles.count() == 1:
+                            # Auto-check for the single vehicle
+                            v = vehicles.first()
+                            from client_management.models import Scheme
+                            today_date = get_local_date()
+                            active_schemes = Scheme.objects.filter(
+                                company=company,
+                                is_deleted=False,
+                                start_date__lte=today_date,
+                                end_date__gte=today_date,
+                                vehicle_types=v.vehicle_type
+                            )
+                            veh_name = f"{v.vehicle_number} {v.vehicle_type_model.name if v.vehicle_type_model else ''}"
+                            if not active_schemes.exists():
+                                reply_text = f"Sorry, there are currently no active schemes eligible for your {veh_name}."
+                            else:
+                                msg_lines = [f"🌟 *Eligible Schemes for {veh_name}* 🌟\n"]
+                                for sch in active_schemes:
+                                    msg_lines.append(f"✅ *{sch.name}*")
+                                    
+                                    scheme_services = sch.services.all()
+                                    if scheme_services.exists():
+                                        srv_names = ", ".join([s.name for s in scheme_services])
+                                        msg_lines.append(f"   Services: {srv_names}")
+                                        
+                                    if sch.paid_visits and sch.free_visits:
+                                        msg_lines.append(f"   Pay for {sch.paid_visits} washes, get {sch.free_visits} FREE!")
+                                    elif sch.discount_percentage:
+                                        msg_lines.append(f"   Enjoy a {sch.discount_percentage}% discount!")
+                                    msg_lines.append("")
+                                reply_text = "\n".join(msg_lines)
+                            is_menu = False
+                            session.delete()
+                        else:
+                            from core.functions import get_auto_id
+                            br_id = None
+                            if session and session.data.get('scheme_branch_id'):
+                                br_id = session.data['scheme_branch_id']
+                            elif branch:
+                                br_id = str(branch.id)
+                                
+                            session.state = 'scheme_select_vehicle'
+                            session.data['scheme_branch_id'] = br_id
+                            session.save()
+                            
+                            reply_text = "Choose a vehicle to check its eligible schemes:"
+                            choices_list = []
+                            for v in vehicles:
+                                model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                choices_list.append({
+                                    "title": f"{v.vehicle_number} {model_name}"[:24],
+                                    "choice_id": f"sch_veh_{v.id}",
+                                    "id": f"sch_veh_{v.id}",
+                                    "button_id": f"sch_veh_{v.id}",
+                                    "description": ""
+                                })
+                            interactive_menu = {
+                                "header_message": "",
+                                "list_title": "Choose Vehicle",
+                                "sections": [{"title": "Your Vehicles", "choices": choices_list}]
+                            }
+
+                elif session.state == 'cancel_select_booking':
+                    bk_id = None
+                    if choice.startswith("cancel_bk_"):
+                        bk_id = choice.replace("cancel_bk_", "").strip()
+                    else:
+                        # Fallback for when list ID is dropped by webhook and only title is sent
+                        import re
+                        match = re.search(r'bk(\d+)', choice)
+                        if match:
+                            found_b_num = match.group(0).upper()
+                            extracted_id = match.group(1)
+                            
+                            fallback_b = Booking.objects.filter(
+                                customer=customer, 
+                                is_deleted=False
+                            ).filter(
+                                Q(booking_number=found_b_num) | Q(auto_id=extracted_id)
+                            ).first()
+                            
+                            if fallback_b:
+                                bk_id = str(fallback_b.id)
+
+                    if bk_id:
+                        b = Booking.objects.filter(id=bk_id, customer=customer, is_deleted=False).first()
+                        if b:
+                            session.state = 'cancel_confirm'
+                            session.data['booking_id'] = str(b.id)
+                            session.save()
+                            reply_text = (
+                                f"Are you sure you want to cancel this booking?\n\n"
+                                f"📋 Booking No: *{b.booking_number or b.auto_id}*\n"
+                                f"🚗 Vehicle: {b.vehicle.vehicle_number}\n"
+                                f"📅 Date: {b.booking_date.strftime('%d %b %Y')}"
+                            )
+                            interactive_menu = {
+                                "header_message": "",
+                                "buttons": [
+                                    {"title": "❌ Yes, Cancel", "id": "btn_confirm_cancel_yes", "button_id": "btn_confirm_cancel_yes"},
+                                    {"title": "🔙 No, Keep It", "id": "btn_confirm_cancel_no", "button_id": "btn_confirm_cancel_no"}
+                                ]
+                            }
+                        else:
+                            reply_text = "⚠️ Invalid booking selected. Please try again."
+                            is_menu = False
+                            session.delete()
+                    else:
+                        reply_text = "Please select a booking from the list."
+                        is_menu = False
+                        
+                elif session.state == 'cancel_confirm':
+                    bk_id = session.data.get('booking_id')
+                    b = Booking.objects.filter(id=bk_id, customer=customer, is_deleted=False).first()
+                    
+                    if choice == "btn_confirm_cancel_yes":
+                        if b:
+                            b.status = Booking.STATUS_CANCELLED
+                            b.save()
+                            reply_text = f"✅ Your booking *{b.booking_number or b.auto_id}* has been successfully cancelled."
+                        else:
+                            reply_text = "⚠️ We couldn't find that booking."
+                        is_menu = False
+                        session.delete()
+                    elif choice == "btn_confirm_cancel_no":
+                        if b:
+                            reply_text = f"Okay! Your booking *{b.booking_number or b.auto_id}* remains active. We look forward to seeing you! 🫧"
+                        else:
+                            reply_text = "Cancellation aborted."
+                        is_menu = False
+                        session.delete()
+                    else:
+                        reply_text = "Please tap 'Yes, Cancel' or 'No, Keep It'."
+                        is_menu = False
+
+                elif session.state == 'loc_select_branch':
+                    from client_management.models import Branch
+                    # wawy.org sometimes sends the title instead of choice_id
+                    search_str = choice.replace("loc_br_", "").strip()
+                    br = None
+                    try:
+                        import uuid
+                        uuid.UUID(search_str)
+                        br = company.branches.filter(id=search_str, is_deleted=False).first()
+                    except ValueError:
+                        br = company.branches.filter(name__iexact=search_str, is_deleted=False).first()
+                        
+                    if br:
+                        reply_text = ""
+                        lat, lng = '11.2588', '75.7804'
+                        if 'puthencruz' in br.name.lower():
+                            lat, lng = '9.9706', '76.4252'
+                        elif 'mannarkkad' in br.name.lower() or 'rasna' in br.name.lower():
+                            lat, lng = '10.9800', '76.4700'
+                        location_pin = {'lat': lat, 'lng': lng, 'address': br.name}
+                        is_menu = False
+                        session.delete()
+                    else:
+                        reply_text = "Please select a branch from the list."
+                        is_menu = False
+                        
+                elif session.state == 'contact_select_branch':
+                    from client_management.models import Branch
+                    # wawy.org sometimes sends the title instead of choice_id
+                    search_str = choice.replace("contact_br_", "").strip()
+                    br = None
+                    try:
+                        import uuid
+                        uuid.UUID(search_str)
+                        br = company.branches.filter(id=search_str, is_deleted=False).first()
+                    except ValueError:
+                        br = company.branches.filter(name__iexact=search_str, is_deleted=False).first()
+                        
+                    if br:
+                        lines = [f"📞 *Contact Us: {br.name}*"]
+                        if br.phone:
+                            lines.append(f"Phone: {br.phone}")
+                        if br.email:
+                            lines.append(f"Email: {br.email}")
+                        reply_text = "\n".join(lines)
+                        if len(lines) == 1:
+                            reply_text += "\nNo contact details available for this branch."
+                        is_menu = False
+                        session.delete()
+                    else:
+                        reply_text = "Please select a branch from the list."
+                        is_menu = False
+
+                elif session.state == 'book_select_branch':
+                    from client_management.models import Branch
+                    # Auto-select if only one branch
+                    all_branches = company.branches.filter(is_deleted=False)
+                    if all_branches.count() == 1:
+                        br = all_branches.first()
+                    else:
+                        br = all_branches.filter(name__iexact=choice, is_deleted=False).first()
+                        if not br and choice.startswith('reg_br_'):
+                            br_id = choice.replace('reg_br_', '').strip()
+                            br = all_branches.filter(id=br_id).first()
+                        
+                    if br:
+                        session.data['booking_branch_id'] = str(br.id)
+                        session.data['booking_branch_name'] = br.name
+                        session.state = 'book_select_date'
+                        session.save()
+                        
+                        from .utils import validate_booking
+                        today_date = get_local_date()
+                        tomorrow_date = today_date + timedelta(days=1)
+                        
+                        today_ok, _ = validate_booking(br, today_date)
+                        tomorrow_ok, _ = validate_booking(br, tomorrow_date)
+                        
+                        date_buttons = []
+                        if today_ok:
+                            date_buttons.append({ "title": "Today", "button_id": "book_date_today", "id": "book_date_today" })
+                        if tomorrow_ok:
+                            date_buttons.append({ "title": "Tomorrow", "button_id": "book_date_tomorrow", "id": "book_date_tomorrow" })
+                            
+                        if not date_buttons:
+                            reply_text = f"Sorry, bookings are currently closed or full for today and tomorrow at {br.name}."
+                            is_menu = False
+                        else:
+                            reply_text = f"Bookings are open for {br.name}! Please select the booking date below:"
+                            interactive_menu = {
+                                "header_message": "",
+                                "buttons": date_buttons
+                            }
+                    else:
+                        reply_text = "Please select a branch from the list to continue:"
+                        choices_list = []
+                        for b in all_branches:
+                            choices_list.append({
+                                "title": b.name[:20],
+                                "choice_id": f"reg_br_{b.id}",
+                                "id": f"reg_br_{b.id}",
+                                "button_id": f"reg_br_{b.id}",
+                                "description": ""
+                            })
+                        interactive_menu = {
+                            "header_message": "",
+                            "list_title": "Choose Branch",
+                            "sections": [{"title": "Our Branches", "choices": choices_list}]
+                        }
+
+                elif session.state == 'book_select_date':
+                    cleaned_choice = choice.lower().strip()
+                    target_day = None
+                    if "today" in cleaned_choice or choice == "book_date_today":
+                        target_day = "today"
+                    elif "tomorrow" in cleaned_choice or "tom" in cleaned_choice or choice == "book_date_tomorrow":
+                        target_day = "tomorrow"
+                        
+                    if target_day:
+                        session.data['booking_date_str'] = target_day
+                        session.state = 'book_select_vehicle'
+                        session.save()
+                        
+                        br_id = session.data.get('booking_branch_id')
+                        from client_management.models import Branch
+                        br = Branch.objects.get(id=br_id)
+                        
+                        vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
+                        if not vehicles.exists():
+                            reply_text = "⚠️ No registered vehicles found on your account. Please visit us or contact our team to add your vehicle."
+                            is_menu = False
+                            session.delete()
+                        elif vehicles.count() == 1:
+                            # Only one vehicle – auto-confirm booking
+                            v = vehicles.first()
+                            booking_date = get_local_date()
+                            if target_day == "tomorrow":
+                                booking_date += timedelta(days=1)
+                            from .utils import validate_booking
+                            is_valid, validation_msg = validate_booking(br, booking_date)
+                            if not is_valid:
+                                reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d-%b-%Y')}: {validation_msg}. Please try another date."
+                                is_menu = False
+                            else:
+                                from core.functions import get_auto_id
+                                bk_num = f"BK{get_auto_id(Booking)}"
+                                booking = safe_create_model(
+                                    Booking,
+                                    customer=customer,
+                                    vehicle=v,
+                                    branch=br,
+                                    booking_date=booking_date,
+                                    booking_number=bk_num,
+                                    status=Booking.STATUS_PENDING
+                                )
+                                model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                reply_text = (
+                                    f"✅ *Booking Confirmed!*\n\n"
+                                    f"📋 Booking No: *{bk_num}*\n"
+                                    f"🚗 Vehicle: {v.vehicle_number} {model_name}\n"
+                                    f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                    f"📍 Branch: {br.name}\n\n"
+                                    f"We look forward to serving you! 🫧"
+                                )
+                                is_menu = False
+                            session.delete()
+                        else:
+                            reply_text = f"Choose a vehicle to book for {target_day.capitalize()}:"
+                            choices_list = []
+                            for v in vehicles:
+                                model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                choices_list.append({
+                                    "title": f"{v.vehicle_number} {model_name}"[:24],
+                                    "choice_id": f"book_veh_{v.id}_{target_day}",
+                                    "id": f"book_veh_{v.id}_{target_day}",
+                                    "button_id": f"book_veh_{v.id}_{target_day}",
+                                    "description": ""
+                                })
+                            interactive_menu = {
+                                "header_message": "",
+                                "list_title": "Choose Vehicle",
+                                "sections": [{"title": "Your Vehicles", "choices": choices_list}]
+                            }
+                    else:
+                        reply_text = "Please select Today or Tomorrow to continue."
+                        br_id = session.data.get('booking_branch_id')
+                        from client_management.models import Branch
+                        br = Branch.objects.get(id=br_id)
+                        
+                        from .utils import validate_booking
+                        today_date = get_local_date()
+                        tomorrow_date = today_date + timedelta(days=1)
+                        
+                        today_ok, _ = validate_booking(br, today_date)
+                        tomorrow_ok, _ = validate_booking(br, tomorrow_date)
+                        
+                        date_buttons = []
+                        if today_ok:
+                            date_buttons.append({ "title": "Today", "button_id": "book_date_today", "id": "book_date_today" })
+                        if tomorrow_ok:
+                            date_buttons.append({ "title": "Tomorrow", "button_id": "book_date_tomorrow", "id": "book_date_tomorrow" })
+                        
+                        interactive_menu = {
+                            "header_message": "",
+                            "buttons": date_buttons
+                        }
+
+                elif session.state == 'book_select_vehicle':
+                    cleaned_choice = choice.lower().strip()
+                    target_day = session.data.get('booking_date_str')
+                    
+                    veh_no_part = ""
+                    vehicle_match = None
+                    
+                    if "choose a vehicle to book for" in cleaned_choice:
+                        lines = [l.strip() for l in cleaned_choice.split("\n") if l.strip()]
+                        if len(lines) >= 2:
+                            header_line = lines[0]
+                            if "tomorrow" in header_line:
+                                target_day = "tomorrow"
+                            elif "today" in header_line:
+                                target_day = "today"
+                            veh_no_part = lines[1]
+                    else:
+                        if " today" in cleaned_choice:
+                            veh_no_part = cleaned_choice.split(" today")[0].strip()
+                        elif " tom" in cleaned_choice:
+                            veh_no_part = cleaned_choice.split(" tom")[0].strip()
+                        else:
+                            veh_no_part = cleaned_choice
+                    
+                    if veh_no_part:
+                        best_match = None
+                        best_match_len = 0
+                        option_line_cleaned = ''.join(c for c in veh_no_part.lower() if c.isalnum())
+                        for v in CustomerVehicle.objects.filter(customer=customer, is_deleted=False):
+                            v_num_cleaned = ''.join(c for c in v.vehicle_number.lower() if c.isalnum())
+                            if v_num_cleaned and v_num_cleaned in option_line_cleaned:
+                                if len(v_num_cleaned) > best_match_len:
+                                    best_match = v
+                                    best_match_len = len(v_num_cleaned)
+                        vehicle_match = best_match
+                        
+                    if not vehicle_match and choice.startswith('book_veh_'):
+                        parts = choice.split("_")
+                        vehicle_id = parts[2]
+                        vehicle_match = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer).first()
+                        
+                    if vehicle_match:
+                        booking_date = get_local_date()
+                        if target_day == "tomorrow":
+                            booking_date += timedelta(days=1)
+                            
+                        br_id = session.data.get('booking_branch_id')
+                        from client_management.models import Branch
+                        br = Branch.objects.get(id=br_id)
+                        
+                        try:
+                            from .utils import validate_booking
+                            is_valid, validation_msg = validate_booking(br, booking_date)
+                            if not is_valid:
+                                reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d-%b-%Y')}: {validation_msg}. Please try another date."
+                            else:
+                                from core.functions import get_auto_id
+                                bk_num = f"BK{get_auto_id(Booking)}"
+                                booking = safe_create_model(
+                                    Booking,
+                                    customer=customer,
+                                    vehicle=vehicle_match,
+                                    branch=br,
+                                    booking_date=booking_date,
+                                    booking_number=bk_num,
+                                    status=Booking.STATUS_PENDING
+                                )
+                                veh_model = vehicle_match.vehicle_type_model.name if vehicle_match.vehicle_type_model else ""
+                                reply_text = (
+                                    f"✅ *Booking Confirmed!*\n\n"
+                                    f"📋 Booking No: *{bk_num}*\n"
+                                    f"🚗 Vehicle: {vehicle_match.vehicle_number} {veh_model}\n"
+                                    f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                    f"📍 Branch: {br.name}\n\n"
+                                    f"We look forward to serving you! 🫧"
+                                )
+                                session.delete()
+                        except Exception as e:
+                            reply_text = f"⚠️ We encountered an issue while processing your booking. Please try again or contact our support team."
+                        is_menu = False
+                    else:
+                        reply_text = "⚠️ We couldn't identify that vehicle. Please select your vehicle from the list below."
+                        br_id = session.data.get('booking_branch_id')
+                        from client_management.models import Branch
+                        br = Branch.objects.get(id=br_id)
+                        
+                        vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
+                        choices_list = []
+                        for v in vehicles:
+                            model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                            choices_list.append({
+                                "title": f"{v.vehicle_number} {model_name}"[:24],
+                                "choice_id": f"book_veh_{v.id}_{target_day}",
+                                "id": f"book_veh_{v.id}_{target_day}",
+                                "button_id": f"book_veh_{v.id}_{target_day}",
+                                "description": ""
+                            })
+                        interactive_menu = {
+                            "header_message": "",
+                            "list_title": "Choose Vehicle",
+                            "sections": [{"title": "Your Vehicles", "choices": choices_list}]
+                        }
+
+                elif session.state == 'select_vehicle_type':
+                    from master.models import VehicleType, VehicleTypeModel
+                    
+                    # Look up by name first (since wawy.org returns title) or fallback to ID
+                    vt = VehicleType.objects.filter(name__iexact=choice, is_active=True, is_deleted=False).first()
+                    if not vt and choice.startswith('reg_vt_'):
+                        vt_id = choice.replace('reg_vt_', '').strip()
+                        vt = VehicleType.objects.filter(id=vt_id, is_active=True, is_deleted=False).first()
+
+                    if vt:
+                        try:
+                            session.data['vehicle_type_id'] = str(vt.id)
+                            session.data['vehicle_type_name'] = vt.name
+                            
+                            models_qs = VehicleTypeModel.objects.filter(vehicle_type=vt, is_active=True, is_deleted=False)
+                            if not models_qs.exists():
+                                reply_text = "Please reply with your vehicle registration number (e.g. KL53K8990):"
+                                session.state = 'awaiting_vehicle_number'
+                                session.save()
+                                is_menu = False
+                            else:
+                                session.state = 'select_vehicle_model'
+                                session.save()
+                                
+                                reply_text = f"Please select the model of your {vt.name}:"
+                                choices_list = []
+                                for vtm in models_qs[:10]:
+                                    choices_list.append({
+                                        "title": vtm.name[:20],
+                                        "choice_id": f"reg_vtm_{vtm.id}",
+                                        "id": f"reg_vtm_{vtm.id}",
+                                        "button_id": f"reg_vtm_{vtm.id}",
+                                        "description": vtm.description[:72] if vtm.description else ""
+                                    })
+                                interactive_menu = {
+                                    "header_message": "Select Model",
+                                    "list_title": "Choose Model",
+                                    "sections": [
+                                        {
+                                            "title": "Available Models",
+                                            "choices": choices_list
+                                        }
+                                    ]
+                                }
+                        except Exception:
+                            reply_text = "Invalid vehicle type. Please select your vehicle type:"
+                            vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False)
+                            choices_list = [{
+                                "title": vt.name[:20],
+                                "choice_id": f"reg_vt_{vt.id}",
+                                "id": f"reg_vt_{vt.id}",
+                                "button_id": f"reg_vt_{vt.id}"
+                            } for vt in vehicle_types]
+                            interactive_menu = {
+                                "header_message": "Select Vehicle Type",
+                                "list_title": "Choose Vehicle Type",
+                                "sections": [{"title": "Vehicle Types", "choices": choices_list}]
+                            }
+                    else:
+                        reply_text = "Please select a vehicle type from the list to continue."
+                        vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False)
+                        choices_list = [{
+                            "title": vt.name[:20],
+                            "choice_id": f"reg_vt_{vt.id}",
+                            "id": f"reg_vt_{vt.id}",
+                            "button_id": f"reg_vt_{vt.id}"
+                        } for vt in vehicle_types]
+                        interactive_menu = {
+                            "header_message": "Select Vehicle Type",
+                            "list_title": "Choose Vehicle Type",
+                            "sections": [{"title": "Vehicle Types", "choices": choices_list}]
+                        }
+
+                elif session.state == 'select_vehicle_model':
+                    from master.models import VehicleTypeModel
+                    vt_id = session.data.get('vehicle_type_id')
+                    
+                    # Look up by name first (since wawy.org returns title) or fallback to ID
+                    vtm = VehicleTypeModel.objects.filter(vehicle_type_id=vt_id, name__iexact=choice, is_active=True, is_deleted=False).first()
+                    if not vtm and choice.startswith('reg_vtm_'):
+                        vtm_id = choice.replace('reg_vtm_', '').strip()
+                        vtm = VehicleTypeModel.objects.filter(id=vtm_id, is_active=True, is_deleted=False).first()
+
+                    if vtm:
+                        try:
+                            session.data['vehicle_type_model_id'] = str(vtm.id)
+                            session.data['vehicle_type_model_name'] = vtm.name
+                            session.state = 'awaiting_vehicle_number'
+                            session.save()
+                            
+                            reply_text = "Please reply with your vehicle registration number (e.g. KL53K8990):"
+                            is_menu = False
+                        except Exception:
+                            reply_text = "Invalid vehicle model. Please select the model from the list:"
+                            models_qs = VehicleTypeModel.objects.filter(vehicle_type_id=vt_id, is_active=True, is_deleted=False)
+                            choices_list = [{
+                                "title": m.name[:20],
+                                "choice_id": f"reg_vtm_{m.id}",
+                                "id": f"reg_vtm_{m.id}",
+                                "button_id": f"reg_vtm_{m.id}"
+                            } for m in models_qs[:10]]
+                            interactive_menu = {
+                                "header_message": "Select Model",
+                                "list_title": "Choose Model",
+                                "sections": [{"title": "Available Models", "choices": choices_list}]
+                            }
+                    else:
+                        reply_text = "Please select a vehicle model from the list to continue."
+                        models_qs = VehicleTypeModel.objects.filter(vehicle_type_id=vt_id, is_active=True, is_deleted=False)
+                        choices_list = [{
+                            "title": m.name[:20],
+                            "choice_id": f"reg_vtm_{m.id}",
+                            "id": f"reg_vtm_{m.id}",
+                            "button_id": f"reg_vtm_{m.id}"
+                        } for m in models_qs[:10]]
+                        interactive_menu = {
+                            "header_message": "Select Model",
+                            "list_title": "Choose Model",
+                            "sections": [{"title": "Available Models", "choices": choices_list}]
+                        }
+
+                elif session.state == 'awaiting_vehicle_number':
+                    veh_number = (incoming_msg or '').strip()
+                    if not veh_number:
+                        reply_text = "Vehicle registration number cannot be empty. Please enter your vehicle number:"
+                        is_menu = False
+                    else:
+                        session.data['vehicle_number'] = veh_number
+                        session.state = 'awaiting_name'
+                        session.save()
+                        
+                        reply_text = "Thank you! Please reply with your full name:"
+                        is_menu = False
+
+                elif session.state == 'awaiting_name':
+                    cust_name = (incoming_msg or '').strip()
+                    if not cust_name:
+                        reply_text = "Name cannot be empty. Please reply with your full name:"
+                        is_menu = False
+                    else:
+                        from client_management.models import CustomerType
+                        from core.functions import get_auto_id
+                        
+                        try:
+                            cust_type = CustomerType.objects.filter(is_deleted=False).first()
+                            if not cust_type:
+                                cust_type = CustomerType.objects.first()
+                                
+                            session_branch_id = session.data.get('branch_id')
+                            if session_branch_id:
+                                from client_management.models import Branch
+                                branch = Branch.objects.filter(id=session_branch_id).first() or branch
+
+                            new_customer = safe_create_model(
+                                Customer,
+                                company=company,
+                                branch=branch,
+                                name=cust_name,
+                                phone=from_phone,
+                                whatsapp_number=from_phone,
+                                customer_type=cust_type,
+                                auto_id=get_auto_id(Customer)
+                            )
+                            
+                            vtm_id = session.data.get('vehicle_type_model_id')
+                            vt_id = session.data.get('vehicle_type_id')
+                            
+                            new_vehicle = safe_create_model(
+                                CustomerVehicle,
+                                customer=new_customer,
+                                vehicle_type_id=vt_id,
+                                vehicle_type_model_id=vtm_id,
+                                vehicle_number=session.data['vehicle_number'].upper(),
+                                auto_id=get_auto_id(CustomerVehicle)
+                            )
+                            
+                            session.delete()
+                            
+                            booking_setting = BookingSettings.objects.filter(branch=branch).first()
+                            if booking_setting and not booking_setting.is_booking_enabled:
+                                reply_text = (
+                                    f"✅ Registration successful!\n\nHi *{new_customer.name}*, welcome to *{company.company_name}*! ❤️\n\n"
+                                    f"Bookings are currently paused for this branch. We'll notify you when they reopen."
+                                )
+                                is_menu = False
+                            else:
+                                from .utils import validate_booking
+                                today_date = get_local_date()
+                                tomorrow_date = today_date + timedelta(days=1)
+                                
+                                today_ok, _ = validate_booking(branch, today_date)
+                                tomorrow_ok, _ = validate_booking(branch, tomorrow_date)
+                                
+                                date_buttons = []
+                                if today_ok:
+                                    date_buttons.append({ "title": "Today", "button_id": "book_date_today", "id": "book_date_today" })
+                                if tomorrow_ok:
+                                    date_buttons.append({ "title": "Tomorrow", "button_id": "book_date_tomorrow", "id": "book_date_tomorrow" })
+                                    
+                                if not date_buttons:
+                                    reply_text = (
+                                        f"✅ Registration successful!\n\nHi *{new_customer.name}*, welcome to *{company.company_name}*! ❤️\n\n"
+                                        f"Bookings are currently fully booked for today and tomorrow. Please check back soon!"
+                                    )
+                                    is_menu = False
+                                else:
+                                    reply_text = (
+                                        f"✅ Registration successful!\n\nHi *{new_customer.name}*, welcome to *{company.company_name}*! ❤️\n\n"
+                                        f"Please select your preferred booking date below:"
+                                    )
+                                    interactive_menu = {
+                                        "header_message": "Select Date",
+                                        "buttons": date_buttons
+                                    }
+                        except Exception as e:
+                            reply_text = f"⚠️ We encountered an issue while creating your account. Please try again by sending your full name:"
+                            is_menu = False
+
+                    response_text = send_whatsapp_simple(from_phone, reply_text, setting=setting, interactive_data=interactive_menu)
+                    status_str = 'Sent' if ('success' in response_text.lower() or 'wa_' in response_text.lower()) else 'Failed'
+                    safe_create_model(
+                        WhatsAppMessage,
+                        company=company,
+                        recipient_number=from_phone,
+                        message=reply_text,
+                        status=status_str
+                    )
+                    return HttpResponse('OK', status=200)
+
+
+            elif "scheme" in choice or choice == "menu_schemes":
+                from core.functions import get_auto_id
+                from client_management.models import Scheme
+                
+                branches = company.branches.filter(is_deleted=False)
+                branch_count = branches.count()
+                
+                if branch_count > 1:
+                    ChatSession.objects.update_or_create(
+                        phone_number=from_phone,
+                        defaults={
+                            'state': 'scheme_select_branch',
+                            'data': {},
+                            'auto_id': get_auto_id(ChatSession)
+                        }
+                    )
+                    reply_text = "Please select a branch to view active schemes:"
+                    choices_list = []
+                    for b in branches:
+                        choices_list.append({
+                            "title": b.name[:20],
+                            "choice_id": f"sch_br_{b.id}",
+                            "id": f"sch_br_{b.id}",
+                            "button_id": f"sch_br_{b.id}",
+                            "description": ""
+                        })
+                    interactive_menu = {
+                        "header_message": "",
+                        "list_title": "Choose Branch",
+                        "sections": [{"title": "Our Branches", "choices": choices_list}]
+                    }
+                else:
+                    br = branches.first()
+                    today_date = get_local_date()
+                    active_schemes = Scheme.objects.filter(
+                        company=company,
+                        is_deleted=False,
+                        start_date__lte=today_date,
+                        end_date__gte=today_date
+                    )
+                    if not active_schemes.exists():
+                        reply_text = f"There are currently no active schemes available."
+                        is_menu = False
+                    else:
+                        msg_lines = [f"🌟 *Active Schemes* 🌟\n"]
+                        for sch in active_schemes:
+                            msg_lines.append(f"🔹 *{sch.name}*")
+                            
+                            scheme_services = sch.services.all()
+                            if scheme_services.exists():
+                                srv_names = ", ".join([s.name for s in scheme_services])
+                                msg_lines.append(f"   Services: {srv_names}")
+                                
+                            if sch.paid_visits and sch.free_visits:
+                                msg_lines.append(f"   Pay for {sch.paid_visits} washes, get {sch.free_visits} FREE!")
+                            elif sch.discount_percentage:
+                                msg_lines.append(f"   Enjoy a {sch.discount_percentage}% discount!")
+                            msg_lines.append(f"   Valid until: {sch.end_date.strftime('%d %b %Y')}\n")
+
+                        
+                        msg_lines.append("\nTap below to check which schemes apply to your vehicles.")
+                        reply_text = "\n".join(msg_lines)
+                        
+                        ChatSession.objects.update_or_create(
+                            phone_number=from_phone,
+                            defaults={
+                                'state': 'scheme_show_all',
+                                'data': {'scheme_branch_id': str(br.id) if br else None},
+                                'auto_id': get_auto_id(ChatSession)
+                            }
+                        )
+                        
+                        interactive_menu = {
+                            "header_message": "",
+                            "buttons": [
+                                {"title": "Check Eligibility", "id": "btn_check_scheme_eligibility", "button_id": "btn_check_scheme_eligibility"}
+                            ]
+                        }
+            elif choice == "menu_book" or choice == "book an appointment" or (choice == "book" and not choice.startswith("book_date_") and not choice.startswith("book_veh_")):
                 if not customer:
-                    reply_text = "Please register as a customer first to use our booking services."
-                    is_menu = False
+                    from master.models import VehicleType
+                    vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False)
+                    if not vehicle_types.exists():
+                        reply_text = "Sorry, no vehicle types are available for registration right now."
+                        is_menu = False
+                    else:
+                        from core.functions import get_auto_id
+                        branches = company.branches.filter(is_deleted=False)
+                        branch_count = branches.count()
+                        if branch_count > 1:
+                            ChatSession.objects.update_or_create(
+                                phone_number=from_phone,
+                                defaults={
+                                    'state': 'register_select_branch',
+                                    'data': {},
+                                    'auto_id': get_auto_id(ChatSession)
+                                }
+                            )
+                            reply_text = "Welcome! Let's get you registered to book appointments.\n\nPlease select a branch from the list to continue:"
+                            choices_list = []
+                            for b in branches:
+                                choices_list.append({
+                                    "title": b.name[:20],
+                                    "choice_id": f"reg_br_{b.id}",
+                                    "id": f"reg_br_{b.id}",
+                                    "button_id": f"reg_br_{b.id}",
+                                    "description": ""
+                                })
+                            interactive_menu = {
+                                "header_message": "",
+                                "list_title": "Choose Branch",
+                                "sections": [{"title": "Our Branches", "choices": choices_list}]
+                            }
+                        else:
+                            initial_data = {}
+                            if branch_count == 1:
+                                initial_data['branch_id'] = str(branches.first().id)
+                                initial_data['branch_name'] = branches.first().name
+
+                            ChatSession.objects.update_or_create(
+                                phone_number=from_phone,
+                                defaults={
+                                    'state': 'select_vehicle_type',
+                                    'data': initial_data,
+                                    'auto_id': get_auto_id(ChatSession)
+                                }
+                            )
+                            reply_text = "Welcome! Let's get you registered to book appointments.\n\nPlease select your vehicle type:"
+                            choices_list = []
+                            for vt in vehicle_types:
+                                choices_list.append({
+                                    "title": vt.name[:20],
+                                    "choice_id": f"reg_vt_{vt.id}",
+                                    "id": f"reg_vt_{vt.id}",
+                                    "button_id": f"reg_vt_{vt.id}",
+                                    "description": vt.description[:72] if vt.description else ""
+                                })
+                            interactive_menu = {
+                                "header_message": "",
+                                "list_title": "Choose Vehicle Type",
+                                "sections": [
+                                    {
+                                        "title": "Vehicle Types",
+                                        "choices": choices_list
+                                    }
+                                ]
+                            }
                 elif not branch:
                     reply_text = "Sorry, no active branch is associated with your account."
                     is_menu = False
                 else:
-                    # Check if booking is enabled
-                    booking_setting = BookingSettings.objects.filter(branch=branch).first()
-                    if booking_setting and not booking_setting.is_booking_enabled:
-                        reply_text = "Sorry, bookings are currently disabled for this branch."
-                        is_menu = False
-                    else:
-                        reply_text = "Bookings are open! Please select the booking date below:"
+                    branches = company.branches.filter(is_deleted=False)
+                    branch_count = branches.count()
+                    if branch_count > 1:
+                        from core.functions import get_auto_id
+                        ChatSession.objects.update_or_create(
+                            phone_number=from_phone,
+                            defaults={
+                                'state': 'book_select_branch',
+                                'data': {},
+                                'auto_id': get_auto_id(ChatSession)
+                            }
+                        )
+                        reply_text = "Please select the branch you would like to book at:"
+                        choices_list = []
+                        for b in branches:
+                            choices_list.append({
+                                "title": b.name[:20],
+                                "choice_id": f"reg_br_{b.id}",
+                                "id": f"reg_br_{b.id}",
+                                "button_id": f"reg_br_{b.id}",
+                                "description": ""
+                            })
                         interactive_menu = {
-                            "buttons": [
-                                { "title": "Today", "button_id": "book_date_today" },
-                                { "title": "Tomorrow", "button_id": "book_date_tomorrow" }
-                            ]
+                            "header_message": "",
+                            "list_title": "Choose Branch",
+                            "sections": [{"title": "Our Branches", "choices": choices_list}]
                         }
+                    else:
+                        # Check if booking is enabled
+                        booking_setting = BookingSettings.objects.filter(branch=branch).first()
+                        if booking_setting and not booking_setting.is_booking_enabled:
+                            reply_text = "Sorry, bookings are currently disabled for this branch."
+                            is_menu = False
+                        else:
+                            from .utils import validate_booking
+                            today_date = get_local_date()
+                            tomorrow_date = today_date + timedelta(days=1)
+                            
+                            today_ok, _ = validate_booking(branch, today_date)
+                            tomorrow_ok, _ = validate_booking(branch, tomorrow_date)
+                            
+                            date_buttons = []
+                            if today_ok:
+                                date_buttons.append({ "title": "Today", "button_id": "book_date_today", "id": "book_date_today" })
+                            if tomorrow_ok:
+                                date_buttons.append({ "title": "Tomorrow", "button_id": "book_date_tomorrow", "id": "book_date_tomorrow" })
+                                
+                            if not date_buttons:
+                                reply_text = "Sorry, bookings are currently closed or full for today and tomorrow."
+                                is_menu = False
+                            else:
+                                reply_text = "Bookings are open! Please select the booking date below:"
+                                interactive_menu = {
+                                    "header_message": "Select Date",
+                                    "buttons": date_buttons
+                                }
             elif choice == "book_date_today" or choice == "today":
                 if not customer or not branch:
                     reply_text = "Please register as a customer first to use our booking services."
                     is_menu = False
                 else:
-                    booking_date = timezone.localdate()
-                    # Check holiday
-                    holiday_exists = HolidayCalendar.objects.filter(branch=branch, holiday_date=booking_date).exists()
-                    weekday = booking_date.strftime("%A").lower()
-                    weekly_off = WeeklyOffDay.objects.filter(branch=branch, day=weekday).exists()
-                    
-                    if holiday_exists or weekly_off:
-                        reply_text = "Sorry, today is a holiday / weekly off. Bookings are closed."
+                    booking_date = get_local_date()
+                    from .utils import validate_booking
+                    is_valid, validation_msg = validate_booking(branch, booking_date)
+                    if not is_valid:
+                        reply_text = f"⚠️ Today is unavailable for booking: {validation_msg}. Please try booking for Tomorrow."
                         is_menu = False
                     else:
-                        # Check paused
-                        pause_exists = BookingPause.objects.filter(
-                            branch=branch,
-                            from_date__lte=booking_date,
-                            to_date__gte=booking_date
-                        ).exists()
-                        if pause_exists:
-                            reply_text = "Sorry, booking is paused for today."
+                        vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
+                        if not vehicles.exists():
+                            reply_text = "⚠️ No registered vehicles found on your account. Please visit us or contact our team to add your vehicle."
+                            is_menu = False
+                        elif vehicles.count() == 1:
+                            # Auto-confirm with the only vehicle
+                            v = vehicles.first()
+                            from core.functions import get_auto_id
+                            bk_num = f"BK{get_auto_id(Booking)}"
+                            booking = safe_create_model(
+                                Booking,
+                                customer=customer,
+                                vehicle=v,
+                                branch=branch,
+                                booking_date=booking_date,
+                                booking_number=bk_num,
+                                status=Booking.STATUS_PENDING
+                            )
+                            model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                            reply_text = (
+                                f"✅ *Booking Confirmed!*\n\n"
+                                f"📋 Booking No: *{bk_num}*\n"
+                                f"🚗 Vehicle: {v.vehicle_number} {model_name}\n"
+                                f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                f"📍 Branch: {branch.name}\n\n"
+                                f"We look forward to serving you! 🫧"
+                            )
                             is_menu = False
                         else:
-                            # Show vehicles
-                            vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
-                            if not vehicles.exists():
-                                reply_text = "No registered vehicles found. Please add a vehicle to your account first."
-                                is_menu = False
-                            else:
-                                reply_text = "Choose a vehicle to book for Today:"
-                                choices_list = []
-                                for v in vehicles:
-                                    model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
-                                    choices_list.append({
-                                        "title": v.vehicle_number[:20], # limit to 20 chars
-                                        "choice_id": f"book_veh_{v.id}_today",
-                                        "description": model_name[:72] # limit to 72 chars
-                                    })
-                                interactive_menu = {
-                                    "list_title": "Choose Vehicle",
-                                    "sections": [
-                                        {
-                                            "title": "Your Vehicles",
-                                            "choices": choices_list
-                                        }
-                                    ]
+                            from core.functions import get_auto_id
+                            ChatSession.objects.update_or_create(
+                                phone_number=from_phone,
+                                defaults={
+                                    'state': 'book_select_vehicle',
+                                    'data': {
+                                        'booking_date_str': 'today',
+                                        'booking_branch_id': str(branch.id)
+                                    },
+                                    'auto_id': get_auto_id(ChatSession)
                                 }
+                            )
+                            reply_text = "Choose a vehicle to book for Today:"
+                            choices_list = []
+                            for v in vehicles:
+                                model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                choices_list.append({
+                                    "title": f"{v.vehicle_number} {model_name}"[:24],
+                                    "choice_id": f"book_veh_{v.id}_today",
+                                    "id": f"book_veh_{v.id}_today",
+                                    "button_id": f"book_veh_{v.id}_today",
+                                    "description": ""
+                                })
+                            interactive_menu = {
+                                "header_message": "",
+                                "list_title": "Choose Vehicle",
+                                "sections": [{"title": "Your Vehicles", "choices": choices_list}]
+                            }
             elif choice == "book_date_tomorrow" or choice == "tomorrow":
                 if not customer or not branch:
                     reply_text = "Please register as a customer first to use our booking services."
                     is_menu = False
                 else:
-                    booking_date = timezone.localdate() + timedelta(days=1)
-                    # Check holiday
-                    holiday_exists = HolidayCalendar.objects.filter(branch=branch, holiday_date=booking_date).exists()
-                    weekday = booking_date.strftime("%A").lower()
-                    weekly_off = WeeklyOffDay.objects.filter(branch=branch, day=weekday).exists()
-                    
-                    if holiday_exists or weekly_off:
-                        reply_text = "Sorry, tomorrow is a holiday / weekly off. Bookings are closed."
+                    booking_date = get_local_date() + timedelta(days=1)
+                    from .utils import validate_booking
+                    is_valid, validation_msg = validate_booking(branch, booking_date)
+                    if not is_valid:
+                        reply_text = f"⚠️ Tomorrow ({booking_date.strftime('%d %b %Y')}) is unavailable for booking: {validation_msg}. Please try booking for Today instead."
                         is_menu = False
                     else:
-                        # Check paused
-                        pause_exists = BookingPause.objects.filter(
-                            branch=branch,
-                            from_date__lte=booking_date,
-                            to_date__gte=booking_date
-                        ).exists()
-                        if pause_exists:
-                            reply_text = "Sorry, booking is paused for tomorrow."
+                        vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
+                        if not vehicles.exists():
+                            reply_text = "No registered vehicles found. Please add a vehicle to your account first."
+                            is_menu = False
+                        elif vehicles.count() == 1:
+                            # Auto-confirm with the only vehicle
+                            v = vehicles.first()
+                            from core.functions import get_auto_id
+                            bk_num = f"BK{get_auto_id(Booking)}"
+                            booking = safe_create_model(
+                                Booking,
+                                customer=customer,
+                                vehicle=v,
+                                branch=branch,
+                                booking_date=booking_date,
+                                booking_number=bk_num,
+                                status=Booking.STATUS_PENDING
+                            )
+                            model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                            reply_text = (
+                                f"✅ *Booking Confirmed!*\n\n"
+                                f"📋 Booking No: *{bk_num}*\n"
+                                f"🚗 Vehicle: {v.vehicle_number} {model_name}\n"
+                                f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                f"📍 Branch: {branch.name}\n\n"
+                                f"We look forward to serving you! 🫧"
+                            )
                             is_menu = False
                         else:
-                            # Show vehicles
-                            vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
-                            if not vehicles.exists():
-                                reply_text = "No registered vehicles found. Please add a vehicle to your account first."
-                                is_menu = False
-                            else:
-                                reply_text = "Choose a vehicle to book for Tomorrow:"
-                                choices_list = []
-                                for v in vehicles:
-                                    model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
-                                    choices_list.append({
-                                        "title": v.vehicle_number[:20],
-                                        "choice_id": f"book_veh_{v.id}_tomorrow",
-                                        "description": model_name[:72]
-                                    })
-                                interactive_menu = {
-                                    "list_title": "Choose Vehicle",
-                                    "sections": [
-                                        {
-                                            "title": "Your Vehicles",
-                                            "choices": choices_list
-                                        }
-                                    ]
+                            from core.functions import get_auto_id
+                            ChatSession.objects.update_or_create(
+                                phone_number=from_phone,
+                                defaults={
+                                    'state': 'book_select_vehicle',
+                                    'data': {
+                                        'booking_date_str': 'tomorrow',
+                                        'booking_branch_id': str(branch.id)
+                                    },
+                                    'auto_id': get_auto_id(ChatSession)
                                 }
-            elif choice.startswith("book_veh_"):
+                            )
+                            reply_text = "Choose a vehicle to book for Tomorrow:"
+                            choices_list = []
+                            for v in vehicles:
+                                model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                choices_list.append({
+                                    "title": f"{v.vehicle_number} {model_name}"[:24],
+                                    "choice_id": f"book_veh_{v.id}_tomorrow",
+                                    "id": f"book_veh_{v.id}_tomorrow",
+                                    "button_id": f"book_veh_{v.id}_tomorrow",
+                                    "description": ""
+                                })
+                            interactive_menu = {
+                                "header_message": "",
+                                "list_title": "Choose Vehicle",
+                                "sections": [{"title": "Your Vehicles", "choices": choices_list}]
+                            }
+            elif is_vehicle_selection:
                 if not customer:
                     reply_text = "Please register as a customer first to use our booking services."
                     is_menu = False
                 else:
-                    parts = choice.split("_")
-                    vehicle_id = parts[2]
-                    day_str = parts[3]
-                    
-                    booking_date = timezone.localdate()
+                    booking_date = get_local_date()
                     if day_str == "tomorrow":
                         booking_date += timedelta(days=1)
                     
                     try:
-                        vehicle = CustomerVehicle.objects.get(id=vehicle_id, customer=customer)
-                        
-                        # Validate booking availability
-                        from .utils import validate_booking
-                        is_valid, validation_msg = validate_booking(branch, booking_date)
-                        if not is_valid:
-                            reply_text = f"Sorry, booking is not available for this date: {validation_msg}."
+                        if not vehicle_match:
+                            reply_text = "⚠️ We could not find that vehicle on your profile. Please contact us if you need help."
                         else:
-                            # Create the booking record
-                            from core.functions import get_auto_id
-                            booking = Booking.objects.create(
-                                customer=customer,
-                                vehicle=vehicle,
-                                branch=branch,
-                                booking_date=booking_date,
-                                status=Booking.STATUS_PENDING,
-                                auto_id=get_auto_id(Booking)
-                            )
-                            reply_text = f"Booking confirmed! Your appointment for {vehicle.vehicle_number} has been scheduled for {booking_date.strftime('%d-%b-%Y')} ({day_str.capitalize()})."
+                            # Validate booking availability
+                            from .utils import validate_booking
+                            is_valid, validation_msg = validate_booking(branch, booking_date)
+                            if not is_valid:
+                                reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d %b %Y')}: {validation_msg}. Please try another date."
+                            else:
+                                # Create the booking record safely
+                                from core.functions import get_auto_id
+                                bk_num = f"BK{get_auto_id(Booking)}"
+                                booking = safe_create_model(
+                                    Booking,
+                                    customer=customer,
+                                    vehicle=vehicle_match,
+                                    branch=branch,
+                                    booking_date=booking_date,
+                                    booking_number=bk_num,
+                                    status=Booking.STATUS_PENDING
+                                )
+                                if session:
+                                    session.delete()
+                                veh_model = vehicle_match.vehicle_type_model.name if vehicle_match.vehicle_type_model else ""
+                                reply_text = (
+                                    f"✅ *Booking Confirmed!*\n\n"
+                                    f"📋 Booking No: *{bk_num}*\n"
+                                    f"🚗 Vehicle: {vehicle_match.vehicle_number} {veh_model}\n"
+                                    f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                    f"📍 Branch: {branch.name}\n\n"
+                                    f"Thank you for booking with us! We look forward to serving you. 🫧"
+                                )
                     except Exception as e:
-                        reply_text = f"Sorry, there was an error processing your booking: {e}"
+                        reply_text = f"We apologise, but there was an error processing your request: {e}"
                     
                     is_menu = False
-            elif "cancel" in choice:
-                reply_text = "To cancel your booking, please contact our support team."
-                is_menu = False
+            elif choice == "menu_cancel" or choice == "cancel" or "cancel booking" in choice:
+                if not customer:
+                    reply_text = "⚠️ You must be registered to cancel bookings."
+                    is_menu = False
+                else:
+                    today_date = get_local_date()
+                    active_bookings = Booking.objects.filter(
+                        customer=customer,
+                        status__in=[Booking.STATUS_PENDING, Booking.STATUS_CONFIRMED],
+                        booking_date__gte=today_date,
+                        is_deleted=False
+                    ).order_by('booking_date')
+                    
+                    if not active_bookings.exists():
+                        reply_text = "⚠️ You don't have any upcoming bookings to cancel."
+                        is_menu = False
+                    elif active_bookings.count() == 1:
+                        b = active_bookings.first()
+                        from core.functions import get_auto_id
+                        ChatSession.objects.update_or_create(
+                            phone_number=from_phone,
+                            defaults={
+                                'state': 'cancel_confirm',
+                                'data': {'booking_id': str(b.id)},
+                                'auto_id': get_auto_id(ChatSession)
+                            }
+                        )
+                        reply_text = (
+                            f"Are you sure you want to cancel this booking?\n\n"
+                            f"📋 Booking No: *{b.booking_number or b.auto_id}*\n"
+                            f"🚗 Vehicle: {b.vehicle.vehicle_number}\n"
+                            f"📅 Date: {b.booking_date.strftime('%d %b %Y')}"
+                        )
+                        interactive_menu = {
+                            "header_message": "",
+                            "buttons": [
+                                {"title": "❌ Yes, Cancel", "id": "btn_confirm_cancel_yes", "button_id": "btn_confirm_cancel_yes"},
+                                {"title": "🔙 No, Keep It", "id": "btn_confirm_cancel_no", "button_id": "btn_confirm_cancel_no"}
+                            ]
+                        }
+                    else:
+                        from core.functions import get_auto_id
+                        ChatSession.objects.update_or_create(
+                            phone_number=from_phone,
+                            defaults={
+                                'state': 'cancel_select_booking',
+                                'data': {},
+                                'auto_id': get_auto_id(ChatSession)
+                            }
+                        )
+                        reply_text = "Please select the booking you wish to cancel:"
+                        choices_list = []
+                        for b in active_bookings:
+                            b_num = b.booking_number or f"BK{b.auto_id}"
+                            choices_list.append({
+                                "title": f"{b_num} - {b.booking_date.strftime('%d %b')}"[:20],
+                                "choice_id": f"cancel_bk_{b.id}",
+                                "id": f"cancel_bk_{b.id}",
+                                "button_id": f"cancel_bk_{b.id}",
+                                "description": f"Vehicle: {b.vehicle.vehicle_number}"[:72]
+                            })
+                        interactive_menu = {
+                            "header_message": "",
+                            "list_title": "Select Booking",
+                            "sections": [{"title": "Upcoming Bookings", "choices": choices_list}]
+                        }
             elif "status" in choice:
-                reply_text = "To check your vehicle's work status, please reply with your vehicle number."
+                reply_text = "To check your vehicle's wash status, please reply with your vehicle number or contact our branch directly. 🔍"
                 is_menu = False
             elif "feedback" in choice:
-                reply_text = "Thank you for your feedback! Please reply with your comments."
+                reply_text = "We'd love to hear from you! 😊 Please share your feedback or experience below, and our team will review it."
                 is_menu = False
             elif "complaint" in choice:
-                reply_text = "Please describe your complaint, and our manager will contact you shortly."
+                reply_text = "We sincerely apologise for the inconvenience. 🙏 Please describe your concern below and our team will look into it promptly."
                 is_menu = False
-            elif "location" in choice or "map" in choice:
-                reply_text = "Here is our location: https://maps.google.com/?q=Dirty+Bee+Auto+Hub"
-                is_menu = False
-            elif "call" in choice:
-                reply_text = "You can call us directly at +919496007007."
-                is_menu = False
+            elif choice == "menu_location" or "location" in choice:
+                branches = company.branches.filter(is_deleted=False)
+                if branches.count() == 1:
+                    br = branches.first()
+                    reply_text = ""
+                    lat, lng = '11.2588', '75.7804'
+                    if 'puthencruz' in br.name.lower():
+                        lat, lng = '9.9706', '76.4252'
+                    elif 'mannarkkad' in br.name.lower() or 'rasna' in br.name.lower():
+                        lat, lng = '10.9800', '76.4700'
+                    location_pin = {'lat': lat, 'lng': lng, 'address': br.name}
+                    is_menu = False
+                elif branches.count() > 1:
+                    from core.functions import get_auto_id
+                    ChatSession.objects.update_or_create(
+                        phone_number=from_phone,
+                        defaults={
+                            'state': 'loc_select_branch',
+                            'data': {},
+                            'auto_id': get_auto_id(ChatSession)
+                        }
+                    )
+                    reply_text = "Please select a branch to view its location:"
+                    choices_list = []
+                    for b in branches:
+                        choices_list.append({
+                            "title": b.name[:20],
+                            "choice_id": f"loc_br_{b.id}",
+                            "id": f"loc_br_{b.id}",
+                            "button_id": f"loc_br_{b.id}",
+                            "description": ""
+                        })
+                    interactive_menu = {
+                        "header_message": "",
+                        "list_title": "Choose Branch",
+                        "sections": [{"title": "Our Branches", "choices": choices_list}]
+                    }
+                else:
+                    reply_text = "📍 No branch locations are currently available."
+                    is_menu = False
+
+            elif choice == "menu_contact" or "call" in choice or "contact" in choice:
+                branches = company.branches.filter(is_deleted=False)
+                if branches.count() == 1:
+                    br = branches.first()
+                    lines = [f"📞 *Contact Us: {br.name}*"]
+                    if br.phone:
+                        lines.append(f"Phone: {br.phone}")
+                    if br.email:
+                        lines.append(f"Email: {br.email}")
+                    reply_text = "\n".join(lines)
+                    if len(lines) == 1:
+                        reply_text += "\nNo contact details available for this branch."
+                    is_menu = False
+                elif branches.count() > 1:
+                    from core.functions import get_auto_id
+                    ChatSession.objects.update_or_create(
+                        phone_number=from_phone,
+                        defaults={
+                            'state': 'contact_select_branch',
+                            'data': {},
+                            'auto_id': get_auto_id(ChatSession)
+                        }
+                    )
+                    reply_text = "Please select a branch to view its contact details:"
+                    choices_list = []
+                    for b in branches:
+                        choices_list.append({
+                            "title": b.name[:20],
+                            "choice_id": f"contact_br_{b.id}",
+                            "id": f"contact_br_{b.id}",
+                            "button_id": f"contact_br_{b.id}",
+                            "description": ""
+                        })
+                    interactive_menu = {
+                        "header_message": "",
+                        "list_title": "Choose Branch",
+                        "sections": [{"title": "Our Branches", "choices": choices_list}]
+                    }
+                else:
+                    reply_text = "📞 No contact details are currently available."
+                    is_menu = False
             else:
                 # Default greeting + main menu
-                if customer:
-                    branch_name = customer.branch.name if customer.branch else company.company_name
-                    reply_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+                booking_setting = BookingSettings.objects.filter(branch=branch).first()
+                custom_welcome = booking_setting.whatsapp_welcome_message if booking_setting else None
+
+                if custom_welcome:
+                    cust_name = customer.name if customer else "Customer"
+                    br_name = branch.name if branch else ""
+                    comp_name = company.company_name if company else ""
+                    reply_text = custom_welcome.replace("{customer_name}", cust_name)\
+                                               .replace("{branch_name}", br_name)\
+                                               .replace("{company_name}", comp_name)
                 else:
-                    first_branch = company.branches.filter(is_deleted=False).first()
-                    branch_name = first_branch.name if first_branch else company.company_name
-                    reply_text = f"Thank you for contacting {branch_name}."
+                    if customer:
+                        reply_text = f"Hi {customer.name}, Thank you for choosing {company.company_name}."
+                    else:
+                        reply_text = f"Thank you for contacting {company.company_name}."
                 
                 interactive_menu = {
+                    "header_message": "",
                     "list_title": "Choose service",
                     "sections": [
                         {
                             "title": "Services",
                             "choices": [
-                                { "title": "Schemes", "choice_id": "menu_schemes", "description": "View active schemes" },
-                                { "title": "Book", "choice_id": "menu_book", "description": "Book a wash appointment" },
-                                { "title": "Cancel booking", "choice_id": "menu_cancel", "description": "Cancel your booking" },
-                                { "title": "Work Status", "choice_id": "menu_status", "description": "Check vehicle wash status" },
-                                { "title": "Feedback", "choice_id": "menu_feedback", "description": "Share your experience" },
-                                { "title": "Complaint", "choice_id": "menu_complaint", "description": "Raise a complaint" },
-                                { "title": "Location Map", "choice_id": "menu_location", "description": "Find our branch" },
-                                { "title": "Call Us", "choice_id": "menu_call", "description": "Contact support" }
+                                { "title": "Schemes", "choice_id": "menu_schemes", "description": "" },
+                                { "title": "Book an Appointment", "choice_id": "menu_book", "description": "" },
+                                { "title": "Cancel Booking", "choice_id": "menu_cancel", "description": "" },
+                                { "title": "Location", "choice_id": "menu_location", "description": "" },
+                                { "title": "Contact Us", "choice_id": "menu_contact", "description": "" }
                             ]
                         }
                     ]
                 }
 
             # 4. Send reply via wawy.org/Webgenie API
-            response_text = send_whatsapp_simple(from_phone, reply_text, setting=setting, interactive_data=interactive_menu)
+            with open('/tmp/wa_debug.log', 'a') as f:
+                f.write(f"BEFORE SEND: state='{getattr(session, 'state', 'NONE')}' choice='{choice}' reply='{reply_text}' loc={bool(location_pin)} menu={bool(interactive_menu)}\n")
+            response_text = send_whatsapp_simple(
+                from_phone, 
+                reply_text, 
+                setting=setting, 
+                interactive_data=interactive_menu,
+                location_data=location_pin
+            )
             status_str = 'Sent' if ('success' in response_text.lower() or 'wa_' in response_text.lower()) else 'Failed'
 
-            # 5. Log the outgoing message
-            from core.functions import get_auto_id
-            WhatsAppMessage.objects.create(
+            # 5. Log the outgoing message safely
+            safe_create_model(
+                WhatsAppMessage,
                 company=company,
                 recipient_number=from_phone,
                 message=reply_text,
-                status=status_str,
-                auto_id=get_auto_id(WhatsAppMessage)
+                status=status_str
             )
 
             # Log outgoing reply
@@ -647,3 +2113,530 @@ def api_whatsapp_webhook(request):
 
     # Always return 200 so Webgenie does not retry
     return HttpResponse('OK', status=200)
+
+
+def get_user_branch_and_check_permission(user, branch_id):
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+    from client_management.models import Branch
+    
+    if role == 'BRANCH_ADMIN':
+        if not hasattr(user, 'managed_branch') or not user.managed_branch:
+            return None, "Branch Admin has no managed branch assigned."
+        return user.managed_branch, None
+        
+    elif role == 'COMPANY_ADMIN':
+        if not branch_id:
+            return None, "branch_id parameter is required for Company Admin."
+        try:
+            branch = Branch.objects.get(id=branch_id, company=user.profile.company, is_deleted=False)
+            return branch, None
+        except Branch.DoesNotExist:
+            return None, "Invalid branch selected or branch does not belong to your company."
+            
+    return None, "Permission denied."
+
+
+@csrf_exempt
+def api_get_booking_settings(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    branch_id = request.GET.get('branch_id')
+    branch, err = get_user_branch_and_check_permission(user, branch_id)
+    if err:
+        return JsonResponse({'success': False, 'message': err}, status=403)
+        
+    from booking_management.models import BookingSettings
+    from core.functions import get_auto_id
+    
+    settings, created = BookingSettings.objects.get_or_create(
+        branch=branch,
+        defaults={
+            'creator': user,
+            'auto_id': get_auto_id(BookingSettings),
+            'is_booking_enabled': True,
+            'max_booking_per_day': 50
+        }
+    )
+    
+    closing_time_str = settings.booking_closing_time.strftime("%H:%M:%S") if settings.booking_closing_time else None
+    
+    return JsonResponse({
+        'success': True,
+        'booking_settings': {
+            'is_booking_enabled': settings.is_booking_enabled,
+            'max_booking_per_day': settings.max_booking_per_day,
+            'booking_closing_time': closing_time_str,
+            'whatsapp_welcome_message': settings.whatsapp_welcome_message
+        }
+    })
+
+
+@csrf_exempt
+def api_update_booking_settings(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON body'}, status=400)
+        
+    branch_id = body.get('branch_id')
+    branch, err = get_user_branch_and_check_permission(user, branch_id)
+    if err:
+        return JsonResponse({'success': False, 'message': err}, status=403)
+        
+    from booking_management.models import BookingSettings
+    
+    is_booking_enabled = body.get('is_booking_enabled', True)
+    max_booking_per_day = int(body.get('max_booking_per_day', 50))
+    booking_closing_time = body.get('booking_closing_time')
+    whatsapp_welcome_message = body.get('whatsapp_welcome_message')
+    
+    closing_time_obj = None
+    if booking_closing_time:
+        try:
+            closing_time_obj = datetime.strptime(booking_closing_time, "%H:%M:%S").time()
+        except ValueError:
+            try:
+                closing_time_obj = datetime.strptime(booking_closing_time, "%H:%M").time()
+            except ValueError:
+                return JsonResponse({'success': False, 'message': 'Invalid time format. Expected HH:MM:SS or HH:MM'}, status=400)
+                
+    settings, created = BookingSettings.objects.get_or_create(
+        branch=branch,
+        defaults={
+            'creator': user,
+            'auto_id': 0
+        }
+    )
+    
+    if created:
+        from core.functions import get_auto_id
+        settings.auto_id = get_auto_id(BookingSettings)
+        
+    settings.is_booking_enabled = is_booking_enabled
+    settings.max_booking_per_day = max_booking_per_day
+    settings.booking_closing_time = closing_time_obj
+    settings.whatsapp_welcome_message = whatsapp_welcome_message
+    settings.updater = user
+    settings.save()
+    
+    return JsonResponse({'success': True, 'message': 'Booking settings updated successfully'})
+
+
+@csrf_exempt
+def api_holiday_list(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    branch_id = request.GET.get('branch_id')
+    branch, err = get_user_branch_and_check_permission(user, branch_id)
+    if err:
+        return JsonResponse({'success': False, 'message': err}, status=403)
+        
+    from booking_management.models import HolidayCalendar
+    holidays = HolidayCalendar.objects.filter(branch=branch, is_deleted=False).order_by('-holiday_date')
+    
+    return JsonResponse({
+        'success': True,
+        'holidays': [
+            {
+                'id': str(h.id),
+                'holiday_date': h.holiday_date.strftime("%Y-%m-%d"),
+                'repeat_yearly': h.repeat_yearly
+            }
+            for h in holidays
+        ]
+    })
+
+
+@csrf_exempt
+def api_holiday_create(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON body'}, status=400)
+        
+    branch_id = body.get('branch_id')
+    branch, err = get_user_branch_and_check_permission(user, branch_id)
+    if err:
+        return JsonResponse({'success': False, 'message': err}, status=403)
+        
+    holiday_date_str = body.get('holiday_date')
+    if not holiday_date_str:
+        return JsonResponse({'success': False, 'message': 'holiday_date is required'}, status=400)
+        
+    try:
+        holiday_date = datetime.strptime(holiday_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return JsonResponse({'success': False, 'message': 'Invalid date format. Expected YYYY-MM-DD'}, status=400)
+        
+    repeat_yearly = body.get('repeat_yearly', False)
+    
+    from booking_management.models import HolidayCalendar
+    
+    existing = HolidayCalendar.objects.filter(branch=branch, holiday_date=holiday_date).first()
+    if existing:
+        if existing.is_deleted:
+            existing.is_deleted = False
+            existing.repeat_yearly = repeat_yearly
+            existing.updater = user
+            existing.save()
+            return JsonResponse({'success': True, 'message': 'Holiday created successfully'})
+        else:
+            return JsonResponse({'success': False, 'message': 'Holiday already exists for this date'}, status=400)
+            
+    safe_create_model(
+        HolidayCalendar,
+        branch=branch,
+        holiday_date=holiday_date,
+        repeat_yearly=repeat_yearly,
+        creator=user
+    )
+    
+    return JsonResponse({'success': True, 'message': 'Holiday created successfully'})
+
+
+@csrf_exempt
+def api_holiday_delete(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON body'}, status=400)
+        
+    holiday_id = body.get('id')
+    if not holiday_id:
+        return JsonResponse({'success': False, 'message': 'id is required'}, status=400)
+        
+    from booking_management.models import HolidayCalendar
+    try:
+        holiday = HolidayCalendar.objects.get(id=holiday_id, is_deleted=False)
+        _, err = get_user_branch_and_check_permission(user, str(holiday.branch.id))
+        if err:
+            return JsonResponse({'success': False, 'message': 'Permission denied to delete this holiday'}, status=403)
+            
+        holiday.is_deleted = True
+        holiday.updater = user
+        holiday.save()
+        
+        return JsonResponse({'success': True, 'message': 'Holiday deleted successfully'})
+    except HolidayCalendar.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Holiday not found'}, status=404)
+
+
+@csrf_exempt
+def api_weekly_off_list(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    branch_id = request.GET.get('branch_id')
+    branch, err = get_user_branch_and_check_permission(user, branch_id)
+    if err:
+        return JsonResponse({'success': False, 'message': err}, status=403)
+        
+    from booking_management.models import WeeklyOffDay
+    weekly_offs = WeeklyOffDay.objects.filter(branch=branch, is_deleted=False).order_by('day')
+    
+    return JsonResponse({
+        'success': True,
+        'weekly_offs': [
+            {
+                'id': str(w.id),
+                'day': w.day
+            }
+            for w in weekly_offs
+        ]
+    })
+
+
+@csrf_exempt
+def api_weekly_off_create(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON body'}, status=400)
+        
+    branch_id = body.get('branch_id')
+    branch, err = get_user_branch_and_check_permission(user, branch_id)
+    if err:
+        return JsonResponse({'success': False, 'message': err}, status=403)
+        
+    day = body.get('day', '').lower().strip()
+    from booking_management.models import WeeklyOffDay
+    valid_days = [d[0] for d in WeeklyOffDay.DAYS]
+    if day not in valid_days:
+        return JsonResponse({'success': False, 'message': f'Invalid day. Must be one of: {", ".join(valid_days)}'}, status=400)
+        
+    existing = WeeklyOffDay.objects.filter(branch=branch, day=day).first()
+    if existing:
+        if existing.is_deleted:
+            existing.is_deleted = False
+            existing.updater = user
+            existing.save()
+            return JsonResponse({'success': True, 'message': 'Weekly Off Day created successfully'})
+        else:
+            return JsonResponse({'success': False, 'message': 'Weekly Off Day already exists for this day'}, status=400)
+            
+    safe_create_model(
+        WeeklyOffDay,
+        branch=branch,
+        day=day,
+        creator=user
+    )
+    
+    return JsonResponse({'success': True, 'message': 'Weekly Off Day created successfully'})
+
+
+@csrf_exempt
+def api_weekly_off_delete(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON body'}, status=400)
+        
+    weekly_off_id = body.get('id')
+    if not weekly_off_id:
+        return JsonResponse({'success': False, 'message': 'id is required'}, status=400)
+        
+    from booking_management.models import WeeklyOffDay
+    try:
+        weekly_off = WeeklyOffDay.objects.get(id=weekly_off_id, is_deleted=False)
+        _, err = get_user_branch_and_check_permission(user, str(weekly_off.branch.id))
+        if err:
+            return JsonResponse({'success': False, 'message': 'Permission denied to delete this weekly off day'}, status=403)
+            
+        weekly_off.is_deleted = True
+        weekly_off.updater = user
+        weekly_off.save()
+        
+        return JsonResponse({'success': True, 'message': 'Weekly Off Day deleted successfully'})
+    except WeeklyOffDay.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Weekly Off Day not found'}, status=404)
+
+
+@csrf_exempt
+def api_booking_pause_list(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    branch_id = request.GET.get('branch_id')
+    branch, err = get_user_branch_and_check_permission(user, branch_id)
+    if err:
+        return JsonResponse({'success': False, 'message': err}, status=403)
+        
+    from booking_management.models import BookingPause
+    pauses = BookingPause.objects.filter(branch=branch, is_deleted=False).order_by('-from_date')
+    
+    return JsonResponse({
+        'success': True,
+        'pauses': [
+            {
+                'id': str(p.id),
+                'from_date': p.from_date.strftime("%Y-%m-%d"),
+                'to_date': p.to_date.strftime("%Y-%m-%d"),
+                'reason': p.reason or ''
+            }
+            for p in pauses
+        ]
+    })
+
+
+@csrf_exempt
+def api_booking_pause_create(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON body'}, status=400)
+        
+    branch_id = body.get('branch_id')
+    branch, err = get_user_branch_and_check_permission(user, branch_id)
+    if err:
+        return JsonResponse({'success': False, 'message': err}, status=403)
+        
+    from_date_str = body.get('from_date')
+    to_date_str = body.get('to_date')
+    reason = body.get('reason', '').strip()
+    
+    if not from_date_str or not to_date_str:
+        return JsonResponse({'success': False, 'message': 'from_date and to_date are required'}, status=400)
+        
+    try:
+        from_date = datetime.strptime(from_date_str, "%Y-%m-%d").date()
+        to_date = datetime.strptime(to_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return JsonResponse({'success': False, 'message': 'Invalid date format. Expected YYYY-MM-DD'}, status=400)
+        
+    if from_date > to_date:
+        return JsonResponse({'success': False, 'message': 'from_date cannot be after to_date'}, status=400)
+        
+    from booking_management.models import BookingPause
+    
+    safe_create_model(
+        BookingPause,
+        branch=branch,
+        from_date=from_date,
+        to_date=to_date,
+        reason=reason,
+        creator=user
+    )
+    
+    return JsonResponse({'success': True, 'message': 'Booking pause created successfully'})
+
+
+@csrf_exempt
+def api_booking_pause_delete(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON body'}, status=400)
+        
+    pause_id = body.get('id')
+    if not pause_id:
+        return JsonResponse({'success': False, 'message': 'id is required'}, status=400)
+        
+    from booking_management.models import BookingPause
+    try:
+        pause = BookingPause.objects.get(id=pause_id, is_deleted=False)
+        _, err = get_user_branch_and_check_permission(user, str(pause.branch.id))
+        if err:
+            return JsonResponse({'success': False, 'message': 'Permission denied to delete this booking pause'}, status=403)
+            
+        pause.is_deleted = True
+        pause.updater = user
+        pause.save()
+        
+        return JsonResponse({'success': True, 'message': 'Booking pause deleted successfully'})
+    except BookingPause.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Booking pause not found'}, status=404)
+
+
+def send_booking_ready_alert_background(booking_id):
+    from booking_management.models import Booking
+    from client_management.models import WhatsAppSetting
+    try:
+        booking = Booking.objects.get(id=booking_id)
+        customer = booking.customer
+        if not customer:
+            return
+        
+        # Resolve company WhatsAppSetting
+        company = booking.branch.company if booking.branch else None
+        if not company:
+            return
+            
+        setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+        if not setting or not setting.username or not setting.password:
+            return
+            
+        # Clean receiver phone number
+        phone = customer.phone or customer.whatsapp_number or ""
+        import re
+        phone = re.sub(r'\D', '', phone)
+        if len(phone) == 10:
+            phone = f"91{phone}"
+            
+        if not phone:
+            return
+            
+        name = customer.name or "Customer"
+        vehicle_number = booking.vehicle.vehicle_number if booking.vehicle else "your vehicle"
+        message = f"Hello {name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service."
+        
+        from booking_management.api_views import send_whatsapp_simple
+        send_whatsapp_simple(phone, message, setting=setting)
+    except Exception as e:
+        with open('/tmp/ready_alert_error.log', 'a') as f:
+            f.write(f"Error sending ready alert: {e}\n")
+
+
+@csrf_exempt
+def api_send_ready_alert(request, booking_id):
+    """Manually trigger the background Ready Alert WhatsApp notification for a booking."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from booking_management.models import Booking
+        booking = Booking.objects.get(id=booking_id, is_deleted=False)
+        
+        # Trigger ready alert automatically
+        import threading
+        threading.Thread(
+            target=send_booking_ready_alert_background,
+            args=(str(booking.id),),
+            daemon=True
+        ).start()
+        
+        return JsonResponse({'success': True, 'message': 'Ready alert sent successfully'})
+    except Booking.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Booking not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)

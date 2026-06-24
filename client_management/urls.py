@@ -112,6 +112,7 @@ urlpatterns = [
     path('api/reports/service-type/detail/', api_views.api_report_service_type_detail, name='api_report_service_type_detail'),
     path('api/reports/service-type/vehicle-breakdown/', api_views.api_report_service_type_vehicle_breakdown, name='api_report_service_type_vehicle_breakdown'),
     path('api/reports/profit-loss/', api_views.api_report_profit_loss, name='api_report_profit_loss'),
+    path('api/reports/daywise/', api_views.api_report_daywise_consolidated, name='api_report_daywise_consolidated'),
 
 
     # Complaint Management

@@ -1539,3 +1539,43 @@ def expense_head_detail_report(request, pk):
     }
 
     return render(request,'reports/expense_head_detail_report.html',context)
+
+
+def generate_invoice_pdf_file(invoice, base_url):
+    import sys
+    import os
+    from django.template.loader import render_to_string
+    from django.conf import settings
+    
+    if sys.platform == 'darwin':
+        os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
+    from weasyprint import HTML
+    
+    balance = invoice.total - invoice.amount_collected
+    currency = '₹'
+    if invoice.branch and invoice.branch.company and invoice.branch.company.country:
+        currency = getattr(invoice.branch.company.country, 'currency_symbol', '₹') or '₹'
+        
+    context = {
+        'invoice': invoice,
+        'balance': balance,
+        'currency': currency,
+    }
+    
+    html_string = render_to_string('invoice/invoice_pdf.html', context)
+    
+    media_dir = os.path.join(settings.BASE_DIR, 'media', 'invoices')
+    os.makedirs(media_dir, exist_ok=True)
+    
+    pdf_filename = f"invoice_{invoice.invoice_number}.pdf"
+    pdf_path = os.path.join(media_dir, pdf_filename)
+    
+    # Render PDF using WeasyPrint
+    html = HTML(string=html_string, base_url=base_url)
+    html.write_pdf(target=pdf_path)
+    
+    # Return the absolute public URL
+    if not base_url.endswith('/'):
+        base_url += '/'
+    return f"{base_url}media/invoices/{pdf_filename}"
+

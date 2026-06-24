@@ -8,7 +8,8 @@ from .models import (
 
 def validate_booking(branch, booking_date):
     setting = BookingSettings.objects.filter(
-        branch=branch
+        branch=branch,
+        is_deleted=False
     ).first()
 
     if setting and not setting.is_booking_enabled:
@@ -16,7 +17,8 @@ def validate_booking(branch, booking_date):
 
     holiday_exists = HolidayCalendar.objects.filter(
         branch=branch,
-        holiday_date=booking_date
+        holiday_date=booking_date,
+        is_deleted=False
     ).exists()
 
     if holiday_exists:
@@ -26,7 +28,8 @@ def validate_booking(branch, booking_date):
 
     weekly_off = WeeklyOffDay.objects.filter(
         branch=branch,
-        day=weekday
+        day=weekday,
+        is_deleted=False
     ).exists()
 
     if weekly_off:
@@ -35,7 +38,8 @@ def validate_booking(branch, booking_date):
     pause_exists = BookingPause.objects.filter(
         branch=branch,
         from_date__lte=booking_date,
-        to_date__gte=booking_date
+        to_date__gte=booking_date,
+        is_deleted=False
     ).exists()
 
     if pause_exists:
@@ -44,7 +48,8 @@ def validate_booking(branch, booking_date):
     if setting:
         count = Booking.objects.filter(
             branch=branch,
-            booking_date=booking_date
+            booking_date=booking_date,
+            is_deleted=False
         ).count()
 
         if count >= setting.max_booking_per_day:

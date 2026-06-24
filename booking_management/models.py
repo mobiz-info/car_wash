@@ -20,6 +20,7 @@ class Booking(BaseModel):
     vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.CASCADE, related_name='bookings')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='bookings')
 
+    booking_number = models.CharField(max_length=20, unique=True, null=True, blank=True, help_text="Human-readable booking ID e.g. BK1, BK2")
     booking_date = models.DateField()
     booking_time = models.TimeField(null=True, blank=True)
     notes = models.TextField(blank=True, null=True)
@@ -43,6 +44,12 @@ class BookingSettings(BaseModel):
         null=True,
         blank=True,
         help_text="No bookings allowed after this time"
+    )
+
+    whatsapp_welcome_message = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Custom welcome message. Use {customer_name}, {branch_name}, {company_name} as placeholders."
     )
 
     def __str__(self):
@@ -107,3 +114,12 @@ class BookingPause(BaseModel):
 
     def __str__(self):
         return f"{self.from_date} - {self.to_date}"
+
+
+class ChatSession(BaseModel):
+    phone_number = models.CharField(max_length=30, unique=True)
+    state = models.CharField(max_length=50)
+    data = models.JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return f"{self.phone_number} - {self.state}"

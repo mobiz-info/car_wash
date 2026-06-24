@@ -76,14 +76,12 @@
             <i class="ph ph-magnifying-glass search-icon"></i>
             <input type="text" name="search" value="{{ search }}" placeholder="Search branch..." class="search-input">
         </form>
+        {% if role_name == 'COMPANY_ADMIN' or request.user.profile.role.name == 'COMPANY_ADMIN' %}
+            <a href="{% url 'company_service_manage' %}" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="ph ph-buildings" style="font-size:1.2rem;"></i> Manage Company Services
+            </a>
+        {% endif %}
     </div>
-    {% if item.branch and item.branch.id %}
-        <a href="{% url 'branch_service_manage' item.branch.id %}" 
-        title="Manage"
-        style="color:#64748b;">
-            <i class="ph ph-gear" style="font-size:1.2rem;"></i>
-        </a>
-    {% endif %}
     <!-- Table -->
     <div style="overflow-x:auto;">
         <table class="premium-table">

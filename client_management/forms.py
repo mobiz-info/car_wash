@@ -648,9 +648,13 @@ class StockForm(forms.ModelForm):
         
         # Filter expense head queryset by company
         from master.models import ExpenseHead
+        from django.db.models import Q
         if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
             company = self.request.user.profile.company
-            self.fields['expense_head'].queryset = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
+            self.fields['expense_head'].queryset = ExpenseHead.objects.filter(
+                Q(company=company) | Q(company__isnull=True),
+                is_deleted=False
+            ).order_by('name')
         else:
             self.fields['expense_head'].queryset = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
 

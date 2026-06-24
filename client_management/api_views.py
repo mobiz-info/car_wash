@@ -443,6 +443,84 @@ def api_get_services(request):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
+def send_invoice_whatsapp_background(invoice_id, base_url):
+    try:
+        from finance_management.models import Invoice
+        from finance_management.views import generate_invoice_pdf_file
+        from booking_management.api_views import send_whatsapp_simple
+        from client_management.models import WhatsAppSetting
+        
+        invoice = Invoice.objects.get(id=invoice_id)
+        
+        # 1. Generate the PDF
+        pdf_url = generate_invoice_pdf_file(invoice, base_url)
+        
+        # 2. Get customer details
+        customer = invoice.customer
+        phone_to_send = customer.whatsapp_number or customer.phone
+        if not phone_to_send:
+            return
+            
+        # Normalize the number (keep digits only, prepend 91 if 10 digits)
+        cleaned_num = ''.join(filter(str.isdigit, str(phone_to_send)))
+        if len(cleaned_num) == 10:
+            cleaned_num = "91" + cleaned_num
+        elif len(cleaned_num) > 10 and cleaned_num.startswith("0"):
+            cleaned_num = cleaned_num[1:]
+            
+        # 3. Format message text
+        company_name = invoice.branch.company.company_name if invoice.branch and invoice.branch.company else "Wash Pilot"
+        currency = "₹"
+        if invoice.branch and invoice.branch.company and invoice.branch.company.country:
+            currency = getattr(invoice.branch.company.country, 'currency_symbol', '₹') or '₹'
+            
+        # Services summary
+        services_list = []
+        for item in invoice.items.all():
+            services_list.append(f"- {item.service_name}")
+        services_str = "\n".join(services_list)
+        
+        message_text = (
+            f"Dear {customer.name},\n\n"
+            f"Your invoice *{invoice.invoice_number}* has been generated successfully at {company_name}.\n\n"
+            f"*Invoice Details:*\n"
+            f"Vehicle: {invoice.vehicle.vehicle_number}\n"
+            f"Services:\n{services_str}\n"
+            f"Total: {currency}{invoice.total}\n"
+            f"Paid: {currency}{invoice.amount_collected}\n"
+            f"Balance: {currency}{invoice.total - invoice.amount_collected}\n\n"
+            f"Please find the attached PDF invoice for your reference.\n"
+            f"Thank you for choosing us!"
+        )
+        
+        # 4. Fetch branch/company whatsapp setting
+        company = invoice.branch.company if invoice.branch else None
+        setting = None
+        if company:
+            setting = WhatsAppSetting.objects.filter(company=company).first()
+            
+        # Only dispatch WhatsApp message if setting exists and has configured credentials
+        if not setting or not setting.username or not setting.password:
+            return
+            
+        # 5. Dispatch
+        send_whatsapp_simple(
+            to_number=cleaned_num,
+            message=message_text,
+            setting=setting,
+            media_url=pdf_url
+        )
+        
+    except Exception as e:
+        import traceback
+        try:
+            with open('/tmp/whatsapp_webhook.log', 'a') as f:
+                from datetime import datetime
+                f.write(f"[{datetime.now()}] BG ERROR for invoice {invoice_id}: {str(e)}\n{traceback.format_exc()}\n")
+        except Exception:
+            pass
+
+
 @csrf_exempt
 def api_create_invoice(request):
     if request.method != 'POST':
@@ -474,7 +552,7 @@ def api_create_invoice(request):
         branch = user.managed_branch if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') else customer.branch
         prefix = _resolve_branch_invoice_prefix(branch)
 
-        prefix_base = f"INV-{prefix}-"
+        prefix_base = f"INV-{prefix}{branch.auto_id}-"
         last_invoice = (
             Invoice.objects.filter(branch=branch, invoice_number__startswith=prefix_base)
             .order_by('-auto_id')
@@ -563,8 +641,26 @@ def api_create_invoice(request):
                 booking = Booking.objects.get(id=booking_id)
                 booking.status = Booking.STATUS_COMPLETED
                 booking.save()
+                
+                # Trigger ready alert automatically on completion
+                import threading
+                from booking_management.api_views import send_booking_ready_alert_background
+                threading.Thread(
+                    target=send_booking_ready_alert_background,
+                    args=(str(booking.id),),
+                    daemon=True
+                ).start()
             except Booking.DoesNotExist:
                 pass
+            
+        # Trigger async WhatsApp send
+        import threading
+        base_url = request.build_absolute_uri('/')
+        threading.Thread(
+            target=send_invoice_whatsapp_background,
+            args=(invoice.id, base_url),
+            daemon=True
+        ).start()
             
         return JsonResponse({
             'success': True,
@@ -2161,11 +2257,12 @@ def api_get_expense_heads(request):
         
     try:
         from master.models import ExpenseHead
+        from django.db.models import Q
         company = getattr(getattr(user, 'profile', None), 'company', None)
         if not company:
             heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
         else:
-            heads = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
+            heads = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
         head_list = [{'id': str(h.id), 'name': h.name, 'is_deletable': h.is_deletable} for h in heads]
         return JsonResponse({'success': True, 'expense_heads': head_list})
     except Exception as e:
@@ -2612,7 +2709,8 @@ def api_create_stock(request):
         expense_head = None
         if expense_head_id:
             from master.models import ExpenseHead
-            expense_head = get_object_or_404(ExpenseHead, id=expense_head_id, company=company, is_deleted=False)
+            from django.db.models import Q
+            expense_head = get_object_or_404(ExpenseHead, Q(company=company) | Q(company__isnull=True), id=expense_head_id, is_deleted=False)
             
         stock = Stock.objects.create(
             company=company,
@@ -2747,7 +2845,8 @@ def api_edit_stock(request, id):
         expense_head = None
         if expense_head_id:
             from master.models import ExpenseHead
-            expense_head = get_object_or_404(ExpenseHead, id=expense_head_id, company=company, is_deleted=False)
+            from django.db.models import Q
+            expense_head = get_object_or_404(ExpenseHead, Q(company=company) | Q(company__isnull=True), id=expense_head_id, is_deleted=False)
 
         stock.item_name = item_name
         stock.unit = unit
@@ -2825,7 +2924,8 @@ def api_report_expense_head_wise(request):
         **scope
     ).select_related('expense__expense_head')
 
-    heads = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
+    from django.db.models import Q
+    heads = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
     
     rows = []
     total_all = 0.0
@@ -2902,7 +3002,8 @@ def api_report_profit_loss(request):
         **scope
     ).select_related('expense__expense_head')
 
-    heads = ExpenseHead.objects.filter(company=company, is_deleted=False).order_by('name')
+    from django.db.models import Q
+    heads = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
     expense_rows = []
     total_expense = 0.0
 
@@ -3119,6 +3220,247 @@ def api_create_extra(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_report_daywise_consolidated(request):
+    """
+    Daywise consolidated reports:
+    - income: Daywise invoice count, total total, total collected.
+    - profit: Daywise total income, total expense, net profit.
+    - collection: Daywise payment collection by mode.
+    - outstanding: Daywise outstanding invoice count and balance.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from django.db.models import Sum, Count, F, Q, ExpressionWrapper, DecimalField
+    from django.db import models
+    from finance_management.models import Invoice, Receipt
+    from master.models import ExpenseEntry
+    from datetime import timedelta
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    report_type = request.GET.get('type', 'income')
+
+    # Construct the base date list to ensure we cover all days in the range (even empty ones)
+    date_list = []
+    curr = from_date
+    while curr <= to_date:
+        date_list.append(curr)
+        curr += timedelta(days=1)
+
+    # Let's map branch scopes for Receipt
+    receipt_scope = {}
+    if 'branch' in scope:
+        receipt_scope['invoice__branch'] = scope['branch']
+    elif 'branch__company' in scope:
+        receipt_scope['invoice__branch__company'] = scope['branch__company']
+
+    rows = []
+
+    if report_type == 'income':
+        inv_qs = Invoice.objects.filter(
+            is_deleted=False,
+            date__gte=from_date,
+            date__lte=to_date,
+            **scope
+        ).values('date').annotate(
+            count=Count('id'),
+            total_income=models.Sum('total'),
+            total_collected=models.Sum('amount_collected')
+        )
+        inv_map = {item['date']: item for item in inv_qs}
+
+        total_income_sum = 0.0
+        total_collected_sum = 0.0
+        total_jobs_sum = 0
+
+        for d in date_list:
+            item = inv_map.get(d)
+            count = item['count'] if item else 0
+            income = float(item['total_income'] or 0.0) if item else 0.0
+            collected = float(item['total_collected'] or 0.0) if item else 0.0
+
+            total_income_sum += income
+            total_collected_sum += collected
+            total_jobs_sum += count
+
+            rows.append({
+                'date': d.strftime('%d-%m-%Y'),
+                'count': count,
+                'income': str(round(income, 2)),
+                'collected': str(round(collected, 2)),
+            })
+
+        rows.reverse()
+
+        return JsonResponse({
+            'success': True,
+            'from_date': str(from_date),
+            'to_date': str(to_date),
+            'total_income': str(round(total_income_sum, 2)),
+            'total_collected': str(round(total_collected_sum, 2)),
+            'total_jobs': total_jobs_sum,
+            'rows': rows,
+        })
+
+    elif report_type == 'profit':
+        # Income from Invoices
+        inv_qs = Invoice.objects.filter(
+            is_deleted=False,
+            date__gte=from_date,
+            date__lte=to_date,
+            **scope
+        ).values('date').annotate(
+            income=models.Sum('total')
+        )
+        inv_map = {item['date']: float(item['income'] or 0.0) for item in inv_qs}
+
+        # Expense from ExpenseEntry
+        exp_qs = ExpenseEntry.objects.filter(
+            is_deleted=False,
+            expense_date__gte=from_date,
+            expense_date__lte=to_date,
+            **scope
+        ).values('expense_date').annotate(
+            expense=models.Sum('amount')
+        )
+        exp_map = {item['expense_date']: float(item['expense'] or 0.0) for item in exp_qs}
+
+        total_income_sum = 0.0
+        total_expense_sum = 0.0
+        total_profit_sum = 0.0
+
+        for d in date_list:
+            income = inv_map.get(d, 0.0)
+            expense = exp_map.get(d, 0.0)
+            profit = income - expense
+
+            total_income_sum += income
+            total_expense_sum += expense
+            total_profit_sum += profit
+
+            rows.append({
+                'date': d.strftime('%d-%m-%Y'),
+                'income': str(round(income, 2)),
+                'expense': str(round(expense, 2)),
+                'profit': str(round(profit, 2)),
+            })
+
+        rows.reverse()
+
+        return JsonResponse({
+            'success': True,
+            'from_date': str(from_date),
+            'to_date': str(to_date),
+            'total_income': str(round(total_income_sum, 2)),
+            'total_expense': str(round(total_expense_sum, 2)),
+            'total_profit': str(round(total_profit_sum, 2)),
+            'rows': rows,
+        })
+
+    elif report_type == 'collection':
+        rec_qs = Receipt.objects.filter(
+            created_at__date__gte=from_date,
+            created_at__date__lte=to_date,
+            **receipt_scope
+        ).values('created_at__date').annotate(
+            cash=models.Sum('amount', filter=Q(payment_mode='cash')),
+            cheque=models.Sum('amount', filter=Q(payment_mode='cheque')),
+            online=models.Sum('amount', filter=Q(payment_mode='online')),
+            total=models.Sum('amount')
+        )
+        rec_map = {item['created_at__date']: item for item in rec_qs}
+
+        total_cash = 0.0
+        total_cheque = 0.0
+        total_online = 0.0
+        total_all = 0.0
+
+        for d in date_list:
+            item = rec_map.get(d)
+            cash = float(item['cash'] or 0.0) if item else 0.0
+            cheque = float(item['cheque'] or 0.0) if item else 0.0
+            online = float(item['online'] or 0.0) if item else 0.0
+            total = float(item['total'] or 0.0) if item else 0.0
+
+            total_cash += cash
+            total_cheque += cheque
+            total_online += online
+            total_all += total
+
+            rows.append({
+                'date': d.strftime('%d-%m-%Y'),
+                'cash': str(round(cash, 2)),
+                'cheque': str(round(cheque, 2)),
+                'online': str(round(online, 2)),
+                'total': str(round(total, 2)),
+            })
+
+        rows.reverse()
+
+        return JsonResponse({
+            'success': True,
+            'from_date': str(from_date),
+            'to_date': str(to_date),
+            'total_cash': str(round(total_cash, 2)),
+            'total_cheque': str(round(total_cheque, 2)),
+            'total_online': str(round(total_online, 2)),
+            'total_collected': str(round(total_all, 2)),
+            'rows': rows,
+        })
+
+    elif report_type == 'outstanding':
+        inv_qs = Invoice.objects.filter(
+            is_deleted=False,
+            date__gte=from_date,
+            date__lte=to_date,
+            **scope
+        ).annotate(
+            balance=ExpressionWrapper(F('total') - F('amount_collected'), output_field=DecimalField())
+        ).filter(balance__gt=0).values('date').annotate(
+            count=Count('id'),
+            outstanding=models.Sum('balance')
+        )
+        inv_map = {item['date']: item for item in inv_qs}
+
+        total_outstanding_sum = 0.0
+        total_count_sum = 0
+
+        for d in date_list:
+            item = inv_map.get(d)
+            count = item['count'] if item else 0
+            outstanding = float(item['outstanding'] or 0.0) if item else 0.0
+
+            total_outstanding_sum += outstanding
+            total_count_sum += count
+
+            rows.append({
+                'date': d.strftime('%d-%m-%Y'),
+                'count': count,
+                'outstanding': str(round(outstanding, 2)),
+            })
+
+        rows.reverse()
+
+        return JsonResponse({
+            'success': True,
+            'from_date': str(from_date),
+            'to_date': str(to_date),
+            'total_outstanding': str(round(total_outstanding_sum, 2)),
+            'total_invoices': total_count_sum,
+            'rows': rows,
+        })
+
+    else:
+        return JsonResponse({'success': False, 'message': 'Invalid report type'}, status=400)
+
 
 
 
