@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Expired Subscriptions - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Expired Subscriptions{% endblock %}
+{% block breadcrumb_active %}Expired Subscriptions{% endblock %}
+
+{% block content %}
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search by company name..." class="search-input">
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Company Name</th>
+                    <th>Owner Name</th>
+                    <th>Phone / Email</th>
+                    <th>Last Subscription Period</th>
+                    <th>Status</th>
+                    <th>Days Expired</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in expired_companies_data %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;color:#dc2626;">
+                                <i class="ph-fill ph-buildings"></i>
+                            </div>
+                            <div>
+                                <strong>{{ item.client.company_name }}</strong>
+                                <div style="font-size:0.75rem; color:#64748b;">{{ item.client.business_name|default:'' }}</div>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td>{{ item.client.owner_name }}</td>
+                    <td>
+                        <div style="font-size:0.85rem; color:#475569;">{{ item.client.phone|default:'-' }}</div>
+                        <div style="font-size:0.75rem; color:#64748b;">{{ item.client.email|default:'' }}</div>
+                    </td>
+
+                    <td>
+                        {% if item.last_subscription %}
+                            {{ item.last_subscription.start_date }} &rarr; {{ item.last_subscription.end_date }}
+                        {% else %}
+                            <span style="color:#94a3b8; font-style:italic;">No Subscription History</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if item.last_subscription %}
+                            <span class="badge" style="background:#fee2e2;color:#991b1b;padding:4px 8px;border-radius:6px;font-size:0.75rem;font-weight:600;">Expired</span>
+                        {% else %}
+                            <span class="badge" style="background:#f1f5f9;color:#475569;padding:4px 8px;border-radius:6px;font-size:0.75rem;font-weight:600;">Never Subscribed</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.days_expired is not None %}
+                            <strong style="color:#dc2626;">{{ item.days_expired }} days</strong>
+                        {% else %}
+                            <span style="color:#94a3b8;">-</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:right;">
+                        <a href="{% url 'subscription_renew' item.client.id %}" class="btn-create" style="background:#3b82f6; display:inline-flex; padding:6px 12px; font-size:0.8rem; gap:4px; border-radius:6px; height:auto; text-decoration:none;">
+                            <i class="ph ph-arrows-counter-clockwise"></i> Renew
+                        </a>
+                    </td>
+                    
+                </tr>
+
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; padding:40px; color:#64748b;">
+                        <i class="ph ph-seal-check" style="font-size:2.5rem; color:#10b981; margin-bottom:8px; display:block;"></i>
+                        All companies have active subscriptions. No expired subscriptions found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

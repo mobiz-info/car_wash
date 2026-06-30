@@ -388,6 +388,36 @@ class SubscriptionForm(forms.ModelForm):
                 if not isinstance(field.widget, forms.Select):
                     field.widget.attrs['placeholder'] = f"Enter {field.label}"
 
+class RenewalForm(forms.Form):
+    start_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
+    end_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
+    usage_fee = forms.DecimalField(max_digits=10, decimal_places=2, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}))
+    no_of_licenses = forms.IntegerField(min_value=1, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+
+    # Feature flags
+    whatsapp_integration = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'feature-checkbox'}))
+    bulk_sms = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'feature-checkbox'}))
+    email_integration = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'feature-checkbox'}))
+    bluetooth_printing = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'feature-checkbox'}))
+    tally_integration = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'feature-checkbox'}))
+
+    # Payment/Transaction Details
+    payment_method = forms.ChoiceField(
+        choices=[
+            ('Cash', 'Cash'),
+            ('UPI', 'UPI'),
+            ('Card', 'Card'),
+            ('Bank Transfer', 'Bank Transfer'),
+            ('Online', 'Online Payment'),
+            ('Other', 'Other')
+        ],
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    amount_paid = forms.DecimalField(max_digits=10, decimal_places=2, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}))
+    transaction_id = forms.CharField(required=False, max_length=100, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Optional reference/TXN ID'}))
+    remarks = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Optional notes'}))
+
+
 from .models import Customer, CustomerVehicle
 from master.models import VehicleTypeModel
 

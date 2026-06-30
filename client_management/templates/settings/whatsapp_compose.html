@@ -11,17 +11,20 @@
         gap: 24px;
         margin-bottom: 16px;
     }
+
     .radio-option {
         display: flex;
         align-items: center;
         gap: 8px;
         cursor: pointer;
     }
+
     .radio-option input[type="radio"] {
         width: 18px;
         height: 18px;
         cursor: pointer;
     }
+
     .client-selection-container {
         display: none;
         background: #f8fafc;
@@ -32,23 +35,29 @@
         max-height: 400px;
         overflow-y: auto;
     }
+
     .client-table {
         width: 100%;
         border-collapse: collapse;
     }
-    .client-table th, .client-table td {
+
+    .client-table th,
+    .client-table td {
         padding: 8px 12px;
         text-align: left;
         border-bottom: 1px solid #e2e8f0;
     }
+
     .client-table th {
         font-weight: 600;
         color: #475569;
         font-size: 0.85rem;
     }
+
     .client-table td {
         font-size: 0.9rem;
     }
+
     .template-preview-box {
         background: #f0fdf4;
         border: 1px solid #bbf7d0;
@@ -60,38 +69,134 @@
         display: none;
         white-space: pre-wrap;
     }
+
+    /* Variable input section */
+    .variable-inputs-section {
+        display: none;
+        background: linear-gradient(135deg, #fffbeb 0%, #fef9c3 100%);
+        border: 1px solid #fcd34d;
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin-bottom: 20px;
+    }
+    .variable-inputs-section h5 {
+        margin: 0 0 14px 0;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #92400e;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .var-input-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+    .var-badge {
+        display: inline-block;
+        background: #000080;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.82rem;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-family: monospace;
+        min-width: 52px;
+        text-align: center;
+    }
+    .var-label {
+        font-size: 0.85rem;
+        color: #374151;
+        min-width: 180px;
+    }
+    .var-auto-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #d1fae5;
+        color: #065f46;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+    .var-input-row input[type="text"] {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        outline: none;
+        background: #fff;
+    }
+    .var-input-row input[type="text"]:focus {
+        border-color: #000080;
+        box-shadow: 0 0 0 3px rgba(0,0,128,0.1);
+    }
+
+    /* Recipient type radio for customers */
+    .recipient-section {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+    }
+    .recipient-section label { font-weight: 600; color: #334155; display: block; margin-bottom: 10px; }
+
+    .customer-table-container {
+        display: none;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 24px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
 </style>
 
-<div class="premium-form-container" style="max-width: 800px;">
+<div class="premium-form-container" style="max-width: 860px;">
     <div class="premium-form-title">
         <i class="ph ph-paper-plane-tilt" style="color: #25d366; font-size: 1.5rem;"></i>
         Send WhatsApp Notification
     </div>
 
-    <form method="POST" enctype="multipart/form-data">
+    <form method="POST" enctype="multipart/form-data" id="compose-form">
         {% csrf_token %}
 
         <!-- Recipient Type Selection -->
-        <div class="form-group">
-            <label style="font-weight: 600; color: #334155;">Recipient Selection</label>
+        <div class="recipient-section">
+            <label>Who to send this message to?</label>
             <div class="radio-group">
                 <label class="radio-option">
-                    <input type="radio" name="recipient_type" value="all_users" checked id="radio-all">
-                    <span>All Companies (Clients)</span>
+                    <input type="radio" name="recipient_type" value="all_clients" checked id="radio-all-clients">
+                    <span>All Clients (Companies)</span>
                 </label>
                 <label class="radio-option">
-                    <input type="radio" name="recipient_type" value="client_specific" id="radio-specific">
-                    <span>Client Specific (Select Companies)</span>
+                    <input type="radio" name="recipient_type" value="specific_clients" id="radio-specific-clients">
+                    <span>Specific Clients (Select)</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="recipient_type" value="all_customers" id="radio-all-customers">
+                    <span>All Customers (with vehicle data)</span>
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="recipient_type" value="specific_customers" id="radio-specific-customers">
+                    <span>Specific Customers</span>
                 </label>
             </div>
         </div>
 
-        <!-- Clients Table Container -->
+        <!-- Clients Table (shown when specific_clients selected) -->
         <div class="client-selection-container" id="client-selection">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <span style="font-weight: 600; color: #475569; font-size: 0.9rem;">Select Companies (Clients)</span>
                 <div style="display: flex; gap: 12px; align-items: center;">
-                    <input type="text" id="client-search" class="form-control" style="width: 200px; padding: 6px 12px; font-size: 0.85rem;" placeholder="Search company...">
+                    <input type="text" id="client-search" class="form-control"
+                        style="width: 200px; padding: 6px 12px; font-size: 0.85rem;" placeholder="Search company...">
                     <label style="font-size: 0.85rem; font-weight: 500; color: #475569; display: flex; align-items: center; gap: 4px; cursor: pointer;">
                         <input type="checkbox" id="select-all-clients"> Select All
                     </label>
@@ -125,12 +230,58 @@
             </table>
         </div>
 
+        <!-- Customers Table (shown when specific_customers selected) -->
+        <div class="customer-table-container" id="customer-selection">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="font-weight: 600; color: #475569; font-size: 0.9rem;">Select Customers</span>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <input type="text" id="customer-search" class="form-control"
+                        style="width: 200px; padding: 6px 12px; font-size: 0.85rem;" placeholder="Search customer...">
+                    <label style="font-size: 0.85rem; font-weight: 500; color: #475569; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <input type="checkbox" id="select-all-customers"> Select All
+                    </label>
+                </div>
+            </div>
+            <table class="client-table">
+                <thead>
+                    <tr>
+                        <th width="40">Select</th>
+                        <th>Customer Name</th>
+                        <th>Phone</th>
+                        <th>Vehicle No.</th>
+                        <th>Branch</th>
+                    </tr>
+                </thead>
+                <tbody id="customer-table-body">
+                    {% for cust in customers %}
+                    <tr class="customer-row">
+                        <td>
+                            <input type="checkbox" name="selected_customers" value="{{ cust.id }}" class="customer-checkbox">
+                        </td>
+                        <td class="customer-name" style="font-weight: 500;">{{ cust.name }}</td>
+                        <td>{{ cust.phone }}</td>
+                        <td>
+                            {% for v in cust.vehicles.all %}
+                                {{ v.vehicle_number }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}—{% endfor %}
+                        </td>
+                        <td>{{ cust.branch.name|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #64748b;">No customers found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         <!-- WhatsApp Type Selection -->
         <div class="form-group">
-            <label for="{{ form.whatsapp_type.id_for_label }}">Message Type</label>
+            <label for="{{ form.whatsapp_type.id_for_label }}">Template Type</label>
             {{ form.whatsapp_type }}
             {% for error in form.whatsapp_type.errors %}
-                <span class="error-text">{{ error }}</span>
+            <span class="error-text">{{ error }}</span>
             {% endfor %}
         </div>
 
@@ -140,18 +291,62 @@
             <select id="template-select" class="form-control">
                 <option value="">-- Select template to load (optional) --</option>
                 {% for t in templates %}
-                    <option value="{{ t.content }}" data-type="{{ t.whatsapp_type.id }}">{{ t.template_name }}</option>
+                <option value="{{ t.content }}" data-type="{{ t.whatsapp_type.id }}">{{ t.template_name }}</option>
                 {% endfor %}
             </select>
             <div id="template-preview" class="template-preview-box"></div>
+        </div>
+
+        <!-- Variable Inputs (shown when template has {{2}}, {{3}}, etc.) -->
+        <div class="variable-inputs-section" id="variable-inputs-section">
+            <h5><i class="ph ph-magic-wand" style="font-size:1rem;"></i> Fill in Template Variables</h5>
+
+            <!-- {{1}} = Customer Name — auto -->
+            <div class="var-input-row" id="var-row-1" style="display:none;">
+                <span class="var-badge">&#123;&#123;1&#125;&#125;</span>
+                <span class="var-label">Customer Name</span>
+                <span class="var-auto-badge"><i class="ph ph-check-circle"></i> Auto-filled per customer</span>
+            </div>
+
+            <!-- {{2}} = Free Service — user types -->
+            <div class="var-input-row" id="var-row-2" style="display:none;">
+                <span class="var-badge">&#123;&#123;2&#125;&#125;</span>
+                <span class="var-label">Free Service / Offer Name</span>
+                <input type="text" name="var_2" id="var-2-input" placeholder="e.g. Car Wash, Oil Change...">
+            </div>
+
+            <!-- {{3}} = Vehicle Number — auto -->
+            <div class="var-input-row" id="var-row-3" style="display:none;">
+                <span class="var-badge">&#123;&#123;3&#125;&#125;</span>
+                <span class="var-label">Vehicle Number</span>
+                <span class="var-auto-badge"><i class="ph ph-check-circle"></i> Auto-filled per customer's vehicle</span>
+            </div>
+
+            <!-- {{4}} = Booking WA number — auto from settings -->
+            <div class="var-input-row" id="var-row-4" style="display:none;">
+                <span class="var-badge">&#123;&#123;4&#125;&#125;</span>
+                <span class="var-label">Booking WhatsApp Number</span>
+                <input type="text" name="var_4" id="var-4-input" placeholder="e.g. 919496007007"
+                    value="{{ booking_wa_number|default:'' }}">
+            </div>
+
+            <!-- {{5}} = Branch Name — auto -->
+            <div class="var-input-row" id="var-row-5" style="display:none;">
+                <span class="var-badge">&#123;&#123;5&#125;&#125;</span>
+                <span class="var-label">Branch Name</span>
+                <span class="var-auto-badge"><i class="ph ph-check-circle"></i> Auto-filled per customer's branch</span>
+            </div>
         </div>
 
         <!-- Message Content -->
         <div class="form-group">
             <label for="{{ form.message.id_for_label }}">Message Body</label>
             {{ form.message }}
+            <span style="font-size:0.8rem; color:#64748b;">
+                ℹ️ Variables like <strong>&#123;&#123;1&#125;&#125;</strong>, <strong>&#123;&#123;2&#125;&#125;</strong> will be replaced automatically when sending.
+            </span>
             {% for error in form.message.errors %}
-                <span class="error-text">{{ error }}</span>
+            <span class="error-text">{{ error }}</span>
             {% endfor %}
         </div>
 
@@ -160,7 +355,7 @@
             <label for="{{ form.attachment.id_for_label }}">Attachment (Optional)</label>
             {{ form.attachment }}
             {% for error in form.attachment.errors %}
-                <span class="error-text">{{ error }}</span>
+            <span class="error-text">{{ error }}</span>
             {% endfor %}
         </div>
 
@@ -174,82 +369,117 @@
 </div>
 
 <script>
-    const radioAll = document.getElementById('radio-all');
-    const radioSpecific = document.getElementById('radio-specific');
-    const clientSelection = document.getElementById('client-selection');
-    const selectAllCheckbox = document.getElementById('select-all-clients');
+    /* ── Recipient type toggle ─────────────────────────────── */
+    const radios = document.querySelectorAll('input[name="recipient_type"]');
+    const clientSel = document.getElementById('client-selection');
+    const customerSel = document.getElementById('customer-selection');
+
+    function updateRecipientVisibility() {
+        const val = document.querySelector('input[name="recipient_type"]:checked').value;
+        clientSel.style.display   = (val === 'specific_clients')   ? 'block' : 'none';
+        customerSel.style.display = (val === 'specific_customers') ? 'block' : 'none';
+    }
+    radios.forEach(r => r.addEventListener('change', updateRecipientVisibility));
+
+    /* ── Select All — Clients ──────────────────────────────── */
+    const selectAllClients = document.getElementById('select-all-clients');
     const clientCheckboxes = document.querySelectorAll('.client-checkbox');
     const clientSearch = document.getElementById('client-search');
     const clientRows = document.querySelectorAll('.client-row');
 
-    // Toggle client table container visibility
-    function toggleClientVisibility() {
-        if (radioSpecific.checked) {
-            clientSelection.style.display = 'block';
-        } else {
-            clientSelection.style.display = 'none';
-        }
-    }
-
-    radioAll.addEventListener('change', toggleClientVisibility);
-    radioSpecific.addEventListener('change', toggleClientVisibility);
-
-    // Select all clients checkbox toggle
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
+    if (selectAllClients) {
+        selectAllClients.addEventListener('change', function () {
             clientCheckboxes.forEach(cb => {
-                const row = cb.closest('tr');
-                if (row.style.display !== 'none') {
-                    cb.checked = selectAllCheckbox.checked;
-                }
+                if (cb.closest('tr').style.display !== 'none') cb.checked = this.checked;
             });
         });
     }
-
-    // Client table instant search
     if (clientSearch) {
-        clientSearch.addEventListener('input', function() {
-            const query = this.value.toLowerCase().trim();
+        clientSearch.addEventListener('input', function () {
+            const q = this.value.toLowerCase().trim();
             clientRows.forEach(row => {
-                const name = row.querySelector('.client-name').textContent.toLowerCase();
-                if (name.includes(query)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                    const cb = row.querySelector('.client-checkbox');
-                    if (cb) cb.checked = false;
-                }
+                const match = row.querySelector('.client-name').textContent.toLowerCase().includes(q);
+                row.style.display = match ? '' : 'none';
+                if (!match) row.querySelector('.client-checkbox').checked = false;
             });
         });
     }
 
-    // Handle template load, type selection mapping, and template text displaying box
+    /* ── Select All — Customers ────────────────────────────── */
+    const selectAllCustomers = document.getElementById('select-all-customers');
+    const customerCheckboxes = document.querySelectorAll('.customer-checkbox');
+    const customerSearch = document.getElementById('customer-search');
+    const customerRows = document.querySelectorAll('.customer-row');
+
+    if (selectAllCustomers) {
+        selectAllCustomers.addEventListener('change', function () {
+            customerCheckboxes.forEach(cb => {
+                if (cb.closest('tr').style.display !== 'none') cb.checked = this.checked;
+            });
+        });
+    }
+    if (customerSearch) {
+        customerSearch.addEventListener('input', function () {
+            const q = this.value.toLowerCase().trim();
+            customerRows.forEach(row => {
+                const match = row.querySelector('.customer-name').textContent.toLowerCase().includes(q);
+                row.style.display = match ? '' : 'none';
+                if (!match) row.querySelector('.customer-checkbox').checked = false;
+            });
+        });
+    }
+
+    /* ── Template select with variable detection ───────────── */
     const templateSelect = document.getElementById('template-select');
     const templatePreview = document.getElementById('template-preview');
     const messageTextarea = document.querySelector('textarea[name="message"]');
     const typeSelect = document.querySelector('select[name="whatsapp_type"]');
+    const varSection = document.getElementById('variable-inputs-section');
+
+    const VAR_ROWS = {
+        '1': document.getElementById('var-row-1'),
+        '2': document.getElementById('var-row-2'),
+        '3': document.getElementById('var-row-3'),
+        '4': document.getElementById('var-row-4'),
+        '5': document.getElementById('var-row-5'),
+    };
+
+    function detectAndShowVars(content) {
+        let anyVisible = false;
+        for (const [num, row] of Object.entries(VAR_ROWS)) {
+            const pattern = new RegExp('\\{\\{' + num + '\\}\\}');
+            const show = pattern.test(content);
+            row.style.display = show ? 'flex' : 'none';
+            if (show) anyVisible = true;
+        }
+        varSection.style.display = anyVisible ? 'block' : 'none';
+    }
 
     if (templateSelect) {
-        templateSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const content = selectedOption.value;
-            const typeId = selectedOption.getAttribute('data-type');
+        templateSelect.addEventListener('change', function () {
+            const opt = this.options[this.selectedIndex];
+            const content = opt.value;
+            const typeId = opt.getAttribute('data-type');
 
             if (content) {
-                templatePreview.textContent = "Template content:\n" + content;
+                templatePreview.textContent = "Preview:\n" + content;
                 templatePreview.style.display = 'block';
-
-                if (messageTextarea) {
-                    messageTextarea.value = content;
-                }
-
-                if (typeSelect && typeId) {
-                    typeSelect.value = typeId;
-                }
+                if (messageTextarea) messageTextarea.value = content;
+                if (typeSelect && typeId) typeSelect.value = typeId;
+                detectAndShowVars(content);
             } else {
                 templatePreview.style.display = 'none';
                 templatePreview.textContent = '';
+                varSection.style.display = 'none';
+                Object.values(VAR_ROWS).forEach(r => r.style.display = 'none');
             }
+        });
+    }
+
+    /* Also detect vars if user types directly in message box */
+    if (messageTextarea) {
+        messageTextarea.addEventListener('input', function () {
+            detectAndShowVars(this.value);
         });
     }
 </script>

@@ -7,6 +7,7 @@ urlpatterns = [
     path('api/booking/list/', api_views.api_list_bookings, name='api_list_bookings'),
     path('api/booking/<uuid:booking_id>/status/', api_views.api_update_booking_status, name='api_update_booking_status'),
     path('api/booking/<uuid:booking_id>/ready-alert/', api_views.api_send_ready_alert, name='api_send_ready_alert'),
+    path('api/booking/ready-alert/generic/', api_views.api_send_ready_alert_generic, name='api_send_ready_alert_generic'),
     path('api/whatsapp/webhook/', api_views.api_whatsapp_webhook, name='api_whatsapp_webhook'),
     path('api/whatsapp/webhook', api_views.api_whatsapp_webhook),
     path('api/whatsapp/debug/', api_views.api_whatsapp_debug, name='api_whatsapp_debug'),

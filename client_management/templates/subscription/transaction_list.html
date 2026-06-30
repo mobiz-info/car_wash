@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block title %}Renewal Transaction History - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Renewal Transaction History{% endblock %}
+{% block breadcrumb_active %}Transaction History{% endblock %}
+
+{% block content %}
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search by company name..." class="search-input">
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Company Name</th>
+                    <th>Subscription Period</th>
+                    <th>Payment Method</th>
+                    <th>Amount Paid</th>
+                    <th>Transaction Reference</th>
+                    <th>Processed Date</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for txn in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;color:#0369a1;">
+                                <i class="ph-fill ph-credit-card"></i>
+                            </div>
+                            <div>
+                                <strong>{{ txn.company.company_name }}</strong>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td>
+                        {% if txn.subscription %}
+                            <span style="font-weight: 500; color: #1e293b;">{{ txn.subscription.start_date }} &rarr; {{ txn.subscription.end_date }}</span>
+                        {% else %}
+                            <span style="color:#94a3b8; font-style:italic;">N/A (Or deleted)</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <span class="badge" style="background:#f1f5f9; color:#334155; padding:4px 8px; border-radius:6px; font-weight:600; font-size:0.8rem;">
+                            {{ txn.payment_method }}
+                        </span>
+                    </td>
+
+                    <td>
+                        <strong style="color: #16a34a; font-size:0.95rem;">
+                            ₹{{ txn.amount_paid }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {% if txn.transaction_id %}
+                            <code style="background:#f8fafc; border:1px solid #e2e8f0; padding:3px 6px; border-radius:4px; font-family:monospace; font-size:0.85rem; color:#475569;">
+                                {{ txn.transaction_id }}
+                            </code>
+                        {% else %}
+                            <span style="color:#94a3b8; font-style:italic;">None</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <div style="font-size:0.85rem; color:#475569;">
+                            {{ txn.date_added|date:"d M Y" }}
+                        </div>
+                        <div style="font-size:0.72rem; color:#94a3b8;">
+                            {{ txn.date_added|date:"h:i A" }}
+                        </div>
+                    </td>
+
+                    <td>
+                        <div style="font-size:0.85rem; color:#64748b; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ txn.remarks|default:'' }}">
+                            {{ txn.remarks|default:'-' }}
+                        </div>
+                    </td>
+                    
+                </tr>
+
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; padding:40px; color:#64748b;">
+                        <i class="ph ph-receipt" style="font-size:2.5rem; color:#cbd5e1; margin-bottom:8px; display:block;"></i>
+                        No renewal transactions recorded.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

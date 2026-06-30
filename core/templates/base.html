@@ -896,15 +896,15 @@
                 <div class="nav-item-left">
                     <i class="ph ph-globe"></i>
                     Client Management
-                    <span class="nav-badge">3</span>
+                    <span class="nav-badge">4</span>
                 </div>
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
                 <li><a href="{% url 'client_list' %}">Clients</a></li>
                 <li><a href="{% url 'subscription_list' %}">Subscription</a></li>
-
-               
+                <li><a href="{% url 'subscription_expired_list' %}">Expired Subscriptions</a></li>
+                <li><a href="{% url 'renewal_transaction_list' %}">Transaction History</a></li>
             </div>
 
             <!-- Master Settings -->

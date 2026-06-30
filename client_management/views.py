@@ -78,7 +78,23 @@ def client_create(request):
             instance.auto_id = get_auto_id(Client)
             instance.save()
             form.save_m2m()
-            messages.success(request, "Client created successfully")
+            
+            # Automatically activate 1-month subscription
+            try:
+                today = now().date()
+                Subscription.objects.create(
+                    company=instance,
+                    start_date=today,
+                    end_date=today + timedelta(days=30),
+                    usage_fee=instance.monthly_tariff or 0,
+                    no_of_licenses=instance.licenses_count or 1,
+                    auto_id=get_auto_id(Subscription),
+                    creator=request.user
+                )
+                messages.success(request, "Client created and 1-month subscription activated successfully.")
+            except Exception as e:
+                messages.warning(request, f"Client created, but failed to auto-activate subscription: {str(e)}")
+                
             return redirect('client_list')
     return render(request, 'client/create.html', {
         'form': form,
@@ -206,6 +222,139 @@ def subscription_delete(request, id):
     instance.save()
     messages.success(request, "Subscription deleted successfully")
     return redirect('subscription_list')
+
+
+@login_required
+def subscription_expired_list(request):
+    from django.utils import timezone
+    search = request.GET.get('search', '')
+    today = timezone.now().date()
+    
+    active_sub_company_ids = Subscription.objects.filter(
+        start_date__lte=today,
+        end_date__gte=today,
+        is_deleted=False
+    ).values_list('company_id', flat=True)
+    
+    queryset = Client.objects.filter(is_deleted=False).exclude(id__in=active_sub_company_ids)
+    
+    if search:
+        queryset = queryset.filter(company_name__icontains=search)
+        
+    paginator = Paginator(queryset.order_by('company_name'), 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    expired_companies_data = []
+    for client in page_obj:
+        last_sub = Subscription.objects.filter(company=client, is_deleted=False).order_by('-end_date').first()
+        days_expired = None
+        if last_sub:
+            days_expired = (today - last_sub.end_date).days
+        expired_companies_data.append({
+            'client': client,
+            'last_subscription': last_sub,
+            'days_expired': days_expired
+        })
+        
+    return render(request, 'subscription/expired_list.html', {
+        'page_obj': page_obj,
+        'expired_companies_data': expired_companies_data,
+        'search': search,
+    })
+
+
+@login_required
+def subscription_renew(request, client_id):
+    from django.utils import timezone
+    client = get_object_or_404(Client, id=client_id, is_deleted=False)
+    last_sub = Subscription.objects.filter(company=client, is_deleted=False).order_by('-end_date').first()
+    
+    today = timezone.now().date()
+    
+    if last_sub:
+        initial_data = {
+            'start_date': max(last_sub.end_date + timedelta(days=1), today),
+            'end_date': max(last_sub.end_date + timedelta(days=1), today) + timedelta(days=365),
+            'usage_fee': last_sub.usage_fee,
+            'no_of_licenses': last_sub.no_of_licenses,
+            'whatsapp_integration': last_sub.whatsapp_integration,
+            'bulk_sms': last_sub.bulk_sms,
+            'email_integration': last_sub.email_integration,
+            'bluetooth_printing': last_sub.bluetooth_printing,
+            'tally_integration': last_sub.tally_integration,
+            'payment_method': 'UPI',
+            'amount_paid': last_sub.usage_fee,
+        }
+    else:
+        initial_data = {
+            'start_date': today,
+            'end_date': today + timedelta(days=365),
+            'usage_fee': client.monthly_tariff or 0,
+            'no_of_licenses': client.licenses_count or 1,
+            'whatsapp_integration': False,
+            'bulk_sms': False,
+            'email_integration': False,
+            'bluetooth_printing': False,
+            'tally_integration': False,
+            'payment_method': 'UPI',
+            'amount_paid': client.monthly_tariff or 0,
+        }
+        
+    form = RenewalForm(request.POST or None, initial=initial_data)
+    if request.method == 'POST':
+        if form.is_valid():
+            subscription = Subscription.objects.create(
+                company=client,
+                start_date=form.cleaned_data['start_date'],
+                end_date=form.cleaned_data['end_date'],
+                usage_fee=form.cleaned_data['usage_fee'],
+                no_of_licenses=form.cleaned_data['no_of_licenses'],
+                whatsapp_integration=form.cleaned_data['whatsapp_integration'],
+                bulk_sms=form.cleaned_data['bulk_sms'],
+                email_integration=form.cleaned_data['email_integration'],
+                bluetooth_printing=form.cleaned_data['bluetooth_printing'],
+                tally_integration=form.cleaned_data['tally_integration'],
+                auto_id=get_auto_id(Subscription),
+                creator=request.user
+            )
+            
+            RenewalTransaction.objects.create(
+                company=client,
+                subscription=subscription,
+                payment_method=form.cleaned_data['payment_method'],
+                amount_paid=form.cleaned_data['amount_paid'],
+                transaction_id=form.cleaned_data['transaction_id'],
+                remarks=form.cleaned_data['remarks'],
+                auto_id=get_auto_id(RenewalTransaction),
+                creator=request.user
+            )
+            
+            messages.success(request, f"Subscription renewed successfully for {client.company_name}.")
+            return redirect('subscription_expired_list')
+            
+    return render(request, 'subscription/renew.html', {
+        'form': form,
+        'client': client,
+        'last_sub': last_sub,
+        'title': f"Renew Subscription - {client.company_name}"
+    })
+
+
+@login_required
+def renewal_transaction_list(request):
+    search = request.GET.get('search', '')
+    queryset = RenewalTransaction.objects.filter(is_deleted=False).select_related('company', 'subscription')
+    
+    if search:
+        queryset = queryset.filter(company__company_name__icontains=search)
+        
+    paginator = Paginator(queryset.order_by('-date_added'), 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    return render(request, 'subscription/transaction_list.html', {
+        'page_obj': page_obj,
+        'search': search,
+    })
 
 
 # ==========================================
@@ -2290,52 +2439,164 @@ def whatsapp_compose(request):
         messages.error(request, err)
         return redirect('dashboard')
 
-    from .models import Client
+    from .models import Client, Customer, CustomerVehicle
+    from booking_management.api_views import send_whatsapp_simple
+
+    # Get WhatsApp settings for this company
+    try:
+        wa_setting = WhatsAppSetting.objects.get(company=company)
+    except WhatsAppSetting.DoesNotExist:
+        wa_setting = None
+
+    # Get booking WhatsApp number from settings (for {{4}})
+    booking_wa_number = ''
+    if wa_setting and wa_setting.whatsapp_number:
+        booking_wa_number = wa_setting.whatsapp_number
+    elif wa_setting and wa_setting.sender_id:
+        booking_wa_number = wa_setting.sender_id
+
+    def _fill_template(template_text, name='', service='', vehicle_no='', wa_number='', branch=''):
+        """Replace {{1}}–{{5}} placeholders with actual values."""
+        result = template_text
+        result = result.replace('{{1}}', name)
+        result = result.replace('{{2}}', service)
+        result = result.replace('{{3}}', vehicle_no)
+        result = result.replace('{{4}}', wa_number)
+        result = result.replace('{{5}}', branch)
+        return result
 
     if request.method == 'POST':
         form = WhatsAppComposeForm(request.POST, request.FILES, request=request)
         if form.is_valid():
-            recipient_type = request.POST.get('recipient_type', 'all_users')
-            
-            if recipient_type == 'client_specific':
-                selected_ids = request.POST.getlist('selected_clients')
-                recipients = Client.objects.filter(id__in=selected_ids, is_deleted=False)
-            else:
-                recipients = Client.objects.filter(is_deleted=False)
-                
-            if not recipients.exists():
-                messages.warning(request, "No recipients selected or found.")
-            else:
-                attachment = request.FILES.get('attachment')
-                whatsapp_type = form.cleaned_data.get('whatsapp_type')
-                message_content = form.cleaned_data.get('message')
-                
-                for r in recipients:
-                    phone_number = r.phone or ''
-                    if phone_number:
+            recipient_type = request.POST.get('recipient_type', 'all_clients')
+            whatsapp_type  = form.cleaned_data.get('whatsapp_type')
+            message_template = form.cleaned_data.get('message')
+            attachment = request.FILES.get('attachment')
+
+            # User-provided variable values
+            var_2 = request.POST.get('var_2', '').strip()  # Free service name
+            var_4 = request.POST.get('var_4', booking_wa_number).strip()  # Booking WA number
+
+            sent_count = 0
+
+            # ── Send to Clients (no vehicle data) ──────────────────────────
+            if recipient_type in ('all_clients', 'specific_clients'):
+                if recipient_type == 'specific_clients':
+                    selected_ids = request.POST.getlist('selected_clients')
+                    client_qs = Client.objects.filter(id__in=selected_ids, is_deleted=False)
+                else:
+                    client_qs = Client.objects.filter(is_deleted=False)
+
+                if not client_qs.exists():
+                    messages.warning(request, "No client recipients found.")
+                else:
+                    for r in client_qs:
+                        phone_number = (r.phone or '').strip()
+                        if not phone_number:
+                            continue
+                        # Fill template (no vehicle/branch for clients)
+                        final_msg = _fill_template(
+                            message_template,
+                            name=r.company_name or r.owner_name or '',
+                            service=var_2,
+                            vehicle_no='',
+                            wa_number=var_4,
+                            branch=''
+                        )
+                        # Save log
                         WhatsAppMessage.objects.create(
                             company=company,
                             whatsapp_type=whatsapp_type,
                             recipient_number=phone_number,
-                            message=message_content,
+                            message=final_msg,
                             attachment=attachment,
                             status='Sent',
                             auto_id=get_auto_id(WhatsAppMessage),
                             creator=request.user,
                             updater=request.user
                         )
-                messages.success(request, f"WhatsApp message composed and sent to {recipients.count()} recipients.")
-                return redirect('whatsapp_sent_report')
+                        # Actually send
+                        try:
+                            send_whatsapp_simple(phone_number, final_msg, setting=wa_setting)
+                        except Exception:
+                            pass
+                        sent_count += 1
+
+            # ── Send to Customers (with vehicle data) ──────────────────────
+            elif recipient_type in ('all_customers', 'specific_customers'):
+                if recipient_type == 'specific_customers':
+                    selected_ids = request.POST.getlist('selected_customers')
+                    customer_qs = Customer.objects.filter(
+                        id__in=selected_ids, company=company, is_deleted=False
+                    ).prefetch_related('vehicles', 'branch')
+                else:
+                    customer_qs = Customer.objects.filter(
+                        company=company, is_deleted=False
+                    ).prefetch_related('vehicles', 'branch')
+
+                if not customer_qs.exists():
+                    messages.warning(request, "No customer recipients found.")
+                else:
+                    for cust in customer_qs:
+                        # Use WhatsApp number if available, else phone
+                        phone_number = (cust.whatsapp_number or cust.phone or '').strip()
+                        if not phone_number:
+                            continue
+
+                        # Get first vehicle number
+                        first_vehicle = cust.vehicles.first()
+                        vehicle_no = first_vehicle.vehicle_number if first_vehicle else ''
+
+                        branch_name = ''
+                        if hasattr(cust, 'branch') and cust.branch:
+                            branch_name = cust.branch.name
+
+                        # Fill template per customer
+                        final_msg = _fill_template(
+                            message_template,
+                            name=cust.name,
+                            service=var_2,
+                            vehicle_no=vehicle_no,
+                            wa_number=var_4,
+                            branch=branch_name
+                        )
+                        # Save log
+                        WhatsAppMessage.objects.create(
+                            company=company,
+                            whatsapp_type=whatsapp_type,
+                            recipient_number=phone_number,
+                            message=final_msg,
+                            attachment=attachment,
+                            status='Sent',
+                            auto_id=get_auto_id(WhatsAppMessage),
+                            creator=request.user,
+                            updater=request.user
+                        )
+                        # Actually send
+                        try:
+                            send_whatsapp_simple(phone_number, final_msg, setting=wa_setting)
+                        except Exception:
+                            pass
+                        sent_count += 1
+
+            if sent_count > 0:
+                messages.success(request, f"✅ WhatsApp message sent to {sent_count} recipient(s).")
+            else:
+                messages.warning(request, "No messages were sent. Please check recipients.")
+            return redirect('whatsapp_sent_report')
     else:
         form = WhatsAppComposeForm(request=request)
 
     templates = WhatsAppTemplate.objects.filter(company=company, is_deleted=False)
-    clients = Client.objects.filter(is_deleted=False).order_by('company_name')
+    clients   = Client.objects.filter(is_deleted=False).order_by('company_name')
+    customers = Customer.objects.filter(company=company, is_deleted=False).prefetch_related('vehicles').order_by('name')
 
     return render(request, 'settings/whatsapp_compose.html', {
         'form': form,
         'templates': templates,
         'clients': clients,
+        'customers': customers,
+        'booking_wa_number': booking_wa_number,
         'title': 'Compose WhatsApp Message',
     })
 

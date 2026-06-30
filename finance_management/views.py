@@ -1567,7 +1567,7 @@ def generate_invoice_pdf_file(invoice, base_url):
     media_dir = os.path.join(settings.BASE_DIR, 'media', 'invoices')
     os.makedirs(media_dir, exist_ok=True)
     
-    pdf_filename = f"invoice_{invoice.invoice_number}.pdf"
+    pdf_filename = f"invoice-{invoice.invoice_number}.pdf"
     pdf_path = os.path.join(media_dir, pdf_filename)
     
     # Render PDF using WeasyPrint

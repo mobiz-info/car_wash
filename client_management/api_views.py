@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 from core.models import APIToken
 from core.functions import get_auto_id
-from .models import Customer, CustomerVehicle, Scheme, CustomerType,SchemeVoucher
+from .models import Customer, CustomerVehicle, Scheme, CustomerType, SchemeVoucher, Subscription
 from service_management.models import Service
 
 
@@ -100,6 +100,26 @@ def api_login(request):
             if user.profile.company and user.profile.company.country and user.profile.company.country.currency_symbol:
                 currency_symbol = user.profile.company.country.currency_symbol
 
+            company = user.profile.company
+            subscription_active = True
+            subscription_days_left = 999
+            subscription_end_date = None
+            
+            if company:
+                subscription = Subscription.objects.filter(
+                    company=company,
+                    is_deleted=False
+                ).order_by('-end_date').first()
+                
+                if subscription:
+                    today = timezone.now().date()
+                    subscription_days_left = (subscription.end_date - today).days
+                    subscription_active = (subscription.start_date <= today <= subscription.end_date)
+                    subscription_end_date = subscription.end_date.strftime('%Y-%m-%d')
+                else:
+                    subscription_active = False
+                    subscription_days_left = -1
+
             return JsonResponse({
                 'success': True,
                 'token': token_obj.token,
@@ -108,7 +128,10 @@ def api_login(request):
                 'branch_name': branch_name,
                 'display_name': display_name,
                 'currency_symbol': currency_symbol,
-                'username': user.username
+                'username': user.username,
+                'subscription_active': subscription_active,
+                'subscription_days_left': subscription_days_left,
+                'subscription_end_date': subscription_end_date,
             })
         else:
             return JsonResponse({'success': False, 'message': 'Invalid username or password'}, status=401)
@@ -202,6 +225,25 @@ def api_dashboard_stats(request):
             'collected': str(inv.amount_collected),
         })
 
+    company = user.profile.company
+    subscription_active = True
+    subscription_days_left = 999
+    subscription_end_date = None
+    
+    if company:
+        subscription = Subscription.objects.filter(
+            company=company,
+            is_deleted=False
+        ).order_by('-end_date').first()
+        
+        if subscription:
+            subscription_days_left = (subscription.end_date - today).days
+            subscription_active = (subscription.start_date <= today <= subscription.end_date)
+            subscription_end_date = subscription.end_date.strftime('%Y-%m-%d')
+        else:
+            subscription_active = False
+            subscription_days_left = -1
+
     return JsonResponse({
         'success': True,
         'today_jobs': today_jobs,
@@ -214,6 +256,9 @@ def api_dashboard_stats(request):
         'outstanding_count': outstanding_count,
         'total_customers': customers_qs.count(),
         'recent_invoices': recent,
+        'subscription_active': subscription_active,
+        'subscription_days_left': subscription_days_left,
+        'subscription_end_date': subscription_end_date,
     })
 
 
@@ -261,6 +306,47 @@ def api_company_branches(request):
         ],
     })
 
+@csrf_exempt
+def api_customer_search_list(request):
+    """Partial phone/name/whatsapp search for suggestions in New Job screen."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized or invalid token'}, status=401)
+        
+    q = request.GET.get('q', '').strip()
+    if not q or len(q) < 3:
+        return JsonResponse({'success': True, 'customers': []})
+        
+    company = user.profile.company
+    customers = Customer.objects.filter(is_deleted=False, company=company)
+    
+    if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        customers = customers.filter(branch=user.managed_branch)
+        
+    from django.db.models import Q
+    customers = customers.filter(
+        Q(phone__icontains=q) | 
+        Q(whatsapp_number__icontains=q) | 
+        Q(name__icontains=q)
+    )[:20]
+    
+    results = []
+    for c in customers:
+        results.append({
+            'id': str(c.id),
+            'name': c.name,
+            'phone': c.phone,
+            'whatsapp_number': c.whatsapp_number,
+            'customer_type': c.customer_type.name if c.customer_type else '',
+        })
+        
+    return JsonResponse({'success': True, 'customers': results})
+
+
+@csrf_exempt
 def api_customer_search(request):
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
@@ -407,13 +493,14 @@ def api_get_services(request):
 
             rate = float(price_obj.price) if price_obj else 0.0
 
-            services_data.append({
-                'id': str(svc.id),
-                'name': svc.name,
-                'service_type': svc.service_type.name,
-                'rate': rate,
-                'has_price': price_obj is not None and rate > 0,
-            })
+            if price_obj is not None and rate > 0:
+                services_data.append({
+                    'id': str(svc.id),
+                    'name': svc.name,
+                    'service_type': svc.service_type.name,
+                    'rate': rate,
+                    'has_price': True,
+                })
             
         # Tax - get company-enabled taxes only
         from tax_management.models import CompanyTax
@@ -676,6 +763,50 @@ def api_create_invoice(request):
 
 
 @csrf_exempt
+def api_vehicle_search_list(request):
+    """Partial vehicle number search — returns a list of matching vehicles (for auto-suggest)."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    query = request.GET.get('q', '').strip().upper()
+    if not query or len(query) < 2:
+        return JsonResponse({'success': True, 'vehicles': []})
+
+    company = user.profile.company
+
+    from django.db.models.functions import Replace
+    from django.db.models import Value
+
+    clean_query = query.replace(' ', '')
+
+    vehicles_qs = CustomerVehicle.objects.annotate(
+        clean_vnum=Replace('vehicle_number', Value(' '), Value(''))
+    ).filter(
+        clean_vnum__icontains=clean_query,
+        customer__company=company,
+        is_deleted=False,
+    ).select_related('customer', 'vehicle_type_model', 'vehicle_type_model__vehicle_type')
+
+    if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        vehicles_qs = vehicles_qs.filter(customer__branch=user.managed_branch)
+
+    results = []
+    for v in vehicles_qs[:20]:  # limit to 20 suggestions
+        results.append({
+            'vehicle_number': v.vehicle_number,
+            'customer_name': v.customer.name if v.customer else '',
+            'customer_phone': v.customer.phone if v.customer else '',
+            'vehicle_model': v.vehicle_type_model.name if v.vehicle_type_model else '',
+        })
+
+    return JsonResponse({'success': True, 'vehicles': results})
+
+
+@csrf_exempt
 def api_vehicle_search(request):
     """Search a vehicle by its number and return owner + visit + scheme info."""
     if request.method != 'GET':
@@ -691,9 +822,16 @@ def api_vehicle_search(request):
 
     company = user.profile.company
 
-    # Scope vehicles to the company's customers
-    vehicles = CustomerVehicle.objects.filter(
-        vehicle_number__iexact=vehicle_number,
+    from django.db.models.functions import Replace
+    from django.db.models import Value
+
+    clean_query = vehicle_number.replace(' ', '')
+
+    # Scope vehicles to the company's customers with space-insensitive match
+    vehicles = CustomerVehicle.objects.annotate(
+        clean_vehicle_number=Replace('vehicle_number', Value(' '), Value(''))
+    ).filter(
+        clean_vehicle_number__iexact=clean_query,
         customer__company=company,
         is_deleted=False,
     ).select_related('customer', 'customer__customer_type', 'customer__branch', 'vehicle_type_model', 'vehicle_type_model__vehicle_type')
@@ -778,10 +916,17 @@ def api_get_form_data(request):
     customer_types = CustomerType.objects.filter(is_deleted=False)
     vehicle_models = VehicleTypeModel.objects.filter(is_deleted=False, is_active=True).select_related('vehicle_type').order_by('vehicle_type__name', 'name')
 
+    branches_data = []
+    role = user.profile.role.name if user.profile.role else None
+    if role == 'COMPANY_ADMIN' and user.profile.company:
+        branches = user.profile.company.branches.filter(is_deleted=False).order_by('name')
+        branches_data = [{'id': str(b.id), 'name': b.name} for b in branches]
+
     return JsonResponse({
         'success': True,
         'customer_types': [{'id': str(ct.id), 'name': ct.name} for ct in customer_types],
         'vehicle_models': [{'id': str(vm.id), 'name': vm.name, 'vehicle_type': vm.vehicle_type.name} for vm in vehicle_models],
+        'branches': branches_data,
     })
 
 
@@ -876,13 +1021,54 @@ def api_add_customer(request):
                     'vehicle_type': vm.vehicle_type.name if vm.vehicle_type else '',
                 })
 
+        # Check WhatsApp settings configuration
+        from client_management.models import WhatsAppSetting
+        has_api = False
+        setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+        if setting and setting.username and setting.password:
+            has_api = True
+
+        if has_api:
+            # Send automatically in background
+            def send_welcome_message():
+                try:
+                    from booking_management.api_views import send_whatsapp_simple
+                    import re
+                    phone_to_send = customer.whatsapp_number or customer.phone
+                    cleaned_num = re.sub(r'\D', '', str(phone_to_send))
+                    if len(cleaned_num) == 10:
+                        cleaned_num = "91" + cleaned_num
+                    elif len(cleaned_num) > 10 and cleaned_num.startswith("0"):
+                        cleaned_num = cleaned_num[1:]
+                    
+                    branch_name = branch.name or "our branch"
+                    message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+                    
+                    send_whatsapp_simple(
+                        to_number=cleaned_num,
+                        message=message_text,
+                        setting=setting
+                    )
+                except Exception as e:
+                    with open('/tmp/welcome_message_error.log', 'a') as f:
+                        f.write(f"Error sending welcome message for customer {customer.id}: {str(e)}\n")
+
+            import threading
+            threading.Thread(target=send_welcome_message, daemon=True).start()
+            whatsapp_action = 'auto'
+        else:
+            whatsapp_action = 'manual'
+
         return JsonResponse({
             'success': True,
             'message': 'Customer added successfully',
+            'whatsapp_action': whatsapp_action,
             'customer': {
                 'id': str(customer.id),
                 'name': customer.name,
                 'phone': customer.phone,
+                'whatsapp_number': customer.whatsapp_number or customer.phone,
+                'branch_name': branch.name or "our branch",
                 'type': customer_type.name,
                 'vehicles': vehicles_data,
             }
@@ -936,6 +1122,256 @@ def api_list_customers(request):
             })
 
         return JsonResponse({'success': True, 'customers': customers_data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_inactive_customers(request):
+    """Return customers who have not had any invoice in the last N days (default 60)."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from django.utils.timezone import now
+        from datetime import timedelta
+        from django.db.models import Max, Q
+
+        company = user.profile.company
+        role = user.profile.role.name if user.profile.role else None
+        inactive_days = int(request.GET.get('days', 60))
+        cutoff_date = now().date() - timedelta(days=inactive_days)
+
+        customers_qs = Customer.objects.filter(
+            company=company, is_deleted=False
+        ).annotate(
+            last_invoice_date=Max('invoices__date')
+        ).filter(
+            Q(last_invoice_date__lt=cutoff_date) | Q(last_invoice_date__isnull=True)
+        ).order_by('name')
+
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            customers_qs = customers_qs.filter(branch=user.managed_branch)
+
+        customers_data = []
+        for c in customers_qs.prefetch_related('vehicles'):
+            first_vehicle = c.vehicles.filter(is_deleted=False).first()
+            customers_data.append({
+                'id': str(c.id),
+                'name': c.name,
+                'phone': c.whatsapp_number or c.phone,
+                'vehicle_number': first_vehicle.vehicle_number if first_vehicle else '',
+                'branch': c.branch.name if c.branch else '',
+                'last_invoice_date': c.last_invoice_date.strftime('%Y-%m-%d') if c.last_invoice_date else 'Never',
+                'inactive_days': inactive_days,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'customers': customers_data,
+            'total': len(customers_data),
+            'inactive_days': inactive_days,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_whatsapp_templates(request):
+    """Return WhatsApp templates for the company (for mobile broadcast screen)."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from .models import WhatsAppTemplate, WhatsAppSetting
+        company = user.profile.company
+
+        templates = WhatsAppTemplate.objects.filter(
+            company=company, is_deleted=False
+        ).select_related('whatsapp_type').order_by('template_name')
+
+        # Get booking WhatsApp number
+        wa_number = ''
+        try:
+            setting = WhatsAppSetting.objects.get(company=company)
+            wa_number = setting.whatsapp_number or setting.sender_id or ''
+        except WhatsAppSetting.DoesNotExist:
+            pass
+
+        templates_data = [
+            {
+                'id': str(t.id),
+                'name': t.template_name,
+                'content': t.content,
+                'type': t.whatsapp_type.name if t.whatsapp_type else '',
+            }
+            for t in templates
+        ]
+
+        return JsonResponse({
+            'success': True,
+            'templates': templates_data,
+            'booking_wa_number': wa_number,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_whatsapp_broadcast(request):
+    """
+    Automatically send WhatsApp messages to customers using the wawy.org API.
+    POST body:
+      {
+        "recipient_type": "all_customers" | "specific_customers" | "inactive_customers",
+        "customer_ids": ["id1", "id2"],   // only for specific_customers
+        "inactive_days": 60,              // only for inactive_customers
+        "message": "Dear {{1}}, ...",     // raw template with {{1}}-{{5}} placeholders
+        "var_2": "Car Wash"               // value for {{2}}
+      }
+    Returns:
+      { "success": true, "sent": 12, "failed": 0, "errors": [] }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        import json
+        from django.db.models import Max, Q
+        from django.utils.timezone import now
+        from datetime import timedelta
+        from .models import WhatsAppSetting, WhatsAppMessage
+        from booking_management.api_views import send_whatsapp_simple
+
+        data = json.loads(request.body)
+        recipient_type = data.get('recipient_type', 'all_customers')
+        message_template = data.get('message', '').strip()
+        var_2 = data.get('var_2', '').strip()
+
+        if not message_template:
+            return JsonResponse({'success': False, 'message': 'Message cannot be empty'}, status=400)
+
+        company = user.profile.company
+
+        # Get WhatsApp settings for this company
+        wa_setting = None
+        booking_wa_number = ''
+        try:
+            wa_setting = WhatsAppSetting.objects.get(company=company)
+            booking_wa_number = wa_setting.whatsapp_number or wa_setting.sender_id or ''
+        except WhatsAppSetting.DoesNotExist:
+            pass
+
+        # Build customer queryset
+        base_qs = Customer.objects.filter(
+            company=company, is_deleted=False
+        ).prefetch_related('vehicles').select_related('branch')
+
+        if recipient_type == 'specific_customers':
+            customer_ids = data.get('customer_ids', [])
+            if not customer_ids:
+                return JsonResponse({'success': False, 'message': 'No customer IDs provided'}, status=400)
+            customers = base_qs.filter(id__in=customer_ids)
+
+        elif recipient_type == 'inactive_customers':
+            inactive_days = int(data.get('inactive_days', 60))
+            cutoff = now().date() - timedelta(days=inactive_days)
+            customers = base_qs.annotate(
+                last_inv=Max('invoices__date')
+            ).filter(
+                Q(last_inv__lt=cutoff) | Q(last_inv__isnull=True)
+            )
+
+        else:  # all_customers
+            customers = base_qs
+
+        # Helper to fill template variables per customer
+        def fill_message(customer):
+            name = customer.name or ''
+            vehicle_no = ''
+            first_v = customer.vehicles.filter(is_deleted=False).first()
+            if first_v:
+                vehicle_no = first_v.vehicle_number or ''
+            branch = customer.branch.name if customer.branch else ''
+            return (
+                message_template
+                .replace('{{1}}', name)
+                .replace('{{2}}', var_2)
+                .replace('{{3}}', vehicle_no)
+                .replace('{{4}}', booking_wa_number)
+                .replace('{{5}}', branch)
+            )
+
+        # Helper to normalise phone number
+        def clean_phone(phone):
+            phone = (phone or '').replace(' ', '').replace('+', '').replace('-', '')
+            if len(phone) == 10:
+                phone = '91' + phone
+            return phone
+
+        sent = 0
+        failed = 0
+        errors = []
+
+        import time
+
+        for customer in customers:
+            # Use whatsapp_number first, fall back to phone
+            raw_phone = customer.whatsapp_number or customer.phone or ''
+            phone = clean_phone(raw_phone)
+            if not phone:
+                failed += 1
+                errors.append(f"{customer.name}: no phone number")
+                continue
+
+            final_msg = fill_message(customer)
+
+            try:
+                result = send_whatsapp_simple(phone, final_msg, setting=wa_setting)
+
+                # Log to WhatsAppMessage
+                try:
+                    from core.functions import get_auto_id as _get_auto_id
+                    WhatsAppMessage.objects.create(
+                        company=company,
+                        auto_id=_get_auto_id(WhatsAppMessage),
+                        recipient_name=customer.name,
+                        recipient_number=phone,
+                        message=final_msg,
+                        status='sent',
+                    )
+                except Exception:
+                    pass
+
+                sent += 1
+
+            except Exception as e:
+                failed += 1
+                errors.append(f"{customer.name} ({phone}): {str(e)}")
+
+            # ⏱ Delay between messages to avoid rate limiting on wawy.org
+            time.sleep(1)
+
+        return JsonResponse({
+            'success': True,
+            'sent': sent,
+            'failed': failed,
+            'total': sent + failed,
+            'errors': errors[:10],
+        })
+
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 

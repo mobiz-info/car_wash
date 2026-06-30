@@ -16,6 +16,9 @@ urlpatterns = [
     path('subscription/create/', views.subscription_create, name='subscription_create'),
     path('subscription/edit/<uuid:id>/', views.subscription_edit, name='subscription_edit'),
     path('subscription/delete/<uuid:id>/', views.subscription_delete, name='subscription_delete'),
+    path('subscription/expired/', views.subscription_expired_list, name='subscription_expired_list'),
+    path('subscription/renew/<uuid:client_id>/', views.subscription_renew, name='subscription_renew'),
+    path('subscription/renewals/transactions/', views.renewal_transaction_list, name='renewal_transaction_list'),
 
     # Branch Management
     path('branch/', views.branch_list, name='branch_list'),
@@ -75,6 +78,7 @@ urlpatterns = [
     # Mobile API Endpoints
     path('api/login/', api_views.api_login, name='api_login'),
     path('api/customer/search/', api_views.api_customer_search, name='api_customer_search'),
+    path('api/customer/search-list/', api_views.api_customer_search_list, name='api_customer_search_list'),
     path('api/invoice/services/', api_views.api_get_services, name='api_get_services'),
     path('api/invoice/create/', api_views.api_create_invoice, name='api_create_invoice'),
     path('api/customer/form-data/', api_views.api_get_form_data, name='api_get_form_data'),
@@ -90,9 +94,13 @@ urlpatterns = [
 
     path('api/customer/add/', api_views.api_add_customer, name='api_add_customer'),
     path('api/customer/list/', api_views.api_list_customers, name='api_list_customers'),
+    path('api/customer/inactive/', api_views.api_inactive_customers, name='api_inactive_customers'),
     path('api/customer/get/', api_views.api_get_customer, name='api_get_customer'),
     path('api/customer/edit/', api_views.api_edit_customer, name='api_edit_customer'),
     path('api/vehicle/search/', api_views.api_vehicle_search, name='api_vehicle_search'),
+    path('api/vehicle/search-list/', api_views.api_vehicle_search_list, name='api_vehicle_search_list'),
+    path('api/whatsapp/templates/', api_views.api_whatsapp_templates, name='api_whatsapp_templates'),
+    path('api/whatsapp/broadcast/', api_views.api_whatsapp_broadcast, name='api_whatsapp_broadcast'),
     path('api/dashboard/stats/', api_views.api_dashboard_stats, name='api_dashboard_stats'),
     path('api/company/branches/', api_views.api_company_branches, name='api_company_branches'),
     path('api/schemes/available/', api_views.api_available_schemes, name='api_available_schemes'),

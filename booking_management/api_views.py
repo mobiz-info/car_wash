@@ -2627,16 +2627,104 @@ def api_send_ready_alert(request, booking_id):
         from booking_management.models import Booking
         booking = Booking.objects.get(id=booking_id, is_deleted=False)
         
-        # Trigger ready alert automatically
-        import threading
-        threading.Thread(
-            target=send_booking_ready_alert_background,
-            args=(str(booking.id),),
-            daemon=True
-        ).start()
-        
-        return JsonResponse({'success': True, 'message': 'Ready alert sent successfully'})
+        # Check if company WhatsAppSetting is configured
+        company = booking.branch.company if booking.branch else None
+        has_api = False
+        if company:
+            from client_management.models import WhatsAppSetting
+            setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+            if setting and setting.username and setting.password:
+                has_api = True
+
+        if has_api:
+            # Trigger ready alert automatically in background
+            import threading
+            threading.Thread(
+                target=send_booking_ready_alert_background,
+                args=(str(booking.id),),
+                daemon=True
+            ).start()
+            
+            return JsonResponse({
+                'success': True,
+                'action': 'auto',
+                'message': 'Ready alert sent successfully via WhatsApp API'
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'action': 'manual',
+                'message': 'WhatsApp API is not configured'
+            })
+            
     except Booking.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Booking not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_send_ready_alert_generic(request):
+    """Trigger WhatsApp ready alert for a vehicle / customer without a specific booking."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        import json
+        data = json.loads(request.body)
+        phone = data.get('phone', '')
+        vehicle_number = data.get('vehicle_number', '')
+        customer_name = data.get('customer_name', 'Customer')
+        
+        # Resolve company
+        company = user.profile.company if hasattr(user, 'profile') and user.profile else None
+        if not company and user.managed_branch and user.managed_branch.company:
+            company = user.managed_branch.company
+            
+        if not company:
+            return JsonResponse({'success': False, 'message': 'Company profile not found'}, status=400)
+            
+        from client_management.models import WhatsAppSetting
+        setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+        
+        # Check if settings are configured
+        has_api = False
+        if setting and setting.username and setting.password:
+            has_api = True
+            
+        if has_api:
+            # Send automatically in background
+            import re
+            cleaned_phone = re.sub(r'\D', '', phone)
+            if len(cleaned_phone) == 10:
+                cleaned_phone = f"91{cleaned_phone}"
+                
+            message = f"Hello {customer_name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service."
+            
+            import threading
+            from booking_management.api_views import send_whatsapp_simple
+            threading.Thread(
+                target=send_whatsapp_simple,
+                args=(cleaned_phone, message),
+                kwargs={'setting': setting},
+                daemon=True
+            ).start()
+            
+            return JsonResponse({
+                'success': True,
+                'action': 'auto',
+                'message': 'Ready alert sent successfully via WhatsApp API'
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'action': 'manual',
+                'message': 'WhatsApp API is not configured'
+            })
+            
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
