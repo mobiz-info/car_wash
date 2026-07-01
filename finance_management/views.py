@@ -998,6 +998,7 @@ def profit_report(request):
     total_income = 0
     total_expense = 0
     net_profit = 0
+    total_outstanding = 0
 
     role = request.user.profile.role.name if request.user.profile.role else None
 
@@ -1023,6 +1024,12 @@ def profit_report(request):
             'invoice__date__lte': to_date,
         }
 
+        invoice_direct_filter = {
+            'is_deleted': False,
+            'date__gte': from_date,
+            'date__lte': to_date,
+        }
+
         expense_filter = {
             'is_deleted': False,
             'expense_date__gte': from_date,
@@ -1032,6 +1039,9 @@ def profit_report(request):
         if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
 
             invoice_filter['invoice__branch'] = (
+                request.user.managed_branch
+            )
+            invoice_direct_filter['branch'] = (
                 request.user.managed_branch
             )
 
@@ -1044,6 +1054,9 @@ def profit_report(request):
             invoice_filter['invoice__branch__company'] = (
                 request.user.profile.company
             )
+            invoice_direct_filter['branch__company'] = (
+                request.user.profile.company
+            )
 
             expense_filter['branch__company'] = (
                 request.user.profile.company
@@ -1054,6 +1067,7 @@ def profit_report(request):
             if branches.filter(id=branch_id).exists():
 
                 invoice_filter['invoice__branch_id'] = branch_id
+                invoice_direct_filter['branch_id'] = branch_id
                 expense_filter['branch_id'] = branch_id
 
         income_rows = (
@@ -1091,6 +1105,8 @@ def profit_report(request):
         )
 
         net_profit = total_income - total_expense
+        invoices = Invoice.objects.filter(**invoice_direct_filter)
+        total_outstanding = sum(float((inv.total or 0) - (inv.amount_collected or 0)) for inv in invoices)
 
     context = {
         'branches': branches,
@@ -1102,6 +1118,7 @@ def profit_report(request):
         'total_income': total_income,
         'total_expense': total_expense,
         'net_profit': net_profit,
+        'total_outstanding': total_outstanding,
     }
 
     return render(
@@ -1144,31 +1161,40 @@ def profit_report_pdf(request):
         'invoice__is_deleted': False,
     }
 
+    invoice_direct_filter = {
+        'is_deleted': False,
+    }
+
     expense_filter = {
         'is_deleted': False,
     }
 
     if from_date:
         invoice_filter['invoice__date__gte'] = from_date
+        invoice_direct_filter['date__gte'] = from_date
         expense_filter['expense_date__gte'] = from_date
 
     if to_date:
         invoice_filter['invoice__date__lte'] = to_date
+        invoice_direct_filter['date__lte'] = to_date
         expense_filter['expense_date__lte'] = to_date
 
     if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
 
         invoice_filter['invoice__branch'] = request.user.managed_branch
+        invoice_direct_filter['branch'] = request.user.managed_branch
         expense_filter['branch'] = request.user.managed_branch
 
     elif role == 'COMPANY_ADMIN' and request.user.profile.company:
 
         invoice_filter['invoice__branch__company'] = request.user.profile.company
+        invoice_direct_filter['branch__company'] = request.user.profile.company
         expense_filter['branch__company'] = request.user.profile.company
 
     if branch_id and branches.filter(id=branch_id).exists():
 
         invoice_filter['invoice__branch_id'] = branch_id
+        invoice_direct_filter['branch_id'] = branch_id
         expense_filter['branch_id'] = branch_id
 
     income_rows = (
@@ -1204,6 +1230,8 @@ def profit_report_pdf(request):
     )
 
     net_profit = total_income - total_expense
+    invoices = Invoice.objects.filter(**invoice_direct_filter)
+    total_outstanding = sum(float((inv.total or 0) - (inv.amount_collected or 0)) for inv in invoices)
 
     context = {
         'from_date': from_date,
@@ -1213,6 +1241,7 @@ def profit_report_pdf(request):
         'total_income': total_income,
         'total_expense': total_expense,
         'net_profit': net_profit,
+        'total_outstanding': total_outstanding,
         "company": request.user.profile.company,
     }
 

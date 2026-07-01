@@ -81,6 +81,11 @@ body{
     border:1px solid #cbdcff;
 }
 
+.outstanding-box{
+    background:#fff7ed;
+    border:1px solid #ffedd5;
+}
+
 .summary-label{
     font-size:12px;
     color:#666;
@@ -212,7 +217,7 @@ body{
 
 <tr>
 
-<td width="33%">
+<td width="25%">
 
 <div class="summary-box income-box">
     <div class="summary-label">TOTAL INCOME</div>
@@ -223,7 +228,7 @@ body{
 
 </td>
 
-<td width="33%">
+<td width="25%">
 
 <div class="summary-box expense-box">
     <div class="summary-label">TOTAL EXPENSE</div>
@@ -234,7 +239,18 @@ body{
 
 </td>
 
-<td width="33%">
+<td width="25%">
+
+<div class="summary-box outstanding-box">
+    <div class="summary-label">RECEIVABLES</div>
+    <div class="summary-value" style="color: #ea580c;">
+        ₹{{ total_outstanding|floatformat:2 }}
+    </div>
+</div>
+
+</td>
+
+<td width="25%">
 
 <div class="summary-box profit-box">
     <div class="summary-label">NET RESULT</div>
