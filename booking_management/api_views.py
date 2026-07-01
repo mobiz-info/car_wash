@@ -2728,3 +2728,137 @@ def api_send_ready_alert_generic(request):
             
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_send_welcome_msg_generic(request):
+    """Trigger WhatsApp welcome message for a customer/vehicle."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        import json
+        data = json.loads(request.body)
+        phone = data.get('phone', '')
+        vehicle_number = data.get('vehicle_number', '')
+        customer_name = data.get('customer_name', 'Customer')
+        
+        # Resolve company
+        company = user.profile.company if hasattr(user, 'profile') and user.profile else None
+        if not company and user.managed_branch and user.managed_branch.company:
+            company = user.managed_branch.company
+            
+        if not company:
+            return JsonResponse({'success': False, 'message': 'Company profile not found'}, status=400)
+            
+        from client_management.models import WhatsAppSetting
+        setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+        
+        # Check if settings are configured
+        has_api = False
+        if setting and setting.username and setting.password:
+            has_api = True
+            
+        if has_api:
+            # Send automatically in background
+            import re
+            cleaned_phone = re.sub(r'\D', '', phone)
+            if len(cleaned_phone) == 10:
+                cleaned_phone = f"91{cleaned_phone}"
+                
+            message = f"Hello {customer_name}, welcome to our service! We are delighted to have you and your vehicle ({vehicle_number}) with us."
+            
+            import threading
+            from booking_management.api_views import send_whatsapp_simple
+            threading.Thread(
+                target=send_whatsapp_simple,
+                args=(cleaned_phone, message),
+                kwargs={'setting': setting},
+                daemon=True
+            ).start()
+            
+            return JsonResponse({
+                'success': True,
+                'action': 'auto',
+                'message': 'Welcome message sent successfully via WhatsApp API'
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'action': 'manual',
+                'message': 'WhatsApp API is not configured'
+            })
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_send_thanks_msg_generic(request):
+    """Trigger WhatsApp thankful message for a customer/vehicle."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        import json
+        data = json.loads(request.body)
+        phone = data.get('phone', '')
+        vehicle_number = data.get('vehicle_number', '')
+        customer_name = data.get('customer_name', 'Customer')
+        
+        # Resolve company
+        company = user.profile.company if hasattr(user, 'profile') and user.profile else None
+        if not company and user.managed_branch and user.managed_branch.company:
+            company = user.managed_branch.company
+            
+        if not company:
+            return JsonResponse({'success': False, 'message': 'Company profile not found'}, status=400)
+            
+        from client_management.models import WhatsAppSetting
+        setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+        
+        # Check if settings are configured
+        has_api = False
+        if setting and setting.username and setting.password:
+            has_api = True
+            
+        if has_api:
+            # Send automatically in background
+            import re
+            cleaned_phone = re.sub(r'\D', '', phone)
+            if len(cleaned_phone) == 10:
+                cleaned_phone = f"91{cleaned_phone}"
+                
+            message = f"Hello {customer_name}, thank you for choosing our service! We look forward to serving you again. Have a great day!"
+            
+            import threading
+            from booking_management.api_views import send_whatsapp_simple
+            threading.Thread(
+                target=send_whatsapp_simple,
+                args=(cleaned_phone, message),
+                kwargs={'setting': setting},
+                daemon=True
+            ).start()
+            
+            return JsonResponse({
+                'success': True,
+                'action': 'auto',
+                'message': 'Thank you message sent successfully via WhatsApp API'
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'action': 'manual',
+                'message': 'WhatsApp API is not configured'
+            })
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
