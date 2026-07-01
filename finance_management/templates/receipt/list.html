@@ -49,6 +49,15 @@
                    value="{{ request.GET.to_date }}"
                    class="search-input">
 
+            <select name="payment_mode" class="search-input" style="height:38px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; min-width:180px;">
+                <option value="">All Payment Modes</option>
+                <option value="cash" {% if payment_mode == 'cash' %}selected{% endif %}>Cash</option>
+                <option value="card" {% if payment_mode == 'card' %}selected{% endif %}>Card</option>
+                <option value="digital_payments" {% if payment_mode == 'digital_payments' %}selected{% endif %}>Digital payments</option>
+                <option value="cheque" {% if payment_mode == 'cheque' %}selected{% endif %}>Cheque</option>
+                <option value="online" {% if payment_mode == 'online' %}selected{% endif %}>Online</option>
+            </select>
+
             <div class="search-wrapper">
 
                 <i class="ph ph-magnifying-glass search-icon"></i>
@@ -215,48 +224,52 @@
                     </td>
 
                     <td>
-
                         {% if receipt.payment_mode == 'cash' %}
-
                         <span style="background:#dcfce7;
                                      color:#166534;
                                      padding:5px 10px;
                                      border-radius:6px;
                                      font-size:0.78rem;
                                      font-weight:600;">
-
                             Cash
-
                         </span>
-
+                        {% elif receipt.payment_mode == 'card' %}
+                        <span style="background:#f3e8ff;
+                                     color:#6b21a8;
+                                     padding:5px 10px;
+                                     border-radius:6px;
+                                     font-size:0.78rem;
+                                     font-weight:600;">
+                            Card
+                        </span>
+                        {% elif receipt.payment_mode == 'digital_payments' %}
+                        <span style="background:#e0f2fe;
+                                     color:#0369a1;
+                                     padding:5px 10px;
+                                     border-radius:6px;
+                                     font-size:0.78rem;
+                                     font-weight:600;">
+                            Digital payments
+                        </span>
                         {% elif receipt.payment_mode == 'cheque' %}
-
                         <span style="background:#fef3c7;
                                      color:#92400e;
                                      padding:5px 10px;
                                      border-radius:6px;
                                      font-size:0.78rem;
                                      font-weight:600;">
-
                             Cheque
-
                         </span>
-
                         {% else %}
-
                         <span style="background:#dbeafe;
                                      color:#1d4ed8;
                                      padding:5px 10px;
                                      border-radius:6px;
                                      font-size:0.78rem;
                                      font-weight:600;">
-
-                            Online
-
+                            {{ receipt.get_payment_mode_display|default:'Online' }}
                         </span>
-
                         {% endif %}
-
                     </td>
 
 

@@ -433,6 +433,15 @@
                    value="{{ request.GET.to_date }}"
                    class="date-input">
 
+            <select name="payment_mode" class="date-input" style="height:46px; border:1px solid #dbeafe; background:#f8fafc; border-radius:12px; padding:0 14px; min-width:180px;">
+                <option value="">All Payment Modes</option>
+                <option value="cash" {% if payment_mode == 'cash' %}selected{% endif %}>Cash</option>
+                <option value="card" {% if payment_mode == 'card' %}selected{% endif %}>Card</option>
+                <option value="digital_payments" {% if payment_mode == 'digital_payments' %}selected{% endif %}>Digital payments</option>
+                <option value="cheque" {% if payment_mode == 'cheque' %}selected{% endif %}>Cheque</option>
+                <option value="online" {% if payment_mode == 'online' %}selected{% endif %}>Online</option>
+            </select>
+
             <button type="submit" class="filter-btn">
                 <i class="ph ph-funnel"></i>
                 Filter Report

@@ -53,6 +53,10 @@ def invoice_list(request):
             Q(vehicle__vehicle_number__icontains=search)
         )
 
+    payment_mode = request.GET.get('payment_mode', '').strip()
+    if payment_mode:
+        invoices = invoices.filter(receipts__payment_mode=payment_mode).distinct()
+
     totals = invoices.aggregate(
         total_subtotal=Sum('subtotal'),
         total_discount=Sum('discount'),
@@ -67,6 +71,7 @@ def invoice_list(request):
     return render(request, 'invoice/list.html', {
         'invoices': invoices,
         'search': search,
+        'payment_mode': payment_mode,
         'title': 'Invoices',
         'totals': totals
     })
@@ -197,10 +202,13 @@ def api_list_invoices(request):
 
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
+    payment_mode = request.GET.get('payment_mode')
     if from_date:
         invoices = invoices.filter(date__gte=from_date)
     if to_date:
         invoices = invoices.filter(date__lte=to_date)
+    if payment_mode:
+        invoices = invoices.filter(receipts__payment_mode=payment_mode).distinct()
 
     results = []
     for inv in invoices:
@@ -278,6 +286,7 @@ def sales_report(request):
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
     invoice_number = request.GET.get('invoice_number')
+    payment_mode = request.GET.get('payment_mode', '').strip()
 
     if from_date:
         invoices = invoices.filter(date__gte=from_date)
@@ -287,6 +296,9 @@ def sales_report(request):
 
     if invoice_number:
         invoices = invoices.filter(invoice_number=invoice_number)
+
+    if payment_mode:
+        invoices = invoices.filter(receipts__payment_mode=payment_mode).distinct()
 
     # Balance Calculation
     invoices = invoices.annotate(
@@ -312,6 +324,9 @@ def sales_report(request):
         'total_amount': total_amount,
         'total_collection': total_collection,
         'total_balance': total_balance,
+        'invoice_number': invoice_number,
+        'payment_mode': payment_mode,
+        'branches': branches,
     }
 
     return render(request, 'reports/sales_report.html', context)
@@ -358,6 +373,8 @@ def receipt_list(request):
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
 
+    payment_mode = request.GET.get('payment_mode', '').strip()
+
     if search:
         receipts = receipts.filter(
             Q(receipt_number__icontains=search) |
@@ -371,9 +388,13 @@ def receipt_list(request):
     if to_date:
         receipts = receipts.filter(created_at__date__lte=to_date)
 
+    if payment_mode:
+        receipts = receipts.filter(payment_mode=payment_mode)
+
     context = {
         'receipts': receipts,
         'search': search,
+        'payment_mode': payment_mode,
     }
 
     return render(request, 'receipt/list.html', context)
@@ -615,10 +636,13 @@ def api_receipt_list(request):
 
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
+    payment_mode = request.GET.get('payment_mode')
     if from_date:
         receipts = receipts.filter(created_at__date__gte=from_date)
     if to_date:
         receipts = receipts.filter(created_at__date__lte=to_date)
+    if payment_mode:
+        receipts = receipts.filter(payment_mode=payment_mode)
 
     results = []
     total_collected = Decimal('0.00')

@@ -36,6 +36,8 @@ class InvoiceItem(BaseModel):
 class Receipt(BaseModel):
     PAYMENT_CHOICES = (
         ('cash', 'Cash'),
+        ('card', 'Card'),
+        ('digital_payments', 'Digital payments'),
         ('cheque', 'Cheque'),
         ('online', 'Online'),
     )

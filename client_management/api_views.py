@@ -698,8 +698,8 @@ def api_create_invoice(request):
                 receipt_number=receipt_number,
                 invoice=invoice,
                 amount=amount_collected,
-                payment_mode='cash', # Defaulting to cash for invoice creation API
-                remarks='Invoice time collection'
+                payment_mode=data.get('payment_mode') or 'cash',
+                remarks=data.get('remarks') or 'Invoice time collection'
             )
         
         # Create Items
@@ -2046,7 +2046,13 @@ def api_report_collection(request):
         created_at__date__gte=from_date,
         created_at__date__lte=to_date,
         **receipt_scope
-    ).select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch').order_by('-created_at')
+    )
+
+    payment_mode = request.GET.get('payment_mode')
+    if payment_mode:
+        rec_qs = rec_qs.filter(payment_mode=payment_mode)
+
+    rec_qs = rec_qs.select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch').order_by('-created_at')
 
     rows = []
     for rec in rec_qs:
