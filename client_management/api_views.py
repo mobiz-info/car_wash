@@ -387,6 +387,9 @@ def api_customer_search(request):
         visits_count = 0
         is_eligible = False
         
+        from finance_management.models import Invoice
+        visits_count = Invoice.objects.filter(vehicle=v, is_deleted=False).count()
+
         # Check if customer's branch has scheme facility
         if customer.branch and customer.branch.scheme_types.exists() and customer.customer_type and v.vehicle_type_model and v.vehicle_type_model.vehicle_type:
             # Find active scheme
@@ -403,11 +406,6 @@ def api_customer_search(request):
                 scheme_name = scheme.name
                 paid_visits = scheme.paid_visits or 0
                 free_visits = scheme.free_visits or 0
-                
-                from finance_management.models import Invoice
-                
-                # Count actual invoices for this vehicle as visits
-                visits_count = Invoice.objects.filter(vehicle=v, is_deleted=False).count()
                 
                 if paid_visits > 0 and visits_count >= paid_visits:
                     is_eligible = True
