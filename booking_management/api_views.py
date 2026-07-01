@@ -2770,7 +2770,7 @@ def api_send_welcome_msg_generic(request):
             if len(cleaned_phone) == 10:
                 cleaned_phone = f"91{cleaned_phone}"
                 
-            message = f"Hello {customer_name}, welcome to our service! We are delighted to have you and your vehicle ({vehicle_number}) with us."
+            message = f"Hello {customer_name}, thank you for choosing {company.company_name}. Welcome to our service! We are delighted to have you and your vehicle ({vehicle_number}) with us."
             
             import threading
             from booking_management.api_views import send_whatsapp_simple
