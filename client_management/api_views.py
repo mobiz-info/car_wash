@@ -3404,7 +3404,7 @@ def api_report_profit_loss(request):
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
-    from finance_management.models import InvoiceItem
+    from finance_management.models import InvoiceItem, Invoice
     from master.models import ExpenseEntry, ExpenseHead
     from django.db.models import Sum, F
 
@@ -3465,6 +3465,15 @@ def api_report_profit_loss(request):
     # Calculate net profit or loss
     net_profit = total_income - total_expense
 
+    # Calculate outstanding balance (Receivables)
+    invoices = Invoice.objects.filter(
+        is_deleted=False,
+        date__gte=from_date,
+        date__lte=to_date,
+        **scope
+    )
+    total_outstanding = sum(float((inv.total or 0.0) - (inv.amount_collected or 0.0)) for inv in invoices)
+
     return JsonResponse({
         'success': True,
         'from_date': str(from_date),
@@ -3472,6 +3481,7 @@ def api_report_profit_loss(request):
         'total_income': str(round(total_income, 2)),
         'total_expense': str(round(total_expense, 2)),
         'net_profit': str(round(net_profit, 2)),
+        'total_outstanding': str(round(total_outstanding, 2)),
         'income_rows': income_rows,
         'expense_rows': expense_rows,
     })
