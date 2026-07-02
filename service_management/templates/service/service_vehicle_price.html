@@ -26,22 +26,36 @@
     /* Price input */
     input.price-input {
         width: 100%;
-        padding: 10px 14px;
+        min-width: 90px;
+        padding: 8px 10px;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         color: #1e293b;
-        font-weight: 700;
+        font-weight: 600;
         text-align: right;
         transition: all 0.2s;
         outline: none;
         font-family: 'Inter', sans-serif;
         background: white;
         box-sizing: border-box;
+        /* Remove spinner arrows */
+        -webkit-appearance: none;
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+    input.price-input::-webkit-inner-spin-button,
+    input.price-input::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
     }
     input.price-input:focus {
         border-color: #3b82f6;
         box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    input.price-input::placeholder {
+        color: #cbd5e1;
+        font-weight: 400;
     }
 
     /* Pricing table */
@@ -71,11 +85,13 @@
     .pricing-table tbody tr:nth-child(even) { background: #fafbfc; }
     .pricing-table tbody tr:hover { background: #f0f7ff; }
     .pricing-table tbody td {
-        padding: 12px 16px;
+        padding: 10px 12px;
         border-right: 1px solid #f1f5f9;
         vertical-align: middle;
     }
-    .pricing-table tbody td.vt-cell { text-align: center; }
+    .pricing-table tbody td.vt-cell { text-align: center; min-width: 110px; }
+    /* Make columns not collapse too small */
+    .pricing-table th, .pricing-table td { min-width: 90px; }
 
     /* No-price badge */
     .badge-empty {
@@ -98,6 +114,7 @@
         border-color: #3b82f6;
         box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
     }
+
 </style>
 
 <div class="premium-form-container">
