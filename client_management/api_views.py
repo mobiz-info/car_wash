@@ -900,7 +900,7 @@ def api_vehicle_search(request):
 
 @csrf_exempt
 def api_get_form_data(request):
-    """Returns customer types and vehicle type models for the add-customer form."""
+    """Returns customer types and vehicle hierarchy data for the add-customer form."""
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
 
@@ -908,14 +908,42 @@ def api_get_form_data(request):
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
-    from master.models import VehicleTypeModel
-    from .models import CustomerType
+    from master.models import VehicleTypeModel, VehicleType, VehicleColor, VehicleBrandModel
+    from .models import CustomerType, Branch
 
     customer_types = CustomerType.objects.filter(is_deleted=False)
-    vehicle_models = VehicleTypeModel.objects.filter(is_deleted=False, is_active=True).select_related('vehicle_type').order_by('vehicle_type__name', 'name')
+
+    # --- Vehicle Types (branch-filtered) ---
+    role = user.profile.role.name if user.profile.role else None
+    branch = None
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        branch = user.managed_branch
+
+    if branch and branch.enabled_vehicle_types.exists():
+        vehicle_types_qs = branch.enabled_vehicle_types.filter(is_active=True, is_deleted=False).order_by('name')
+    else:
+        vehicle_types_qs = VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')
+
+    # --- Vehicle Segments (per vehicle type) ---
+    vehicle_type_models_qs = VehicleTypeModel.objects.filter(
+        vehicle_type__in=vehicle_types_qs, is_active=True, is_deleted=False
+    ).select_related('vehicle_type').order_by('vehicle_type__name', 'name')
+
+    # --- Brand Models (per segment) ---
+    brand_models_qs = VehicleBrandModel.objects.filter(
+        vehicle_type_model__in=vehicle_type_models_qs, is_active=True, is_deleted=False
+    ).select_related('vehicle_type_model').order_by('vehicle_type_model__name', 'name')
+
+    # --- Colors ---
+    colors_qs = VehicleColor.objects.filter(is_deleted=False).order_by('name')
+
+    # Legacy vehicle_models for backward compatibility (segments grouped by type)
+    legacy_vehicle_models = [
+        {'id': str(vm.id), 'name': vm.name, 'vehicle_type': vm.vehicle_type.name, 'vehicle_type_id': str(vm.vehicle_type.id)}
+        for vm in vehicle_type_models_qs
+    ]
 
     branches_data = []
-    role = user.profile.role.name if user.profile.role else None
     if role == 'COMPANY_ADMIN' and user.profile.company:
         branches = user.profile.company.branches.filter(is_deleted=False).order_by('name')
         branches_data = [{'id': str(b.id), 'name': b.name} for b in branches]
@@ -923,9 +951,23 @@ def api_get_form_data(request):
     return JsonResponse({
         'success': True,
         'customer_types': [{'id': str(ct.id), 'name': ct.name} for ct in customer_types],
-        'vehicle_models': [{'id': str(vm.id), 'name': vm.name, 'vehicle_type': vm.vehicle_type.name} for vm in vehicle_models],
+        # New hierarchy data
+        'vehicle_types': [{'id': str(vt.id), 'name': vt.name} for vt in vehicle_types_qs],
+        'vehicle_type_models': legacy_vehicle_models,
+        'brand_models': [
+            {
+                'id': str(bm.id),
+                'name': bm.name,
+                'vehicle_type_model_id': str(bm.vehicle_type_model.id),
+            }
+            for bm in brand_models_qs
+        ],
+        'colors': [{'id': str(c.id), 'name': c.name} for c in colors_qs],
+        # Legacy field (still used by other screens)
+        'vehicle_models': legacy_vehicle_models,
         'branches': branches_data,
     })
+
 
 
 @csrf_exempt
@@ -999,16 +1041,32 @@ def api_add_customer(request):
             for v in vehicles:
                 vehicle_number = v.get('vehicle_number', '').strip().upper()
                 vehicle_model_id = v.get('vehicle_model_id')
+                brand_model_id = v.get('brand_model_id')
+                color_id = v.get('color_id')
                 if not vehicle_number or not vehicle_model_id:
                     continue
                 vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
                 if not vm:
                     continue
+
+                # Optional brand model
+                from master.models import VehicleBrandModel, VehicleColor
+                brand_model = None
+                if brand_model_id:
+                    brand_model = VehicleBrandModel.objects.filter(id=brand_model_id, is_deleted=False).first()
+
+                # Optional color
+                color = None
+                if color_id:
+                    color = VehicleColor.objects.filter(id=color_id, is_deleted=False).first()
+
                 cv = CustomerVehicle.objects.create(
                     customer=customer,
                     vehicle_type_model=vm,
                     vehicle_type=vm.vehicle_type if vm else None,
                     vehicle_number=vehicle_number,
+                    brand_model=brand_model,
+                    color=color,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )
@@ -1017,6 +1075,8 @@ def api_add_customer(request):
                     'no': cv.vehicle_number,
                     'type': vm.name,
                     'vehicle_type': vm.vehicle_type.name if vm.vehicle_type else '',
+                    'brand_model': brand_model.name if brand_model else '',
+                    'color': color.name if color else '',
                 })
 
         # Check WhatsApp settings configuration
