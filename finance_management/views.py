@@ -86,6 +86,7 @@ def outstanding_list(request):
     # Only invoices with outstanding balance
     invoices = Invoice.objects.filter(
         is_deleted=False,
+        customer__is_deleted=False,
     ).select_related(
         'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
     ).order_by('customer__name', '-date')
@@ -489,6 +490,7 @@ def api_outstanding_list(request):
 
     invoices = Invoice.objects.filter(
         is_deleted=False,
+        customer__is_deleted=False,
     ).select_related(
         'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
     ).filter(amount_collected__lt=F('total')).order_by('customer__name', '-date')
@@ -697,6 +699,7 @@ def api_customer_outstanding_list(request):
 
     invoices = Invoice.objects.filter(
         is_deleted=False,
+        customer__is_deleted=False,
     ).select_related(
         'customer', 'branch'
     ).filter(amount_collected__lt=F('total')).order_by('date', 'auto_id')
