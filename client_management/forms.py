@@ -465,7 +465,7 @@ class CustomerVehicleForm(forms.ModelForm):
 
     class Meta:
         model = CustomerVehicle
-        fields = ['vehicle_type', 'vehicle_type_model', 'vehicle_number']
+        fields = ['vehicle_type', 'vehicle_type_model', 'vehicle_number', 'color']
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -525,7 +525,7 @@ class SchemeForm(forms.ModelForm):
 class CustomersVehicleForm(forms.ModelForm):
     class Meta:
         model = CustomerVehicle
-        fields = ['customer', 'vehicle_type', 'vehicle_type_model', 'vehicle_number']
+        fields = ['customer', 'vehicle_type', 'vehicle_type_model', 'vehicle_number', 'color']
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
