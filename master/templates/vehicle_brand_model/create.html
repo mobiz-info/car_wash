@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Vehicle Model - Mobiz Car Wash Solution{% endblock %}
-{% block page_title %}Vehicle Model{% endblock %}
-{% block breadcrumb_active %}Vehicle Model{% endblock %}
+{% block title %}Vehicle Brand - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Vehicle Brand{% endblock %}
+{% block breadcrumb_active %}Vehicle Brand{% endblock %}
 
 {% block content %}
 
@@ -16,7 +16,7 @@
         {% csrf_token %}
 
         <div class="form-group">
-            <label>Vehicle Type Model (Segment)</label>
+            <label>Vehicle Segment</label>
             {{ form.vehicle_type_model }}
             {% if form.vehicle_type_model.errors %}
                 <div style="color:red; font-size:0.8rem; margin-top:4px;">{{ form.vehicle_type_model.errors.0 }}</div>
@@ -32,7 +32,7 @@
         </div>
 
         <div class="form-group">
-            <label>Vehicle Model Name</label>
+            <label>Vehicle Brand Name</label>
             {{ form.name }}
             {% if form.name.errors %}
                 <div style="color:red; font-size:0.8rem; margin-top:4px;">{{ form.name.errors.0 }}</div>

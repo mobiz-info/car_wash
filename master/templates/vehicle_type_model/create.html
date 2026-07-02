@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Vehicle Management - Mobiz Car Wash Solution{% endblock %}
+{% block title %}Vehicle Segment - Mobiz Car Wash Solution{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block breadcrumb_active %}Vehicle Management{% endblock %}
 
@@ -37,7 +37,7 @@
         </div>
 
         <div class="form-actions">
-            <a href="{% url 'state_list' %}" class="btn-secondary">Cancel</a>
+            <a href="{% url 'vehicle_type_model_list' %}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary">
                 <i class="ph ph-check-circle"></i> Save 
             </button>

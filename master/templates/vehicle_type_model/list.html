@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
-{% block title %}Vehicle Type Class - Mobiz Car Wash Solution{% endblock %}
-{% block page_title %}Vehicle Type Class{% endblock %}
+{% block title %}Vehicle Segments - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Vehicle Segments{% endblock %}
 {% block breadcrumb_active %}Vehicle Management{% endblock %}
 
 {% block content %}
@@ -12,11 +12,11 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Type Class..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Segment..." class="search-input">
         </form>
 
         <a href="{% url 'vehicle_type_model_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Vehicle Type Class
+            <i class="ph-bold ph-plus"></i> Add Vehicle Segment
         </a>
     </div>
 
@@ -27,7 +27,7 @@
                 <tr>
                     <th>#</th>
                     <th>Vehicle Type</th>
-                    <th>Vehicle Type Class</th>
+                    <th>Vehicle Segment</th>
                     <th style="text-align:right;">Action</th>
                 </tr>
             </thead>
@@ -53,7 +53,7 @@
                         <i class="ph ph-pencil-simple"></i>
                     </a>
                     <a href="{% url 'vehicle_type_model_delete' obj.pk %}"
-                       onclick="return confirm('Delete this vehicle type class?')"
+                       onclick="return confirm('Delete this vehicle segment?')"
                        class="action-btn delete">
                         <i class="ph ph-trash"></i>
                     </a>

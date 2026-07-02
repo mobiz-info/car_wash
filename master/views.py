@@ -390,12 +390,12 @@ def vehicle_type_model_create(request):
             instance = form.save(commit=False)
             instance.auto_id = get_auto_id(VehicleTypeModel)
             instance.save()
-            messages.success(request, "Vehicle Class created successfully")
+            messages.success(request, "Vehicle Segment created successfully")
             return redirect('vehicle_type_model_list')
 
     return render(request, 'vehicle_type_model/create.html', {
         'form': form,
-        'title': 'Create Vehicle Model'
+        'title': 'Create Vehicle Segment'
     })
 
 
@@ -410,12 +410,12 @@ def vehicle_type_model_edit(request, id):
             instance = form.save(commit=False)
             instance.updater = request.user
             instance.save()
-            messages.success(request, "Vehicle Class updated successfully")
+            messages.success(request, "Vehicle Segment updated successfully")
             return redirect('vehicle_type_model_list')
 
     return render(request, 'vehicle_type_model/create.html', {
         'form': form,
-        'title': 'Edit Vehicle Model'
+        'title': 'Edit Vehicle Segment'
     })
 
 
@@ -424,7 +424,7 @@ def vehicle_type_model_delete(request, id):
     instance = get_object_or_404(VehicleTypeModel, id=id)
     instance.is_deleted = True
     instance.save()
-    messages.success(request, "Vehicle Class deleted successfully")
+    messages.success(request, "Vehicle Segment deleted successfully")
     return redirect('vehicle_type_model_list')
 
 
@@ -1149,9 +1149,9 @@ def vehicle_brand_model_create(request):
             instance.auto_id = get_auto_id(VehicleBrandModel)
             instance.creator = request.user
             instance.save()
-            messages.success(request, "Vehicle Model created successfully")
+            messages.success(request, "Vehicle Brand created successfully")
             return redirect('vehicle_brand_model_list')
-    return render(request, 'vehicle_brand_model/create.html', {'form': form, 'title': 'Create Vehicle Model'})
+    return render(request, 'vehicle_brand_model/create.html', {'form': form, 'title': 'Create Vehicle Brand'})
 
 
 @login_required
@@ -1163,9 +1163,9 @@ def vehicle_brand_model_edit(request, id):
             instance = form.save(commit=False)
             instance.updater = request.user
             instance.save()
-            messages.success(request, "Vehicle Model updated successfully")
+            messages.success(request, "Vehicle Brand updated successfully")
             return redirect('vehicle_brand_model_list')
-    return render(request, 'vehicle_brand_model/create.html', {'form': form, 'title': 'Edit Vehicle Model'})
+    return render(request, 'vehicle_brand_model/create.html', {'form': form, 'title': 'Edit Vehicle Brand'})
 
 
 @login_required
@@ -1173,7 +1173,7 @@ def vehicle_brand_model_delete(request, id):
     instance = get_object_or_404(VehicleBrandModel, id=id)
     instance.is_deleted = True
     instance.save()
-    messages.success(request, "Vehicle Model deleted successfully")
+    messages.success(request, "Vehicle Brand deleted successfully")
     return redirect('vehicle_brand_model_list')
 
 

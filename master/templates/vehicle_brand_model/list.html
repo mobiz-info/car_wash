@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Vehicle Models - Mobiz Car Wash Solution{% endblock %}
-{% block page_title %}Vehicle Models{% endblock %}
-{% block breadcrumb_active %}Vehicle Models{% endblock %}
+{% block title %}Vehicle Brands - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Vehicle Brands{% endblock %}
+{% block breadcrumb_active %}Vehicle Brands{% endblock %}
 
 {% block content %}
 
@@ -12,11 +12,11 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Model..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Brand..." class="search-input">
         </form>
 
         <a href="{% url 'vehicle_brand_model_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Vehicle Model
+            <i class="ph-bold ph-plus"></i> Add Vehicle Brand
         </a>
     </div>
 
@@ -26,9 +26,9 @@
             <thead>
                 <tr>
                     <th style="width: 80px;">#</th>
-                    <th>Vehicle Type Model (Segment)</th>
+                    <th>Vehicle Segment</th>
                     <th>Vehicle Make</th>
-                    <th>Vehicle Model Name</th>
+                    <th>Vehicle Brand/Model Name</th>
                     <th style="text-align:right;">Action</th>
                 </tr>
             </thead>
@@ -55,7 +55,7 @@
                             <a href="{% url 'vehicle_brand_model_edit' obj.pk %}" class="action-btn edit">
                                 <i class="ph ph-pencil-simple"></i>
                             </a>
-                            <a href="{% url 'vehicle_brand_model_delete' obj.pk %}" onclick="return confirm('Delete this model?')" class="action-btn delete">
+                            <a href="{% url 'vehicle_brand_model_delete' obj.pk %}" onclick="return confirm('Delete this brand?')" class="action-btn delete">
                                 <i class="ph ph-trash"></i>
                             </a>
                         </div>
@@ -63,9 +63,9 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" style="text-align:center; padding:40px; color:#94a3b8;">
+                    <td colspan="5" style="text-align:center; padding:40px; color:#94a3b8;">
                         <i class="ph ph-car" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
-                        No vehicle models found.
+                        No vehicle brands found.
                     </td>
                 </tr>
                 {% endfor %}
