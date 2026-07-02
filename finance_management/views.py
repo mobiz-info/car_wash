@@ -684,6 +684,167 @@ def api_receipt_list(request):
         'count': len(results),
     })
 
+@csrf_exempt
+def api_customer_outstanding_list(request):
+    """Mobile API: list all customers who have outstanding invoices."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    invoices = Invoice.objects.filter(
+        is_deleted=False,
+    ).select_related(
+        'customer', 'branch'
+    ).filter(amount_collected__lt=F('total')).order_by('date', 'auto_id')
+
+    role = user.profile.role.name if user.profile.role else None
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        invoices = invoices.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        invoices = invoices.filter(branch__company=user.profile.company)
+        branch_id = request.GET.get('branch_id')
+        if branch_id:
+            invoices = invoices.filter(branch_id=branch_id)
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    if from_date:
+        invoices = invoices.filter(date__gte=from_date)
+    if to_date:
+        invoices = invoices.filter(date__lte=to_date)
+
+    from collections import defaultdict
+    customer_data = defaultdict(lambda: {
+        'customer_id': '',
+        'customer_name': '',
+        'customer_phone': '',
+        'total_outstanding': Decimal('0.00'),
+        'invoices_count': 0
+    })
+
+    for inv in invoices:
+        cid = str(inv.customer.id)
+        outstanding = inv.total - inv.amount_collected
+        customer_data[cid]['customer_id'] = cid
+        customer_data[cid]['customer_name'] = inv.customer.name
+        customer_data[cid]['customer_phone'] = inv.customer.phone
+        customer_data[cid]['total_outstanding'] += outstanding
+        customer_data[cid]['invoices_count'] += 1
+
+    results = []
+    total_outstanding_sum = Decimal('0.00')
+    for item in customer_data.values():
+        total_outstanding_sum += item['total_outstanding']
+        results.append({
+            'customer_id': item['customer_id'],
+            'customer_name': item['customer_name'],
+            'customer_phone': item['customer_phone'],
+            'total_outstanding': str(item['total_outstanding']),
+            'invoices_count': item['invoices_count'],
+        })
+
+    # Sort by customer name
+    results.sort(key=lambda x: x['customer_name'].lower())
+
+    return JsonResponse({
+        'success': True,
+        'customers': results,
+        'total_outstanding': str(total_outstanding_sum),
+        'count': len(results),
+    })
+
+
+@csrf_exempt
+def api_collect_customer_outstanding(request):
+    """Mobile API: collect bulk payment and apply it sequentially to a customer's oldest outstanding invoices."""
+    import json
+    from django.db import transaction
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        amount = Decimal(str(data.get('amount', 0)))
+        payment_mode = data.get('payment_mode') or 'cash'
+        remarks = data.get('remarks') or 'Bulk outstanding collection'
+
+        if not customer_id:
+            return JsonResponse({'success': False, 'message': 'customer_id is required'}, status=400)
+        if amount <= 0:
+            return JsonResponse({'success': False, 'message': 'Amount must be greater than 0'}, status=400)
+
+        with transaction.atomic():
+            invoices = Invoice.objects.select_for_update().filter(
+                customer_id=customer_id,
+                is_deleted=False,
+                amount_collected__lt=F('total')
+            ).order_by('date', 'auto_id')
+
+            role = user.profile.role.name if user.profile.role else None
+            if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+                invoices = invoices.filter(branch=user.managed_branch)
+            elif role == 'COMPANY_ADMIN' and user.profile.company:
+                invoices = invoices.filter(branch__company=user.profile.company)
+
+            total_outstanding = sum(inv.total - inv.amount_collected for inv in invoices)
+            if amount > total_outstanding:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Collection amount exceeds total outstanding balance ({total_outstanding})'
+                }, status=400)
+
+            amount_left = amount
+            receipts_created = []
+
+            for inv in invoices:
+                if amount_left <= 0:
+                    break
+
+                inv_outstanding = inv.total - inv.amount_collected
+                payment_to_apply = min(amount_left, inv_outstanding)
+
+                inv.amount_collected += payment_to_apply
+                inv.save()
+
+                receipt_auto_id = get_auto_id(Receipt)
+                rcpt = Receipt.objects.create(
+                    auto_id=receipt_auto_id,
+                    creator=user,
+                    receipt_number=f"RCPT-{str(receipt_auto_id).zfill(5)}",
+                    invoice=inv,
+                    amount=payment_to_apply,
+                    payment_mode=payment_mode,
+                    remarks=remarks,
+                )
+
+                receipts_created.append({
+                    'id': str(rcpt.id),
+                    'receipt_number': rcpt.receipt_number,
+                    'invoice_number': inv.invoice_number,
+                    'amount_applied': str(payment_to_apply),
+                })
+
+                amount_left -= payment_to_apply
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Bulk payment applied sequentially successfully',
+                'amount_collected': str(amount),
+                'receipts': receipts_created,
+            })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
 @login_required
 def job_report(request):
 
