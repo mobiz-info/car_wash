@@ -218,6 +218,7 @@ class CustomerVehicle(BaseModel):
     vehicle_type_model = models.ForeignKey('master.VehicleTypeModel', on_delete=models.CASCADE)
     vehicle_number = models.CharField(max_length=100)
     color = models.CharField(max_length=50, blank=True, null=True)
+    company = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return f"{self.vehicle_number} - {self.vehicle_type_model.name}"

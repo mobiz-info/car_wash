@@ -62,8 +62,12 @@
                         <span style="font-weight:600; color:#111827;">
                             {{ obj.vehicle_number }}
                         </span>
-                        {% if obj.color %}
-                        <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">Color: {{ obj.color }}</div>
+                        {% if obj.company or obj.color %}
+                        <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">
+                            {% if obj.company %}{{ obj.company }}{% endif %}
+                            {% if obj.company and obj.color %} • {% endif %}
+                            {% if obj.color %}Color: {{ obj.color }}{% endif %}
+                        </div>
                         {% endif %}
                     </td>
 
