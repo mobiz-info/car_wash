@@ -82,3 +82,21 @@ class ExpenseHeadForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Expense Head Name'})
         }
+
+
+class VehicleColorForm(forms.ModelForm):
+    class Meta:
+        model = VehicleColor
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Color Name'})
+        }
+
+
+class VehicleCompanyForm(forms.ModelForm):
+    class Meta:
+        model = VehicleCompany
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Company/Brand Name'})
+        }

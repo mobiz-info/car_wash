@@ -130,4 +130,19 @@ class ExpenseEntry(BaseModel):
         null=True
     )
 
+
+class VehicleColor(BaseModel):
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class VehicleCompany(BaseModel):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
     

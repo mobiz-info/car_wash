@@ -1067,3 +1067,107 @@ def expense_delete(request, pk):
     messages.success(request, "Expense Deleted Successfully")
 
     return redirect('expense_list')
+
+
+# ==========================================
+# VEHICLE COLOR
+# ==========================================
+
+@login_required
+def vehicle_color_list(request):
+    search = request.GET.get('search', '')
+    queryset = VehicleColor.objects.filter(is_deleted=False)
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'vehicle_color/list.html', {'page_obj': page_obj, 'search': search})
+
+
+@login_required
+def vehicle_color_create(request):
+    form = VehicleColorForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(VehicleColor)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Vehicle Color created successfully")
+            return redirect('vehicle_color_list')
+    return render(request, 'vehicle_color/create.html', {'form': form, 'title': 'Create Vehicle Color'})
+
+
+@login_required
+def vehicle_color_edit(request, id):
+    instance = get_object_or_404(VehicleColor, id=id, is_deleted=False)
+    form = VehicleColorForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Vehicle Color updated successfully")
+            return redirect('vehicle_color_list')
+    return render(request, 'vehicle_color/create.html', {'form': form, 'title': 'Edit Vehicle Color'})
+
+
+@login_required
+def vehicle_color_delete(request, id):
+    instance = get_object_or_404(VehicleColor, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Vehicle Color deleted successfully")
+    return redirect('vehicle_color_list')
+
+
+# ==========================================
+# VEHICLE COMPANY
+# ==========================================
+
+@login_required
+def vehicle_company_list(request):
+    search = request.GET.get('search', '')
+    queryset = VehicleCompany.objects.filter(is_deleted=False)
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'vehicle_company/list.html', {'page_obj': page_obj, 'search': search})
+
+
+@login_required
+def vehicle_company_create(request):
+    form = VehicleCompanyForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(VehicleCompany)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Vehicle Company created successfully")
+            return redirect('vehicle_company_list')
+    return render(request, 'vehicle_company/create.html', {'form': form, 'title': 'Create Vehicle Company'})
+
+
+@login_required
+def vehicle_company_edit(request, id):
+    instance = get_object_or_404(VehicleCompany, id=id, is_deleted=False)
+    form = VehicleCompanyForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Vehicle Company updated successfully")
+            return redirect('vehicle_company_list')
+    return render(request, 'vehicle_company/create.html', {'form': form, 'title': 'Edit Vehicle Company'})
+
+
+@login_required
+def vehicle_company_delete(request, id):
+    instance = get_object_or_404(VehicleCompany, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Vehicle Company deleted successfully")
+    return redirect('vehicle_company_list')

@@ -53,4 +53,16 @@ urlpatterns = [
     path('expense/create/',views.expense_create,name='expense_create'),
     path('expense/edit/<uuid:pk>/',views.expense_edit,name='expense_edit'),
     path('expense/delete/<uuid:pk>/',views.expense_delete,name='expense_delete'),
+
+    # Vehicle Color
+    path('vehicle-color/', views.vehicle_color_list, name='vehicle_color_list'),
+    path('vehicle-color/create/', views.vehicle_color_create, name='vehicle_color_create'),
+    path('vehicle-color/edit/<uuid:id>/', views.vehicle_color_edit, name='vehicle_color_edit'),
+    path('vehicle-color/delete/<uuid:id>/', views.vehicle_color_delete, name='vehicle_color_delete'),
+
+    # Vehicle Company
+    path('vehicle-company/', views.vehicle_company_list, name='vehicle_company_list'),
+    path('vehicle-company/create/', views.vehicle_company_create, name='vehicle_company_create'),
+    path('vehicle-company/edit/<uuid:id>/', views.vehicle_company_edit, name='vehicle_company_edit'),
+    path('vehicle-company/delete/<uuid:id>/', views.vehicle_company_delete, name='vehicle_company_delete'),
 ]

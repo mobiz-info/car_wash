@@ -531,6 +531,9 @@ class CustomersVehicleForm(forms.ModelForm):
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
 
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = 'form-control'
+
         if self.request:
             try:
                 user_profile = self.request.user.profile
