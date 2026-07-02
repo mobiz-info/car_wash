@@ -38,8 +38,6 @@ class Receipt(BaseModel):
         ('cash', 'Cash'),
         ('card', 'Card'),
         ('digital_payments', 'Digital payments'),
-        ('cheque', 'Cheque'),
-        ('online', 'Online'),
     )
 
     receipt_number = models.CharField(max_length=50, unique=True)
