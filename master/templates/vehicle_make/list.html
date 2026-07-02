@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Vehicle Companies - Mobiz Car Wash Solution{% endblock %}
-{% block page_title %}Vehicle Companies{% endblock %}
-{% block breadcrumb_active %}Vehicle Companies{% endblock %}
+{% block title %}Vehicle Makes - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Vehicle Makes{% endblock %}
+{% block breadcrumb_active %}Vehicle Makes{% endblock %}
 
 {% block content %}
 
@@ -12,11 +12,11 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Company..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search Vehicle Make..." class="search-input">
         </form>
 
-        <a href="{% url 'vehicle_company_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Vehicle Company
+        <a href="{% url 'vehicle_make_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Vehicle Make
         </a>
     </div>
 
@@ -26,7 +26,8 @@
             <thead>
                 <tr>
                     <th style="width: 80px;">#</th>
-                    <th>Company/Brand Name</th>
+                    <th>Vehicle Make Name</th>
+                    <th>Status</th>
                     <th style="text-align:right;">Action</th>
                 </tr>
             </thead>
@@ -39,13 +40,21 @@
                         {{ obj.name }}
                     </td>
 
+                    <td>
+                        {% if obj.is_active %}
+                            <span style="background:#dbeafe; color:#1d4ed8; font-size:0.75rem; font-weight:600; padding:3px 10px; border-radius:20px;">Active</span>
+                        {% else %}
+                            <span style="background:#f1f5f9; color:#94a3b8; font-size:0.75rem; font-weight:600; padding:3px 10px; border-radius:20px;">Inactive</span>
+                        {% endif %}
+                    </td>
+
                     <!-- Actions -->
                     <td style="text-align:right;">
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
-                            <a href="{% url 'vehicle_company_edit' obj.pk %}" class="action-btn edit">
+                            <a href="{% url 'vehicle_make_edit' obj.pk %}" class="action-btn edit">
                                 <i class="ph ph-pencil-simple"></i>
                             </a>
-                            <a href="{% url 'vehicle_company_delete' obj.pk %}" onclick="return confirm('Delete this company?')" class="action-btn delete">
+                            <a href="{% url 'vehicle_make_delete' obj.pk %}" onclick="return confirm('Delete this make?')" class="action-btn delete">
                                 <i class="ph ph-trash"></i>
                             </a>
                         </div>
@@ -53,9 +62,9 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" style="text-align:center; padding:40px; color:#94a3b8;">
-                        <i class="ph ph-factory" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
-                        No companies found.
+                    <td colspan="4" style="text-align:center; padding:40px; color:#94a3b8;">
+                        <i class="ph ph-wrench" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+                        No vehicle makes found.
                     </td>
                 </tr>
                 {% endfor %}

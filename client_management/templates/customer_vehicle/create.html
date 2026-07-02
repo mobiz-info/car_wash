@@ -115,12 +115,30 @@
                 {% endif %}
             </div>
 
-            <!-- Vehicle Model Make -->
+            <!-- Vehicle Model Make (Manufacturer) -->
             <div class="form-group">
-                <label>Vehicle Model/Make</label>
+                <label>Vehicle Make</label>
+                {{ form.make }}
+                {% if form.make.errors %}
+                    <div class="error-text">{{ form.make.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Vehicle Model -->
+            <div class="form-group">
+                <label>Vehicle Model</label>
                 {{ form.brand_model }}
                 {% if form.brand_model.errors %}
                     <div class="error-text">{{ form.brand_model.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Vehicle Color -->
+            <div class="form-group">
+                <label>Vehicle Color</label>
+                {{ form.color }}
+                {% if form.color.errors %}
+                    <div class="error-text">{{ form.color.errors.0 }}</div>
                 {% endif %}
             </div>
 
@@ -143,6 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const vehicleType = document.getElementById("id_vehicle_type");
     const vehicleModel = document.getElementById("id_vehicle_type_model");
+    const vehicleMake = document.getElementById("id_make");
     const brandModel = document.getElementById("id_brand_model");
 
     // Level 1: Vehicle Type changes
@@ -151,6 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Reset lower levels
         vehicleModel.innerHTML = '<option value="">---------</option>';
+        vehicleMake.innerHTML = '<option value="">---------</option>';
         brandModel.innerHTML = '<option value="">---------</option>';
 
         if (!typeId) return;
@@ -174,13 +194,57 @@ document.addEventListener('DOMContentLoaded', function() {
     vehicleModel.addEventListener("change", function() {
         const segmentId = this.value;
 
-        // Reset Level 3
+        // Reset Level 3 & 4
+        vehicleMake.innerHTML = '<option value="">---------</option>';
         brandModel.innerHTML = '<option value="">---------</option>';
 
         if (!segmentId) return;
 
-        // Load Brand Models (Level 3)
+        // Load Makes (Level 3)
+        fetch("{% url 'ajax_load_makes' %}?vehicle_type_model=" + segmentId)
+            .then(response => response.json())
+            .then(data => {
+                let options = '<option value="">Select Make (Optional)</option>';
+                data.makes.forEach(function(item) {
+                    options += `<option value="${item.id}">${item.name}</option>`;
+                });
+                vehicleMake.innerHTML = options;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+
+        // Load Brand Models for segment (Level 4, unfiltered by make initially)
         fetch("{% url 'ajax_load_brand_models' %}?vehicle_type_model=" + segmentId)
+            .then(response => response.json())
+            .then(data => {
+                let options = '<option value="">Select Model</option>';
+                data.brand_models.forEach(function(item) {
+                    options += `<option value="${item.id}">${item.name}</option>`;
+                });
+                brandModel.innerHTML = options;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+    });
+
+    // Level 3: Vehicle Make changes
+    vehicleMake.addEventListener("change", function() {
+        const makeId = this.value;
+        const segmentId = vehicleModel.value;
+
+        brandModel.innerHTML = '<option value="">---------</option>';
+
+        if (!segmentId) return;
+
+        // Load Brand Models (Level 4, filtered by make)
+        let url = "{% url 'ajax_load_brand_models' %}?vehicle_type_model=" + segmentId;
+        if (makeId) {
+            url += "&make=" + makeId;
+        }
+
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 let options = '<option value="">Select Model</option>';

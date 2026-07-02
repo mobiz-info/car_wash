@@ -138,18 +138,29 @@ class VehicleColor(BaseModel):
         return self.name
 
 
+class VehicleMake(BaseModel):
+    """Manufacturer / Make — e.g. Honda, Toyota, Skoda (optional 3rd level)"""
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
+
 class VehicleBrandModel(BaseModel):
     vehicle_type_model = models.ForeignKey(VehicleTypeModel, on_delete=models.CASCADE, related_name='brand_models')
+    make = models.ForeignKey(VehicleMake, on_delete=models.SET_NULL, null=True, blank=True, related_name='models')
     name = models.CharField(max_length=150)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
+        if self.make:
+            return f"{self.vehicle_type_model.name} - {self.make.name} - {self.name}"
         return f"{self.vehicle_type_model.name} - {self.name}"
 
     class Meta:
         ordering = ['vehicle_type_model__name', 'name']
-        unique_together = ['vehicle_type_model', 'name']
-
-
-
-    
+        unique_together = ['vehicle_type_model', 'make', 'name']

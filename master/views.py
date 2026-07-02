@@ -1175,3 +1175,55 @@ def vehicle_brand_model_delete(request, id):
     instance.save()
     messages.success(request, "Vehicle Model deleted successfully")
     return redirect('vehicle_brand_model_list')
+
+
+# ==========================================
+# VEHICLE MAKE (MANUFACTURER)
+# ==========================================
+
+@login_required
+def vehicle_make_list(request):
+    search = request.GET.get('search', '')
+    queryset = VehicleMake.objects.filter(is_deleted=False)
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'vehicle_make/list.html', {'page_obj': page_obj, 'search': search})
+
+
+@login_required
+def vehicle_make_create(request):
+    form = VehicleMakeForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(VehicleMake)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Vehicle Make created successfully")
+            return redirect('vehicle_make_list')
+    return render(request, 'vehicle_make/create.html', {'form': form, 'title': 'Create Vehicle Make'})
+
+
+@login_required
+def vehicle_make_edit(request, id):
+    instance = get_object_or_404(VehicleMake, id=id, is_deleted=False)
+    form = VehicleMakeForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Vehicle Make updated successfully")
+            return redirect('vehicle_make_list')
+    return render(request, 'vehicle_make/create.html', {'form': form, 'title': 'Edit Vehicle Make'})
+
+
+@login_required
+def vehicle_make_delete(request, id):
+    instance = get_object_or_404(VehicleMake, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Vehicle Make deleted successfully")
+    return redirect('vehicle_make_list')

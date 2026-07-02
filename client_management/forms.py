@@ -536,7 +536,7 @@ class SchemeForm(forms.ModelForm):
 class CustomersVehicleForm(forms.ModelForm):
     class Meta:
         model = CustomerVehicle
-        fields = ['customer', 'vehicle_type', 'vehicle_type_model', 'vehicle_number', 'color', 'brand_model']
+        fields = ['customer', 'vehicle_type', 'vehicle_type_model', 'make', 'vehicle_number', 'color', 'brand_model']
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
@@ -588,25 +588,57 @@ class CustomersVehicleForm(forms.ModelForm):
         else:
             self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
 
-        # brand model queryset
+        from master.models import VehicleMake
+        # make queryset
         if self.data:
             vehicle_type_model_id = self.data.get('vehicle_type_model')
             if vehicle_type_model_id:
-                self.fields['brand_model'].queryset = VehicleBrandModel.objects.filter(
+                self.fields['make'].queryset = VehicleMake.objects.filter(
+                    models__vehicle_type_model_id=vehicle_type_model_id,
+                    is_active=True,
+                    is_deleted=False
+                ).distinct().order_by('name')
+            else:
+                self.fields['make'].queryset = VehicleMake.objects.none()
+        elif self.instance.pk and self.instance.vehicle_type_model:
+            self.fields['make'].queryset = VehicleMake.objects.filter(
+                models__vehicle_type_model=self.instance.vehicle_type_model,
+                is_active=True,
+                is_deleted=False
+            ).distinct().order_by('name')
+        else:
+            self.fields['make'].queryset = VehicleMake.objects.none()
+
+        self.fields['make'].required = False
+        self.fields['make'].empty_label = '---------'
+
+        # brand model queryset
+        if self.data:
+            vehicle_type_model_id = self.data.get('vehicle_type_model')
+            make_id = self.data.get('make')
+            if vehicle_type_model_id:
+                qs = VehicleBrandModel.objects.filter(
                     vehicle_type_model_id=vehicle_type_model_id,
                     is_active=True,
                     is_deleted=False
                 )
+                if make_id:
+                    qs = qs.filter(make_id=make_id)
+                self.fields['brand_model'].queryset = qs.order_by('name')
             else:
                 self.fields['brand_model'].queryset = VehicleBrandModel.objects.none()
         elif self.instance.pk and self.instance.vehicle_type_model:
-            self.fields['brand_model'].queryset = VehicleBrandModel.objects.filter(
+            qs = VehicleBrandModel.objects.filter(
                 vehicle_type_model=self.instance.vehicle_type_model,
                 is_active=True,
                 is_deleted=False
             )
+            if self.instance.make:
+                qs = qs.filter(make=self.instance.make)
+            self.fields['brand_model'].queryset = qs.order_by('name')
         else:
             self.fields['brand_model'].queryset = VehicleBrandModel.objects.none()
+
 
 
 class WhatsAppSettingForm(forms.ModelForm):

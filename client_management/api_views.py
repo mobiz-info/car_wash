@@ -932,7 +932,11 @@ def api_get_form_data(request):
     # --- Brand Models (per segment) ---
     brand_models_qs = VehicleBrandModel.objects.filter(
         vehicle_type_model__in=vehicle_type_models_qs, is_active=True, is_deleted=False
-    ).select_related('vehicle_type_model').order_by('vehicle_type_model__name', 'name')
+    ).select_related('vehicle_type_model', 'make').order_by('vehicle_type_model__name', 'name')
+
+    # --- Makes ---
+    from master.models import VehicleMake
+    makes_qs = VehicleMake.objects.filter(is_active=True, is_deleted=False).order_by('name')
 
     # --- Colors ---
     colors_qs = VehicleColor.objects.filter(is_deleted=False).order_by('name')
@@ -954,11 +958,13 @@ def api_get_form_data(request):
         # New hierarchy data
         'vehicle_types': [{'id': str(vt.id), 'name': vt.name} for vt in vehicle_types_qs],
         'vehicle_type_models': legacy_vehicle_models,
+        'makes': [{'id': str(mk.id), 'name': mk.name} for mk in makes_qs],
         'brand_models': [
             {
                 'id': str(bm.id),
                 'name': bm.name,
                 'vehicle_type_model_id': str(bm.vehicle_type_model.id),
+                'make_id': str(bm.make.id) if bm.make else '',
             }
             for bm in brand_models_qs
         ],
@@ -967,6 +973,7 @@ def api_get_form_data(request):
         'vehicle_models': legacy_vehicle_models,
         'branches': branches_data,
     })
+
 
 
 
@@ -1042,6 +1049,7 @@ def api_add_customer(request):
                 vehicle_number = v.get('vehicle_number', '').strip().upper()
                 vehicle_model_id = v.get('vehicle_model_id')
                 brand_model_id = v.get('brand_model_id')
+                make_id = v.get('make_id')
                 color_id = v.get('color_id')
                 if not vehicle_number or not vehicle_model_id:
                     continue
@@ -1049,11 +1057,15 @@ def api_add_customer(request):
                 if not vm:
                     continue
 
-                # Optional brand model
-                from master.models import VehicleBrandModel, VehicleColor
+                # Optional brand model and make
+                from master.models import VehicleBrandModel, VehicleColor, VehicleMake
                 brand_model = None
                 if brand_model_id:
                     brand_model = VehicleBrandModel.objects.filter(id=brand_model_id, is_deleted=False).first()
+
+                make = None
+                if make_id:
+                    make = VehicleMake.objects.filter(id=make_id, is_deleted=False).first()
 
                 # Optional color
                 color = None
@@ -1065,6 +1077,7 @@ def api_add_customer(request):
                     vehicle_type_model=vm,
                     vehicle_type=vm.vehicle_type if vm else None,
                     vehicle_number=vehicle_number,
+                    make=make,
                     brand_model=brand_model,
                     color=color,
                     creator=user,
@@ -1075,6 +1088,7 @@ def api_add_customer(request):
                     'no': cv.vehicle_number,
                     'type': vm.name,
                     'vehicle_type': vm.vehicle_type.name if vm.vehicle_type else '',
+                    'make': make.name if make else '',
                     'brand_model': brand_model.name if brand_model else '',
                     'color': color.name if color else '',
                 })
@@ -1555,6 +1569,7 @@ def api_edit_customer(request):
                 vehicle_number = v.get('vehicle_number', '').strip().upper()
                 vehicle_model_id = v.get('vehicle_model_id')
                 brand_model_id = v.get('brand_model_id')
+                make_id = v.get('make_id')
                 color_id = v.get('color_id')
                 if not vehicle_number or not vehicle_model_id:
                     continue
@@ -1562,10 +1577,13 @@ def api_edit_customer(request):
                 if not vm:
                     continue
 
-                from master.models import VehicleBrandModel, VehicleColor
+                from master.models import VehicleBrandModel, VehicleColor, VehicleMake
                 brand_model = None
                 if brand_model_id:
                     brand_model = VehicleBrandModel.objects.filter(id=brand_model_id, is_deleted=False).first()
+                make = None
+                if make_id:
+                    make = VehicleMake.objects.filter(id=make_id, is_deleted=False).first()
                 color = None
                 if color_id:
                     color = VehicleColor.objects.filter(id=color_id, is_deleted=False).first()
@@ -1575,6 +1593,7 @@ def api_edit_customer(request):
                     vehicle_type_model=vm,
                     vehicle_type=vm.vehicle_type if vm else None,
                     vehicle_number=vehicle_number,
+                    make=make,
                     brand_model=brand_model,
                     color=color,
                     creator=user,

@@ -219,6 +219,7 @@ class CustomerVehicle(BaseModel):
     vehicle_type_model = models.ForeignKey('master.VehicleTypeModel', on_delete=models.CASCADE)
     vehicle_number = models.CharField(max_length=100)
     color = models.ForeignKey('master.VehicleColor', on_delete=models.SET_NULL, blank=True, null=True)
+    make = models.ForeignKey('master.VehicleMake', on_delete=models.SET_NULL, blank=True, null=True)
     brand_model = models.ForeignKey('master.VehicleBrandModel', on_delete=models.SET_NULL, blank=True, null=True)
 
     def __str__(self):

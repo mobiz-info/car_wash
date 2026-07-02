@@ -839,13 +839,36 @@ def ajax_load_vehicle_models(request):
     return JsonResponse({'models': []})
 
 
+def ajax_load_makes(request):
+    from master.models import VehicleMake
+    segment_id = request.GET.get('vehicle_type_model')
+    if segment_id:
+        makes = VehicleMake.objects.filter(
+            models__vehicle_type_model_id=segment_id,
+            models__is_deleted=False,
+            is_deleted=False,
+            is_active=True
+        ).distinct().order_by('name')
+        return JsonResponse({'makes': list(makes.values('id', 'name'))})
+    return JsonResponse({'makes': []})
+
+
 def ajax_load_brand_models(request):
     from master.models import VehicleBrandModel
     vehicle_type_model_id = request.GET.get('vehicle_type_model')
+    make_id = request.GET.get('make')
     if vehicle_type_model_id:
-        brand_models = VehicleBrandModel.objects.filter(vehicle_type_model_id=vehicle_type_model_id, is_active=True, is_deleted=False).order_by('name')
-        return JsonResponse({'brand_models': list(brand_models.values('id', 'name'))})
+        queryset = VehicleBrandModel.objects.filter(
+            vehicle_type_model_id=vehicle_type_model_id,
+            is_active=True,
+            is_deleted=False
+        )
+        if make_id:
+            queryset = queryset.filter(make_id=make_id)
+        queryset = queryset.order_by('name')
+        return JsonResponse({'brand_models': list(queryset.values('id', 'name'))})
     return JsonResponse({'brand_models': []})
+
 
 
 # ==========================================

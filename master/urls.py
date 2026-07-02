@@ -65,4 +65,10 @@ urlpatterns = [
     path('vehicle-brand-model/create/', views.vehicle_brand_model_create, name='vehicle_brand_model_create'),
     path('vehicle-brand-model/edit/<uuid:id>/', views.vehicle_brand_model_edit, name='vehicle_brand_model_edit'),
     path('vehicle-brand-model/delete/<uuid:id>/', views.vehicle_brand_model_delete, name='vehicle_brand_model_delete'),
+
+    # Vehicle Make (Manufacturer)
+    path('vehicle-make/', views.vehicle_make_list, name='vehicle_make_list'),
+    path('vehicle-make/create/', views.vehicle_make_create, name='vehicle_make_create'),
+    path('vehicle-make/edit/<uuid:id>/', views.vehicle_make_edit, name='vehicle_make_edit'),
+    path('vehicle-make/delete/<uuid:id>/', views.vehicle_make_delete, name='vehicle_make_delete'),
 ]

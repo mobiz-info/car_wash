@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Vehicle Make - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Vehicle Make{% endblock %}
+{% block breadcrumb_active %}Vehicle Make{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-wrench" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label>Vehicle Make Name</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div style="color:red; font-size:0.8rem; margin-top:4px;">{{ form.name.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="checkbox-wrapper">
+            {{ form.is_active }} Active
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'vehicle_make_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save 
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
