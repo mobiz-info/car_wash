@@ -522,6 +522,7 @@ def api_outstanding_list(request):
             'amount_collected': str(inv.amount_collected),
             'outstanding': str(outstanding),
             'customer': {
+                'id': str(inv.customer.id),
                 'name': inv.customer.name,
                 'phone': inv.customer.phone,
             },
