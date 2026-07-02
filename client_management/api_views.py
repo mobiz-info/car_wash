@@ -1554,19 +1554,33 @@ def api_edit_customer(request):
             for v in new_vehicles:
                 vehicle_number = v.get('vehicle_number', '').strip().upper()
                 vehicle_model_id = v.get('vehicle_model_id')
+                brand_model_id = v.get('brand_model_id')
+                color_id = v.get('color_id')
                 if not vehicle_number or not vehicle_model_id:
                     continue
                 vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
                 if not vm:
                     continue
+
+                from master.models import VehicleBrandModel, VehicleColor
+                brand_model = None
+                if brand_model_id:
+                    brand_model = VehicleBrandModel.objects.filter(id=brand_model_id, is_deleted=False).first()
+                color = None
+                if color_id:
+                    color = VehicleColor.objects.filter(id=color_id, is_deleted=False).first()
+
                 CustomerVehicle.objects.create(
                     customer=customer,
                     vehicle_type_model=vm,
                     vehicle_type=vm.vehicle_type if vm else None,
                     vehicle_number=vehicle_number,
+                    brand_model=brand_model,
+                    color=color,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )
+
 
         return JsonResponse({'success': True, 'message': 'Customer updated successfully'})
 
