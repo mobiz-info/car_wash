@@ -75,6 +75,7 @@ urlpatterns = [
     path('customer-vehicle/create/', views.customer_vehicle_create, name='customer_vehicle_create'),
     path('customer-vehicle/edit/<uuid:pk>/', views.customer_vehicle_edit, name='customer_vehicle_edit'),
     path('customer-vehicle/delete/<uuid:pk>/', views.customer_vehicle_delete, name='customer_vehicle_delete'),
+    path('branch/vehicle-types/', views.branch_vehicle_type_manage, name='branch_vehicle_type_manage'),
 
     # Mobile API Endpoints
     path('api/login/', api_views.api_login, name='api_login'),

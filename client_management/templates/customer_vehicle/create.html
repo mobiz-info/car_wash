@@ -194,6 +194,17 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 
+    // ---- Filter vehicle types to branch-enabled only ----
+    {% if enabled_vehicle_type_ids %}
+    const enabledTypeIds = {{ enabled_vehicle_type_ids|safe }};
+    const vtSelect = document.getElementById("id_vehicle_type");
+    Array.from(vtSelect.options).forEach(function(option) {
+        if (option.value && !enabledTypeIds.includes(option.value)) {
+            option.remove();
+        }
+    });
+    {% endif %}
+
 });
 </script>
 

@@ -118,6 +118,7 @@ class Branch(BaseModel):
     branch_admin = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_branch')
 
     scheme_types = models.ManyToManyField('master.SchemeType', blank=True)
+    enabled_vehicle_types = models.ManyToManyField('master.VehicleType', related_name='enabled_branches', blank=True)
     invoice_prefix = models.CharField(
         max_length=5, blank=True, null=True,
         help_text="Letter prefix for invoices (e.g. A → INV-A-1). Leave blank to auto-assign."

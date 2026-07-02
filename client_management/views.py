@@ -1275,6 +1275,14 @@ def customer_vehicle_list(request):
 def customer_vehicle_create(request):
     form = CustomersVehicleForm(request.POST or None, request.FILES or None, request=request)
 
+    # Get enabled vehicle types for the branch (for filtering in template JS / form)
+    branch = getattr(request.user, 'managed_branch', None)
+    if branch and branch.enabled_vehicle_types.exists():
+        enabled_vehicle_type_ids = list(branch.enabled_vehicle_types.values_list('id', flat=True))
+    else:
+        # If no restrictions set, show all active types
+        enabled_vehicle_type_ids = list(VehicleType.objects.filter(is_active=True, is_deleted=False).values_list('id', flat=True))
+
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)
@@ -1282,7 +1290,38 @@ def customer_vehicle_create(request):
             instance.save()
             return redirect('customer_vehicle_list')
 
-    return render(request, 'customer_vehicle/create.html', {'form': form, 'title': 'Create Vehicle'})
+    return render(request, 'customer_vehicle/create.html', {
+        'form': form,
+        'title': 'Create Vehicle',
+        'enabled_vehicle_type_ids': [str(i) for i in enabled_vehicle_type_ids],
+    })
+
+
+@login_required
+def branch_vehicle_type_manage(request):
+    """BRANCH_ADMIN enables/disables vehicle types for their branch."""
+    branch = getattr(request.user, 'managed_branch', None)
+    if not branch:
+        messages.error(request, "No branch assigned to you.")
+        return redirect('dashboard')
+
+    all_vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')
+    enabled_ids = set(branch.enabled_vehicle_types.values_list('id', flat=True))
+
+    if request.method == 'POST':
+        selected_ids = request.POST.getlist('vehicle_types')
+        branch.enabled_vehicle_types.set(
+            VehicleType.objects.filter(id__in=selected_ids, is_active=True, is_deleted=False)
+        )
+        messages.success(request, "Vehicle types updated successfully.")
+        return redirect('branch_vehicle_type_manage')
+
+    return render(request, 'customer_vehicle/vehicle_type_manage.html', {
+        'branch': branch,
+        'vehicle_types': all_vehicle_types,
+        'enabled_ids': enabled_ids,
+        'title': 'Enable Vehicle Types',
+    })
 
 
 @login_required

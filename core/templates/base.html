@@ -808,6 +808,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'customer_vehicle_list' %}" class="nav-item submenu-item">Vehicle List</a>
                 <a href="{% url 'customer_vehicle_create' %}" class="nav-item submenu-item">Add Vehicle</a>
+                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Types</a>
             </div>
 
             {% if request.user.managed_branch and request.user.managed_branch.scheme_types.exists %}
