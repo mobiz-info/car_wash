@@ -1122,52 +1122,56 @@ def vehicle_color_delete(request, id):
 
 
 # ==========================================
-# VEHICLE COMPANY
+# VEHICLE BRAND/MODEL
 # ==========================================
 
 @login_required
-def vehicle_company_list(request):
+def vehicle_brand_model_list(request):
     search = request.GET.get('search', '')
-    queryset = VehicleCompany.objects.filter(is_deleted=False)
+    from django.db.models import Q
+    queryset = VehicleBrandModel.objects.filter(is_deleted=False).select_related('vehicle_type_model')
     if search:
-        queryset = queryset.filter(name__icontains=search)
+        queryset = queryset.filter(
+            Q(name__icontains=search) |
+            Q(vehicle_type_model__name__icontains=search)
+        )
     paginator = Paginator(queryset, 15)
     page_obj = paginator.get_page(request.GET.get('page'))
-    return render(request, 'vehicle_company/list.html', {'page_obj': page_obj, 'search': search})
+    return render(request, 'vehicle_brand_model/list.html', {'page_obj': page_obj, 'search': search})
 
 
 @login_required
-def vehicle_company_create(request):
-    form = VehicleCompanyForm(request.POST or None)
+def vehicle_brand_model_create(request):
+    form = VehicleBrandModelForm(request.POST or None)
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)
-            instance.auto_id = get_auto_id(VehicleCompany)
+            instance.auto_id = get_auto_id(VehicleBrandModel)
             instance.creator = request.user
             instance.save()
-            messages.success(request, "Vehicle Company created successfully")
-            return redirect('vehicle_company_list')
-    return render(request, 'vehicle_company/create.html', {'form': form, 'title': 'Create Vehicle Company'})
+            messages.success(request, "Vehicle Model created successfully")
+            return redirect('vehicle_brand_model_list')
+    return render(request, 'vehicle_brand_model/create.html', {'form': form, 'title': 'Create Vehicle Model'})
 
 
 @login_required
-def vehicle_company_edit(request, id):
-    instance = get_object_or_404(VehicleCompany, id=id, is_deleted=False)
-    form = VehicleCompanyForm(request.POST or None, instance=instance)
+def vehicle_brand_model_edit(request, id):
+    instance = get_object_or_404(VehicleBrandModel, id=id, is_deleted=False)
+    form = VehicleBrandModelForm(request.POST or None, instance=instance)
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)
             instance.updater = request.user
             instance.save()
-            messages.success(request, "Vehicle Company updated successfully")
-            return redirect('vehicle_company_list')
-    return render(request, 'vehicle_company/create.html', {'form': form, 'title': 'Edit Vehicle Company'})
+            messages.success(request, "Vehicle Model updated successfully")
+            return redirect('vehicle_brand_model_list')
+    return render(request, 'vehicle_brand_model/create.html', {'form': form, 'title': 'Edit Vehicle Model'})
 
 
 @login_required
-def vehicle_company_delete(request, id):
-    instance = get_object_or_404(VehicleCompany, id=id)
+def vehicle_brand_model_delete(request, id):
+    instance = get_object_or_404(VehicleBrandModel, id=id)
     instance.is_deleted = True
     instance.save()
-    messages.success(request, "Vehicle Company deleted successfully")
-    return redirect('vehicle_company_list')
+    messages.success(request, "Vehicle Model deleted successfully")
+    return redirect('vehicle_brand_model_list')

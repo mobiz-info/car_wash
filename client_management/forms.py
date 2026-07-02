@@ -419,7 +419,7 @@ class RenewalForm(forms.Form):
 
 
 from .models import Customer, CustomerVehicle
-from master.models import VehicleTypeModel
+from master.models import VehicleType, VehicleTypeModel, VehicleBrandModel
 
 class CustomerForm(forms.ModelForm):
     class Meta:
@@ -465,7 +465,7 @@ class CustomerVehicleForm(forms.ModelForm):
 
     class Meta:
         model = CustomerVehicle
-        fields = ['vehicle_type', 'vehicle_type_model', 'vehicle_number', 'color', 'company']
+        fields = ['vehicle_type', 'vehicle_type_model', 'vehicle_number', 'color', 'brand_model']
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -488,6 +488,17 @@ class CustomerVehicleForm(forms.ModelForm):
             self.fields['vehicle_type_model'].queryset = self.instance.vehicle_type_model.vehicle_type.models.filter(is_active=True, is_deleted=False).order_by('name')
         else:
             self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
+
+        if 'vehicle_type_model' in self.data:
+            try:
+                vehicle_type_model_id = int(self.data.get('vehicle_type_model'))
+                self.fields['brand_model'].queryset = VehicleBrandModel.objects.filter(vehicle_type_model_id=vehicle_type_model_id, is_active=True, is_deleted=False).order_by('name')
+            except (ValueError, TypeError):
+                pass
+        elif not self.instance._state.adding and getattr(self.instance, 'vehicle_type_model_id', None):
+            self.fields['brand_model'].queryset = self.instance.vehicle_type_model.brand_models.filter(is_active=True, is_deleted=False).order_by('name')
+        else:
+            self.fields['brand_model'].queryset = VehicleBrandModel.objects.none()
 
 
 class CustomerTypeForm(forms.ModelForm):
@@ -525,7 +536,7 @@ class SchemeForm(forms.ModelForm):
 class CustomersVehicleForm(forms.ModelForm):
     class Meta:
         model = CustomerVehicle
-        fields = ['customer', 'vehicle_type', 'vehicle_type_model', 'vehicle_number', 'color', 'company']
+        fields = ['customer', 'vehicle_type', 'vehicle_type_model', 'vehicle_number', 'color', 'brand_model']
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
@@ -576,6 +587,26 @@ class CustomersVehicleForm(forms.ModelForm):
             )
         else:
             self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.none()
+
+        # brand model queryset
+        if self.data:
+            vehicle_type_model_id = self.data.get('vehicle_type_model')
+            if vehicle_type_model_id:
+                self.fields['brand_model'].queryset = VehicleBrandModel.objects.filter(
+                    vehicle_type_model_id=vehicle_type_model_id,
+                    is_active=True,
+                    is_deleted=False
+                )
+            else:
+                self.fields['brand_model'].queryset = VehicleBrandModel.objects.none()
+        elif self.instance.pk and self.instance.vehicle_type_model:
+            self.fields['brand_model'].queryset = VehicleBrandModel.objects.filter(
+                vehicle_type_model=self.instance.vehicle_type_model,
+                is_active=True,
+                is_deleted=False
+            )
+        else:
+            self.fields['brand_model'].queryset = VehicleBrandModel.objects.none()
 
 
 class WhatsAppSettingForm(forms.ModelForm):

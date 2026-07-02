@@ -58,6 +58,7 @@ urlpatterns = [
     path('customer/edit/<uuid:id>/', views.customer_edit, name='customer_edit'),
     path('customer/delete/<uuid:id>/', views.customer_delete, name='customer_delete'),
     path('ajax/load-vehicle-models/', views.ajax_load_vehicle_models, name='ajax_load_vehicle_models'),
+    path('ajax/load-brand-models/', views.ajax_load_brand_models, name='ajax_load_brand_models'),
 
     # Scheme Management
     path('scheme/', views.scheme_list, name='scheme_list'),

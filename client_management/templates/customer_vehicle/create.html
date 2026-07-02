@@ -115,12 +115,12 @@
                 {% endif %}
             </div>
 
-            <!-- Vehicle Company -->
+            <!-- Vehicle Model Make -->
             <div class="form-group">
-                <label>Vehicle Brand/Company</label>
-                {{ form.company }}
-                {% if form.company.errors %}
-                    <div class="error-text">{{ form.company.errors.0 }}</div>
+                <label>Vehicle Model/Make</label>
+                {{ form.brand_model }}
+                {% if form.brand_model.errors %}
+                    <div class="error-text">{{ form.brand_model.errors.0 }}</div>
                 {% endif %}
             </div>
 
@@ -143,26 +143,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const vehicleType = document.getElementById("id_vehicle_type");
     const vehicleModel = document.getElementById("id_vehicle_type_model");
+    const brandModel = document.getElementById("id_brand_model");
 
+    // Level 1: Vehicle Type changes
     vehicleType.addEventListener("change", function() {
         const typeId = this.value;
 
-        if (!typeId) {
-            vehicleModel.innerHTML = '<option value="">---------</option>';
-            return;
-        }
+        // Reset lower levels
+        vehicleModel.innerHTML = '<option value="">---------</option>';
+        brandModel.innerHTML = '<option value="">---------</option>';
 
+        if (!typeId) return;
+
+        // Load Vehicle Type Models (Level 2)
         fetch("{% url 'ajax_load_vehicle_models' %}?vehicle_type=" + typeId)
             .then(response => response.json())
             .then(data => {
-
-                let options = '<option value="">Select Model</option>';
-
+                let options = '<option value="">Select Segment</option>';
                 data.models.forEach(function(item) {
                     options += `<option value="${item.id}">${item.name}</option>`;
                 });
-
                 vehicleModel.innerHTML = options;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+    });
+
+    // Level 2: Vehicle Type Model (Segment) changes
+    vehicleModel.addEventListener("change", function() {
+        const segmentId = this.value;
+
+        // Reset Level 3
+        brandModel.innerHTML = '<option value="">---------</option>';
+
+        if (!segmentId) return;
+
+        // Load Brand Models (Level 3)
+        fetch("{% url 'ajax_load_brand_models' %}?vehicle_type_model=" + segmentId)
+            .then(response => response.json())
+            .then(data => {
+                let options = '<option value="">Select Model</option>';
+                data.brand_models.forEach(function(item) {
+                    options += `<option value="${item.id}">${item.name}</option>`;
+                });
+                brandModel.innerHTML = options;
             })
             .catch(error => {
                 console.error("Error:", error);

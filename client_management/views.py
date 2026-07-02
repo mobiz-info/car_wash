@@ -839,6 +839,15 @@ def ajax_load_vehicle_models(request):
     return JsonResponse({'models': []})
 
 
+def ajax_load_brand_models(request):
+    from master.models import VehicleBrandModel
+    vehicle_type_model_id = request.GET.get('vehicle_type_model')
+    if vehicle_type_model_id:
+        brand_models = VehicleBrandModel.objects.filter(vehicle_type_model_id=vehicle_type_model_id, is_active=True, is_deleted=False).order_by('name')
+        return JsonResponse({'brand_models': list(brand_models.values('id', 'name'))})
+    return JsonResponse({'brand_models': []})
+
+
 # ==========================================
 # SCHEME MANAGEMENT
 # ==========================================

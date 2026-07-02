@@ -93,10 +93,15 @@ class VehicleColorForm(forms.ModelForm):
         }
 
 
-class VehicleCompanyForm(forms.ModelForm):
+class VehicleBrandModelForm(forms.ModelForm):
     class Meta:
-        model = VehicleCompany
-        fields = ['name']
+        model = VehicleBrandModel
+        fields = ['vehicle_type_model', 'name', 'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Company/Brand Name'})
+            'vehicle_type_model': forms.Select(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Vehicle Model Name'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(is_deleted=False).order_by('vehicle_type__name', 'name')

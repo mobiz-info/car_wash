@@ -138,11 +138,18 @@ class VehicleColor(BaseModel):
         return self.name
 
 
-class VehicleCompany(BaseModel):
-    name = models.CharField(max_length=100, unique=True)
+class VehicleBrandModel(BaseModel):
+    vehicle_type_model = models.ForeignKey(VehicleTypeModel, on_delete=models.CASCADE, related_name='brand_models')
+    name = models.CharField(max_length=150)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.vehicle_type_model.name} - {self.name}"
+
+    class Meta:
+        ordering = ['vehicle_type_model__name', 'name']
+        unique_together = ['vehicle_type_model', 'name']
+
 
 
     

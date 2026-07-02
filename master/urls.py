@@ -60,9 +60,9 @@ urlpatterns = [
     path('vehicle-color/edit/<uuid:id>/', views.vehicle_color_edit, name='vehicle_color_edit'),
     path('vehicle-color/delete/<uuid:id>/', views.vehicle_color_delete, name='vehicle_color_delete'),
 
-    # Vehicle Company
-    path('vehicle-company/', views.vehicle_company_list, name='vehicle_company_list'),
-    path('vehicle-company/create/', views.vehicle_company_create, name='vehicle_company_create'),
-    path('vehicle-company/edit/<uuid:id>/', views.vehicle_company_edit, name='vehicle_company_edit'),
-    path('vehicle-company/delete/<uuid:id>/', views.vehicle_company_delete, name='vehicle_company_delete'),
+    # Vehicle Brand/Model
+    path('vehicle-brand-model/', views.vehicle_brand_model_list, name='vehicle_brand_model_list'),
+    path('vehicle-brand-model/create/', views.vehicle_brand_model_create, name='vehicle_brand_model_create'),
+    path('vehicle-brand-model/edit/<uuid:id>/', views.vehicle_brand_model_edit, name='vehicle_brand_model_edit'),
+    path('vehicle-brand-model/delete/<uuid:id>/', views.vehicle_brand_model_delete, name='vehicle_brand_model_delete'),
 ]
