@@ -27,6 +27,7 @@
                 <tr>
                     <th style="width: 80px;">#</th>
                     <th>Vehicle Type Model (Segment)</th>
+                    <th>Vehicle Make</th>
                     <th>Vehicle Model Name</th>
                     <th style="text-align:right;">Action</th>
                 </tr>
@@ -38,6 +39,10 @@
 
                     <td style="color:#475569;">
                         {{ obj.vehicle_type_model.vehicle_type.name }} - {{ obj.vehicle_type_model.name }}
+                    </td>
+
+                    <td style="color:#475569; font-weight: 500;">
+                        {{ obj.make.name|default:"-" }}
                     </td>
 
                     <td style="font-weight:600; color:#1e293b;">

@@ -116,5 +116,5 @@ class VehicleBrandModelForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['vehicle_type_model'].queryset = VehicleTypeModel.objects.filter(is_deleted=False).order_by('vehicle_type__name', 'name')
         self.fields['make'].queryset = VehicleMake.objects.filter(is_deleted=False, is_active=True).order_by('name')
-        self.fields['make'].required = False
-        self.fields['make'].empty_label = '-- No Make (optional) --'
+        self.fields['make'].required = True
+        self.fields['make'].empty_label = '-- Select Make --'
