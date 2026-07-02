@@ -4005,6 +4005,87 @@ def api_report_daywise_consolidated(request):
         return JsonResponse({'success': False, 'message': 'Invalid report type'}, status=400)
 
 
+@csrf_exempt
+def api_report_payment_type(request):
+    """Payment Type report: returns total amounts collected grouped by payment mode, and all receipts."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import Receipt
+    from django.db.models import Sum
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    receipt_scope = {}
+    if 'branch' in scope:
+        receipt_scope['invoice__branch'] = scope['branch']
+    elif 'branch__company' in scope:
+        receipt_scope['invoice__branch__company'] = scope['branch__company']
+
+    rec_qs = Receipt.objects.filter(
+        created_at__date__gte=from_date,
+        created_at__date__lte=to_date,
+        **receipt_scope
+    )
+
+    # Group by payment mode
+    grouped = rec_qs.values('payment_mode').annotate(total_amount=Sum('amount')).order_by('-total_amount')
+    
+    PAYMENT_LABELS = dict(Receipt.PAYMENT_CHOICES)
+    
+    summary = []
+    total_collected = 0
+    for item in grouped:
+        mode = item['payment_mode']
+        amt = item['total_amount'] or 0
+        total_collected += amt
+        summary.append({
+            'payment_mode': mode,
+            'payment_mode_display': PAYMENT_LABELS.get(mode, mode.title()),
+            'total_amount': str(amt),
+        })
+
+    existing_modes = {item['payment_mode'] for item in grouped}
+    for mode, label in Receipt.PAYMENT_CHOICES:
+        if mode not in existing_modes:
+            summary.append({
+                'payment_mode': mode,
+                'payment_mode_display': label,
+                'total_amount': '0.00',
+            })
+
+    # Individual rows for detail table
+    rec_qs = rec_qs.select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch').order_by('-created_at')
+    rows = []
+    for rec in rec_qs:
+        rows.append({
+            'receipt_number': rec.receipt_number,
+            'date': rec.created_at.date().strftime('%d-%m-%Y'),
+            'invoice_number': rec.invoice.invoice_number,
+            'customer': rec.invoice.customer.name,
+            'phone': rec.invoice.customer.phone,
+            'vehicle': rec.invoice.vehicle.vehicle_number if rec.invoice.vehicle else '',
+            'branch': rec.invoice.branch.name if rec.invoice.branch else '',
+            'amount': str(rec.amount),
+            'payment_mode': PAYMENT_LABELS.get(rec.payment_mode, rec.payment_mode.title()),
+            'remarks': rec.remarks or '',
+        })
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_collected': str(total_collected),
+        'summary': summary,
+        'rows': rows,
+    })
+
+
+
 
 
 

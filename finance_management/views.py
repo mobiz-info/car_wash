@@ -1794,3 +1794,78 @@ def generate_invoice_pdf_file(invoice, base_url):
         base_url += '/'
     return f"{base_url}media/invoices/{pdf_filename}"
 
+
+@login_required
+def payment_type_report(request):
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    from finance_management.models import Receipt
+    from django.db.models import Sum
+
+    receipts = Receipt.objects.filter(is_deleted=False).select_related(
+        'invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch'
+    ).order_by('-created_at')
+
+    # Scope filtering
+    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        receipts = receipts.filter(invoice__branch__company=user.profile.company)
+        branches = Branch.objects.filter(company=user.profile.company, is_deleted=False)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        receipts = receipts.filter(invoice__branch=user.managed_branch)
+        branches = None
+    else:
+        branches = Branch.objects.filter(is_deleted=False)
+
+    # Date filters
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    branch_id = request.GET.get('branch_id')
+
+    if from_date:
+        receipts = receipts.filter(created_at__date__gte=from_date)
+    if to_date:
+        receipts = receipts.filter(created_at__date__lte=to_date)
+    if branch_id:
+        receipts = receipts.filter(invoice__branch_id=branch_id)
+
+    # Calculate payment type totals
+    grouped = receipts.values('payment_mode').annotate(total_amount=Sum('amount')).order_by('-total_amount')
+    
+    PAYMENT_LABELS = dict(Receipt.PAYMENT_CHOICES)
+    summary = []
+    total_collected = 0
+    for item in grouped:
+        mode = item['payment_mode']
+        amt = item['total_amount'] or 0
+        total_collected += amt
+        summary.append({
+            'payment_mode': mode,
+            'payment_mode_display': PAYMENT_LABELS.get(mode, mode.title()),
+            'total_amount': amt,
+        })
+
+    # Fill in missing modes
+    existing_modes = {item['payment_mode'] for item in grouped}
+    for mode, label in Receipt.PAYMENT_CHOICES:
+        if mode not in existing_modes:
+            summary.append({
+                'payment_mode': mode,
+                'payment_mode_display': label,
+                'total_amount': Decimal('0.00'),
+            })
+
+    context = {
+        'receipts': receipts,
+        'summary': summary,
+        'total_collected': total_collected,
+        'branches': branches,
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'title': 'Payment Type Report',
+    }
+
+    return render(request, 'reports/payment_type_report.html', context)
+
+

@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment Type Report - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Payment Type Report{% endblock %}
+{% block breadcrumb_active %}Payment Type Report{% endblock %}
+
+{% block content %}
+
+<style>
+.report-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Filter Card */
+.filter-card {
+    background: white;
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+
+.date-input {
+    height: 46px;
+    border-radius: 12px;
+    border: 1px solid #dbeafe;
+    background: #f8fafc;
+    padding: 0 14px;
+    font-size: 0.9rem;
+}
+
+.filter-btn {
+    height: 46px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0f766e, #0d9488);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.filter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(13, 148, 136, 0.2);
+}
+
+/* Payment Type Summary Grid */
+.payment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.payment-card {
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+    position: relative;
+    overflow: hidden;
+    transition: 0.3s;
+}
+
+.payment-card:hover {
+    transform: translateY(-3px);
+}
+
+.payment-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 100%;
+}
+
+.payment-card.cash::before { background: #10b981; }
+.payment-card.card::before { background: #3b82f6; }
+.payment-card.digital_payments::before { background: #8b5cf6; }
+.payment-card.cheque::before { background: #f59e0b; }
+.payment-card.online::before { background: #ec4899; }
+.payment-card.total::before { background: #0f766e; }
+
+.card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-label {
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.payment-card.cash .card-icon { background: #d1fae5; color: #10b981; }
+.payment-card.card .card-icon { background: #dbeafe; color: #3b82f6; }
+.payment-card.digital_payments .card-icon { background: #ede9fe; color: #8b5cf6; }
+.payment-card.cheque .card-icon { background: #fef3c7; color: #f59e0b; }
+.payment-card.online .card-icon { background: #fce7f3; color: #ec4899; }
+.payment-card.total .card-icon { background: #ccfbf1; color: #0f766e; }
+
+.card-value {
+    margin-top: 14px;
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+/* Table Card */
+.table-card {
+    background: white;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.05);
+}
+
+.table-header {
+    padding: 22px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #0f172a;
+}
+
+.table-header span {
+    color: #64748b;
+    font-size: 0.88rem;
+}
+
+.premium-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.premium-table thead {
+    background: #f8fafc;
+}
+
+.premium-table th {
+    padding: 16px;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #64748b;
+    font-weight: 700;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+}
+
+.premium-table td {
+    padding: 18px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+}
+
+.mode-badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: inline-block;
+}
+
+.mode-badge.cash { background: #d1fae5; color: #065f46; }
+.mode-badge.card { background: #dbeafe; color: #1e40af; }
+.mode-badge.digital_payments { background: #ede9fe; color: #5b21b6; }
+.mode-badge.cheque { background: #fef3c7; color: #92400e; }
+.mode-badge.online { background: #fce7f3; color: #9d174d; }
+
+.amount-collected {
+    font-weight: 700;
+    color: #0f172a;
+}
+</style>
+
+<div class="report-wrapper">
+
+    <!-- Filter -->
+    <div class="filter-card">
+        <form method="GET" class="filter-form">
+            <input type="date" name="from_date" value="{{ from_date }}" class="date-input">
+            <input type="date" name="to_date" value="{{ to_date }}" class="date-input">
+            
+            {% if branches %}
+            <select name="branch_id" class="date-input" style="min-width: 180px;">
+                <option value="">All Branches</option>
+                {% for b in branches %}
+                    <option value="{{ b.id }}" {% if branch_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
+            <button type="submit" class="filter-btn">
+                <i class="ph ph-funnel"></i> Filter
+            </button>
+        </form>
+    </div>
+
+    <!-- Summary Grid -->
+    <div class="payment-grid">
+        {% for item in summary %}
+        <div class="payment-card {{ item.payment_mode }}">
+            <div class="card-top">
+                <div class="card-label">{{ item.payment_mode_display }}</div>
+                <div class="card-icon">
+                    {% if item.payment_mode == 'cash' %}
+                        <i class="ph ph-money"></i>
+                    {% elif item.payment_mode == 'card' %}
+                        <i class="ph ph-credit-card"></i>
+                    {% elif item.payment_mode == 'digital_payments' %}
+                        <i class="ph ph-qr-code"></i>
+                    {% elif item.payment_mode == 'cheque' %}
+                        <i class="ph ph-notepad"></i>
+                    {% elif item.payment_mode == 'online' %}
+                        <i class="ph ph-globe"></i>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-value">
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.total_amount }}
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Total Collected -->
+        <div class="payment-card total">
+            <div class="card-top">
+                <div class="card-label">Total Collections</div>
+                <div class="card-icon">
+                    <i class="ph ph-wallet"></i>
+                </div>
+            </div>
+            <div class="card-value">
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_collected }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <div>
+                <h3>Collection Receipts</h3>
+                <span>Total Receipts : {{ receipts|length }}</span>
+            </div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">#</th>
+                        <th>Receipt No</th>
+                        <th>Invoice No</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Branch</th>
+                        <th>Payment Mode</th>
+                        <th style="text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in receipts %}
+                    <tr>
+                        <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                        <td style="font-weight: 600; color: #1e293b;">{{ r.receipt_number }}</td>
+                        <td>{{ r.invoice.invoice_number }}</td>
+                        <td>{{ r.created_at|date:"d M Y" }}</td>
+                        <td>
+                            <div style="font-weight: 600; color: #334155;">{{ r.invoice.customer.name }}</div>
+                            <div style="font-size: 0.78rem; color: #64748b;">{{ r.invoice.customer.phone }}</div>
+                        </td>
+                        <td>{{ r.invoice.branch.name }}</td>
+                        <td>
+                            <span class="mode-badge {{ r.payment_mode }}">
+                                {% if r.payment_mode == 'cash' %}Cash{% elif r.payment_mode == 'card' %}Card{% elif r.payment_mode == 'digital_payments' %}Digital Payments{% elif r.payment_mode == 'cheque' %}Cheque{% elif r.payment_mode == 'online' %}Online{% else %}{{ r.payment_mode|title }}{% endif %}
+                            </span>
+                        </td>
+                        <td class="amount-collected" style="text-align: right;">
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ r.amount }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding:50px; color:#94a3b8;">
+                            <i class="ph ph-money" style="font-size:3.5rem; display:block; margin-bottom:12px;"></i>
+                            No Collection Data Found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
