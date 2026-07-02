@@ -2143,6 +2143,35 @@ def api_report_collection(request):
     if payment_mode:
         rec_qs = rec_qs.filter(payment_mode=payment_mode)
 
+    # Group by payment mode for summary (using all matching receipts BEFORE filtering by specific payment mode if filtered, or after? Wait, if the user has selected a specific payment mode filter, the summary should still show all or only filtered? Showing all or filtered makes sense either way, let's calculate the summary from the main query but respecting the branch/date scope)
+    # Let's compute the summary based on branch & date scope (before specific payment mode filter, so the user can see all totals even if filtering)
+    summary_qs = Receipt.objects.filter(
+        created_at__date__gte=from_date,
+        created_at__date__lte=to_date,
+        **receipt_scope
+    )
+    grouped = summary_qs.values('payment_mode').annotate(total_amount=Sum('amount')).order_by('-total_amount')
+    
+    PAYMENT_LABELS = dict(Receipt.PAYMENT_CHOICES)
+    summary = []
+    for item in grouped:
+        mode = item['payment_mode']
+        amt = item['total_amount'] or 0
+        summary.append({
+            'payment_mode': mode,
+            'payment_mode_display': PAYMENT_LABELS.get(mode, mode.title()),
+            'total_amount': str(amt),
+        })
+
+    existing_modes = {item['payment_mode'] for item in grouped}
+    for mode, label in Receipt.PAYMENT_CHOICES:
+        if mode not in existing_modes:
+            summary.append({
+                'payment_mode': mode,
+                'payment_mode_display': label,
+                'total_amount': '0.00',
+            })
+
     rec_qs = rec_qs.select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch').order_by('-created_at')
 
     rows = []
@@ -2156,8 +2185,8 @@ def api_report_collection(request):
             'vehicle': rec.invoice.vehicle.vehicle_number if rec.invoice.vehicle else '',
             'branch': rec.invoice.branch.name if rec.invoice.branch else '',
             'amount': str(rec.amount),
-            'payment_mode': rec.payment_mode,
-            'remarks': rec.remarks,
+            'payment_mode': PAYMENT_LABELS.get(rec.payment_mode, rec.payment_mode.title()),
+            'remarks': rec.remarks or '',
         })
 
     rec_total = rec_qs.aggregate(t=Sum('amount'))['t'] or 0
@@ -2168,6 +2197,7 @@ def api_report_collection(request):
         'to_date': str(to_date),
         'total_collected': str(rec_total),
         'count': len(rows),
+        'summary': summary,
         'rows': rows,
     })
 
