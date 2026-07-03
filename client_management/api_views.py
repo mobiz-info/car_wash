@@ -668,6 +668,11 @@ def api_create_invoice(request):
             from client_management.models import Scheme
             scheme_obj = Scheme.objects.filter(id=scheme_id).first()
             
+        from decimal import Decimal
+        total_val = Decimal(str(data.get('total', 0)))
+        amt_collected_val = Decimal(str(data.get('amount_collected', 0)))
+        inv_type = 'cashinvoice' if amt_collected_val >= total_val else 'creditinvoice'
+
         invoice = Invoice.objects.create(
             invoice_number=inv_number,
             customer=customer,
@@ -679,6 +684,7 @@ def api_create_invoice(request):
             tax_amount=data.get('tax_amount', 0),
             total=data.get('total', 0),
             amount_collected=data.get('amount_collected', 0),
+            invoice_type=inv_type,
             creator=user,
             auto_id=get_auto_id(Invoice)
         )
@@ -2041,6 +2047,7 @@ def api_report_jobs(request):
             'tax': str(inv.tax_amount),
             'total': str(inv.total),
             'collected': str(inv.amount_collected),
+            'invoice_type': inv.invoice_type,
         })
 
     totals = qs.aggregate(
@@ -2810,6 +2817,139 @@ def api_update_complaint_status(request):
 
 
 @csrf_exempt
+def api_list_suppliers(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+    
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import Supplier
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        suppliers = Supplier.objects.filter(company=company, is_deleted=False).order_by('name')
+        supplier_list = [{
+            'id': str(s.id),
+            'name': s.name,
+            'address': s.address,
+            'gst_no': s.gst_no or '',
+            'phone_no': s.phone_no,
+            'is_active': s.is_active
+        } for s in suppliers]
+        
+        return JsonResponse({'success': True, 'suppliers': supplier_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_create_supplier(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import Supplier
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        data = json.loads(request.body)
+        supplier_id = data.get('id')
+        name = data.get('name', '').strip()
+        address = data.get('address', '').strip()
+        gst_no = data.get('gst_no', '').strip() or None
+        phone_no = data.get('phone_no', '').strip()
+        is_active = data.get('is_active', True)
+        
+        if not name or not address or not phone_no:
+            return JsonResponse({'success': False, 'message': 'Name, address, and phone number are required'}, status=400)
+            
+        if supplier_id:
+            # Edit
+            supplier = Supplier.objects.get(id=supplier_id, company=company, is_deleted=False)
+            supplier.name = name
+            supplier.address = address
+            supplier.gst_no = gst_no
+            supplier.phone_no = phone_no
+            supplier.is_active = is_active
+            supplier.updater = user
+            supplier.save()
+            msg = "Supplier updated successfully"
+        else:
+            # Create
+            if Supplier.objects.filter(company=company, name__iexact=name, is_deleted=False).exists():
+                return JsonResponse({'success': False, 'message': 'A supplier with this name already exists'}, status=400)
+                
+            supplier = Supplier.objects.create(
+                auto_id=get_auto_id(Supplier),
+                company=company,
+                name=name,
+                address=address,
+                gst_no=gst_no,
+                phone_no=phone_no,
+                is_active=is_active,
+                creator=user
+            )
+            msg = "Supplier created successfully"
+            
+        return JsonResponse({
+            'success': True,
+            'message': msg,
+            'supplier': {
+                'id': str(supplier.id),
+                'name': supplier.name,
+                'address': supplier.address,
+                'gst_no': supplier.gst_no or '',
+                'phone_no': supplier.phone_no,
+                'is_active': supplier.is_active
+            }
+        })
+    except Supplier.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Supplier not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_delete_supplier(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import Supplier
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        data = json.loads(request.body)
+        supplier_id = data.get('id')
+        if not supplier_id:
+            return JsonResponse({'success': False, 'message': 'id is required'}, status=400)
+            
+        supplier = Supplier.objects.get(id=supplier_id, company=company, is_deleted=False)
+        supplier.is_deleted = True
+        supplier.updater = user
+        supplier.save()
+        
+        return JsonResponse({'success': True, 'message': 'Supplier deleted successfully'})
+    except Supplier.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Supplier not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
 def api_get_expense_heads(request):
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
@@ -2885,6 +3025,16 @@ def api_create_expense_entry(request):
             }
         )
         
+        # If it's a purchase expense, handle supplier and paid_amount
+        supplier = None
+        paid_amount = amount
+        if expense_head.name.strip().lower() == 'purchase':
+            supplier_id = data.get('supplier_id')
+            if supplier_id:
+                from master.models import Supplier
+                supplier = get_object_or_404(Supplier, id=supplier_id, company=company, is_deleted=False)
+            paid_amount = data.get('paid_amount', 0.00)
+            
         # Create ExpenseEntry
         entry = ExpenseEntry.objects.create(
             auto_id=get_auto_id(ExpenseEntry),
@@ -2894,7 +3044,9 @@ def api_create_expense_entry(request):
             expense=expense,
             amount=amount,
             expense_date=expense_date,
-            remarks=remarks
+            remarks=remarks,
+            supplier=supplier,
+            paid_amount=paid_amount
         )
         
         return JsonResponse({

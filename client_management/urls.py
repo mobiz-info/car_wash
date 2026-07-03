@@ -90,6 +90,11 @@ urlpatterns = [
     path('api/expenses/heads/', api_views.api_get_expense_heads, name='api_get_expense_heads'),
     path('api/expenses/create/', api_views.api_create_expense_entry, name='api_create_expense_entry'),
     
+    # Supplier APIs
+    path('api/supplier/list/', api_views.api_list_suppliers, name='api_list_suppliers'),
+    path('api/supplier/create/', api_views.api_create_supplier, name='api_create_supplier'),
+    path('api/supplier/delete/', api_views.api_delete_supplier, name='api_delete_supplier'),
+    
     # Staff Leaves APIs
     path('api/staff/list/', api_views.api_get_staff_list, name='api_get_staff_list'),
     path('api/staff/leaves/', api_views.api_get_staff_leaves, name='api_get_staff_leaves'),

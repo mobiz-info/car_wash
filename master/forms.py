@@ -118,3 +118,15 @@ class VehicleBrandModelForm(forms.ModelForm):
         self.fields['make'].queryset = VehicleMake.objects.filter(is_deleted=False, is_active=True).order_by('name')
         self.fields['make'].required = True
         self.fields['make'].empty_label = '-- Select Make --'
+
+
+class SupplierForm(forms.ModelForm):
+    class Meta:
+        model = Supplier
+        fields = ['name', 'address', 'gst_no', 'phone_no', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Supplier Name'}),
+            'address': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Supplier Address', 'rows': 3}),
+            'gst_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'GST No. (Optional)'}),
+            'phone_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone Number'}),
+        }

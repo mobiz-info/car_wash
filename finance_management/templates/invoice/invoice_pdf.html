@@ -264,6 +264,12 @@
                         <td class="meta-value">{{ invoice.invoice_number }}</td>
                     </tr>
                     <tr>
+                        <td class="meta-label">Invoice Type:</td>
+                        <td class="meta-value">
+                            {% if invoice.invoice_type == 'cashinvoice' %}Cash Invoice{% else %}Credit Invoice{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
                         <td class="meta-label">Date:</td>
                         <td class="meta-value">{{ invoice.date|date:"d M Y" }}</td>
                     </tr>

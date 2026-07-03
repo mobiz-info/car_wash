@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Supplier - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Supplier{% endblock %}
+{% block breadcrumb_active %}Supplier{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-storefront" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label>Supplier Name *</label>
+            {{ form.name }}
+            {{ form.name.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>Phone Number *</label>
+            {{ form.phone_no }}
+            {{ form.phone_no.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>GST No. (Optional)</label>
+            {{ form.gst_no }}
+            {{ form.gst_no.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>Address *</label>
+            {{ form.address }}
+            {{ form.address.errors }}
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+            {{ form.is_active }}
+            <label for="id_is_active" style="margin-bottom:0; cursor:pointer;">Is Active</label>
+            {{ form.is_active.errors }}
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'supplier_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save 
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

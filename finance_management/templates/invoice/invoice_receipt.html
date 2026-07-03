@@ -234,6 +234,11 @@
                 </p>
 
                 <p>
+                    <strong>Invoice Type :</strong>
+                    {% if invoice.invoice_type == 'cashinvoice' %}Cash Invoice{% else %}Credit Invoice{% endif %}
+                </p>
+
+                <p>
                     <strong>Date :</strong>
                     {{ invoice.date|date:"d M Y" }}
                 </p>

@@ -71,4 +71,10 @@ urlpatterns = [
     path('vehicle-make/create/', views.vehicle_make_create, name='vehicle_make_create'),
     path('vehicle-make/edit/<uuid:id>/', views.vehicle_make_edit, name='vehicle_make_edit'),
     path('vehicle-make/delete/<uuid:id>/', views.vehicle_make_delete, name='vehicle_make_delete'),
+
+    # Supplier Management
+    path('supplier/', views.supplier_list, name='supplier_list'),
+    path('supplier/create/', views.supplier_create, name='supplier_create'),
+    path('supplier/edit/<uuid:id>/', views.supplier_edit, name='supplier_edit'),
+    path('supplier/delete/<uuid:id>/', views.supplier_delete, name='supplier_delete'),
 ]

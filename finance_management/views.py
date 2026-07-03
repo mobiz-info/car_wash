@@ -222,6 +222,7 @@ def api_list_invoices(request):
             'tax_amount': str(inv.tax_amount),
             'total': str(inv.total),
             'amount_collected': str(inv.amount_collected),
+            'invoice_type': inv.invoice_type,
             'customer': {
                 'name': inv.customer.name,
                 'phone': inv.customer.phone,

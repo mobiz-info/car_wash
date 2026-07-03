@@ -17,6 +17,11 @@ class Invoice(BaseModel):
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     amount_collected = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    invoice_type = models.CharField(
+        max_length=20, 
+        choices=[('cashinvoice', 'Cash Invoice'), ('creditinvoice', 'Credit Invoice')], 
+        default='cashinvoice'
+    )
     
     def __str__(self):
         return f"INV-{self.invoice_number} - {self.customer.name}"
