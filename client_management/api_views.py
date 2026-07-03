@@ -3005,9 +3005,9 @@ def api_list_purchase_expenses(request):
             expense_list.append({
                 'id': str(e.id),
                 'expense_name': e.expense.name,
-                'amount': str(e.amount),
-                'paid_amount': str(e.paid_amount),
-                'balance_amount': str(e.amount - e.paid_amount),
+                'amount': str(e.amount or 0),
+                'paid_amount': str(e.paid_amount or 0),
+                'balance_amount': str((e.amount or 0) - (e.paid_amount or 0)),
                 'expense_date': e.expense_date.strftime('%Y-%m-%d'),
                 'remarks': e.remarks or '',
                 'supplier_name': e.supplier.name if e.supplier else 'N/A',
@@ -3046,11 +3046,11 @@ def api_update_purchase_expense_payment(request):
         company = getattr(getattr(user, 'profile', None), 'company', None)
         expense = ExpenseEntry.objects.get(id=expense_id, company=company, is_deleted=False)
         
-        new_paid_amount = expense.paid_amount + additional_paid
-        if new_paid_amount > expense.amount:
+        new_paid_amount = (expense.paid_amount or 0) + additional_paid
+        if new_paid_amount > (expense.amount or 0):
             return JsonResponse({
                 'success': False, 
-                'message': f'Paid amount ({new_paid_amount}) cannot exceed total expense amount ({expense.amount})'
+                'message': f'Paid amount ({new_paid_amount}) cannot exceed total expense amount ({expense.amount or 0})'
             }, status=400)
             
         expense.paid_amount = new_paid_amount
@@ -3061,7 +3061,7 @@ def api_update_purchase_expense_payment(request):
             'success': True, 
             'message': 'Payment updated successfully',
             'paid_amount': str(expense.paid_amount),
-            'balance_amount': str(expense.amount - expense.paid_amount)
+            'balance_amount': str((expense.amount or 0) - expense.paid_amount)
         })
     except ExpenseEntry.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Expense entry not found'}, status=404)
@@ -3842,7 +3842,7 @@ def api_report_profit_loss(request):
         date__lte=to_date,
         **scope
     )
-    total_outstanding = sum(float((inv.total or 0.0) - (inv.amount_collected or 0.0)) for inv in invoices)
+    total_outstanding = sum(float(inv.total or 0) - float(inv.amount_collected or 0) for inv in invoices)
 
     # Calculate payables (unpaid purchase expense balance)
     payables_qs = ExpenseEntry.objects.filter(
@@ -3852,7 +3852,7 @@ def api_report_profit_loss(request):
         expense__expense_head__name__iexact='purchase',
         **scope
     )
-    total_payables = sum(float((e.amount or 0.0) - (e.paid_amount or 0.0)) for e in payables_qs)
+    total_payables = sum(float(e.amount or 0) - float(e.paid_amount or 0) for e in payables_qs)
 
     return JsonResponse({
         'success': True,
