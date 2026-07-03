@@ -2973,6 +2973,103 @@ def api_get_expense_heads(request):
 
 
 @csrf_exempt
+def api_list_purchase_expenses(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import ExpenseEntry
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        role = user.profile.role.name if user.profile.role else None
+        
+        # Filter expenses where head is 'purchase'
+        qs = ExpenseEntry.objects.filter(
+            company=company,
+            expense__expense_head__name__iexact='purchase',
+            is_deleted=False
+        ).select_related('expense', 'expense__expense_head', 'supplier', 'branch').order_by('-expense_date', '-auto_id')
+        
+        # If user is a branch admin, filter by branch
+        if hasattr(user, 'managed_branch') and user.managed_branch:
+            qs = qs.filter(branch=user.managed_branch)
+            
+        expense_list = []
+        for e in qs:
+            expense_list.append({
+                'id': str(e.id),
+                'expense_name': e.expense.name,
+                'amount': str(e.amount),
+                'paid_amount': str(e.paid_amount),
+                'balance_amount': str(e.amount - e.paid_amount),
+                'expense_date': e.expense_date.strftime('%Y-%m-%d'),
+                'remarks': e.remarks or '',
+                'supplier_name': e.supplier.name if e.supplier else 'N/A',
+                'branch_name': e.branch.name if e.branch else 'N/A',
+            })
+            
+        return JsonResponse({'success': True, 'purchase_expenses': expense_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_update_purchase_expense_payment(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import ExpenseEntry
+        from decimal import Decimal
+        
+        data = json.loads(request.body)
+        expense_id = data.get('id')
+        additional_paid = data.get('additional_paid')
+        
+        if not expense_id or additional_paid is None:
+            return JsonResponse({'success': False, 'message': 'id and additional_paid are required'}, status=400)
+            
+        additional_paid = Decimal(str(additional_paid))
+        if additional_paid <= 0:
+            return JsonResponse({'success': False, 'message': 'additional_paid must be greater than zero'}, status=400)
+            
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        expense = ExpenseEntry.objects.get(id=expense_id, company=company, is_deleted=False)
+        
+        new_paid_amount = expense.paid_amount + additional_paid
+        if new_paid_amount > expense.amount:
+            return JsonResponse({
+                'success': False, 
+                'message': f'Paid amount ({new_paid_amount}) cannot exceed total expense amount ({expense.amount})'
+            }, status=400)
+            
+        expense.paid_amount = new_paid_amount
+        expense.updater = user
+        expense.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Payment updated successfully',
+            'paid_amount': str(expense.paid_amount),
+            'balance_amount': str(expense.amount - expense.paid_amount)
+        })
+    except ExpenseEntry.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Expense entry not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_create_expense_entry(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
@@ -3747,6 +3844,16 @@ def api_report_profit_loss(request):
     )
     total_outstanding = sum(float((inv.total or 0.0) - (inv.amount_collected or 0.0)) for inv in invoices)
 
+    # Calculate payables (unpaid purchase expense balance)
+    payables_qs = ExpenseEntry.objects.filter(
+        is_deleted=False,
+        expense_date__gte=from_date,
+        expense_date__lte=to_date,
+        expense__expense_head__name__iexact='purchase',
+        **scope
+    )
+    total_payables = sum(float((e.amount or 0.0) - (e.paid_amount or 0.0)) for e in payables_qs)
+
     return JsonResponse({
         'success': True,
         'from_date': str(from_date),
@@ -3755,6 +3862,7 @@ def api_report_profit_loss(request):
         'total_expense': str(round(total_expense, 2)),
         'net_profit': str(round(net_profit, 2)),
         'total_outstanding': str(round(total_outstanding, 2)),
+        'total_payables': str(round(total_payables, 2)),
         'income_rows': income_rows,
         'expense_rows': expense_rows,
     })

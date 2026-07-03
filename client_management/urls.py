@@ -95,6 +95,10 @@ urlpatterns = [
     path('api/supplier/create/', api_views.api_create_supplier, name='api_create_supplier'),
     path('api/supplier/delete/', api_views.api_delete_supplier, name='api_delete_supplier'),
     
+    # Purchase Expense APIs
+    path('api/purchase-expenses/list/', api_views.api_list_purchase_expenses, name='api_list_purchase_expenses'),
+    path('api/purchase-expenses/update-payment/', api_views.api_update_purchase_expense_payment, name='api_update_purchase_expense_payment'),
+    
     # Staff Leaves APIs
     path('api/staff/list/', api_views.api_get_staff_list, name='api_get_staff_list'),
     path('api/staff/leaves/', api_views.api_get_staff_leaves, name='api_get_staff_leaves'),
