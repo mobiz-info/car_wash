@@ -488,7 +488,7 @@ def service_vehicle_price_manage(request, branch_id):
                     service=service,
                     vehicle_model=model,
                     defaults={
-                        'auto_id': ServiceVehicleTypePrice.objects.count() + 1,
+                        'auto_id': get_auto_id(ServiceVehicleTypePrice),
                         'creator': request.user,
                         'price': price_value,
                         'is_active': True,
