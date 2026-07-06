@@ -123,6 +123,23 @@
         Service Pricing — {{ branch.name }}
     </div>
 
+    {% if role_name == 'COMPANY_ADMIN' and company_branches %}
+    <div style="margin-bottom:16px;">
+        <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:8px;">
+            <i class="ph ph-buildings" style="margin-right:4px;"></i> Branch
+        </label>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            {% for b in company_branches %}
+            <a href="{% url 'service_vehicle_price_manage' b.id %}"
+               style="padding:8px 18px; border-radius:8px; font-size:.875rem; font-weight:600; text-decoration:none; border:1.5px solid {% if b.id == branch.id %}#3b82f6{% else %}#e2e8f0{% endif %}; background:{% if b.id == branch.id %}#eff6ff{% else %}#fff{% endif %}; color:{% if b.id == branch.id %}#1d4ed8{% else %}#475569{% endif %}; transition:all .15s;">
+                {{ b.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    <hr style="border:none; border-top:1px solid #f1f5f9; margin-bottom:16px;">
+    {% endif %}
+
     <form method="GET" style="margin-bottom:20px;">
 
     <label>Select Vehicle Type</label>

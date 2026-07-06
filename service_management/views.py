@@ -423,6 +423,15 @@ def service_vehicle_price_manage(request, branch_id):
 
     branch = get_object_or_404(Branch, id=branch_id)
 
+    # Role info — used to show branch switcher for COMPANY_ADMIN
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+    company_branches = []
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        if company:
+            company_branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+
     vehicle_types = VehicleType.objects.filter(
         is_active=True,
         is_deleted=False
@@ -512,29 +521,34 @@ def service_vehicle_price_manage(request, branch_id):
         'vehicle_models': vehicle_models,
         'services': services,
         'price_map': price_map,
+        'role_name': role_name,
+        'company_branches': company_branches,
     })
 
 
 @login_required
 def service_vehicle_price_redirect(request):
-    """Redirect to the service pricing page for the current user's branch."""
+    """For COMPANY_ADMIN: show branch-selection page. For BRANCH_ADMIN: go directly to their branch pricing."""
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
 
     if role_name == 'COMPANY_ADMIN':
-        # For COMPANY_ADMIN: redirect to first branch of their company
         company = getattr(request.user.profile, 'company', None)
         if not company:
             messages.error(request, "No company assigned.")
             return redirect('dashboard')
-        branch = Branch.objects.filter(company=company, is_deleted=False).first()
-        if not branch:
+        branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+        if not branches.exists():
             messages.error(request, "No branches found for your company.")
             return redirect('dashboard')
+        # Render branch-selection page
+        return render(request, 'service/select_branch_pricing.html', {
+            'branches': branches,
+            'title': 'Service Pricing — Select Branch',
+        })
     else:
         branch = getattr(request.user, 'managed_branch', None)
         if not branch:
             messages.error(request, "No branch assigned.")
             return redirect('dashboard')
-
-    return redirect('service_vehicle_price_manage', branch_id=branch.id)
+        return redirect('service_vehicle_price_manage', branch_id=branch.id)
