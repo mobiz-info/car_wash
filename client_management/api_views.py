@@ -757,11 +757,16 @@ def api_create_invoice(request):
             daemon=True
         ).start()
             
+        company_logo = request.build_absolute_uri(invoice.branch.company.logo_color.url) if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color else ''
+        branch_logo = request.build_absolute_uri(invoice.branch.logo.url) if invoice.branch and invoice.branch.logo else ''
+
         return JsonResponse({
             'success': True,
             'message': 'Invoice created successfully',
             'invoice_id': str(invoice.id),
-            'invoice_number': invoice.invoice_number
+            'invoice_number': invoice.invoice_number,
+            'company_logo': company_logo,
+            'branch_logo': branch_logo,
         })
         
     except Exception as e:
