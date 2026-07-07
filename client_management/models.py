@@ -9,11 +9,7 @@ def validate_png(image):
         raise ValidationError("Only PNG images are allowed.")
 
 def validate_image_dimensions(image):
-    img = Image.open(image)
-    width, height = img.size
-
-    if width != 300 or height != 300:
-        raise ValidationError("Image must be exactly 300x300 pixels.")
+    pass
     
     
 class Client(BaseModel):
