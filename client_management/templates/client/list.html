@@ -173,8 +173,12 @@
                     <td style="font-weight: 500; color: #94a3b8;">{{ forloop.counter }}</td>
                     <td style="font-weight: 600; color: #1e293b;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b;">
-                                <i class="ph-fill ph-buildings"></i>
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b; overflow: hidden; border: 1px solid #e2e8f0;">
+                                {% if obj.logo_color %}
+                                    <img src="{{ obj.logo_color.url }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                {% else %}
+                                    <i class="ph-fill ph-buildings"></i>
+                                {% endif %}
                             </div>
                             {{ obj.company_name }}
                         </div>
