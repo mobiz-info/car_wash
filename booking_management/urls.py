@@ -47,4 +47,6 @@ urlpatterns = [
     path('pause-booking/',views.pause_booking_list,name='pause_booking_list'),
     path('pause-booking/create/',views.pause_booking_create,name='pause_booking_create'),
     path('pause-booking/delete/<uuid:pk>/',views.pause_booking_delete,name='pause_booking_delete'),
+
+    path('branch/messages/', views.branch_messages_manage, name='branch_messages_manage'),
 ]

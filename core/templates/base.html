@@ -674,6 +674,7 @@
 
                 <a href="{% url 'bulk_sms_settings' %}">Bulk Sms</a>
                 <a href="{% url 'gmail_credentials' %}">Gmail Credentials</a>
+                <a href="{% url 'branch_messages_manage' %}">Messages</a>
             </div>
 
             <div class="nav-item dropdown-toggle">
@@ -852,6 +853,17 @@
                     Complaints
                 </div>
             </a>
+
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-bell"></i>
+                    Notifications
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'branch_messages_manage' %}">Messages</a>
+            </div>
 
 
             {% else %}

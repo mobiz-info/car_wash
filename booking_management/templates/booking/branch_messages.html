@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% block title %}Branch Messages{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block breadcrumb_active %}Messages{% endblock %}
+{% block content %}
+<style>
+    .msg-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 28px 28px 20px;
+        margin-bottom: 22px;
+        box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    }
+    .msg-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .msg-icon {
+        width: 38px; height: 38px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .msg-label {
+        font-size: .78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #64748b;
+        margin-bottom: 6px;
+    }
+    textarea.msg-area {
+        width: 100%;
+        min-height: 90px;
+        padding: 12px 14px;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 10px;
+        font-size: .9rem;
+        color: #1e293b;
+        font-family: 'Inter', sans-serif;
+        resize: vertical;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+        line-height: 1.5;
+    }
+    textarea.msg-area:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+    }
+    .placeholder-hint {
+        margin-top: 8px;
+        font-size: .76rem;
+        color: #94a3b8;
+    }
+    .placeholder-hint code {
+        background: #f1f5f9;
+        border-radius: 4px;
+        padding: 1px 5px;
+        color: #475569;
+        font-size: .75rem;
+    }
+    .default-msg-box {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: .8rem;
+        color: #64748b;
+        margin-top: 10px;
+        line-height: 1.5;
+    }
+    .default-msg-box strong {
+        display: block;
+        font-size: .7rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: #94a3b8;
+        margin-bottom: 4px;
+    }
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: .9rem;
+        color: #1e293b;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+    }
+    .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+    }
+</style>
+
+<div class="premium-form-container" style="max-width:780px;">
+    <div class="premium-form-title">
+        <i class="ph ph-chat-text" style="color:#3b82f6; font-size:1.5rem;"></i>
+        WhatsApp Message Templates
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:12px 16px; margin-bottom:18px; color:#166534; display:flex; align-items:center; gap:10px;">
+        <i class="ph ph-check-circle" style="font-size:1.2rem;"></i> {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if role_name == 'COMPANY_ADMIN' and branches.count > 1 %}
+    <div style="margin-bottom:20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; margin:0;">
+            <i class="ph ph-buildings" style="margin-right:4px;"></i> Branch
+        </label>
+        <select class="form-control" style="max-width:280px;" onchange="window.location.href='?branch_id='+this.value">
+            {% for b in branches %}
+            <option value="{{ b.id }}" {% if selected_branch and b.id == selected_branch.id %}selected{% endif %}>{{ b.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    {% if selected_branch %}
+    <p style="font-size:.875rem; color:#64748b; margin-bottom:24px;">
+        Customize the WhatsApp messages sent to customers by <strong>{{ selected_branch.name }}</strong>.
+        Leave blank to use the default message. Supported placeholders:
+        <code>{customer_name}</code> <code>{vehicle_number}</code> <code>{branch_name}</code> <code>{company_name}</code>
+    </p>
+
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="branch_id" value="{{ selected_branch.id }}">
+
+        <!-- Welcome Message -->
+        <div class="msg-card">
+            <div class="msg-card-header">
+                <div class="msg-icon" style="background:#eff6ff;">
+                    <i class="ph ph-hand-waving" style="color:#3b82f6; font-size:1.2rem;"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; color:#1e293b; font-size:.95rem;">Welcome Message</div>
+                    <div style="font-size:.8rem; color:#64748b;">Sent when a customer arrives for service</div>
+                </div>
+            </div>
+            <div class="msg-label">Custom Message</div>
+            <textarea
+                name="welcome_message"
+                class="msg-area"
+                placeholder="Leave blank to use default…"
+            >{{ branch_settings.whatsapp_welcome_message|default:'' }}</textarea>
+            <div class="placeholder-hint">
+                Placeholders: <code>{customer_name}</code> <code>{vehicle_number}</code> <code>{branch_name}</code> <code>{company_name}</code>
+            </div>
+            <div class="default-msg-box">
+                <strong>Default</strong>
+                {{ default_welcome }}
+            </div>
+        </div>
+
+        <!-- Ready Alert -->
+        <div class="msg-card">
+            <div class="msg-card-header">
+                <div class="msg-icon" style="background:#fff7ed;">
+                    <i class="ph ph-bell-ringing" style="color:#f59e0b; font-size:1.2rem;"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; color:#1e293b; font-size:.95rem;">Ready Alert</div>
+                    <div style="font-size:.8rem; color:#64748b;">Sent when the vehicle is ready for pickup</div>
+                </div>
+            </div>
+            <div class="msg-label">Custom Message</div>
+            <textarea
+                name="ready_message"
+                class="msg-area"
+                placeholder="Leave blank to use default…"
+            >{{ branch_settings.whatsapp_ready_message|default:'' }}</textarea>
+            <div class="placeholder-hint">
+                Placeholders: <code>{customer_name}</code> <code>{vehicle_number}</code> <code>{branch_name}</code> <code>{company_name}</code>
+            </div>
+            <div class="default-msg-box">
+                <strong>Default</strong>
+                {{ default_ready }}
+            </div>
+        </div>
+
+        <!-- Thank You Message -->
+        <div class="msg-card">
+            <div class="msg-card-header">
+                <div class="msg-icon" style="background:#f0fdf4;">
+                    <i class="ph ph-heart" style="color:#22c55e; font-size:1.2rem;"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; color:#1e293b; font-size:.95rem;">Thank You Message</div>
+                    <div style="font-size:.8rem; color:#64748b;">Sent after service is complete</div>
+                </div>
+            </div>
+            <div class="msg-label">Custom Message</div>
+            <textarea
+                name="thanks_message"
+                class="msg-area"
+                placeholder="Leave blank to use default…"
+            >{{ branch_settings.whatsapp_thanks_message|default:'' }}</textarea>
+            <div class="placeholder-hint">
+                Placeholders: <code>{customer_name}</code> <code>{vehicle_number}</code> <code>{branch_name}</code> <code>{company_name}</code>
+            </div>
+            <div class="default-msg-box">
+                <strong>Default</strong>
+                {{ default_thanks }}
+            </div>
+        </div>
+
+        <div class="form-actions" style="margin-top:8px;">
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-floppy-disk"></i> Save Messages
+            </button>
+        </div>
+    </form>
+    {% else %}
+    <div style="padding:48px 0; text-align:center; color:#94a3b8;">
+        <i class="ph ph-warning-circle" style="font-size:2.5rem; display:block; margin-bottom:12px; color:#f59e0b;"></i>
+        <div style="font-weight:700; color:#1e293b; font-size:1.1rem;">No Branch Found</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

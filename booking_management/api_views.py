@@ -2171,7 +2171,9 @@ def api_get_booking_settings(request):
             'is_booking_enabled': settings.is_booking_enabled,
             'max_booking_per_day': settings.max_booking_per_day,
             'booking_closing_time': closing_time_str,
-            'whatsapp_welcome_message': settings.whatsapp_welcome_message
+            'whatsapp_welcome_message': settings.whatsapp_welcome_message,
+            'whatsapp_ready_message': settings.whatsapp_ready_message,
+            'whatsapp_thanks_message': settings.whatsapp_thanks_message,
         }
     })
 
@@ -2201,6 +2203,8 @@ def api_update_booking_settings(request):
     max_booking_per_day = int(body.get('max_booking_per_day', 50))
     booking_closing_time = body.get('booking_closing_time')
     whatsapp_welcome_message = body.get('whatsapp_welcome_message')
+    whatsapp_ready_message = body.get('whatsapp_ready_message')
+    whatsapp_thanks_message = body.get('whatsapp_thanks_message')
     
     closing_time_obj = None
     if booking_closing_time:
@@ -2228,6 +2232,8 @@ def api_update_booking_settings(request):
     settings.max_booking_per_day = max_booking_per_day
     settings.booking_closing_time = closing_time_obj
     settings.whatsapp_welcome_message = whatsapp_welcome_message
+    settings.whatsapp_ready_message = whatsapp_ready_message
+    settings.whatsapp_thanks_message = whatsapp_thanks_message
     settings.updater = user
     settings.save()
     
@@ -2680,30 +2686,38 @@ def api_send_ready_alert_generic(request):
         vehicle_number = data.get('vehicle_number', '')
         customer_name = data.get('customer_name', 'Customer')
         
-        # Resolve company
+        # Resolve branch and company
+        branch = getattr(user, 'managed_branch', None)
         company = user.profile.company if hasattr(user, 'profile') and user.profile else None
-        if not company and user.managed_branch and user.managed_branch.company:
-            company = user.managed_branch.company
-            
+        if not company and branch and branch.company:
+            company = branch.company
+
         if not company:
             return JsonResponse({'success': False, 'message': 'Company profile not found'}, status=400)
-            
+
+        branch_name = branch.name if branch else company.company_name
+        company_name = company.company_name
+
+        # Resolve custom message for this branch
+        from booking_management.models import BookingSettings
+        bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
+        default_msg = f"Hello {{customer_name}}, your vehicle ({{vehicle_number}}) is ready for pickup! Thank you for choosing our service."
+        raw_template = (bs.whatsapp_ready_message if bs and bs.whatsapp_ready_message else default_msg)
+        message = raw_template.replace('{customer_name}', customer_name) \
+                               .replace('{vehicle_number}', vehicle_number) \
+                               .replace('{branch_name}', branch_name) \
+                               .replace('{company_name}', company_name)
+
         from client_management.models import WhatsAppSetting
         setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
         
-        # Check if settings are configured
-        has_api = False
-        if setting and setting.username and setting.password:
-            has_api = True
+        has_api = bool(setting and setting.username and setting.password)
             
         if has_api:
-            # Send automatically in background
             import re
             cleaned_phone = re.sub(r'\D', '', phone)
             if len(cleaned_phone) == 10:
                 cleaned_phone = f"91{cleaned_phone}"
-                
-            message = f"Hello {customer_name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service."
             
             import threading
             from booking_management.api_views import send_whatsapp_simple
@@ -2723,7 +2737,8 @@ def api_send_ready_alert_generic(request):
             return JsonResponse({
                 'success': True,
                 'action': 'manual',
-                'message': 'WhatsApp API is not configured'
+                'message': 'WhatsApp API is not configured',
+                'message_text': message,
             })
             
     except Exception as e:
@@ -2747,30 +2762,38 @@ def api_send_welcome_msg_generic(request):
         vehicle_number = data.get('vehicle_number', '')
         customer_name = data.get('customer_name', 'Customer')
         
-        # Resolve company
+        # Resolve branch and company
+        branch = getattr(user, 'managed_branch', None)
         company = user.profile.company if hasattr(user, 'profile') and user.profile else None
-        if not company and user.managed_branch and user.managed_branch.company:
-            company = user.managed_branch.company
-            
+        if not company and branch and branch.company:
+            company = branch.company
+
         if not company:
             return JsonResponse({'success': False, 'message': 'Company profile not found'}, status=400)
-            
+
+        branch_name = branch.name if branch else company.company_name
+        company_name = company.company_name
+
+        # Resolve custom message for this branch
+        from booking_management.models import BookingSettings
+        bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
+        default_msg = f"Hello {{customer_name}}, thank you for choosing {{company_name}}. Welcome to our service! We are delighted to have you and your vehicle ({{vehicle_number}}) with us."
+        raw_template = (bs.whatsapp_welcome_message if bs and bs.whatsapp_welcome_message else default_msg)
+        message = raw_template.replace('{customer_name}', customer_name) \
+                               .replace('{vehicle_number}', vehicle_number) \
+                               .replace('{branch_name}', branch_name) \
+                               .replace('{company_name}', company_name)
+
         from client_management.models import WhatsAppSetting
         setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
         
-        # Check if settings are configured
-        has_api = False
-        if setting and setting.username and setting.password:
-            has_api = True
+        has_api = bool(setting and setting.username and setting.password)
             
         if has_api:
-            # Send automatically in background
             import re
             cleaned_phone = re.sub(r'\D', '', phone)
             if len(cleaned_phone) == 10:
                 cleaned_phone = f"91{cleaned_phone}"
-                
-            message = f"Hello {customer_name}, thank you for choosing {company.company_name}. Welcome to our service! We are delighted to have you and your vehicle ({vehicle_number}) with us."
             
             import threading
             from booking_management.api_views import send_whatsapp_simple
@@ -2790,7 +2813,8 @@ def api_send_welcome_msg_generic(request):
             return JsonResponse({
                 'success': True,
                 'action': 'manual',
-                'message': 'WhatsApp API is not configured'
+                'message': 'WhatsApp API is not configured',
+                'message_text': message,
             })
             
     except Exception as e:
@@ -2814,30 +2838,38 @@ def api_send_thanks_msg_generic(request):
         vehicle_number = data.get('vehicle_number', '')
         customer_name = data.get('customer_name', 'Customer')
         
-        # Resolve company
+        # Resolve branch and company
+        branch = getattr(user, 'managed_branch', None)
         company = user.profile.company if hasattr(user, 'profile') and user.profile else None
-        if not company and user.managed_branch and user.managed_branch.company:
-            company = user.managed_branch.company
-            
+        if not company and branch and branch.company:
+            company = branch.company
+
         if not company:
             return JsonResponse({'success': False, 'message': 'Company profile not found'}, status=400)
-            
+
+        branch_name = branch.name if branch else company.company_name
+        company_name = company.company_name
+
+        # Resolve custom message for this branch
+        from booking_management.models import BookingSettings
+        bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
+        default_msg = "Hello {customer_name}, thank you for choosing our service! We look forward to serving you again. Have a great day!"
+        raw_template = (bs.whatsapp_thanks_message if bs and bs.whatsapp_thanks_message else default_msg)
+        message = raw_template.replace('{customer_name}', customer_name) \
+                               .replace('{vehicle_number}', vehicle_number) \
+                               .replace('{branch_name}', branch_name) \
+                               .replace('{company_name}', company_name)
+
         from client_management.models import WhatsAppSetting
         setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
         
-        # Check if settings are configured
-        has_api = False
-        if setting and setting.username and setting.password:
-            has_api = True
+        has_api = bool(setting and setting.username and setting.password)
             
         if has_api:
-            # Send automatically in background
             import re
             cleaned_phone = re.sub(r'\D', '', phone)
             if len(cleaned_phone) == 10:
                 cleaned_phone = f"91{cleaned_phone}"
-                
-            message = f"Hello {customer_name}, thank you for choosing our service! We look forward to serving you again. Have a great day!"
             
             import threading
             from booking_management.api_views import send_whatsapp_simple
@@ -2857,7 +2889,8 @@ def api_send_thanks_msg_generic(request):
             return JsonResponse({
                 'success': True,
                 'action': 'manual',
-                'message': 'WhatsApp API is not configured'
+                'message': 'WhatsApp API is not configured',
+                'message_text': message,
             })
             
     except Exception as e:

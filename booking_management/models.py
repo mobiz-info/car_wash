@@ -49,7 +49,19 @@ class BookingSettings(BaseModel):
     whatsapp_welcome_message = models.TextField(
         null=True,
         blank=True,
-        help_text="Custom welcome message. Use {customer_name}, {branch_name}, {company_name} as placeholders."
+        help_text="Custom welcome message. Use {customer_name}, {vehicle_number}, {branch_name}, {company_name} as placeholders."
+    )
+
+    whatsapp_ready_message = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Ready alert message. Use {customer_name}, {vehicle_number}, {branch_name}, {company_name} as placeholders."
+    )
+
+    whatsapp_thanks_message = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Thank you message. Use {customer_name}, {vehicle_number}, {branch_name}, {company_name} as placeholders."
     )
 
     def __str__(self):

@@ -609,3 +609,56 @@ def pause_booking_delete(request, pk):
     return redirect(
         "pause_booking_list"
     )
+
+
+@login_required
+def branch_messages_manage(request):
+    """View and edit per-branch WhatsApp message templates (Welcome, Ready Alert, Thank You)."""
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    from client_management.models import Branch
+
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+    else:
+        managed = getattr(request.user, 'managed_branch', None)
+        branches = Branch.objects.filter(id=managed.id, is_deleted=False) if managed else Branch.objects.none()
+
+    # Select active branch (from GET ?branch_id= or first branch)
+    selected_branch_id = request.GET.get('branch_id') or request.POST.get('branch_id')
+    selected_branch = None
+    if selected_branch_id:
+        selected_branch = branches.filter(id=selected_branch_id).first()
+    if not selected_branch:
+        selected_branch = branches.first()
+
+    branch_settings = None
+    if selected_branch:
+        branch_settings, _ = BookingSettings.objects.get_or_create(
+            branch=selected_branch,
+            defaults={'creator': request.user, 'auto_id': get_auto_id(BookingSettings)}
+        )
+
+    if request.method == 'POST' and selected_branch:
+        branch_settings.whatsapp_welcome_message = request.POST.get('welcome_message', '').strip() or None
+        branch_settings.whatsapp_ready_message = request.POST.get('ready_message', '').strip() or None
+        branch_settings.whatsapp_thanks_message = request.POST.get('thanks_message', '').strip() or None
+        branch_settings.updater = request.user
+        branch_settings.save()
+        messages.success(request, f'Messages updated for {selected_branch.name}.')
+        return HttpResponseRedirect(
+            reverse('branch_messages_manage') + (f'?branch_id={selected_branch.id}' if selected_branch else '')
+        )
+
+    context = {
+        'branches': branches,
+        'selected_branch': selected_branch,
+        'branch_settings': branch_settings,
+        'role_name': role_name,
+        'default_welcome': 'Hello {customer_name}, thank you for choosing {company_name}. Welcome to our service! We are delighted to have you and your vehicle ({vehicle_number}) with us.',
+        'default_ready': 'Hello {customer_name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service.',
+        'default_thanks': 'Hello {customer_name}, thank you for choosing our service! We look forward to serving you again. Have a great day!',
+    }
+    return render(request, 'booking/branch_messages.html', context)
