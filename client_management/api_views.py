@@ -767,6 +767,7 @@ def api_create_invoice(request):
             'invoice_number': invoice.invoice_number,
             'company_logo': company_logo,
             'branch_logo': branch_logo,
+            'branch': invoice.branch.name if invoice.branch else '',
         })
         
     except Exception as e:
