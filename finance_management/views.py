@@ -233,6 +233,8 @@ def api_list_invoices(request):
                 'type': inv.vehicle.vehicle_type_model.vehicle_type.name if inv.vehicle.vehicle_type_model and inv.vehicle.vehicle_type_model.vehicle_type else '',
             },
             'branch': inv.branch.name if inv.branch else '',
+            'branch_logo': request.build_absolute_uri(inv.branch.logo.url) if inv.branch and inv.branch.logo else '',
+            'company_logo': request.build_absolute_uri(inv.branch.company.logo_color.url) if inv.branch and inv.branch.company and inv.branch.company.logo_color else '',
             'services': [
                 {'name': item.service_name, 'rate': str(item.rate)}
                 for item in inv.items.all()

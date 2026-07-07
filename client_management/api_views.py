@@ -120,6 +120,8 @@ def api_login(request):
                     subscription_active = False
                     subscription_days_left = -1
 
+            company_logo = request.build_absolute_uri(company.logo_color.url) if company and company.logo_color else ''
+
             return JsonResponse({
                 'success': True,
                 'token': token_obj.token,
@@ -132,6 +134,7 @@ def api_login(request):
                 'subscription_active': subscription_active,
                 'subscription_days_left': subscription_days_left,
                 'subscription_end_date': subscription_end_date,
+                'company_logo': company_logo,
             })
         else:
             return JsonResponse({'success': False, 'message': 'Invalid username or password'}, status=401)
@@ -341,6 +344,7 @@ def api_customer_search_list(request):
             'phone': c.phone,
             'whatsapp_number': c.whatsapp_number,
             'customer_type': c.customer_type.name if c.customer_type else '',
+            'branch_name': c.branch.name if c.branch else '',
         })
         
     return JsonResponse({'success': True, 'customers': results})
