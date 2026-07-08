@@ -604,12 +604,45 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             return
             
         # 5. Dispatch
-        send_whatsapp_simple(
-            to_number=cleaned_num,
-            message=message_text,
-            setting=setting,
-            media_url=pdf_url
-        )
+        if setting.sender_id == '919496007007':
+            from booking_management.api_views import send_whatsapp_template
+            # The 'newjobcash' template expects:
+            # {{1}} = Customer Name
+            # {{2}} = Company Name
+            # {{3}} = Invoice Number
+            # {{4}} = Total Amount
+            # {{5}} = Amount Collected
+            # {{6}} = Payment Reference / Mode
+            ref_no = "Cash"
+            payment = invoice.payments.filter(is_deleted=False).first()
+            if payment:
+                if payment.payment_mode:
+                    ref_no = payment.payment_mode.name
+                if payment.transaction_number:
+                    ref_no += f" ({payment.transaction_number})"
+            
+            values = [
+                customer.name,
+                company_name,
+                invoice.invoice_number,
+                str(invoice.total),
+                str(invoice.amount_collected),
+                ref_no
+            ]
+            send_whatsapp_template(
+                to_number=cleaned_num,
+                template_name='newjobcash',
+                values=values,
+                doc_url=pdf_url,
+                setting=setting
+            )
+        else:
+            send_whatsapp_simple(
+                to_number=cleaned_num,
+                message=message_text,
+                setting=setting,
+                media_url=pdf_url
+            )
         
     except Exception as e:
         import traceback
@@ -1186,7 +1219,7 @@ def api_add_customer(request):
             # Send automatically in background
             def send_welcome_message():
                 try:
-                    from booking_management.api_views import send_whatsapp_simple
+                    from booking_management.api_views import send_whatsapp_simple, send_whatsapp_template
                     import re
                     phone_to_send = customer.whatsapp_number or customer.phone
                     cleaned_num = re.sub(r'\D', '', str(phone_to_send))
@@ -1196,13 +1229,28 @@ def api_add_customer(request):
                         cleaned_num = cleaned_num[1:]
                     
                     branch_name = branch.name or "our branch"
-                    message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
                     
-                    send_whatsapp_simple(
-                        to_number=cleaned_num,
-                        message=message_text,
-                        setting=setting
-                    )
+                    # Fetch first vehicle number if available
+                    vehicle_no = ""
+                    first_vehicle = customer.vehicles.filter(is_deleted=False).first()
+                    if first_vehicle:
+                        vehicle_no = first_vehicle.vehicle_number
+                    
+                    if setting.sender_id == '919496007007':
+                        values = [customer.name, branch_name, vehicle_no]
+                        send_whatsapp_template(
+                            to_number=cleaned_num,
+                            template_name='welcome',
+                            values=values,
+                            setting=setting
+                        )
+                    else:
+                        message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+                        send_whatsapp_simple(
+                            to_number=cleaned_num,
+                            message=message_text,
+                            setting=setting
+                        )
                 except Exception as e:
                     with open('/tmp/welcome_message_error.log', 'a') as f:
                         f.write(f"Error sending welcome message for customer {customer.id}: {str(e)}\n")

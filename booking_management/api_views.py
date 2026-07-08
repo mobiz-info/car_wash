@@ -356,6 +356,76 @@ def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None
     return result
 
 
+def send_whatsapp_template(to_number, template_name, values, doc_url=None, setting=None):
+    """
+    Sends an official WhatsApp template message via wawy.org pushwhatsapp.php.
+    """
+    import json
+    from urllib.request import urlopen
+    from urllib.parse import urlencode
+    from urllib.error import URLError
+
+    to_number = clean_whatsapp_number(to_number) or to_number
+
+    username = "mobiz"
+    api_password = "e36981wr6npxjbv7f"
+    sender = "919496007007"
+
+    if setting:
+        if setting.username:
+            username = setting.username
+        if setting.password:
+            api_password = setting.password
+        if setting.sender_id:
+            sender = setting.sender_id
+
+    # Base URL for templates
+    base_url = "http://wawy.org/pushwhatsapp.php"
+
+    params = {
+        "username": username,
+        "api_password": api_password,
+        "sender": sender,
+        "priority": "21",
+        "name": template_name,
+        "to": to_number,
+    }
+
+    # Add dynamic values (value1, value2, value3...)
+    for i, val in enumerate(values, start=1):
+        params[f"value{i}"] = val
+
+    if doc_url:
+        params["doc"] = doc_url
+
+    try:
+        url = f"{base_url}?{urlencode(params)}"
+        with open('/tmp/wa_debug.log', 'a') as f:
+            f.write(f"SEND_TEMPLATE CALL: to={to_number}, template={template_name}, url={url}\n")
+        
+        with urlopen(url, timeout=15) as resp:
+            result = resp.read().decode('utf-8')
+            
+        with open('/tmp/wa_debug.log', 'a') as f:
+            f.write(f"SEND_TEMPLATE RESPONSE: {result}\n")
+    except URLError as e:
+        result = f"URLError: {str(e)}"
+    except Exception as e:
+        result = f"Exception: {str(e)}"
+
+    # Write to standard logs
+    try:
+        log_path = '/tmp/whatsapp_webhook.log'
+        with open(log_path, 'a') as f:
+            from datetime import datetime
+            f.write(f"[{datetime.now()}] TEMPLATE to={to_number} template={template_name} result={result}\n")
+    except Exception:
+        pass
+
+    return result
+
+
+
 @csrf_exempt
 def api_whatsapp_debug(request):
     """Debug endpoint — returns JSON showing exactly what the webhook would do.
@@ -2639,10 +2709,22 @@ def send_booking_ready_alert_background(booking_id):
             
         name = customer.name or "Customer"
         vehicle_number = booking.vehicle.vehicle_number if booking.vehicle else "your vehicle"
-        message = f"Hello {name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service."
         
-        from booking_management.api_views import send_whatsapp_simple
-        send_whatsapp_simple(phone, message, setting=setting)
+        # Check if using the official sender ID
+        if setting.sender_id == '919496007007':
+            from booking_management.api_views import send_whatsapp_template
+            # The 'ready' template expects: {{1}} = Customer Name, {{2}} = Vehicle Number
+            send_whatsapp_template(
+                to_number=phone,
+                template_name='ready',
+                values=[name, vehicle_number],
+                setting=setting
+            )
+        else:
+            message = f"Hello {name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service."
+            from booking_management.api_views import send_whatsapp_simple
+            send_whatsapp_simple(phone, message, setting=setting)
+            
     except Exception as e:
         with open('/tmp/ready_alert_error.log', 'a') as f:
             f.write(f"Error sending ready alert: {e}\n")
@@ -2749,13 +2831,23 @@ def api_send_ready_alert_generic(request):
                 cleaned_phone = f"91{cleaned_phone}"
             
             import threading
-            from booking_management.api_views import send_whatsapp_simple
-            threading.Thread(
-                target=send_whatsapp_simple,
-                args=(cleaned_phone, message),
-                kwargs={'setting': setting},
-                daemon=True
-            ).start()
+            if setting.sender_id == '919496007007':
+                from booking_management.api_views import send_whatsapp_template
+                # Official Meta template: 'ready'
+                threading.Thread(
+                    target=send_whatsapp_template,
+                    args=(cleaned_phone, 'ready', [customer_name, vehicle_number]),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
+            else:
+                from booking_management.api_views import send_whatsapp_simple
+                threading.Thread(
+                    target=send_whatsapp_simple,
+                    args=(cleaned_phone, message),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
             
             return JsonResponse({
                 'success': True,
@@ -2840,13 +2932,23 @@ def api_send_welcome_msg_generic(request):
                 cleaned_phone = f"91{cleaned_phone}"
             
             import threading
-            from booking_management.api_views import send_whatsapp_simple
-            threading.Thread(
-                target=send_whatsapp_simple,
-                args=(cleaned_phone, message),
-                kwargs={'setting': setting},
-                daemon=True
-            ).start()
+            if setting.sender_id == '919496007007':
+                from booking_management.api_views import send_whatsapp_template
+                # Official Meta template: 'welcome'
+                threading.Thread(
+                    target=send_whatsapp_template,
+                    args=(cleaned_phone, 'welcome', [customer_name, branch_name, vehicle_number]),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
+            else:
+                from booking_management.api_views import send_whatsapp_simple
+                threading.Thread(
+                    target=send_whatsapp_simple,
+                    args=(cleaned_phone, message),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
             
             return JsonResponse({
                 'success': True,
@@ -2931,13 +3033,24 @@ def api_send_thanks_msg_generic(request):
                 cleaned_phone = f"91{cleaned_phone}"
             
             import threading
-            from booking_management.api_views import send_whatsapp_simple
-            threading.Thread(
-                target=send_whatsapp_simple,
-                args=(cleaned_phone, message),
-                kwargs={'setting': setting},
-                daemon=True
-            ).start()
+            if setting.sender_id == '919496007007':
+                from booking_management.api_views import send_whatsapp_template
+                # Official Meta template: 'thanks'
+                # Places: {{1}} = Customer Name, {{2}} = Vehicle Number, {{3}} = Branch Name
+                threading.Thread(
+                    target=send_whatsapp_template,
+                    args=(cleaned_phone, 'thanks', [customer_name, vehicle_number, branch_name]),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
+            else:
+                from booking_management.api_views import send_whatsapp_simple
+                threading.Thread(
+                    target=send_whatsapp_simple,
+                    args=(cleaned_phone, message),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
             
             return JsonResponse({
                 'success': True,
