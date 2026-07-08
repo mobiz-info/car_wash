@@ -386,7 +386,7 @@ def send_whatsapp_template(to_number, template_name, values, doc_url=None, setti
         "username": username,
         "api_password": api_password,
         "sender": sender,
-        "priority": "21",
+        "priority": "22",
         "name": template_name,
         "to": to_number,
     }
