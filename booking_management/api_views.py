@@ -208,6 +208,7 @@ def clean_whatsapp_number(number):
 
 
 def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None, media_url=None, location_data=None):
+    to_number = clean_whatsapp_number(to_number) or to_number
 
     with open('/tmp/wa_debug.log', 'a') as f:
         f.write(f"SEND_WA_SIMPLE CALL: to={to_number}, message='{message}', loc={bool(location_data)}\n")
