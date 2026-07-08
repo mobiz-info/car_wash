@@ -2794,6 +2794,21 @@ def api_send_welcome_msg_generic(request):
         # Resolve branch and company
         branch = getattr(user, 'managed_branch', None)
         company = user.profile.company if hasattr(user, 'profile') and user.profile else None
+
+        # If managed_branch not set (e.g. non-staff BRANCH_ADMIN via app login),
+        # look up the branch from the database using role
+        if not branch:
+            role = user.profile.role.name if hasattr(user, 'profile') and user.profile and user.profile.role else None
+            if role == 'BRANCH_ADMIN':
+                from client_management.models import Branch
+                branch = Branch.objects.filter(
+                    branch_admins=user, is_deleted=False
+                ).first()
+            if not branch and company:
+                # Fallback: first branch of the company
+                from client_management.models import Branch
+                branch = Branch.objects.filter(company=company, is_deleted=False).first()
+
         if not company and branch and branch.company:
             company = branch.company
 
@@ -2870,6 +2885,21 @@ def api_send_thanks_msg_generic(request):
         # Resolve branch and company
         branch = getattr(user, 'managed_branch', None)
         company = user.profile.company if hasattr(user, 'profile') and user.profile else None
+
+        # If managed_branch not set (e.g. non-staff BRANCH_ADMIN via app login),
+        # look up the branch from the database using role
+        if not branch:
+            role = user.profile.role.name if hasattr(user, 'profile') and user.profile and user.profile.role else None
+            if role == 'BRANCH_ADMIN':
+                from client_management.models import Branch
+                branch = Branch.objects.filter(
+                    branch_admins=user, is_deleted=False
+                ).first()
+            if not branch and company:
+                # Fallback: first branch of the company
+                from client_management.models import Branch
+                branch = Branch.objects.filter(company=company, is_deleted=False).first()
+
         if not company and branch and branch.company:
             company = branch.company
 

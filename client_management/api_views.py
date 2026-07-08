@@ -155,10 +155,21 @@ def get_user_from_token(request):
                 # In-memory role override to 'BRANCH_ADMIN' to reuse all branch scoping logic
                 if hasattr(user, 'profile') and user.profile and user.profile.role:
                     user.profile.role.name = 'BRANCH_ADMIN'
+            elif hasattr(user, 'profile') and user.profile and user.profile.role:
+                # For non-staff BRANCH_ADMIN users logging in via the app,
+                # set managed_branch from the database so all branch-scoped APIs work
+                if user.profile.role.name == 'BRANCH_ADMIN' and not hasattr(user, 'managed_branch'):
+                    from client_management.models import Branch
+                    branch = Branch.objects.filter(
+                        branch_admins=user, is_deleted=False
+                    ).first()
+                    if branch:
+                        user.managed_branch = branch
             return user
         except APIToken.DoesNotExist:
             return None
     return None
+
 
 
 def api_dashboard_stats(request):
