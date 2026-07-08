@@ -180,7 +180,35 @@ def safe_create_model(model, **kwargs):
     return model.objects.create(**kwargs)
 
 
+def clean_whatsapp_number(number):
+    """
+    Cleans and validates a phone number for WhatsApp sending.
+    - Strips spaces, dashes, +, parentheses
+    - Handles country code 91 prefix for Indian numbers
+    - Returns a valid 12-digit number (91XXXXXXXXXX) or None if invalid
+    """
+    if not number:
+        return None
+    # Remove non-digit characters
+    digits = ''.join(filter(str.isdigit, str(number).strip()))
+    if not digits:
+        return None
+    # Remove leading 0
+    if digits.startswith('0'):
+        digits = digits[1:]
+    # If already has 91 prefix
+    if digits.startswith('91'):
+        mobile = digits[2:]
+    else:
+        mobile = digits
+    # Indian mobile numbers are exactly 10 digits
+    if len(mobile) != 10:
+        return None
+    return '91' + mobile
+
+
 def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None, media_url=None, location_data=None):
+
     with open('/tmp/wa_debug.log', 'a') as f:
         f.write(f"SEND_WA_SIMPLE CALL: to={to_number}, message='{message}', loc={bool(location_data)}\n")
     base_url = "http://wawy.org/conv_wa.php"

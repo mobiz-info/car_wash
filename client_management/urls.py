@@ -84,6 +84,7 @@ urlpatterns = [
     path('api/customer/search-list/', api_views.api_customer_search_list, name='api_customer_search_list'),
     path('api/invoice/services/', api_views.api_get_services, name='api_get_services'),
     path('api/invoice/create/', api_views.api_create_invoice, name='api_create_invoice'),
+    path('api/invoice/send-whatsapp/', api_views.api_send_invoice_whatsapp, name='api_send_invoice_whatsapp'),
     path('api/customer/form-data/', api_views.api_get_form_data, name='api_get_form_data'),
     
     # Expense APIs

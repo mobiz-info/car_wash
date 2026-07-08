@@ -777,6 +777,61 @@ def api_create_invoice(request):
 
 
 @csrf_exempt
+def api_send_invoice_whatsapp(request):
+    """Trigger WhatsApp invoice message manually for a given invoice_id."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        import json
+        data = json.loads(request.body)
+        invoice_id = data.get('invoice_id', '')
+
+        from finance_management.models import Invoice
+        try:
+            invoice = Invoice.objects.get(id=invoice_id)
+        except Invoice.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Invoice not found'}, status=404)
+
+        from client_management.models import WhatsAppSetting
+        company = invoice.branch.company if invoice.branch else None
+        setting = None
+        if company:
+            setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+
+        has_api = bool(setting and setting.username and setting.password)
+
+        if has_api:
+            # Trigger background task
+            import threading
+            base_url = request.build_absolute_uri('/')
+            threading.Thread(
+                target=send_invoice_whatsapp_background,
+                args=(invoice.id, base_url),
+                daemon=True
+            ).start()
+
+            return JsonResponse({
+                'success': True,
+                'action': 'auto',
+                'message': 'Invoice sent successfully via WhatsApp API'
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'action': 'manual',
+                'message': 'WhatsApp API is not configured',
+            })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_vehicle_search_list(request):
     """Partial vehicle number search — returns a list of matching vehicles (for auto-suggest)."""
     if request.method != 'GET':
