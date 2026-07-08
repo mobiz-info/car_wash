@@ -1240,7 +1240,7 @@ def api_add_customer(request):
                         values = [customer.name, branch_name, vehicle_no]
                         send_whatsapp_template(
                             to_number=cleaned_num,
-                            template_name='welcome',
+                            template_name='welcoming',
                             values=values,
                             setting=setting
                         )

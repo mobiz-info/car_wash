@@ -2933,11 +2933,10 @@ def api_send_welcome_msg_generic(request):
             
             import threading
             if setting.sender_id == '919496007007':
-                from booking_management.api_views import send_whatsapp_template
-                # Official Meta template: 'welcome'
+                # Official Meta template: 'welcoming'
                 threading.Thread(
                     target=send_whatsapp_template,
-                    args=(cleaned_phone, 'welcome', [customer_name, branch_name, vehicle_number]),
+                    args=(cleaned_phone, 'welcoming', [customer_name, branch_name, vehicle_number]),
                     kwargs={'setting': setting},
                     daemon=True
                 ).start()
