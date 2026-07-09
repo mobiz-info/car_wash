@@ -768,6 +768,13 @@ def api_create_invoice(request):
                 creator=user,
                 auto_id=get_auto_id(InvoiceItem)
             )
+
+        # Create scheduled ReminderPlan entries
+        from booking_management.utils import create_reminder_plans_for_invoice
+        try:
+            create_reminder_plans_for_invoice(invoice)
+        except Exception as e:
+            pass
             
         booking_id = data.get('booking_id')
         if booking_id:

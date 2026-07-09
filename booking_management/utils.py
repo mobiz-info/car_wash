@@ -56,3 +56,40 @@ def validate_booking(branch, booking_date):
             return False, "Maximum booking limit reached"
 
     return True, "Booking available"
+
+
+def create_reminder_plans_for_invoice(invoice):
+    """Create scheduled ReminderPlan entries for each service in the invoice items."""
+    from booking_management.models import ServiceReminder, ReminderPlan
+    from datetime import timedelta
+    from core.functions import get_auto_id
+    
+    branch = invoice.branch
+    if not branch:
+        return
+        
+    for item in invoice.items.filter(service__isnull=False):
+        reminder_rules = ServiceReminder.objects.filter(
+            branch=branch,
+            service=item.service,
+            is_deleted=False
+        ).order_by('days_after')
+        
+        for idx, rule in enumerate(reminder_rules, start=1):
+            scheduled_date = invoice.date + timedelta(days=rule.days_after)
+            
+            exists = ReminderPlan.objects.filter(
+                invoice=invoice,
+                reminder=rule,
+                is_deleted=False
+            ).exists()
+            
+            if not exists:
+                ReminderPlan.objects.create(
+                    branch=branch,
+                    invoice=invoice,
+                    reminder=rule,
+                    reminder_no=idx,
+                    scheduled_date=scheduled_date,
+                    auto_id=get_auto_id(ReminderPlan)
+                )

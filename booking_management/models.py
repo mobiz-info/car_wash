@@ -154,3 +154,15 @@ class SentServiceReminder(BaseModel):
 
     def __str__(self):
         return f"Sent to {self.invoice.customer.name} on {self.sent_date}"
+
+
+class ReminderPlan(BaseModel):
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='reminder_plans')
+    invoice = models.ForeignKey('finance_management.Invoice', on_delete=models.CASCADE, related_name='reminder_plans')
+    reminder = models.ForeignKey(ServiceReminder, on_delete=models.CASCADE, related_name='reminder_plans')
+    reminder_no = models.PositiveIntegerField(default=1)
+    scheduled_date = models.DateField()
+    is_sent = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.invoice.customer.name} - {self.reminder.service.name} - No.{self.reminder_no} on {self.scheduled_date}"
