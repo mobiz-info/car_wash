@@ -627,7 +627,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             ]
             send_whatsapp_template(
                 to_number=cleaned_num,
-                template_name='newjobcash',
+                template_name='invoice',
                 values=values,
                 doc_url=pdf_url,
                 setting=setting
