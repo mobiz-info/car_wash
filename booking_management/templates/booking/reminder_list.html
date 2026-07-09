@@ -62,7 +62,7 @@
                     style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Branch:</span>
                 <select class="form-control" style="width: 220px;" onchange="updateFilters('branch_id', this.value)">
                     {% for b in branches %}
-                    <option value="{{ b.id }}" {% if selected_branch and b.id==selected_branch.id %}selected{% endif %}>
+                    <option value="{{ b.id }}" {% if selected_branch and b.id == selected_branch.id %}selected{% endif %}>
                         {{ b.name }}</option>
                     {% endfor %}
                 </select>
