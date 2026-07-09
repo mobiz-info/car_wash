@@ -888,6 +888,9 @@ def reminder_list(request):
     return render(request, 'booking/reminder_list.html', context)
 
 
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+
 @csrf_exempt
 @login_required
 def send_reminder_ajax(request):
