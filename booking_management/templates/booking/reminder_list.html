@@ -9,9 +9,10 @@
         border: 1px solid #e2e8f0;
         border-radius: 14px;
         padding: 24px;
-        box-shadow: 0 1px 4px rgba(0,0,0,.04);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, .04);
         margin-bottom: 24px;
     }
+
     .form-control {
         width: 100%;
         padding: 10px 14px;
@@ -22,10 +23,12 @@
         outline: none;
         transition: border-color .2s, box-shadow .2s;
     }
+
     .form-control:focus {
         border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, .1);
     }
+
     .planner-actions {
         display: flex;
         justify-content: space-between;
@@ -34,6 +37,7 @@
         flex-wrap: wrap;
         gap: 16px;
     }
+
     .select-all-box {
         display: flex;
         align-items: center;
@@ -46,7 +50,7 @@
 </style>
 
 <div class="premium-form-container" style="max-width: 1100px; margin: 0 auto;">
-    
+
     <div id="alert-container"></div>
 
     <div class="planner-actions">
@@ -54,18 +58,22 @@
         <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
             {% if role_name == 'COMPANY_ADMIN' and branches.count > 1 %}
             <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Branch:</span>
+                <span
+                    style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Branch:</span>
                 <select class="form-control" style="width: 220px;" onchange="updateFilters('branch_id', this.value)">
                     {% for b in branches %}
-                    <option value="{{ b.id }}" {% if selected_branch and b.id == selected_branch.id %}selected{% endif %}>{{ b.name }}</option>
+                    <option value="{{ b.id }}" {% if selected_branch and b.id==selected_branch.id %}selected{% endif %}>
+                        {{ b.name }}</option>
                     {% endfor %}
                 </select>
             </div>
             {% endif %}
-            
+
             <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Select Date:</span>
-                <input type="date" class="form-control" style="width: 160px;" value="{{ selected_date }}" onchange="updateFilters('date', this.value)">
+                <span style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Select
+                    Date:</span>
+                <input type="date" class="form-control" style="width: 160px;" value="{{ selected_date }}"
+                    onchange="updateFilters('date', this.value)">
             </div>
         </div>
 
@@ -91,7 +99,8 @@
         </div>
 
         {% if plans %}
-        <div class="list-container" style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: none;">
+        <div class="list-container"
+            style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: none;">
             <table class="premium-table" id="planner-table">
                 <thead>
                     <tr>
@@ -110,9 +119,8 @@
                     {% for plan in plans %}
                     <tr id="row-{{ plan.id }}">
                         <td style="padding-right: 0; vertical-align: middle;">
-                            <input type="checkbox" class="client-checkbox" 
-                                   data-plan-id="{{ plan.id }}" 
-                                   style="width: 16px; height: 16px; cursor: pointer;">
+                            <input type="checkbox" class="client-checkbox" data-plan-id="{{ plan.id }}"
+                                style="width: 16px; height: 16px; cursor: pointer;">
                         </td>
                         <td>{{ forloop.counter }}</td>
                         <td>
@@ -120,20 +128,24 @@
                         </td>
                         <td>{{ plan.invoice.vehicle.vehicle_type.name|default:'N/A' }}</td>
                         <td>
-                            <span style="background: #f1f5f9; color: #475569; padding: 3px 6px; border-radius: 4px; font-family: monospace; font-size: .82rem;">
+                            <span
+                                style="background: #f1f5f9; color: #475569; padding: 3px 6px; border-radius: 4px; font-family: monospace; font-size: .82rem;">
                                 {{ plan.invoice.vehicle.vehicle_number|default:'N/A' }}
                             </span>
                         </td>
                         <td>
-                            <span style="background: #eff6ff; color: #1e40af; font-size: .8rem; font-weight: 600; padding: 2px 8px; border-radius: 12px;">
+                            <span
+                                style="background: #eff6ff; color: #1e40af; font-size: .8rem; font-weight: 600; padding: 2px 8px; border-radius: 12px;">
                                 {{ plan.reminder_no }}
                             </span>
                         </td>
                         <td>{{ plan.reminder.service.name }}</td>
-                        <td>{{ plan.invoice.customer.whatsapp_number|default:plan.invoice.customer.phone|default:'' }}</td>
+                        <td>{{ plan.invoice.customer.whatsapp_number|default:plan.invoice.customer.phone|default:'' }}
+                        </td>
                         <td style="text-align: right;">
-                            <button type="button" class="btn-create" style="padding: 6px 12px; font-size: .8rem; display: inline-flex;" 
-                                    onclick="sendSingleReminder('{{ plan.id }}')">
+                            <button type="button" class="btn-create"
+                                style="padding: 6px 12px; font-size: .8rem; display: inline-flex;"
+                                onclick="sendSingleReminder('{{ plan.id }}')">
                                 <i class="ph ph-paper-plane-tilt"></i> Send
                             </button>
                         </td>
@@ -143,24 +155,18 @@
             </table>
         </div>
         {% else %}
-        <div style="padding: 80px 0; text-align: center; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 10px;">
-            <i class="ph ph-users-three" style="font-size: 2.5rem; display: block; margin-bottom: 10px; color: #cbd5e1;"></i>
+        <div
+            style="padding: 80px 0; text-align: center; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 10px;">
+            <i class="ph ph-users-three"
+                style="font-size: 2.5rem; display: block; margin-bottom: 10px; color: #cbd5e1;"></i>
             <div style="font-size: .95rem; font-weight: 600; color: #64748b;">No clients due for reminders</div>
-            <div style="font-size: .8rem; color: #94a3b8; margin-top: 2px;">Change the date selector above to plan future reminders.</div>
+            <div style="font-size: .8rem; color: #94a3b8; margin-top: 2px;">Change the date selector above to plan
+                future reminders.</div>
         </div>
         {% endif %}
-        
+
         <!-- Helpful Guide Text -->
-        <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid #f1f5f9; display: flex; gap: 20px; font-size: .8rem; color: #64748b;">
-            <div>
-                <i class="ph ph-info" style="color: #3b82f6; font-size: 1rem; vertical-align: middle;"></i>
-                <strong>Meta Official API:</strong> Use <strong>Select All ➜ Send Selected</strong> to dispatch in bulk automatically.
-            </div>
-            <div>
-                <i class="ph ph-info" style="color: #22c55e; font-size: 1rem; vertical-align: middle;"></i>
-                <strong>Unofficial scanned:</strong> Use individual or select bulk to dispatch via your connected phone session.
-            </div>
-        </div>
+
 
     </div>
 
@@ -177,9 +183,9 @@
     // Check All / Uncheck All Trigger
     var checkAll = document.getElementById('check-all');
     if (checkAll) {
-        checkAll.addEventListener('change', function() {
+        checkAll.addEventListener('change', function () {
             var checkboxes = document.querySelectorAll('.client-checkbox');
-            checkboxes.forEach(function(cb) {
+            checkboxes.forEach(function (cb) {
                 cb.checked = checkAll.checked;
             });
         });
@@ -198,11 +204,11 @@
         banner.style.alignItems = 'center';
         banner.style.gap = '10px';
         banner.innerHTML = `<i class="ph ${type === 'error' ? 'ph-warning-circle' : 'ph-check-circle'}" style="font-size:1.2rem;"></i> ${msg}`;
-        
+
         var container = document.getElementById('alert-container');
         container.innerHTML = '';
         container.appendChild(banner);
-        
+
         // Auto scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -212,10 +218,10 @@
         var row = document.getElementById('row-' + planId);
         var btn = row.querySelector('button');
         var originalHtml = btn.innerHTML;
-        
+
         btn.disabled = true;
         btn.innerHTML = '<i class="ph ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Sending...';
-        
+
         fetch("{% url 'send_reminder_ajax' %}", {
             method: 'POST',
             headers: {
@@ -226,29 +232,55 @@
                 plan_ids: [planId]
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.sent_count > 0) {
-                row.style.transition = 'opacity 0.4s';
-                row.style.opacity = '0';
-                setTimeout(() => {
-                    row.remove();
-                    showAlert("Reminder sent successfully!", "success");
-                    if (document.querySelectorAll('#planner-table tbody tr').length === 0) {
-                        location.reload();
-                    }
-                }, 400);
-            } else {
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.sent_count > 0) {
+                    row.style.transition = 'opacity 0.4s';
+                    row.style.opacity = '0';
+                    setTimeout(() => {
+                        row.remove();
+                        showAlert("Reminder sent successfully!", "success");
+                        if (document.querySelectorAll('#planner-table tbody tr').length === 0) {
+                            location.reload();
+                        }
+                    }, 400);
+                } else if (data.use_fallback && data.whatsapp_url) {
+                    // Open the prefill link in a new tab
+                    window.open(data.whatsapp_url, '_blank');
+                    
+                    // Mark as sent in background
+                    fetch("{% url 'send_reminder_ajax' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            plan_ids: [planId],
+                            action: 'mark_sent'
+                        })
+                    }).then(() => {
+                        row.style.transition = 'opacity 0.4s';
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.remove();
+                            showAlert("Opened prefilled WhatsApp chat window.", "success");
+                            if (document.querySelectorAll('#planner-table tbody tr').length === 0) {
+                                location.reload();
+                            }
+                        }, 400);
+                    });
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                    showAlert(data.message || "Failed to send reminder. Check WhatsApp API configuration.", "error");
+                }
+            })
+            .catch(err => {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
-                showAlert(data.message || "Failed to send reminder. Check WhatsApp API configuration.", "error");
-            }
-        })
-        .catch(err => {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-            showAlert("Connection error. Could not reach server.", "error");
-        });
+                showAlert("Connection error. Could not reach server.", "error");
+            });
     }
 
     // Send bulk selected rows
@@ -258,17 +290,17 @@
             alert("Please select at least one client to send reminders.");
             return;
         }
-        
+
         var planIds = [];
         checked.forEach(cb => {
             planIds.push(cb.getAttribute('data-plan-id'));
         });
-        
+
         var bulkBtn = document.querySelector('.planner-actions button');
         var originalBtnHtml = bulkBtn.innerHTML;
         bulkBtn.disabled = true;
         bulkBtn.innerHTML = '<i class="ph ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Sending...';
-        
+
         fetch("{% url 'send_reminder_ajax' %}", {
             method: 'POST',
             headers: {
@@ -277,37 +309,42 @@
             },
             body: JSON.stringify({ plan_ids: planIds })
         })
-        .then(response => response.json())
-        .then(data => {
-            bulkBtn.disabled = false;
-            bulkBtn.innerHTML = originalBtnHtml;
-            
-            if (data.success && data.sent_count > 0) {
-                showAlert(`Successfully sent ${data.sent_count} reminders!`, "success");
-                checked.forEach(cb => {
-                    var pId = cb.getAttribute('data-plan-id');
-                    var row = document.getElementById('row-' + pId);
-                    if (row) row.remove();
-                });
-                if (document.querySelectorAll('#planner-table tbody tr').length === 0) {
-                    location.reload();
+            .then(response => response.json())
+            .then(data => {
+                bulkBtn.disabled = false;
+                bulkBtn.innerHTML = originalBtnHtml;
+
+                if (data.success && data.sent_count > 0) {
+                    showAlert(`Successfully sent ${data.sent_count} reminders!`, "success");
+                    checked.forEach(cb => {
+                        var pId = cb.getAttribute('data-plan-id');
+                        var row = document.getElementById('row-' + pId);
+                        if (row) row.remove();
+                    });
+                    if (document.querySelectorAll('#planner-table tbody tr').length === 0) {
+                        location.reload();
+                    }
+                } else {
+                    showAlert(data.message || "Failed to send selected reminders.", "error");
                 }
-            } else {
-                showAlert(data.message || "Failed to send selected reminders.", "error");
-            }
-        })
-        .catch(err => {
-            bulkBtn.disabled = false;
-            bulkBtn.innerHTML = originalBtnHtml;
-            showAlert("Connection error. Could not reach server.", "error");
-        });
+            })
+            .catch(err => {
+                bulkBtn.disabled = false;
+                bulkBtn.innerHTML = originalBtnHtml;
+                showAlert("Connection error. Could not reach server.", "error");
+            });
     }
 </script>
 
 <style>
     @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
     }
 </style>
 {% endblock %}

@@ -888,9 +888,6 @@ def reminder_list(request):
     return render(request, 'booking/reminder_list.html', context)
 
 
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-
 @csrf_exempt
 @login_required
 def send_reminder_ajax(request):
@@ -902,12 +899,29 @@ def send_reminder_ajax(request):
         import json
         data = json.loads(request.body)
         plan_ids = data.get('plan_ids', [])
+        action = data.get('action')
         
         from booking_management.models import ReminderPlan, SentServiceReminder
         from client_management.models import WhatsAppSetting
         from booking_management.api_views import send_whatsapp_simple, send_whatsapp_template
         import re
+        import urllib.parse
         
+        # Action: Mark Sent (used after manual fallback)
+        if action == 'mark_sent':
+            for p_id in plan_ids:
+                try:
+                    plan = ReminderPlan.objects.get(id=p_id, is_deleted=False, is_sent=False)
+                    plan.is_sent = True
+                    plan.save()
+                    SentServiceReminder.objects.get_or_create(
+                        reminder=plan.reminder,
+                        invoice=plan.invoice
+                    )
+                except ReminderPlan.DoesNotExist:
+                    pass
+            return JsonResponse({'success': True, 'message': 'Marked as sent'})
+            
         sent_count = 0
         
         for p_id in plan_ids:
@@ -922,45 +936,79 @@ def send_reminder_ajax(request):
             # Fetch setting
             company = plan.branch.company if plan.branch else None
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
-            if not setting or not setting.username or not setting.password:
-                continue
-                
-            # Phone
+            
+            # Prepare phone number & fallback link
             phone = invoice.customer.phone or invoice.customer.whatsapp_number
-            if not phone:
-                continue
-            cleaned_phone = re.sub(r'\D', '', str(phone))
-            if len(cleaned_phone) == 10:
-                cleaned_phone = "91" + cleaned_phone
-            elif len(cleaned_phone) > 10 and cleaned_phone.startswith("0"):
-                cleaned_phone = cleaned_phone[1:]
-                
+            cleaned_phone = ""
+            if phone:
+                cleaned_phone = re.sub(r'\D', '', str(phone))
+                if len(cleaned_phone) == 10:
+                    cleaned_phone = "91" + cleaned_phone
+                elif len(cleaned_phone) > 10 and cleaned_phone.startswith("0"):
+                    cleaned_phone = cleaned_phone[1:]
+                    
             customer_name = invoice.customer.name or "Customer"
             vehicle_no = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
             
-            # Send
-            if setting.sender_id == '919496007007':
-                send_whatsapp_template(
-                    to_number=cleaned_phone,
-                    template_name='reminder',
-                    values=[customer_name, vehicle_no],
-                    setting=setting
-                )
-            else:
-                message = reminder.reminder_message.replace('{customer_name}', customer_name) \
-                                                    .replace('{vehicle_number}', vehicle_no) \
-                                                    .replace('{service_name}', reminder.service.name)
-                send_whatsapp_simple(
-                    to_number=cleaned_phone,
-                    message=message,
-                    setting=setting
-                )
+            # Prefilled message (Template text fallback)
+            message = reminder.reminder_message.replace('{customer_name}', customer_name) \
+                                                .replace('{vehicle_number}', vehicle_no) \
+                                                .replace('{service_name}', reminder.service.name)
+            
+            encoded_message = urllib.parse.quote(message)
+            fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
+            
+            # Check if API is available
+            if not setting or not setting.username or not setting.password:
+                if len(plan_ids) == 1:
+                    # Return fallback prefill link directly
+                    return JsonResponse({
+                        'success': False,
+                        'use_fallback': True,
+                        'whatsapp_url': fallback_url,
+                        'plan_id': plan.id,
+                        'message': 'WhatsApp API not configured. Use manual sending.'
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'WhatsApp API is not configured. Send individually to use manual prefill.'
+                    })
+            
+            # Send via API
+            try:
+                if setting.sender_id == '919496007007':
+                    # Template details: name="reminder", value1=customer_name, value2=vehicle_no
+                    send_whatsapp_template(
+                        to_number=cleaned_phone,
+                        template_name='reminder',
+                        values=[customer_name, vehicle_no],
+                        setting=setting
+                    )
+                else:
+                    send_whatsapp_simple(
+                        to_number=cleaned_phone,
+                        message=message,
+                        setting=setting
+                    )
+            except Exception as api_err:
+                # If single send fails, try manual fallback
+                if len(plan_ids) == 1:
+                    return JsonResponse({
+                        'success': False,
+                        'use_fallback': True,
+                        'whatsapp_url': fallback_url,
+                        'plan_id': plan.id,
+                        'message': f'API Error: {str(api_err)}. Switch to manual fallback.'
+                    })
+                else:
+                    continue
                 
             # Mark sent
             plan.is_sent = True
             plan.save()
             
-            # Also keep SentServiceReminder logged for tracking/compatibility
+            # Log sent reminder for reports/compatibility
             SentServiceReminder.objects.get_or_create(
                 reminder=reminder,
                 invoice=invoice
