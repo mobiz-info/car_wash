@@ -143,6 +143,12 @@ class ServiceReminder(BaseModel):
     reminder_message = models.TextField(help_text="Template for the reminder. Use placeholders: {customer_name}, {vehicle_number}, {service_name}")
     days_after = models.PositiveIntegerField(help_text="Number of days after service to send this reminder")
 
+    def save(self, *args, **kwargs):
+        if not self.auto_id:
+            from core.functions import get_auto_id
+            self.auto_id = get_auto_id(ServiceReminder)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.service.name} Reminder - {self.days_after} Days"
 
@@ -151,6 +157,12 @@ class SentServiceReminder(BaseModel):
     reminder = models.ForeignKey(ServiceReminder, on_delete=models.CASCADE, related_name='sent_instances')
     invoice = models.ForeignKey('finance_management.Invoice', on_delete=models.CASCADE, related_name='sent_reminders')
     sent_date = models.DateField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.auto_id:
+            from core.functions import get_auto_id
+            self.auto_id = get_auto_id(SentServiceReminder)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Sent to {self.invoice.customer.name} on {self.sent_date}"
@@ -163,6 +175,12 @@ class ReminderPlan(BaseModel):
     reminder_no = models.PositiveIntegerField(default=1)
     scheduled_date = models.DateField()
     is_sent = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.auto_id:
+            from core.functions import get_auto_id
+            self.auto_id = get_auto_id(ReminderPlan)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.invoice.customer.name} - {self.reminder.service.name} - No.{self.reminder_no} on {self.scheduled_date}"
