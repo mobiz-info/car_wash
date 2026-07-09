@@ -135,3 +135,22 @@ class ChatSession(BaseModel):
 
     def __str__(self):
         return f"{self.phone_number} - {self.state}"
+
+
+class ServiceReminder(BaseModel):
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='service_reminders')
+    service = models.ForeignKey('service_management.Service', on_delete=models.CASCADE, related_name='reminders')
+    reminder_message = models.TextField(help_text="Template for the reminder. Use placeholders: {customer_name}, {vehicle_number}, {service_name}")
+    days_after = models.PositiveIntegerField(help_text="Number of days after service to send this reminder")
+
+    def __str__(self):
+        return f"{self.service.name} Reminder - {self.days_after} Days"
+
+
+class SentServiceReminder(BaseModel):
+    reminder = models.ForeignKey(ServiceReminder, on_delete=models.CASCADE, related_name='sent_instances')
+    invoice = models.ForeignKey('finance_management.Invoice', on_delete=models.CASCADE, related_name='sent_reminders')
+    sent_date = models.DateField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Sent to {self.invoice.customer.name} on {self.sent_date}"

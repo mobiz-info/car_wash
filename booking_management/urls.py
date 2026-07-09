@@ -49,4 +49,6 @@ urlpatterns = [
     path('pause-booking/delete/<uuid:pk>/',views.pause_booking_delete,name='pause_booking_delete'),
 
     path('branch/messages/', views.branch_messages_manage, name='branch_messages_manage'),
+    path('branch/service-reminders/', views.service_reminders_manage, name='service_reminders_manage'),
+    path('branch/service-reminders/delete/<uuid:id>/', views.service_reminder_delete, name='service_reminder_delete'),
 ]

@@ -662,3 +662,104 @@ def branch_messages_manage(request):
         'default_thanks': 'Hello {customer_name}, thank you for choosing our service! We look forward to serving you again. Have a great day!',
     }
     return render(request, 'booking/branch_messages.html', context)
+
+
+@login_required
+def service_reminders_manage(request):
+    """View and edit per-branch service top-up reminders."""
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    from client_management.models import Branch
+    from service_management.models import Service
+
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+    else:
+        managed = getattr(request.user, 'managed_branch', None)
+        branches = Branch.objects.filter(id=managed.id, is_deleted=False) if managed else Branch.objects.none()
+
+    # Select active branch (from GET ?branch_id= or first branch)
+    selected_branch_id = request.GET.get('branch_id') or request.POST.get('branch_id')
+    selected_branch = None
+    if selected_branch_id:
+        selected_branch = branches.filter(id=selected_branch_id).first()
+    if not selected_branch:
+        selected_branch = branches.first()
+
+    # Fetch services
+    services = Service.objects.filter(is_active=True).order_by('name')
+
+    # Fetch existing reminders for this branch
+    reminders = []
+    if selected_branch:
+        reminders = ServiceReminder.objects.filter(
+            branch=selected_branch, is_deleted=False
+        ).select_related('service').order_by('days_after')
+
+    if request.method == 'POST' and selected_branch:
+        service_id = request.POST.get('service_id')
+        reminder_message = request.POST.get('reminder_message', '').strip()
+        days_after = request.POST.get('days_after', '').strip()
+
+        # Validation
+        if not service_id or not reminder_message or not days_after:
+            messages.error(request, 'All fields are mandatory to add a reminder.')
+        else:
+            try:
+                days = int(days_after)
+                if days <= 0:
+                    raise ValueError()
+                
+                service_obj = Service.objects.get(id=service_id)
+                
+                # Create the reminder configuration
+                ServiceReminder.objects.create(
+                    branch=selected_branch,
+                    service=service_obj,
+                    reminder_message=reminder_message,
+                    days_after=days,
+                    creator=request.user,
+                    auto_id=get_auto_id(ServiceReminder)
+                )
+                messages.success(request, f'Service reminder added for {service_obj.name}.')
+                return HttpResponseRedirect(
+                    reverse('service_reminders_manage') + f'?branch_id={selected_branch.id}'
+                )
+            except ValueError:
+                messages.error(request, 'Please enter a valid positive number for days.')
+            except Service.DoesNotExist:
+                messages.error(request, 'Selected service does not exist.')
+
+    context = {
+        'branches': branches,
+        'selected_branch': selected_branch,
+        'services': services,
+        'reminders': reminders,
+        'role_name': role_name,
+    }
+    return render(request, 'booking/service_reminders.html', context)
+
+
+@login_required
+def service_reminder_delete(request, id):
+    """Delete a service reminder configuration."""
+    reminder = get_object_or_404(ServiceReminder, id=id, is_deleted=False)
+    
+    # Check permissions
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+    
+    if role_name != 'COMPANY_ADMIN':
+        managed = getattr(request.user, 'managed_branch', None)
+        if not managed or managed.id != reminder.branch.id:
+            messages.error(request, 'You do not have permission to delete this reminder.')
+            return redirect('service_reminders_manage')
+            
+    reminder.is_deleted = True
+    reminder.save()
+    messages.success(request, 'Service reminder configuration deleted successfully.')
+    return HttpResponseRedirect(
+        reverse('service_reminders_manage') + f'?branch_id={reminder.branch.id}'
+    )
