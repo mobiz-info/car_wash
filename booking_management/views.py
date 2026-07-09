@@ -763,3 +763,193 @@ def service_reminder_delete(request, id):
     return HttpResponseRedirect(
         reverse('service_reminders_manage') + f'?branch_id={reminder.branch.id}'
     )
+
+
+@login_required
+def reminder_planner(request):
+    """View to list clients due for service reminders and trigger sends."""
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    from client_management.models import Branch
+    from service_management.models import Service
+    from finance_management.models import Invoice
+    from django.utils import timezone
+    from datetime import datetime, timedelta
+
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+    else:
+        managed = getattr(request.user, 'managed_branch', None)
+        branches = Branch.objects.filter(id=managed.id, is_deleted=False) if managed else Branch.objects.none()
+
+    # Active branch
+    selected_branch_id = request.GET.get('branch_id') or request.POST.get('branch_id')
+    selected_branch = None
+    if selected_branch_id:
+        selected_branch = branches.filter(id=selected_branch_id).first()
+    if not selected_branch:
+        selected_branch = branches.first()
+
+    # Select date (defaults to today)
+    date_str = request.GET.get('date')
+    selected_date = timezone.now().date()
+    if date_str:
+        try:
+            selected_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    clients_to_alert = []
+
+    if selected_branch:
+        # Fetch all reminder rules for this branch, grouped by service
+        from collections import defaultdict
+        rules_by_service = defaultdict(list)
+        all_rules = ServiceReminder.objects.filter(
+            branch=selected_branch, is_deleted=False
+        ).select_related('service').order_by('service_id', 'days_after')
+        
+        for rule in all_rules:
+            rules_by_service[rule.service_id].append(rule)
+
+        # For each service that has reminder rules
+        for service_id, rules in rules_by_service.items():
+            # Fetch all invoices for this branch that purchased this service
+            invoices = Invoice.objects.filter(
+                branch=selected_branch,
+                items__service_id=service_id,
+                is_deleted=False
+            ).select_related('customer', 'vehicle', 'vehicle__vehicle_type').order_by('date')
+
+            for invoice in invoices:
+                # Check if this invoice is superseded by a newer invoice for the same customer-vehicle-service
+                has_newer = Invoice.objects.filter(
+                    customer=invoice.customer,
+                    vehicle=invoice.vehicle,
+                    date__gt=invoice.date,
+                    items__service_id=service_id,
+                    is_deleted=False
+                ).exists()
+                if has_newer:
+                    continue
+
+                # Go through each reminder rule (Reminder 1, 2, 3...)
+                for idx, rule in enumerate(rules, start=1):
+                    # Calculate due date
+                    due_date = invoice.date + timedelta(days=rule.days_after)
+                    
+                    if due_date <= selected_date:
+                        # Check if already sent
+                        sent = SentServiceReminder.objects.filter(
+                            reminder=rule,
+                            invoice=invoice
+                        ).exists()
+                        
+                        if not sent:
+                            clients_to_alert.append({
+                                'reminder_id': str(rule.id),
+                                'invoice_id': str(invoice.id),
+                                'client_name': invoice.customer.name,
+                                'vehicle_type': invoice.vehicle.vehicle_type.name if invoice.vehicle and invoice.vehicle.vehicle_type else 'N/A',
+                                'veh_no': invoice.vehicle.vehicle_number if invoice.vehicle else 'N/A',
+                                'reminder_no': idx,
+                                'service_name': rule.service.name,
+                                'whatsapp_no': invoice.customer.whatsapp_number or invoice.customer.phone or '',
+                                'due_date': due_date,
+                            })
+
+    context = {
+        'branches': branches,
+        'selected_branch': selected_branch,
+        'selected_date': selected_date.strftime("%Y-%m-%d"),
+        'clients_to_alert': clients_to_alert,
+        'role_name': role_name,
+    }
+    return render(request, 'booking/reminder_planner.html', context)
+
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+@login_required
+def send_reminder_ajax(request):
+    """AJAX endpoint to trigger reminder sending for a list of reminders/invoices."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        
+    try:
+        import json
+        data = json.loads(request.body)
+        items = data.get('items', []) # list of {reminder_id, invoice_id}
+        
+        from booking_management.models import ServiceReminder, SentServiceReminder
+        from finance_management.models import Invoice
+        from client_management.models import WhatsAppSetting
+        from booking_management.api_views import send_whatsapp_simple, send_whatsapp_template
+        import re
+        
+        sent_count = 0
+        
+        for item in items:
+            reminder_id = item.get('reminder_id')
+            invoice_id = item.get('invoice_id')
+            
+            try:
+                reminder = ServiceReminder.objects.get(id=reminder_id, is_deleted=False)
+                invoice = Invoice.objects.get(id=invoice_id, is_deleted=False)
+            except (ServiceReminder.DoesNotExist, Invoice.DoesNotExist):
+                continue
+                
+            # Verify if already sent
+            if SentServiceReminder.objects.filter(reminder=reminder, invoice=invoice).exists():
+                continue
+                
+            # Fetch setting
+            company = reminder.branch.company if reminder.branch else None
+            setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+            if not setting or not setting.username or not setting.password:
+                continue
+                
+            # Phone
+            phone = invoice.customer.phone or invoice.customer.whatsapp_number
+            if not phone:
+                continue
+            cleaned_phone = re.sub(r'\D', '', str(phone))
+            if len(cleaned_phone) == 10:
+                cleaned_phone = "91" + cleaned_phone
+            elif len(cleaned_phone) > 10 and cleaned_phone.startswith("0"):
+                cleaned_phone = cleaned_phone[1:]
+                
+            customer_name = invoice.customer.name or "Customer"
+            vehicle_no = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
+            
+            # Send
+            if setting.sender_id == '919496007007':
+                send_whatsapp_template(
+                    to_number=cleaned_phone,
+                    template_name='reminder',
+                    values=[customer_name, vehicle_no],
+                    setting=setting
+                )
+            else:
+                message = reminder.reminder_message.replace('{customer_name}', customer_name) \
+                                                    .replace('{vehicle_number}', vehicle_no) \
+                                                    .replace('{service_name}', reminder.service.name)
+                send_whatsapp_simple(
+                    to_number=cleaned_phone,
+                    message=message,
+                    setting=setting
+                )
+                
+            # Mark sent
+            SentServiceReminder.objects.create(
+                reminder=reminder,
+                invoice=invoice
+            )
+            sent_count += 1
+            
+        return JsonResponse({'success': True, 'sent_count': sent_count})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
