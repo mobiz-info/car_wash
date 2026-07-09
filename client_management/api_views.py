@@ -608,26 +608,22 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             from booking_management.api_views import send_whatsapp_template
             # The 'newjobcash' template expects:
             # {{1}} = Customer Name
-            # {{2}} = Company Name
-            # {{3}} = Invoice Number
-            # {{4}} = Total Amount
-            # {{5}} = Amount Collected
-            # {{6}} = Payment Reference / Mode
-            ref_no = "Cash"
-            payment = invoice.payments.filter(is_deleted=False).first()
-            if payment:
-                if payment.payment_mode:
-                    ref_no = payment.payment_mode.name
-                if payment.transaction_number:
-                    ref_no += f" ({payment.transaction_number})"
-            
+            # {{2}} = Invoice Number
+            # {{3}} = Company Name
+            # {{4}} = Vehicle Number
+            # {{5}} = Services list string
+            # {{6}} = Total
+            # {{7}} = Paid
+            # {{8}} = Balance
             values = [
                 customer.name,
-                company_name,
                 invoice.invoice_number,
-                str(invoice.total),
-                str(invoice.amount_collected),
-                ref_no
+                company_name,
+                invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
+                services_str,
+                f"{currency}{invoice.total}",
+                f"{currency}{invoice.amount_collected}",
+                f"{currency}{invoice.total - invoice.amount_collected}"
             ]
             send_whatsapp_template(
                 to_number=cleaned_num,
