@@ -1607,6 +1607,12 @@ def api_get_customer(request):
                 'vehicle_number': v.vehicle_number,
                 'vehicle_model_id': str(v.vehicle_type_model.id) if v.vehicle_type_model else None,
                 'vehicle_model_name': v.vehicle_type_model.name if v.vehicle_type_model else '',
+                'brand_model_id': str(v.brand_model.id) if v.brand_model else None,
+                'brand_model_name': v.brand_model.name if v.brand_model else '',
+                'make_id': str(v.make.id) if v.make else None,
+                'make_name': v.make.name if v.make else '',
+                'color_id': str(v.color.id) if v.color else None,
+                'color_name': v.color.name if v.color else '',
             })
 
         return JsonResponse({
@@ -1683,6 +1689,9 @@ def api_edit_customer(request):
                 vehicle_id = v.get('id')
                 vehicle_number = v.get('vehicle_number', '').strip().upper()
                 vehicle_model_id = v.get('vehicle_model_id')
+                brand_model_id = v.get('brand_model_id')
+                make_id = v.get('make_id')
+                color_id = v.get('color_id')
                 if not vehicle_id or not vehicle_number:
                     continue
                 cv = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer, is_deleted=False).first()
@@ -1695,6 +1704,23 @@ def api_edit_customer(request):
                     if vm:
                         cv.vehicle_type_model = vm
                         cv.vehicle_type = vm.vehicle_type
+
+                from master.models import VehicleBrandModel, VehicleColor, VehicleMake
+                if make_id:
+                    cv.make = VehicleMake.objects.filter(id=make_id, is_deleted=False).first()
+                else:
+                    cv.make = None
+
+                if brand_model_id:
+                    cv.brand_model = VehicleBrandModel.objects.filter(id=brand_model_id, is_deleted=False).first()
+                else:
+                    cv.brand_model = None
+
+                if color_id:
+                    cv.color = VehicleColor.objects.filter(id=color_id, is_deleted=False).first()
+                else:
+                    cv.color = None
+
                 cv.save()
 
             # Add new vehicles
@@ -4500,6 +4526,43 @@ def api_report_payment_type(request):
         'summary': summary,
         'rows': rows,
     })
+
+
+@csrf_exempt
+def api_delete_customer(request):
+    """Deletes a customer (sets is_deleted=True). Allowed only for COMPANY_ADMIN role."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    role = user.profile.role.name if user.profile.role else None
+    if role != 'COMPANY_ADMIN':
+        return JsonResponse({'success': False, 'message': 'Permission denied. Only Company Admin can delete customers.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        if not customer_id:
+            return JsonResponse({'success': False, 'message': 'customer_id is required'}, status=400)
+
+        company = user.profile.company
+        customer = Customer.objects.get(id=customer_id, company=company, is_deleted=False)
+
+        customer.is_deleted = True
+        customer.save()
+
+        # Also soft delete their vehicles
+        customer.vehicles.filter(is_deleted=False).update(is_deleted=True)
+
+        return JsonResponse({'success': True, 'message': 'Customer deleted successfully'})
+
+    except Customer.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
 

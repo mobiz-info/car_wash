@@ -110,6 +110,7 @@ urlpatterns = [
     path('api/customer/inactive/', api_views.api_inactive_customers, name='api_inactive_customers'),
     path('api/customer/get/', api_views.api_get_customer, name='api_get_customer'),
     path('api/customer/edit/', api_views.api_edit_customer, name='api_edit_customer'),
+    path('api/customer/delete/', api_views.api_delete_customer, name='api_delete_customer'),
     path('api/vehicle/search/', api_views.api_vehicle_search, name='api_vehicle_search'),
     path('api/vehicle/search-list/', api_views.api_vehicle_search_list, name='api_vehicle_search_list'),
     path('api/whatsapp/templates/', api_views.api_whatsapp_templates, name='api_whatsapp_templates'),
