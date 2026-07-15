@@ -578,7 +578,6 @@ def api_whatsapp_webhook(request):
             json_company_id = ""
             if request.method == 'POST':
                 try:
-                    import json
                     post_body = json.loads(request.body)
                     json_bot_number = str(post_body.get('sender_number', '') or post_body.get('bot_number', '')).strip()
                     json_company_id = str(post_body.get('company_id', '')).strip()
