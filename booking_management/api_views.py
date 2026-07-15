@@ -2930,6 +2930,27 @@ def api_send_welcome_msg_generic(request):
                                .replace('{vehicle_number}', vehicle_number) \
                                .replace('{branch_name}', branch_name) \
                                .replace('{company_name}', company_name)
+                               
+        # Resolve customer to get schemes
+        from client_management.models import Customer
+        customer = None
+        if phone:
+            import re
+            cleaned_phone_digits = re.sub(r'\D', '', str(phone))
+            if cleaned_phone_digits.startswith('0'):
+                cleaned_phone_digits = cleaned_phone_digits[1:]
+            customer = Customer.objects.filter(phone__contains=cleaned_phone_digits, company=company, is_deleted=False).first()
+        if not customer and vehicle_number:
+            from client_management.models import CustomerVehicle
+            v_match = CustomerVehicle.objects.filter(vehicle_number__iexact=vehicle_number.replace(' ', ''), customer__company=company, is_deleted=False).first()
+            if v_match:
+                customer = v_match.customer
+                
+        if customer:
+            from client_management.api_views import get_customer_available_schemes_message
+            schemes_msg = get_customer_available_schemes_message(customer)
+            if schemes_msg:
+                message += schemes_msg
 
         from client_management.models import WhatsAppSetting
         setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()

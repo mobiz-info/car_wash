@@ -566,6 +566,97 @@ def api_get_services(request):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
+def get_customer_available_schemes_message(customer):
+    if not customer:
+        return ""
+    try:
+        from django.utils import timezone
+        from client_management.models import Scheme
+        
+        today = timezone.now().date()
+        schemes = Scheme.objects.filter(
+            company=customer.company,
+            customer_types=customer.customer_type,
+            start_date__lte=today,
+            end_date__gte=today,
+            is_deleted=False
+        ).distinct()
+        
+        if not schemes.exists():
+            return ""
+            
+        msg = "\n\nDear customer following schemes are available for you:\n"
+        for s in schemes:
+            msg += f"\n* {s.name}"
+            # Check quantity
+            if s.paid_visits and s.free_visits:
+                msg += f"\n(Pay for {s.paid_visits} services and get {s.free_visits} free service. Limited to a plate no.)"
+            # Check discount
+            elif s.discount_percentage:
+                disc_str = str(s.discount_percentage).rstrip('0').rstrip('.')
+                msg += f"\n({disc_str}% Discount)"
+            # Check voucher
+            elif s.vouchers.filter(is_deleted=False).exists():
+                msg += f"\n(Gift Voucher scheme available)"
+        return msg
+    except Exception:
+        return ""
+
+
+def get_invoice_scheme_progress_message(invoice):
+    from django.utils import timezone
+    from client_management.models import Scheme
+    from finance_management.models import Invoice
+    
+    vehicle = invoice.vehicle
+    customer = invoice.customer
+    if not vehicle or not customer:
+        return ""
+        
+    today = timezone.now().date()
+    if not (customer.branch and customer.branch.scheme_types.exists() and customer.customer_type and vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type):
+        return ""
+        
+    schemes = Scheme.objects.filter(
+        company=customer.company,
+        start_date__lte=today,
+        end_date__gte=today,
+        customer_types=customer.customer_type,
+        vehicle_types=vehicle.vehicle_type_model.vehicle_type,
+        is_deleted=False
+    ).distinct()
+    
+    progress_msgs = []
+    for scheme in schemes:
+        if not (scheme.paid_visits and scheme.free_visits):
+            continue
+            
+        # Count visits (invoices) for this vehicle under this scheme
+        invoices_qs = Invoice.objects.filter(vehicle=vehicle, is_deleted=False)
+        
+        # If scheme has specific services, filter by those services
+        scheme_services = scheme.services.all()
+        if scheme_services.exists():
+            invoices_qs = invoices_qs.filter(items__service__in=scheme_services).distinct()
+            
+        visits_count = invoices_qs.count()
+        
+        service_names = ", ".join([srv.name for srv in scheme_services]) if scheme_services.exists() else "services"
+        
+        remaining = scheme.paid_visits - visits_count
+        if remaining > 0:
+            progress_msgs.append(
+                f"\n*Scheme Status:* Dear customer, after {remaining} consecutive {service_names} service(s), you will get one free service! "
+                f"(Progress: {visits_count}/{scheme.paid_visits})"
+            )
+        else:
+            progress_msgs.append(
+                f"\n*Scheme Status:* Congratulations! You have completed {visits_count} visits and are eligible for a free service under our '{scheme.name}' scheme!"
+            )
+            
+    return "\n".join(progress_msgs)
+
+
 def send_invoice_whatsapp_background(invoice_id, base_url):
     try:
         from finance_management.models import Invoice
@@ -602,6 +693,9 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             services_list.append(f"- {item.service_name}")
         services_str = "\n".join(services_list)
         
+        progress_msg = get_invoice_scheme_progress_message(invoice)
+        progress_suffix = f"\n{progress_msg}\n" if progress_msg else ""
+        
         message_text = (
             f"Dear {customer.name},\n\n"
             f"Your invoice *{invoice.invoice_number}* has been generated successfully at {company_name}.\n\n"
@@ -612,6 +706,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             f"Paid: {currency}{invoice.amount_collected}\n"
             f"Balance: {currency}{invoice.total - invoice.amount_collected}\n\n"
             f"Please find the attached PDF invoice for your reference.\n"
+            f"{progress_suffix}"
             f"Thank you for choosing us!"
         )
         
@@ -1261,6 +1356,10 @@ def api_add_customer(request):
                         )
                     else:
                         message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+                        schemes_msg = get_customer_available_schemes_message(customer)
+                        if schemes_msg:
+                            message_text += schemes_msg
+                            
                         send_whatsapp_simple(
                             to_number=cleaned_num,
                             message=message_text,
