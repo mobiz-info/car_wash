@@ -6,7 +6,7 @@ import re
 from booking_management.models import ServiceReminder, SentServiceReminder
 from finance_management.models import Invoice
 from client_management.models import WhatsAppSetting
-from booking_management.api_views import send_whatsapp_simple, send_whatsapp_template
+from booking_management.api_views import send_whatsapp_simple
 
 
 class Command(BaseCommand):
@@ -69,9 +69,7 @@ class Command(BaseCommand):
                     continue
                     
                 cleaned_phone = re.sub(r'\D', '', str(phone_to_send))
-                if len(cleaned_phone) == 10:
-                    cleaned_phone = "91" + cleaned_phone
-                elif len(cleaned_phone) > 10 and cleaned_phone.startswith("0"):
+                if cleaned_phone.startswith('0'):
                     cleaned_phone = cleaned_phone[1:]
                     
                 # 5. Format message text (fallback/unofficial)
@@ -85,22 +83,12 @@ class Command(BaseCommand):
                 
                 # 6. Send the message
                 try:
-                    if setting.sender_id == '919496007007':
-                        # Official WABA account: trigger official Meta template 'reminder'
-                        # Template expectations: {{1}} = Customer Name, {{2}} = Vehicle Number
-                        send_whatsapp_template(
-                            to_number=cleaned_phone,
-                            template_name='reminder',
-                            values=[customer_name, vehicle_no],
-                            setting=setting
-                        )
-                    else:
-                        # Unofficial scanned account: send custom text
-                        send_whatsapp_simple(
-                            to_number=cleaned_phone,
-                            message=message,
-                            setting=setting
-                        )
+                    # Send custom text using the company's WhatsApp setting
+                    send_whatsapp_simple(
+                        to_number=cleaned_phone,
+                        message=message,
+                        setting=setting
+                    )
                         
                     # 7. Record that reminder was successfully dispatched
                     SentServiceReminder.objects.create(

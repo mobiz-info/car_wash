@@ -561,11 +561,10 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         if not phone_to_send:
             return
             
-        # Normalize the number (keep digits only, prepend 91 if 10 digits)
+        # Normalize the number — strip non-digits and a leading 0 if present.
+        # Phone numbers are stored with country code, so no prefix is added.
         cleaned_num = ''.join(filter(str.isdigit, str(phone_to_send)))
-        if len(cleaned_num) == 10:
-            cleaned_num = "91" + cleaned_num
-        elif len(cleaned_num) > 10 and cleaned_num.startswith("0"):
+        if cleaned_num.startswith('0'):
             cleaned_num = cleaned_num[1:]
             
         # 3. Format message text
@@ -603,42 +602,12 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         if not setting or not setting.username or not setting.password:
             return
             
-        # 5. Dispatch
-        if setting.sender_id == '919496007007':
-            from booking_management.api_views import send_whatsapp_template
-            # The 'newjobcash' template expects:
-            # {{1}} = Customer Name
-            # {{2}} = Invoice Number
-            # {{3}} = Company Name
-            # {{4}} = Vehicle Number
-            # {{5}} = Services list string
-            # {{6}} = Total
-            # {{7}} = Paid
-            # {{8}} = Balance
-            values = [
-                customer.name,
-                invoice.invoice_number,
-                company_name,
-                invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
-                services_str,
-                f"{currency}{invoice.total}",
-                f"{currency}{invoice.amount_collected}",
-                f"{currency}{invoice.total - invoice.amount_collected}"
-            ]
-            send_whatsapp_template(
-                to_number=cleaned_num,
-                template_name='invoice',
-                values=values,
-                doc_url=pdf_url,
-                setting=setting
-            )
-        else:
-            send_whatsapp_simple(
-                to_number=cleaned_num,
-                message=message_text,
-                setting=setting,
-                media_url=pdf_url
-            )
+        send_whatsapp_simple(
+            to_number=cleaned_num,
+            message=message_text,
+            setting=setting,
+            media_url=pdf_url
+        )
         
     except Exception as e:
         import traceback
@@ -1226,9 +1195,7 @@ def api_add_customer(request):
                     import re
                     phone_to_send = customer.whatsapp_number or customer.phone
                     cleaned_num = re.sub(r'\D', '', str(phone_to_send))
-                    if len(cleaned_num) == 10:
-                        cleaned_num = "91" + cleaned_num
-                    elif len(cleaned_num) > 10 and cleaned_num.startswith("0"):
+                    if cleaned_num.startswith('0'):
                         cleaned_num = cleaned_num[1:]
                     
                     branch_name = branch.name or "our branch"
@@ -1239,21 +1206,12 @@ def api_add_customer(request):
                     if first_vehicle:
                         vehicle_no = first_vehicle.vehicle_number
                     
-                    if setting.sender_id == '919496007007':
-                        values = [customer.name, branch_name, vehicle_no]
-                        send_whatsapp_template(
-                            to_number=cleaned_num,
-                            template_name='welcoming',
-                            values=values,
-                            setting=setting
-                        )
-                    else:
-                        message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
-                        send_whatsapp_simple(
-                            to_number=cleaned_num,
-                            message=message_text,
-                            setting=setting
-                        )
+                    message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+                    send_whatsapp_simple(
+                        to_number=cleaned_num,
+                        message=message_text,
+                        setting=setting
+                    )
                 except Exception as e:
                     with open('/tmp/welcome_message_error.log', 'a') as f:
                         f.write(f"Error sending welcome message for customer {customer.id}: {str(e)}\n")

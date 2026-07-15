@@ -945,9 +945,7 @@ def send_reminder_ajax(request):
             cleaned_phone = ""
             if phone:
                 cleaned_phone = re.sub(r'\D', '', str(phone))
-                if len(cleaned_phone) == 10:
-                    cleaned_phone = "91" + cleaned_phone
-                elif len(cleaned_phone) > 10 and cleaned_phone.startswith("0"):
+                if cleaned_phone.startswith('0'):
                     cleaned_phone = cleaned_phone[1:]
                     
             customer_name = invoice.customer.name or "Customer"
@@ -980,20 +978,11 @@ def send_reminder_ajax(request):
             
             # Send via API
             try:
-                if setting.sender_id == '919496007007':
-                    # Template details: name="reminder", value1=customer_name, value2=vehicle_no
-                    send_whatsapp_template(
-                        to_number=cleaned_phone,
-                        template_name='reminder',
-                        values=[customer_name, vehicle_no],
-                        setting=setting
-                    )
-                else:
-                    send_whatsapp_simple(
-                        to_number=cleaned_phone,
-                        message=message,
-                        setting=setting
-                    )
+                send_whatsapp_simple(
+                    to_number=cleaned_phone,
+                    message=message,
+                    setting=setting
+                )
             except Exception as api_err:
                 # If single send fails, try manual fallback
                 if len(plan_ids) == 1:

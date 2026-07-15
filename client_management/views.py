@@ -1847,11 +1847,21 @@ def whatsapp_settings(request):
             messages.success(request, "WhatsApp settings updated successfully.")
             return redirect('whatsapp_settings')
     else:
-        form = WhatsAppSettingForm(instance=setting)
+        initial_data = {}
+        if not setting.pk or not setting.url:
+            initial_data['url'] = 'http://wawy.org/conv_wa.php'
+        form = WhatsAppSettingForm(instance=setting, initial=initial_data)
+
+    # Build the webhook URL for this company so admin can copy-paste it into wawy.org
+    from django.contrib.sites.shortcuts import get_current_site
+    server_base = f"{request.scheme}://{request.get_host()}"
+    webhook_url = f"{server_base}/api/whatsapp/webhook/?number=#whats_number#&msg=#message#&choice_id=#selection#&company_id={company.id}"
 
     return render(request, 'settings/whatsapp_settings.html', {
         'form': form,
         'title': 'WhatsApp Settings',
+        'webhook_url': webhook_url,
+        'company_id': company.id,
     })
 
 
