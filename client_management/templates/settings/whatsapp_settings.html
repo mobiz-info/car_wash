@@ -50,5 +50,42 @@
             <button type="submit" class="btn-primary" style="background:#000080;">Save Settings</button>
         </div>
     </form>
+
+    {% if webhook_url %}
+    <div style="margin-top: 30px; padding: 20px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; font-family: 'Inter', sans-serif;">
+        <h4 style="margin-top: 0; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+            <i class="ph ph-link" style="color: #3b82f6; font-size: 1.25rem;"></i>
+            Incoming Webhook Configuration
+        </h4>
+        <p style="font-size: 0.9rem; color: #475569; line-height: 1.5; margin-bottom: 12px;">
+            To receive replies and handle interactive WhatsApp bookings for this company, configure the webhook URL in your wawy.org account:
+        </p>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" value="{{ webhook_url }}" id="webhookUrlInput" readonly 
+                   style="flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; background: #fff; color: #334155;">
+            <button onclick="copyWebhookUrl()" class="btn-primary" style="background: #3b82f6; padding: 10px 16px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer;">
+                Copy
+            </button>
+        </div>
+        <div id="copySuccessMsg" style="display: none; font-size: 0.8rem; color: #10b981; margin-top: 6px; font-weight: 500;">
+            Webhook URL copied to clipboard!
+        </div>
+    </div>
+
+    <script>
+        function copyWebhookUrl() {
+            var copyText = document.getElementById("webhookUrlInput");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value).then(function() {
+                var msg = document.getElementById("copySuccessMsg");
+                msg.style.display = "block";
+                setTimeout(function() {
+                    msg.style.display = "none";
+                }, 3000);
+            });
+        }
+    </script>
+    {% endif %}
 </div>
 {% endblock %}
