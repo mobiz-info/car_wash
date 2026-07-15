@@ -371,25 +371,48 @@ def api_customer_search(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized or invalid token'}, status=401)
         
     mobile = request.GET.get('mobile', '').strip()
-    if not mobile:
-        return JsonResponse({'success': False, 'message': 'Mobile number is required'}, status=400)
+    vehicle_number = request.GET.get('vehicle_number', '').strip().upper()
+    if not mobile and not vehicle_number:
+        return JsonResponse({'success': False, 'message': 'Mobile number or Vehicle number is required'}, status=400)
         
     # Get user scope
     company = user.profile.company
     
-    # Filter customers by scope and mobile number
+    # Filter customers by scope
     customers = Customer.objects.filter(is_deleted=False, company=company)
     
     if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         customers = customers.filter(branch=user.managed_branch)
         
-    # Search by phone or whatsapp
-    customer = customers.filter(phone=mobile).first()
-    if not customer:
-        customer = customers.filter(whatsapp_number=mobile).first()
+    customer = None
+    if mobile:
+        # Search by phone or whatsapp
+        customer = customers.filter(phone=mobile).first()
+        if not customer:
+            customer = customers.filter(whatsapp_number=mobile).first()
+    elif vehicle_number:
+        from django.db.models.functions import Replace
+        from django.db.models import Value
+        clean_v_num = vehicle_number.replace(' ', '')
+        
+        # Find vehicle within scope
+        vehicle = CustomerVehicle.objects.annotate(
+            clean_vnum=Replace('vehicle_number', Value(' '), Value(''))
+        ).filter(
+            clean_vnum__iexact=clean_v_num,
+            customer__company=company,
+            is_deleted=False
+        )
+        if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            vehicle = vehicle.filter(customer__branch=user.managed_branch)
+            
+        vehicle = vehicle.first()
+        if vehicle:
+            customer = vehicle.customer
         
     if not customer:
-        return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+        msg = 'Customer not found' if mobile else 'Vehicle not found or does not belong to any customer'
+        return JsonResponse({'success': False, 'message': msg}, status=404)
         
     # Format vehicle data
     today = timezone.now().date()
