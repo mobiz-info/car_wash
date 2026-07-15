@@ -565,10 +565,25 @@ def api_whatsapp_webhook(request):
 
         try:
             # 1. Resolve WhatsAppSetting
-            # We support query parameters 'bot_number' or 'company_id' passed in the wawy.org webhook URL:
-            # e.g., http://68.183.94.11:78/api/whatsapp/webhook/?number=#whats_number#&msg=#message#&bot_number=919496007007
-            bot_number = request.GET.get('bot_number', '').strip() or request.POST.get('bot_number', '').strip()
-            company_id = request.GET.get('company_id', '').strip() or request.POST.get('company_id', '').strip()
+            # We support query parameters 'bot_number' or 'company_id' passed in the webhook URL,
+            # or sender_number / company_id inside JSON post body:
+            json_bot_number = ""
+            json_company_id = ""
+            if request.method == 'POST':
+                try:
+                    import json
+                    post_body = json.loads(request.body)
+                    json_bot_number = str(post_body.get('sender_number', '') or post_body.get('bot_number', '')).strip()
+                    json_company_id = str(post_body.get('company_id', '')).strip()
+                except Exception:
+                    pass
+
+            bot_number = (request.GET.get('bot_number', '').strip() or 
+                          request.POST.get('bot_number', '').strip() or 
+                          json_bot_number)
+            company_id = (request.GET.get('company_id', '').strip() or 
+                          request.POST.get('company_id', '').strip() or 
+                          json_company_id)
 
             setting = None
             if company_id:
