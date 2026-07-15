@@ -235,15 +235,20 @@ class StaffForm(forms.ModelForm):
 
         if staff._state.adding:
             # Generate employee_id
-            last_staff = Staff.objects.all().order_by('-id').first()
-            if last_staff and last_staff.employee_id and last_staff.employee_id.startswith('EMP-'):
-                try:
-                    last_id = int(last_staff.employee_id.split('-')[1])
-                    staff.employee_id = f"EMP-{last_id + 1:04d}"
-                except ValueError:
-                    staff.employee_id = f"EMP-{Staff.objects.count() + 1:04d}"
-            else:
-                staff.employee_id = f"EMP-{Staff.objects.count() + 1:04d}"
+            import re
+            max_num = 0
+            manager = getattr(Staff, 'all_objects', Staff._base_manager)
+            for s in manager.filter(employee_id__startswith='EMP-'):
+                match = re.match(r'^EMP-(\d+)$', s.employee_id)
+                if match:
+                    try:
+                        num = int(match.group(1))
+                        if num > max_num:
+                            max_num = num
+                    except ValueError:
+                        pass
+            
+            staff.employee_id = f"EMP-{max_num + 1:04d}"
 
             # Create User
             user = User.objects.create_user(username=username, password=password)
