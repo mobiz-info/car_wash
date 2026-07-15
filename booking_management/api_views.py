@@ -536,7 +536,14 @@ def api_whatsapp_webhook(request):
                         body.get('button_id', '') or 
                         body.get('choice_id', '')
                     ).strip()
-            except Exception:
+            except Exception as e:
+                # Log parsing error
+                try:
+                    with open('/tmp/whatsapp_webhook.log', 'a') as f:
+                        from datetime import datetime
+                        f.write(f"[{datetime.now()}] JSON PARSE ERROR: {str(e)}\n")
+                except Exception:
+                    pass
                 # Form POST or fallback
                 from_phone   = request.POST.get('number', '').strip()
                 incoming_msg = (request.POST.get('message_in', '').strip() or 
