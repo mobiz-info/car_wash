@@ -426,7 +426,6 @@ def api_customer_search(request):
         is_eligible = False
         
         from finance_management.models import Invoice
-        visits_count = Invoice.objects.filter(vehicle=v, is_deleted=False).count()
 
         # Check if customer's branch has scheme facility
         if customer.branch and customer.branch.scheme_types.exists() and customer.customer_type and v.vehicle_type_model and v.vehicle_type_model.vehicle_type:
@@ -444,6 +443,8 @@ def api_customer_search(request):
                 scheme_name = scheme.name
                 paid_visits = scheme.paid_visits or 0
                 free_visits = scheme.free_visits or 0
+                # Count only invoices where THIS scheme was explicitly chosen
+                visits_count = Invoice.objects.filter(vehicle=v, scheme=scheme, is_deleted=False).count()
                 
                 if paid_visits > 0 and visits_count >= paid_visits:
                     is_eligible = True
@@ -631,15 +632,11 @@ def get_invoice_scheme_progress_message(invoice):
         if not (scheme.paid_visits and scheme.free_visits):
             continue
             
-        # Count visits (invoices) for this vehicle under this scheme
-        invoices_qs = Invoice.objects.filter(vehicle=vehicle, is_deleted=False)
-        
-        # If scheme has specific services, filter by those services
-        scheme_services = scheme.services.all()
-        if scheme_services.exists():
-            invoices_qs = invoices_qs.filter(items__service__in=scheme_services).distinct()
-            
+        # Count only invoices where THIS scheme was explicitly chosen by the customer
+        # Progress only advances when the customer actively selects this quantity scheme
+        invoices_qs = Invoice.objects.filter(vehicle=vehicle, scheme=scheme, is_deleted=False)
         visits_count = invoices_qs.count()
+        scheme_services = scheme.services.all()
         
         service_names = ", ".join([srv.name for srv in scheme_services]) if scheme_services.exists() else "services"
         
@@ -1072,14 +1069,12 @@ def api_vehicle_search(request):
     customer = vehicle.customer
     today = timezone.now().date()
 
-    # Count visits from invoices
-    from finance_management.models import Invoice
-    visits_count = Invoice.objects.filter(vehicle=vehicle, is_deleted=False).count()
-
     # Scheme eligibility
+    from finance_management.models import Invoice
     scheme_name = None
     paid_visits = 0
     free_visits = 0
+    visits_count = 0
     is_eligible = False
 
     if customer.branch and customer.branch.scheme_types.exists() and customer.customer_type and vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type:
@@ -1096,6 +1091,8 @@ def api_vehicle_search(request):
             scheme_name = scheme.name
             paid_visits = scheme.paid_visits or 0
             free_visits = scheme.free_visits or 0
+            # Count only invoices where THIS scheme was explicitly chosen
+            visits_count = Invoice.objects.filter(vehicle=vehicle, scheme=scheme, is_deleted=False).count()
             if paid_visits > 0 and visits_count >= paid_visits:
                 is_eligible = True
 
@@ -1926,11 +1923,6 @@ def api_available_schemes(request):
         if service_id:
             schemes_qs = schemes_qs.filter(services__id=service_id)
 
-        # Total paid visits for this vehicle (all invoices, not just scheme-free ones)
-        total_paid_visits = Invoice.objects.filter(
-            vehicle=vehicle, is_deleted=False
-        ).count()
-
         result = []
         for scheme in schemes_qs.distinct():
             scheme_type = scheme.scheme_type.name if scheme.scheme_type else 'Quantity'
@@ -1944,19 +1936,23 @@ def api_available_schemes(request):
                 paid = scheme.paid_visits or 0
                 free = scheme.free_visits or 0
 
-                # How many free washes this vehicle has already redeemed for this scheme
-                free_washes_taken = Invoice.objects.filter(
+                # Count only invoices where THIS scheme was explicitly chosen by the customer
+                # This ensures using a discount scheme on a visit does NOT advance quantity scheme progress
+                scheme_used_count = Invoice.objects.filter(
                     vehicle=vehicle, scheme=scheme, is_deleted=False
                 ).count()
 
-                # Progress within the current cycle:
-                # Each cycle = paid_visits normal washes + 1 free wash
-                # Current cycle starts after the last completed cycle
-                cycle_length = paid + free  # e.g. 3 paid + 1 free = cycle of 4
-                completed_cycles = free_washes_taken  # each free wash = one cycle done
-                visits_in_current_cycle = total_paid_visits - (completed_cycles * paid)
-                if visits_in_current_cycle < 0:
-                    visits_in_current_cycle = 0
+                # Progress within current cycle:
+                # Each complete cycle = paid_visits (scheme-applied) + 1 free wash
+                # completed_cycles = how many times they completed the full cycle
+                # We track this by seeing how many free washes were redeemed
+                # A free wash invoice also has scheme=scheme attached, so:
+                # normal_uses = scheme_used_count - completed_free_washes
+                # But to keep it simple: visits_in_current_cycle = scheme_used_count % (paid + free)
+                if (paid + free) > 0:
+                    visits_in_current_cycle = scheme_used_count % (paid + free)
+                else:
+                    visits_in_current_cycle = scheme_used_count
 
                 is_eligible = paid > 0 and visits_in_current_cycle >= paid
                 entry.update({
