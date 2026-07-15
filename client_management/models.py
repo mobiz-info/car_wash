@@ -306,6 +306,7 @@ class WhatsAppSetting(BaseModel):
     password = models.CharField(max_length=150, blank=True, null=True)
     sender_id = models.CharField(max_length=100, blank=True, null=True)
     whatsapp_number = models.CharField(max_length=30, blank=True, null=True)
+    is_official_api = models.BooleanField(default=False)
 
     def __str__(self):
         return f"WhatsApp Setting - {self.company.company_name}"

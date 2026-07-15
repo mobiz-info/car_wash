@@ -33,16 +33,23 @@
         {% csrf_token %}
         
         {% for field in form %}
-            <div class="form-group">
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}
-                    <span style="font-size: 0.8rem; color: #64748b;">{{ field.help_text }}</span>
-                {% endif %}
-                {% for error in field.errors %}
-                    <span style="font-size: 0.8rem; color: #ef4444; font-weight: 500;">{{ error }}</span>
-                {% endfor %}
-            </div>
+            {% if field.field.widget.input_type == 'checkbox' %}
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; margin-bottom: 15px;">
+                    {{ field }}
+                    <label for="{{ field.id_for_label }}" style="margin-bottom: 0; cursor: pointer; font-weight: 500; color: #334155;">{{ field.label }}</label>
+                </div>
+            {% else %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <span style="font-size: 0.8rem; color: #64748b;">{{ field.help_text }}</span>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <span style="font-size: 0.8rem; color: #ef4444; font-weight: 500;">{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
         {% endfor %}
 
         <div class="form-actions">

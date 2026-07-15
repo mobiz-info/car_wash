@@ -602,12 +602,34 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         if not setting or not setting.username or not setting.password:
             return
             
-        send_whatsapp_simple(
-            to_number=cleaned_num,
-            message=message_text,
-            setting=setting,
-            media_url=pdf_url
-        )
+        # 5. Dispatch
+        if setting.is_official_api:
+            from booking_management.api_views import send_whatsapp_template
+            # The 'invoice' template expects values
+            values = [
+                customer.name,
+                invoice.invoice_number,
+                company_name,
+                invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
+                services_str,
+                f"{currency}{invoice.total}",
+                f"{currency}{invoice.amount_collected}",
+                f"{currency}{invoice.total - invoice.amount_collected}"
+            ]
+            send_whatsapp_template(
+                to_number=cleaned_num,
+                template_name='invoice',
+                values=values,
+                doc_url=pdf_url,
+                setting=setting
+            )
+        else:
+            send_whatsapp_simple(
+                to_number=cleaned_num,
+                message=message_text,
+                setting=setting,
+                media_url=pdf_url
+            )
         
     except Exception as e:
         import traceback
@@ -1206,12 +1228,21 @@ def api_add_customer(request):
                     if first_vehicle:
                         vehicle_no = first_vehicle.vehicle_number
                     
-                    message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
-                    send_whatsapp_simple(
-                        to_number=cleaned_num,
-                        message=message_text,
-                        setting=setting
-                    )
+                    if setting.is_official_api:
+                        values = [customer.name, branch_name, vehicle_no]
+                        send_whatsapp_template(
+                            to_number=cleaned_num,
+                            template_name='welcoming',
+                            values=values,
+                            setting=setting
+                        )
+                    else:
+                        message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
+                        send_whatsapp_simple(
+                            to_number=cleaned_num,
+                            message=message_text,
+                            setting=setting
+                        )
                 except Exception as e:
                     with open('/tmp/welcome_message_error.log', 'a') as f:
                         f.write(f"Error sending welcome message for customer {customer.id}: {str(e)}\n")

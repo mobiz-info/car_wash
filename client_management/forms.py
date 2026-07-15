@@ -644,18 +644,24 @@ class CustomersVehicleForm(forms.ModelForm):
 class WhatsAppSettingForm(forms.ModelForm):
     class Meta:
         model = WhatsAppSetting
-        fields = ['url', 'username', 'password', 'sender_id', 'whatsapp_number']
+        fields = ['url', 'username', 'password', 'sender_id', 'whatsapp_number', 'is_official_api']
         widgets = {
             'url': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp API Url'}),
             'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp username'}),
             'password': forms.PasswordInput(render_value=True, attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp password'}),
             'sender_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp Sender ID'}),
             'whatsapp_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter WhatsApp Sender Number (with country code)'}),
+            'is_official_api': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'is_official_api': 'Is Official Cloud API (Requires Templates)',
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field_name, field in self.fields.items():
+            if field_name == 'is_official_api':
+                continue
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'
 

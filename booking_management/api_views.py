@@ -2702,9 +2702,20 @@ def send_booking_ready_alert_background(booking_id):
         name = customer.name or "Customer"
         vehicle_number = booking.vehicle.vehicle_number if booking.vehicle else "your vehicle"
         
-        message = f"Hello {name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service."
-        from booking_management.api_views import send_whatsapp_simple
-        send_whatsapp_simple(phone, message, setting=setting)
+        # Check if using the official/template API
+        if setting.is_official_api:
+            from booking_management.api_views import send_whatsapp_template
+            # The 'ready' template expects: {{1}} = Customer Name, {{2}} = Vehicle Number
+            send_whatsapp_template(
+                to_number=phone,
+                template_name='ready',
+                values=[name, vehicle_number],
+                setting=setting
+            )
+        else:
+            message = f"Hello {name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service."
+            from booking_management.api_views import send_whatsapp_simple
+            send_whatsapp_simple(phone, message, setting=setting)
             
     except Exception as e:
         with open('/tmp/ready_alert_error.log', 'a') as f:
@@ -2810,13 +2821,23 @@ def api_send_ready_alert_generic(request):
             cleaned_phone = re.sub(r'\D', '', phone)
             
             import threading
-            from booking_management.api_views import send_whatsapp_simple
-            threading.Thread(
-                target=send_whatsapp_simple,
-                args=(cleaned_phone, message),
-                kwargs={'setting': setting},
-                daemon=True
-            ).start()
+            if setting.is_official_api:
+                from booking_management.api_views import send_whatsapp_template
+                # Official Meta template: 'ready'
+                threading.Thread(
+                    target=send_whatsapp_template,
+                    args=(cleaned_phone, 'ready', [customer_name, vehicle_number]),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
+            else:
+                from booking_management.api_views import send_whatsapp_simple
+                threading.Thread(
+                    target=send_whatsapp_simple,
+                    args=(cleaned_phone, message),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
             
             return JsonResponse({
                 'success': True,
@@ -2899,13 +2920,23 @@ def api_send_welcome_msg_generic(request):
             cleaned_phone = re.sub(r'\D', '', phone)
             
             import threading
-            from booking_management.api_views import send_whatsapp_simple
-            threading.Thread(
-                target=send_whatsapp_simple,
-                args=(cleaned_phone, message),
-                kwargs={'setting': setting},
-                daemon=True
-            ).start()
+            if setting.is_official_api:
+                from booking_management.api_views import send_whatsapp_template
+                # Official Meta template: 'welcoming'
+                threading.Thread(
+                    target=send_whatsapp_template,
+                    args=(cleaned_phone, 'welcoming', [customer_name, branch_name, vehicle_number]),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
+            else:
+                from booking_management.api_views import send_whatsapp_simple
+                threading.Thread(
+                    target=send_whatsapp_simple,
+                    args=(cleaned_phone, message),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
             
             return JsonResponse({
                 'success': True,
@@ -2988,13 +3019,24 @@ def api_send_thanks_msg_generic(request):
             cleaned_phone = re.sub(r'\D', '', phone)
             
             import threading
-            from booking_management.api_views import send_whatsapp_simple
-            threading.Thread(
-                target=send_whatsapp_simple,
-                args=(cleaned_phone, message),
-                kwargs={'setting': setting},
-                daemon=True
-            ).start()
+            if setting.is_official_api:
+                from booking_management.api_views import send_whatsapp_template
+                # Official Meta template: 'thanks'
+                # Places: {{1}} = Customer Name, {{2}} = Vehicle Number, {{3}} = Branch Name
+                threading.Thread(
+                    target=send_whatsapp_template,
+                    args=(cleaned_phone, 'thanks', [customer_name, vehicle_number, branch_name]),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
+            else:
+                from booking_management.api_views import send_whatsapp_simple
+                threading.Thread(
+                    target=send_whatsapp_simple,
+                    args=(cleaned_phone, message),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
             
             return JsonResponse({
                 'success': True,

@@ -975,14 +975,23 @@ def send_reminder_ajax(request):
                         'success': False,
                         'message': 'WhatsApp API is not configured. Send individually to use manual prefill.'
                     })
-            
             # Send via API
             try:
-                send_whatsapp_simple(
-                    to_number=cleaned_phone,
-                    message=message,
-                    setting=setting
-                )
+                if setting.is_official_api:
+                    # Template details: name="reminder", value1=customer_name, value2=vehicle_no
+                    from booking_management.api_views import send_whatsapp_template
+                    send_whatsapp_template(
+                        to_number=cleaned_phone,
+                        template_name='reminder',
+                        values=[customer_name, vehicle_no],
+                        setting=setting
+                    )
+                else:
+                    send_whatsapp_simple(
+                        to_number=cleaned_phone,
+                        message=message,
+                        setting=setting
+                    )
             except Exception as api_err:
                 # If single send fails, try manual fallback
                 if len(plan_ids) == 1:

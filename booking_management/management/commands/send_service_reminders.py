@@ -83,12 +83,23 @@ class Command(BaseCommand):
                 
                 # 6. Send the message
                 try:
-                    # Send custom text using the company's WhatsApp setting
-                    send_whatsapp_simple(
-                        to_number=cleaned_phone,
-                        message=message,
-                        setting=setting
-                    )
+                    if setting.is_official_api:
+                        # Official WABA account: trigger official Meta template 'reminder'
+                        # Template expectations: {{1}} = Customer Name, {{2}} = Vehicle Number
+                        from booking_management.api_views import send_whatsapp_template
+                        send_whatsapp_template(
+                            to_number=cleaned_phone,
+                            template_name='reminder',
+                            values=[customer_name, vehicle_no],
+                            setting=setting
+                        )
+                    else:
+                        # Send custom text using the company's WhatsApp setting
+                        send_whatsapp_simple(
+                            to_number=cleaned_phone,
+                            message=message,
+                            setting=setting
+                        )
                         
                     # 7. Record that reminder was successfully dispatched
                     SentServiceReminder.objects.create(
