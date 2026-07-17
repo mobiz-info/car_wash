@@ -693,6 +693,12 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         progress_msg = get_invoice_scheme_progress_message(invoice)
         progress_suffix = f"\n{progress_msg}\n" if progress_msg else ""
         
+        branch_name = invoice.branch.name if invoice.branch else "our service"
+        logo_url = ""
+        if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color:
+            logo_url = base_url + invoice.branch.company.logo_color.url.lstrip('/')
+        logo_suffix = f"\n\nCompany Logo: {logo_url}" if logo_url else ""
+
         message_text = (
             f"Dear {customer.name},\n\n"
             f"Your invoice *{invoice.invoice_number}* has been generated successfully at {company_name}.\n\n"
@@ -702,9 +708,12 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             f"Total: {currency}{invoice.total}\n"
             f"Paid: {currency}{invoice.amount_collected}\n"
             f"Balance: {currency}{invoice.total - invoice.amount_collected}\n\n"
-            f"Please find the attached PDF invoice for your reference.\n"
-            f"{progress_suffix}"
-            f"Thank you for choosing us!"
+            f"Please find the attached PDF invoice for your reference:\n"
+            f"{pdf_url}\n"
+            f"{progress_suffix}\n"
+            f"Thank you for choosing {branch_name}!\n"
+            f"Powered by Mobiz Technologies"
+            f"{logo_suffix}"
         )
         
         # 4. Fetch branch/company whatsapp setting
