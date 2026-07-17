@@ -238,25 +238,36 @@
     <!-- Header -->
     <table class="header-table">
         <tr>
-            <td>
-                <div class="company-details">
-                    <h2>{{ invoice.branch.company.company_name|upper }}</h2>
-                    <p><strong>{{ invoice.branch.name }}</strong></p>
-                    {% if invoice.branch.address %}
-                        <p>{{ invoice.branch.address|linebreaksbr }}</p>
-                    {% endif %}
-                    {% if invoice.branch.phone %}
-                        <p>Phone: {{ invoice.branch.phone }}</p>
-                    {% endif %}
-                    {% if invoice.branch.email %}
-                        <p>Email: {{ invoice.branch.email }}</p>
-                    {% endif %}
-                    {% if invoice.branch.gst_number %}
-                        <p>GSTIN: {{ invoice.branch.gst_number }}</p>
-                    {% endif %}
-                </div>
+            <td style="width: 60%;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        {% if invoice.branch.company.logo_color %}
+                        <td style="width: 70px; vertical-align: middle; padding-right: 15px;">
+                            <img src="{{ invoice.branch.company.logo_color.url }}" style="height: 60px; max-width: 120px; object-fit: contain;" />
+                        </td>
+                        {% endif %}
+                        <td style="vertical-align: middle;">
+                            <div class="company-details">
+                                <h2>{{ invoice.branch.company.company_name|upper }}</h2>
+                                <p><strong>{{ invoice.branch.name }}</strong></p>
+                                {% if invoice.branch.address %}
+                                    <p>{{ invoice.branch.address|linebreaksbr }}</p>
+                                {% endif %}
+                                {% if invoice.branch.phone %}
+                                    <p>Phone: {{ invoice.branch.phone }}</p>
+                                {% endif %}
+                                {% if invoice.branch.email %}
+                                    <p>Email: {{ invoice.branch.email }}</p>
+                                {% endif %}
+                                {% if invoice.branch.gst_number %}
+                                    <p>GSTIN: {{ invoice.branch.gst_number }}</p>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
             </td>
-            <td class="invoice-title">
+            <td class="invoice-title" style="width: 40%; vertical-align: top;">
                 <h1>INVOICE</h1>
                 <table class="invoice-meta-table">
                     <tr>
@@ -397,8 +408,11 @@
         <table class="footer-table">
             <tr>
                 <td>
-                    <div class="thanks-message">
-                        Thank you for your business! Visit again.
+                    <div class="thanks-message" style="font-size: 11pt; font-weight: 700; color: #1e3a8a;">
+                        Thank you for choosing {{ invoice.branch.name }}!
+                    </div>
+                    <div style="font-size: 8.5pt; color: #64748b; margin-top: 5px;">
+                        Powered by Mobiz Technologies
                     </div>
                 </td>
                 <td class="align-right">
