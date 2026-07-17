@@ -79,6 +79,19 @@ def client_create(request):
             instance.save()
             form.save_m2m()
             
+            # Automatically create default 'Purchase' and 'Salary' expense heads
+            try:
+                from master.models import ExpenseHead
+                for head_name in ['Purchase', 'Salary']:
+                    ExpenseHead.objects.create(
+                        company=instance,
+                        name=head_name,
+                        auto_id=get_auto_id(ExpenseHead),
+                        creator=request.user
+                    )
+            except Exception as e:
+                pass
+            
             # Automatically activate 1-month subscription
             try:
                 today = now().date()
@@ -91,7 +104,7 @@ def client_create(request):
                     auto_id=get_auto_id(Subscription),
                     creator=request.user
                 )
-                messages.success(request, "Client created and 1-month subscription activated successfully.")
+                messages.success(request, "Client created, 1-month subscription activated, and default expense heads configured successfully.")
             except Exception as e:
                 messages.warning(request, f"Client created, but failed to auto-activate subscription: {str(e)}")
                 

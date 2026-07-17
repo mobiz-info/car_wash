@@ -1432,7 +1432,7 @@ def api_list_customers(request):
             )
 
         customers_data = []
-        for c in customers_qs.select_related('customer_type'):
+        for c in customers_qs.select_related('customer_type', 'branch'):
             customers_data.append({
                 'id': str(c.id),
                 'name': c.name,
@@ -1441,6 +1441,7 @@ def api_list_customers(request):
                 'vehicle_count': c.vehicles.filter(is_deleted=False).count(),
                 'date_added': c.date_added.strftime('%Y-%m-%d') if c.date_added else '',
                 'last_invoice_date': c.last_invoice_date.strftime('%Y-%m-%d') if c.last_invoice_date else '',
+                'branch_name': c.branch.name if c.branch else '',
             })
 
         return JsonResponse({'success': True, 'customers': customers_data})
@@ -1480,7 +1481,7 @@ def api_inactive_customers(request):
             customers_qs = customers_qs.filter(branch=user.managed_branch)
 
         customers_data = []
-        for c in customers_qs.prefetch_related('vehicles'):
+        for c in customers_qs.select_related('branch').prefetch_related('vehicles'):
             first_vehicle = c.vehicles.filter(is_deleted=False).first()
             customers_data.append({
                 'id': str(c.id),
@@ -1488,6 +1489,7 @@ def api_inactive_customers(request):
                 'phone': c.whatsapp_number or c.phone,
                 'vehicle_number': first_vehicle.vehicle_number if first_vehicle else '',
                 'branch': c.branch.name if c.branch else '',
+                'branch_name': c.branch.name if c.branch else '',
                 'last_invoice_date': c.last_invoice_date.strftime('%Y-%m-%d') if c.last_invoice_date else 'Never',
                 'inactive_days': inactive_days,
             })
