@@ -3137,6 +3137,16 @@ def api_reminder_list(request):
     elif role == 'COMPANY_ADMIN' and user.profile.company:
         plans = plans.filter(branch__company=user.profile.company)
 
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        from django.db.models import Q
+        plans = plans.filter(
+            Q(invoice__customer__name__icontains=search_query) |
+            Q(invoice__customer__phone__icontains=search_query) |
+            Q(invoice__customer__whatsapp_number__icontains=search_query) |
+            Q(invoice__vehicle__vehicle_number__icontains=search_query)
+        )
+
     plans_data = []
     for plan in plans:
         customer_name = plan.invoice.customer.name or "Customer"

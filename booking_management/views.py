@@ -868,6 +868,8 @@ def reminder_list(request):
         except ValueError:
             pass
 
+    search_query = request.GET.get('search', '').strip()
+
     plans = []
     if selected_branch:
         # Fetch reminders that are scheduled on or before selected_date
@@ -878,12 +880,21 @@ def reminder_list(request):
             scheduled_date__lte=selected_date
         ).select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'reminder', 'reminder__service').order_by('scheduled_date')
 
+        if search_query:
+            plans = plans.filter(
+                Q(invoice__customer__name__icontains=search_query) |
+                Q(invoice__customer__phone__icontains=search_query) |
+                Q(invoice__customer__whatsapp_number__icontains=search_query) |
+                Q(invoice__vehicle__vehicle_number__icontains=search_query)
+            )
+
     context = {
         'branches': branches,
         'selected_branch': selected_branch,
         'selected_date': selected_date.strftime("%Y-%m-%d"),
         'plans': plans,
         'role_name': role_name,
+        'search': search_query,
     }
     return render(request, 'booking/reminder_list.html', context)
 

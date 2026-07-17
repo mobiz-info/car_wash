@@ -75,6 +75,12 @@
                 <input type="date" class="form-control" style="width: 160px;" value="{{ selected_date }}"
                     onchange="updateFilters('date', this.value)">
             </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Search:</span>
+                <input type="text" class="form-control" style="width: 260px;" placeholder="Name, Phone or Vehicle..." value="{{ search|default:'' }}"
+                    onkeypress="if(event.key === 'Enter') updateFilters('search', this.value)">
+            </div>
         </div>
 
         <!-- Bulk Send Options -->
