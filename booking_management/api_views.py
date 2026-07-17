@@ -3095,3 +3095,207 @@ def api_send_thanks_msg_generic(request):
             
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_reminder_list(request):
+    """List scheduled reminder plans that are due."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from booking_management.models import ReminderPlan
+    from django.utils import timezone
+    from datetime import datetime
+
+    # Get active date (defaults to today)
+    date_str = request.GET.get('date')
+    selected_date = timezone.now().date()
+    if date_str:
+        try:
+            selected_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    # Filter due, unsent, and active plans
+    plans = ReminderPlan.objects.filter(
+        is_sent=False,
+        is_deleted=False,
+        scheduled_date__lte=selected_date
+    ).select_related(
+        'invoice', 'invoice__customer', 'invoice__vehicle',
+        'invoice__vehicle__vehicle_type_model', 'reminder', 'reminder__service', 'branch'
+    ).order_by('scheduled_date')
+
+    # Filter by user branch/company scope
+    role = user.profile.role.name if user.profile.role else None
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        plans = plans.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and user.profile.company:
+        plans = plans.filter(branch__company=user.profile.company)
+
+    plans_data = []
+    for plan in plans:
+        customer_name = plan.invoice.customer.name or "Customer"
+        vehicle_no = plan.invoice.vehicle.vehicle_number if plan.invoice.vehicle else "your vehicle"
+        service_name = plan.reminder.service.name if (plan.reminder and plan.reminder.service) else ""
+        
+        # Format the prefilled reminder message text
+        msg_template = plan.reminder.reminder_message if plan.reminder else ""
+        message = msg_template.replace('{customer_name}', customer_name) \
+                               .replace('{vehicle_number}', vehicle_no) \
+                               .replace('{service_name}', service_name)
+
+        plans_data.append({
+            'id': str(plan.id),
+            'customer_name': customer_name,
+            'customer_phone': plan.invoice.customer.phone or plan.invoice.customer.whatsapp_number or "",
+            'vehicle_number': vehicle_no,
+            'vehicle_type': plan.invoice.vehicle.vehicle_type_model.name if (plan.invoice.vehicle and plan.invoice.vehicle.vehicle_type_model) else "N/A",
+            'reminder_no': plan.reminder_no,
+            'service_name': service_name,
+            'scheduled_date': str(plan.scheduled_date),
+            'message': message,
+        })
+
+    return JsonResponse({
+        'success': True,
+        'plans': plans_data,
+        'selected_date': str(selected_date),
+    })
+
+
+@csrf_exempt
+def api_send_reminder(request):
+    """Trigger reminder sending for a list of ReminderPlan IDs."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        plan_ids = data.get('plan_ids', [])
+        action = data.get('action')
+
+        from booking_management.models import ReminderPlan, SentServiceReminder
+        from client_management.models import WhatsAppSetting
+        from booking_management.api_views import send_whatsapp_simple, send_whatsapp_template
+        import re
+        import urllib.parse
+
+        # Action: Mark Sent (used after manual fallback)
+        if action == 'mark_sent':
+            for p_id in plan_ids:
+                try:
+                    plan = ReminderPlan.objects.get(id=p_id, is_deleted=False, is_sent=False)
+                    plan.is_sent = True
+                    plan.save()
+                    SentServiceReminder.objects.get_or_create(
+                        reminder=plan.reminder,
+                        invoice=plan.invoice
+                    )
+                except ReminderPlan.DoesNotExist:
+                    pass
+            return JsonResponse({'success': True, 'message': 'Marked as sent'})
+
+        sent_count = 0
+
+        for p_id in plan_ids:
+            try:
+                plan = ReminderPlan.objects.get(id=p_id, is_deleted=False, is_sent=False)
+            except ReminderPlan.DoesNotExist:
+                continue
+
+            reminder = plan.reminder
+            invoice = plan.invoice
+
+            # Fetch setting
+            company = plan.branch.company if plan.branch else None
+            setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+
+            # Prepare phone number & fallback link
+            phone = invoice.customer.phone or invoice.customer.whatsapp_number
+            cleaned_phone = ""
+            if phone:
+                cleaned_phone = re.sub(r'\D', '', str(phone))
+                if cleaned_phone.startswith('0'):
+                    cleaned_phone = cleaned_phone[1:]
+
+            customer_name = invoice.customer.name or "Customer"
+            vehicle_no = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
+
+            # Prefilled message (Template text fallback)
+            message = reminder.reminder_message.replace('{customer_name}', customer_name) \
+                                                .replace('{vehicle_number}', vehicle_no) \
+                                                .replace('{service_name}', reminder.service.name)
+
+            encoded_message = urllib.parse.quote(message)
+            fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
+
+            # Check if API is available
+            if not setting or not setting.username or not setting.password:
+                if len(plan_ids) == 1:
+                    # Return fallback prefill link directly
+                    return JsonResponse({
+                        'success': False,
+                        'use_fallback': True,
+                        'whatsapp_url': fallback_url,
+                        'plan_id': plan.id,
+                        'message': 'WhatsApp API not configured. Use manual sending.'
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'WhatsApp API is not configured. Send individually to use manual prefill.'
+                    })
+
+            # Send via API
+            try:
+                if setting.is_official_api:
+                    # Template details: name="reminder", value1=customer_name, value2=vehicle_no
+                    send_whatsapp_template(
+                        to_number=cleaned_phone,
+                        template_name='servicereminder',
+                        values=[customer_name, vehicle_no],
+                        setting=setting
+                    )
+                else:
+                    send_whatsapp_simple(
+                        to_number=cleaned_phone,
+                        message=message,
+                        setting=setting
+                    )
+            except Exception as api_err:
+                # If single send fails, try manual fallback
+                if len(plan_ids) == 1:
+                    return JsonResponse({
+                        'success': False,
+                        'use_fallback': True,
+                        'whatsapp_url': fallback_url,
+                        'plan_id': plan.id,
+                        'message': f'API Error: {str(api_err)}. Switch to manual fallback.'
+                    })
+                else:
+                    continue
+
+            # Mark sent
+            plan.is_sent = True
+            plan.save()
+
+            # Log sent reminder for reports/compatibility
+            SentServiceReminder.objects.get_or_create(
+                reminder=reminder,
+                invoice=invoice
+            )
+            sent_count += 1
+
+        return JsonResponse({'success': True, 'sent_count': sent_count})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+

@@ -982,7 +982,7 @@ def send_reminder_ajax(request):
                     from booking_management.api_views import send_whatsapp_template
                     send_whatsapp_template(
                         to_number=cleaned_phone,
-                        template_name='reminder',
+                        template_name='servicereminder',
                         values=[customer_name, vehicle_no],
                         setting=setting
                     )
