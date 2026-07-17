@@ -3262,7 +3262,7 @@ def api_send_reminder(request):
                     send_whatsapp_template(
                         to_number=cleaned_phone,
                         template_name='servicereminder',
-                        values=[customer_name, vehicle_no],
+                        values=[customer_name, vehicle_no, reminder.service.name],
                         setting=setting
                     )
                 else:
