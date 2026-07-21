@@ -78,6 +78,18 @@ urlpatterns = [
     path('supplier/edit/<uuid:id>/', views.supplier_edit, name='supplier_edit'),
     path('supplier/delete/<uuid:id>/', views.supplier_delete, name='supplier_delete'),
 
+    # Oil Brand CRUD
+    path('oil-brand/', views.oil_brand_list, name='oil_brand_list'),
+    path('oil-brand/create/', views.oil_brand_create, name='oil_brand_create'),
+    path('oil-brand/edit/<uuid:id>/', views.oil_brand_edit, name='oil_brand_edit'),
+    path('oil-brand/delete/<uuid:id>/', views.oil_brand_delete, name='oil_brand_delete'),
+
+    # Oil Grade CRUD
+    path('oil-grade/', views.oil_grade_list, name='oil_grade_list'),
+    path('oil-grade/create/', views.oil_grade_create, name='oil_grade_create'),
+    path('oil-grade/edit/<uuid:id>/', views.oil_grade_edit, name='oil_grade_edit'),
+    path('oil-grade/delete/<uuid:id>/', views.oil_grade_delete, name='oil_grade_delete'),
+
     # Oil Product CRUD
     path('oil-product/', views.oil_product_list, name='oil_product_list'),
     path('oil-product/create/', views.oil_product_create, name='oil_product_create'),

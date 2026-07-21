@@ -1298,6 +1298,134 @@ def supplier_delete(request, id):
 
 
 # ==========================================
+# OIL BRAND MASTER
+# ==========================================
+
+@login_required
+def oil_brand_list(request):
+    search = request.GET.get('search', '')
+    queryset = OilBrand.objects.filter(is_deleted=False)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'oil_brand/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def oil_brand_create(request):
+    form = OilBrandForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(OilBrand)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Oil Brand created successfully")
+            return redirect('oil_brand_list')
+    return render(request, 'oil_brand/create.html', {
+        'form': form,
+        'title': 'Create Oil Brand'
+    })
+
+
+@login_required
+def oil_brand_edit(request, id):
+    instance = get_object_or_404(OilBrand, id=id, is_deleted=False)
+    form = OilBrandForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Oil Brand updated successfully")
+            return redirect('oil_brand_list')
+    return render(request, 'oil_brand/create.html', {
+        'form': form,
+        'title': 'Edit Oil Brand'
+    })
+
+
+@login_required
+def oil_brand_delete(request, id):
+    instance = get_object_or_404(OilBrand, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Oil Brand deleted successfully")
+    return redirect('oil_brand_list')
+
+
+# ==========================================
+# OIL GRADE MASTER
+# ==========================================
+
+@login_required
+def oil_grade_list(request):
+    search = request.GET.get('search', '')
+    queryset = OilGrade.objects.filter(is_deleted=False)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'oil_grade/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def oil_grade_create(request):
+    form = OilGradeForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(OilGrade)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Oil Grade created successfully")
+            return redirect('oil_grade_list')
+    return render(request, 'oil_grade/create.html', {
+        'form': form,
+        'title': 'Create Oil Grade'
+    })
+
+
+@login_required
+def oil_grade_edit(request, id):
+    instance = get_object_or_404(OilGrade, id=id, is_deleted=False)
+    form = OilGradeForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Oil Grade updated successfully")
+            return redirect('oil_grade_list')
+    return render(request, 'oil_grade/create.html', {
+        'form': form,
+        'title': 'Edit Oil Grade'
+    })
+
+
+@login_required
+def oil_grade_delete(request, id):
+    instance = get_object_or_404(OilGrade, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Oil Grade deleted successfully")
+    return redirect('oil_grade_list')
+
+
+# ==========================================
 # OIL PRODUCT MASTER
 # ==========================================
 
@@ -1312,9 +1440,15 @@ def oil_product_list(request):
     else:
         queryset = OilProduct.objects.filter(is_deleted=False)
 
+    queryset = queryset.select_related('oil_brand', 'oil_grade', 'vehicle_type', 'vehicle_make')
+
     if search:
         queryset = queryset.filter(
-            Q(brand__icontains=search) | Q(name__icontains=search) | Q(grade__icontains=search)
+            Q(oil_brand__name__icontains=search) |
+            Q(oil_grade__name__icontains=search) |
+            Q(name__icontains=search) |
+            Q(vehicle_make__name__icontains=search) |
+            Q(vehicle_type__name__icontains=search)
         )
 
     paginator = Paginator(queryset, 15)

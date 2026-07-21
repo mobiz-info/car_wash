@@ -132,16 +132,59 @@ class SupplierForm(forms.ModelForm):
         }
 
 
+class OilBrandForm(forms.ModelForm):
+    class Meta:
+        model = OilBrand
+        fields = ['name', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Castrol, Mobil 1, Shell, Total, Motul'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class OilGradeForm(forms.ModelForm):
+    class Meta:
+        model = OilGrade
+        fields = ['name', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 5W-30, 10W-40, 15W-40, 0W-20, 20W-50'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
 class OilProductForm(forms.ModelForm):
     class Meta:
         model = OilProduct
-        fields = ['brand', 'name', 'grade', 'is_active']
+        fields = ['oil_brand', 'oil_grade', 'name', 'vehicle_type', 'vehicle_make', 'price_per_litre', 'recommended_qty_litres', 'is_active']
         widgets = {
-            'brand': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Castrol, Mobil 1, Shell'}),
-            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GTX, Edge, Helix'}),
-            'grade': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 5W-30, 10W-40'}),
+            'oil_brand': forms.Select(attrs={'class': 'form-control'}),
+            'oil_grade': forms.Select(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Product name (e.g. GTX, Edge, Helix)'}),
+            'vehicle_type': forms.Select(attrs={'class': 'form-control'}),
+            'vehicle_make': forms.Select(attrs={'class': 'form-control'}),
+            'price_per_litre': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 450.00', 'step': '0.01', 'min': '0'}),
+            'recommended_qty_litres': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 4.0 (optional)', 'step': '0.1', 'min': '0'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['oil_brand'].queryset = OilBrand.objects.filter(is_active=True, is_deleted=False).order_by('name')
+        self.fields['oil_grade'].queryset = OilGrade.objects.filter(is_active=True, is_deleted=False).order_by('name')
+        self.fields['vehicle_type'].queryset = VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')
+        self.fields['vehicle_make'].queryset = VehicleMake.objects.filter(is_active=True, is_deleted=False).order_by('name')
+        
+        self.fields['oil_brand'].empty_label = '-- Select Oil Brand --'
+        self.fields['oil_grade'].empty_label = '-- Select Oil Grade --'
+        self.fields['vehicle_type'].empty_label = '-- All Vehicle Types --'
+        self.fields['vehicle_make'].empty_label = '-- All Vehicle Makes --'
+        
+        self.fields['oil_brand'].required = True
+        self.fields['oil_grade'].required = True
+        self.fields['name'].required = False
+        self.fields['vehicle_type'].required = False
+        self.fields['vehicle_make'].required = False
+        self.fields['recommended_qty_litres'].required = False
 
 
 class TyreBrandForm(forms.ModelForm):

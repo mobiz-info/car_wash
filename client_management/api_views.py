@@ -4829,25 +4829,35 @@ def api_delete_customer(request):
 
 @csrf_exempt
 def api_oil_products(request):
-    """GET: List active oil products for the company (for app dropdown)."""
+    """GET: List active oil products for the company or global master."""
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
     user = get_user_from_token(request)
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
     try:
-        company = user.profile.company
+        company = getattr(getattr(user, 'profile', None), 'company', None)
         from master.models import OilProduct
-        products = OilProduct.objects.filter(
-            company=company, is_active=True, is_deleted=False
-        ).order_by('brand', 'name')
+        from django.db.models import Q
+        if company:
+            products = OilProduct.objects.filter(
+                Q(company=company) | Q(company__isnull=True),
+                is_active=True, is_deleted=False
+            ).select_related('oil_brand', 'oil_grade')
+        else:
+            products = OilProduct.objects.filter(
+                is_active=True, is_deleted=False
+            ).select_related('oil_brand', 'oil_grade')
+
         data = [
             {
                 'id': str(p.id),
-                'brand': p.brand,
-                'name': p.name,
-                'grade': p.grade,
+                'brand': p.oil_brand.name if p.oil_brand else (p.brand or ''),
+                'grade': p.oil_grade.name if p.oil_grade else (p.grade or ''),
+                'name': p.name or '',
                 'display_name': p.display_name,
+                'price_per_litre': float(p.price_per_litre) if p.price_per_litre else 0.0,
+                'recommended_qty_litres': float(p.recommended_qty_litres) if p.recommended_qty_litres else None,
             }
             for p in products
         ]
@@ -4859,7 +4869,6 @@ def api_oil_products(request):
 @csrf_exempt
 def api_get_oil_price(request):
     """GET: Return price_per_litre and recommended_qty for a given oil product + vehicle make.
-    Priority: make match > vehicle_type match > generic (no type/make set).
     Query params: oil_product_id, vehicle_make_id (optional), vehicle_type_id (optional)
     """
     if request.method != 'GET':
@@ -4868,8 +4877,7 @@ def api_get_oil_price(request):
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
     try:
-        company = user.profile.company
-        from master.models import OilProductPrice
+        from master.models import OilProduct, OilProductPrice
         oil_product_id = request.GET.get('oil_product_id')
         vehicle_make_id = request.GET.get('vehicle_make_id')
         vehicle_type_id = request.GET.get('vehicle_type_id')
@@ -4877,27 +4885,31 @@ def api_get_oil_price(request):
         if not oil_product_id:
             return JsonResponse({'success': False, 'message': 'oil_product_id required'}, status=400)
 
+        p = OilProduct.objects.filter(id=oil_product_id, is_active=True, is_deleted=False).first()
+        if p and p.price_per_litre and p.price_per_litre > 0:
+            return JsonResponse({
+                'success': True,
+                'price_per_litre': float(p.price_per_litre),
+                'recommended_qty_litres': float(p.recommended_qty_litres) if p.recommended_qty_litres else None,
+            })
+
+        # Fallback to OilProductPrice table if exists
+        company = getattr(getattr(user, 'profile', None), 'company', None)
         base_qs = OilProductPrice.objects.filter(
-            company=company,
             oil_product_id=oil_product_id,
             is_active=True,
             is_deleted=False,
         )
+        if company:
+            base_qs = base_qs.filter(company=company)
 
-        # Priority 1: exact make match
         pricing = None
         if vehicle_make_id:
             pricing = base_qs.filter(vehicle_make_id=vehicle_make_id).first()
-
-        # Priority 2: vehicle type match (no make filter)
         if pricing is None and vehicle_type_id:
             pricing = base_qs.filter(vehicle_type_id=vehicle_type_id, vehicle_make__isnull=True).first()
-
-        # Priority 3: generic (no type, no make)
         if pricing is None:
             pricing = base_qs.filter(vehicle_type__isnull=True, vehicle_make__isnull=True).first()
-
-        # Priority 4: any price for this product
         if pricing is None:
             pricing = base_qs.first()
 

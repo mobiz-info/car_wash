@@ -12,7 +12,7 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search Oil Product..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search by brand, grade, make..." class="search-input">
         </form>
 
         <a href="{% url 'oil_product_create' %}" class="btn-create">
@@ -25,11 +25,15 @@
         <table class="premium-table">
             <thead>
                 <tr>
-                    <th style="width: 80px;">#</th>
+                    <th style="width: 60px;">#</th>
                     <th>Brand</th>
-                    <th>Name</th>
                     <th>Grade</th>
-                    <th>Status</th>
+                    <th>Product Name</th>
+                    <th>Vehicle Type</th>
+                    <th>Vehicle Make</th>
+                    <th style="text-align:right;">Price / Litre</th>
+                    <th style="text-align:center;">Rec. Qty</th>
+                    <th style="text-align:center;">Status</th>
                     <th style="text-align:right;">Action</th>
                 </tr>
             </thead>
@@ -39,18 +43,54 @@
                     <td style="color:#94a3b8;">{{ forloop.counter }}</td>
 
                     <td style="font-weight:600; color:#1e293b;">
-                        {{ obj.brand }}
+                        {% if obj.oil_brand %}{{ obj.oil_brand.name }}{% else %}{{ obj.brand|default:'—' }}{% endif %}
                     </td>
 
                     <td>
-                        {{ obj.name }}
+                        {% if obj.oil_grade %}
+                            <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-size:0.78rem; font-weight:600;">{{ obj.oil_grade.name }}</span>
+                        {% else %}
+                            {{ obj.grade|default:'—' }}
+                        {% endif %}
                     </td>
 
                     <td>
-                        {{ obj.grade }}
+                        {{ obj.name|default:'—' }}
                     </td>
 
                     <td>
+                        {% if obj.vehicle_type %}
+                            <span style="background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">{{ obj.vehicle_type.name }}</span>
+                        {% else %}
+                            <span style="color:#94a3b8; font-size:0.8rem;">All Types</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if obj.vehicle_make %}
+                            <span style="background:#f0fdf4; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">{{ obj.vehicle_make.name }}</span>
+                        {% else %}
+                            <span style="color:#94a3b8; font-size:0.8rem;">All Makes</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:right; font-weight:700; color:#1e293b;">
+                        {% if obj.price_per_litre > 0 %}
+                            ₹{{ obj.price_per_litre }}/L
+                        {% else %}
+                            <span style="color:#94a3b8; font-weight:400;">—</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:center; color:#475569;">
+                        {% if obj.recommended_qty_litres %}
+                            {{ obj.recommended_qty_litres }} L
+                        {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:center;">
                         {% if obj.is_active %}
                             <span style="background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">Active</span>
                         {% else %}
@@ -72,9 +112,9 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align:center; padding:40px; color:#94a3b8;">
+                    <td colspan="10" style="text-align:center; padding:40px; color:#94a3b8;">
                         <i class="ph ph-drop" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
-                        No oil products found.
+                        No oil products found. <a href="{% url 'oil_product_create' %}" style="color:#3b82f6;">Add one now</a>.
                     </td>
                 </tr>
                 {% endfor %}

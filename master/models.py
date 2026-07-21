@@ -198,27 +198,82 @@ class VehicleBrandModel(BaseModel):
 # Oil & Tyre Masters (for multi-category service tracking)
 # ─────────────────────────────────────────────────────────────────────────────
 
+class OilBrand(BaseModel):
+    """Superadmin / Master list of Oil Brands (e.g. Castrol, Mobil 1, Shell, Total, Motul)."""
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class OilGrade(BaseModel):
+    """Superadmin / Master list of Oil Grades (e.g. 5W-30, 10W-40, 15W-40, 0W-20, 20W-50)."""
+    name = models.CharField(max_length=50, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class OilProduct(BaseModel):
-    """Company-level or Global master list of oil brands and grades."""
+    """Master list of Oil Products combining Brand, Grade, Vehicle Type/Make, and Price per Litre."""
     company = models.ForeignKey(
         Client, on_delete=models.CASCADE, related_name='oil_products',
         null=True, blank=True, help_text="Leave blank for Superadmin global master"
     )
-    brand = models.CharField(max_length=100, help_text="e.g. Castrol, Mobil 1, Shell")
-    name = models.CharField(max_length=150, help_text="Product name e.g. GTX, Edge, Helix")
-    grade = models.CharField(max_length=50, help_text="Viscosity grade e.g. 5W-30, 10W-40")
+    oil_brand = models.ForeignKey(
+        OilBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products'
+    )
+    oil_grade = models.ForeignKey(
+        OilGrade, on_delete=models.SET_NULL, null=True, blank=True, related_name='products'
+    )
+    brand = models.CharField(max_length=100, blank=True, null=True, help_text="Legacy string brand fallback")
+    name = models.CharField(max_length=150, blank=True, null=True, help_text="Product name e.g. GTX, Edge, Helix")
+    grade = models.CharField(max_length=50, blank=True, null=True, help_text="Legacy string grade fallback")
+    
+    vehicle_type = models.ForeignKey(
+        VehicleType, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='oil_products', help_text="Leave blank to apply to all vehicle types"
+    )
+    vehicle_make = models.ForeignKey(
+        VehicleMake, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='oil_products', help_text="Leave blank to apply to all makes"
+    )
+    price_per_litre = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00,
+        help_text="Price charged per litre of this oil (e.g. 450.00)"
+    )
+    recommended_qty_litres = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        help_text="Recommended fill quantity for this vehicle (e.g. 4.0 for Sedan)"
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = ('company', 'brand', 'name', 'grade')
-        ordering = ['brand', 'name']
+        ordering = ['oil_brand__name', 'name']
 
     def __str__(self):
-        return f"{self.brand} — {self.name} ({self.grade})"
+        brand_name = self.oil_brand.name if self.oil_brand else (self.brand or '')
+        grade_name = self.oil_grade.name if self.oil_grade else (self.grade or '')
+        parts = [p for p in [brand_name, self.name, grade_name] if p]
+        display = " ".join(parts)
+        if self.price_per_litre > 0:
+            display += f" — ₹{self.price_per_litre}/L"
+        return display
 
     @property
     def display_name(self):
-        return f"{self.brand} {self.name} {self.grade}"
+        brand_name = self.oil_brand.name if self.oil_brand else (self.brand or '')
+        grade_name = self.oil_grade.name if self.oil_grade else (self.grade or '')
+        parts = [p for p in [brand_name, self.name, grade_name] if p]
+        return " ".join(parts)
 
 
 class OilProductPrice(BaseModel):
