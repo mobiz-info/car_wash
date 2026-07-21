@@ -493,3 +493,22 @@ class VehicleOdometerLog(BaseModel):
 
     def __str__(self):
         return f"{self.vehicle.vehicle_number} — {self.odometer_km} km on {self.recorded_date}"
+
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=Client)
+def create_default_expense_heads(sender, instance, created, **kwargs):
+    if created:
+        from master.models import ExpenseHead
+        from core.functions import get_auto_id
+        for name in ['Purchase', 'Salary']:
+            ExpenseHead.objects.get_or_create(
+                company=instance,
+                name=name,
+                defaults={
+                    'auto_id': get_auto_id(ExpenseHead),
+                    'creator': instance.creator if hasattr(instance, 'creator') else None
+                }
+            )

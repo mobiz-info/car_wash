@@ -138,6 +138,11 @@ urlpatterns = [
     path('api/reports/profit-loss/', api_views.api_report_profit_loss, name='api_report_profit_loss'),
     path('api/reports/daywise/', api_views.api_report_daywise_consolidated, name='api_report_daywise_consolidated'),
     path('api/reports/payment-type/', api_views.api_report_payment_type, name='api_report_payment_type'),
+    path('api/reports/oil-change/', api_views.api_report_oil_change, name='api_report_oil_change'),
+    path('api/reports/tyre-change/', api_views.api_report_tyre_change, name='api_report_tyre_change'),
+    path('api/reports/wheel-alignment/', api_views.api_report_wheel_alignment, name='api_report_wheel_alignment'),
+    path('api/reports/oil-stock/', api_views.api_report_oil_stock_ledger, name='api_report_oil_stock_ledger'),
+
 
 
     # Complaint Management

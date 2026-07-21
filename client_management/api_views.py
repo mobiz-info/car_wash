@@ -1246,6 +1246,11 @@ def api_vehicle_search(request):
             'number': vehicle.vehicle_number,
             'model': vehicle.vehicle_type_model.name if vehicle.vehicle_type_model else 'Unknown',
             'vehicle_type': vehicle.vehicle_type_model.vehicle_type.name if vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type else '',
+            'current_odometer_km': vehicle.current_odometer_km,
+            'next_oil_change_km': vehicle.next_oil_change_km,
+            'next_tyre_change_km': vehicle.next_tyre_change_km,
+            'last_oil_change_date': str(vehicle.last_oil_change_date) if vehicle.last_oil_change_date else None,
+            'last_tyre_change_date': str(vehicle.last_tyre_change_date) if vehicle.last_tyre_change_date else None,
         },
         'customer': {
             'id': str(customer.id),
@@ -1263,6 +1268,7 @@ def api_vehicle_search(request):
             'is_eligible': is_eligible,
         }
     })
+
 
 
 @csrf_exempt
@@ -5038,3 +5044,231 @@ def api_branch_categories(request):
         return JsonResponse({'success': True, 'categories': data})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_report_oil_change(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    from finance_management.models import InvoiceServiceDetail
+    from django.db.models import Sum
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    invoice_filter = {
+        'invoice__is_deleted': False,
+        'invoice__date__gte': from_date,
+        'invoice__date__lte': to_date,
+    }
+    if 'branch' in scope:
+        invoice_filter['invoice__branch'] = scope['branch']
+    elif 'customer__company' in scope:
+        invoice_filter['invoice__customer__company'] = scope['customer__company']
+
+    qs = InvoiceServiceDetail.objects.filter(
+        service_category='oil_change',
+        is_deleted=False,
+        **invoice_filter
+    ).select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch', 'oil_product').order_by('-invoice__date')
+
+    rows = []
+    total_litres = 0.0
+    for sd in qs:
+        litres = float(sd.oil_litres_used) if sd.oil_litres_used else 0.0
+        total_litres += litres
+        rows.append({
+            'date': sd.invoice.date.strftime('%d-%m-%Y') if sd.invoice else '',
+            'invoice_number': sd.invoice.invoice_number if sd.invoice else '',
+            'customer': sd.invoice.customer.name if sd.invoice else '',
+            'vehicle': sd.invoice.vehicle.vehicle_number if (sd.invoice and sd.invoice.vehicle) else '',
+            'branch': sd.invoice.branch.name if (sd.invoice and sd.invoice.branch) else '',
+            'oil_product': sd.oil_product.display_name if sd.oil_product else '',
+            'oil_litres': litres,
+            'oil_filter_changed': 'Yes' if sd.oil_filter_changed else 'No',
+            'odometer': sd.odometer_at_service or 0,
+            'next_oil_change_km': sd.next_oil_change_km or 0,
+        })
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_jobs': qs.count(),
+        'total_litres': total_litres,
+        'rows': rows,
+    })
+
+
+@csrf_exempt
+def api_report_tyre_change(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import InvoiceServiceDetail
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    invoice_filter = {
+        'invoice__is_deleted': False,
+        'invoice__date__gte': from_date,
+        'invoice__date__lte': to_date,
+    }
+    if 'branch' in scope:
+        invoice_filter['invoice__branch'] = scope['branch']
+    elif 'customer__company' in scope:
+        invoice_filter['invoice__customer__company'] = scope['customer__company']
+
+    qs = InvoiceServiceDetail.objects.filter(
+        service_category='tyre_change',
+        is_deleted=False,
+        **invoice_filter
+    ).select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch', 'tyre_brand').order_by('-invoice__date')
+
+    rows = []
+    total_tyres = 0
+    for sd in qs:
+        count = sd.tyres_changed_count or 0
+        total_tyres += count
+        rows.append({
+            'date': sd.invoice.date.strftime('%d-%m-%Y') if sd.invoice else '',
+            'invoice_number': sd.invoice.invoice_number if sd.invoice else '',
+            'customer': sd.invoice.customer.name if sd.invoice else '',
+            'vehicle': sd.invoice.vehicle.vehicle_number if (sd.invoice and sd.invoice.vehicle) else '',
+            'branch': sd.invoice.branch.name if (sd.invoice and sd.invoice.branch) else '',
+            'tyre_brand': sd.tyre_brand.brand if sd.tyre_brand else '',
+            'tyre_size': sd.tyre_size or '',
+            'tyres_count': count,
+            'odometer': sd.odometer_at_service or 0,
+            'next_tyre_change_km': sd.next_tyre_change_km or 0,
+        })
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_jobs': qs.count(),
+        'total_tyres': total_tyres,
+        'rows': rows,
+    })
+
+
+@csrf_exempt
+def api_report_wheel_alignment(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import InvoiceServiceDetail
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    invoice_filter = {
+        'invoice__is_deleted': False,
+        'invoice__date__gte': from_date,
+        'invoice__date__lte': to_date,
+    }
+    if 'branch' in scope:
+        invoice_filter['invoice__branch'] = scope['branch']
+    elif 'customer__company' in scope:
+        invoice_filter['invoice__customer__company'] = scope['customer__company']
+
+    qs = InvoiceServiceDetail.objects.filter(
+        service_category='wheel_alignment',
+        is_deleted=False,
+        **invoice_filter
+    ).select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__branch').order_by('-invoice__date')
+
+    rows = []
+    for sd in qs:
+        rows.append({
+            'date': sd.invoice.date.strftime('%d-%m-%Y') if sd.invoice else '',
+            'invoice_number': sd.invoice.invoice_number if sd.invoice else '',
+            'customer': sd.invoice.customer.name if sd.invoice else '',
+            'vehicle': sd.invoice.vehicle.vehicle_number if (sd.invoice and sd.invoice.vehicle) else '',
+            'branch': sd.invoice.branch.name if (sd.invoice and sd.invoice.branch) else '',
+            'alignment_done': 'Yes' if sd.alignment_done else 'No',
+            'balancing_done': 'Yes' if sd.balancing_done else 'No',
+            'odometer': sd.odometer_at_service or 0,
+            'notes': sd.alignment_notes or '',
+        })
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_jobs': qs.count(),
+        'rows': rows,
+    })
+
+
+@csrf_exempt
+def api_report_oil_stock_ledger(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from master.models import OilStockTransaction
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    ledger_filter = {
+        'is_deleted': False,
+        'created_at__date__gte': from_date,
+        'created_at__date__lte': to_date,
+    }
+    if 'branch' in scope:
+        ledger_filter['branch'] = scope['branch']
+    elif 'customer__company' in scope:
+        ledger_filter['branch__company'] = scope['customer__company']
+
+    qs = OilStockTransaction.objects.filter(
+        **ledger_filter
+    ).select_related('branch', 'oil_product', 'creator').order_by('-created_at')
+
+    rows = []
+    total_stock_in = 0.0
+    total_stock_out = 0.0
+
+    for tx in qs:
+        qty = float(tx.quantity_litres)
+        tx_type = 'IN' if tx.transaction_type == OilStockTransaction.TYPE_IN else 'OUT'
+        if tx.transaction_type == OilStockTransaction.TYPE_IN:
+            total_stock_in += qty
+        else:
+            total_stock_out += qty
+
+        rows.append({
+            'date': tx.created_at.strftime('%d-%m-%Y'),
+            'branch': tx.branch.name if tx.branch else '',
+            'oil_product': tx.oil_product.display_name if tx.oil_product else '',
+            'transaction_type': tx_type,
+            'quantity_litres': qty,
+            'creator': tx.creator.username if tx.creator else '',
+            'notes': tx.notes or '',
+        })
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'total_transactions': qs.count(),
+        'total_stock_in': total_stock_in,
+        'total_stock_out': total_stock_out,
+        'rows': rows,
+    })
+
