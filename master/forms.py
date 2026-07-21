@@ -152,3 +152,35 @@ class TyreBrandForm(forms.ModelForm):
             'brand': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. MRF, Apollo, Bridgestone, CEAT'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+
+class OilProductPriceForm(forms.ModelForm):
+    class Meta:
+        model = OilProductPrice
+        fields = ['oil_product', 'vehicle_type', 'vehicle_make', 'price_per_litre', 'recommended_qty_litres', 'is_active']
+        widgets = {
+            'oil_product': forms.Select(attrs={'class': 'form-control'}),
+            'vehicle_type': forms.Select(attrs={'class': 'form-control'}),
+            'vehicle_make': forms.Select(attrs={'class': 'form-control'}),
+            'price_per_litre': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 450.00', 'step': '0.01', 'min': '0'}),
+            'recommended_qty_litres': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 4.0 (optional)', 'step': '0.1', 'min': '0'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if company:
+            self.fields['oil_product'].queryset = OilProduct.objects.filter(
+                company=company, is_active=True, is_deleted=False
+            ).order_by('brand', 'name')
+        self.fields['vehicle_type'].queryset = VehicleType.objects.filter(
+            is_active=True, is_deleted=False
+        ).order_by('name')
+        self.fields['vehicle_make'].queryset = VehicleMake.objects.filter(
+            is_active=True, is_deleted=False
+        ).order_by('name')
+        self.fields['vehicle_type'].required = False
+        self.fields['vehicle_make'].required = False
+        self.fields['vehicle_type'].empty_label = '-- All Vehicle Types --'
+        self.fields['vehicle_make'].empty_label = '-- All Makes --'
+        self.fields['recommended_qty_litres'].required = False

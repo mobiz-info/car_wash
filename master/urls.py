@@ -89,5 +89,11 @@ urlpatterns = [
     path('tyre-brand/create/', views.tyre_brand_create, name='tyre_brand_create'),
     path('tyre-brand/edit/<uuid:id>/', views.tyre_brand_edit, name='tyre_brand_edit'),
     path('tyre-brand/delete/<uuid:id>/', views.tyre_brand_delete, name='tyre_brand_delete'),
+
+    # Oil Product Pricing CRUD
+    path('oil-product-price/', views.oil_product_price_list, name='oil_product_price_list'),
+    path('oil-product-price/create/', views.oil_product_price_create, name='oil_product_price_create'),
+    path('oil-product-price/edit/<uuid:id>/', views.oil_product_price_edit, name='oil_product_price_edit'),
+    path('oil-product-price/delete/<uuid:id>/', views.oil_product_price_delete, name='oil_product_price_delete'),
 ]
 

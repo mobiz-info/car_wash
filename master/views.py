@@ -1432,3 +1432,79 @@ def tyre_brand_delete(request, id):
     instance.save()
     messages.success(request, "Tyre Brand deleted successfully")
     return redirect('tyre_brand_list')
+
+
+# ==========================================
+# OIL PRODUCT PRICE MASTER
+# ==========================================
+
+@login_required
+def oil_product_price_list(request):
+    search = request.GET.get('search', '')
+    company = request.user.profile.company
+    queryset = OilProductPrice.objects.filter(
+        company=company, is_deleted=False
+    ).select_related('oil_product', 'vehicle_type', 'vehicle_make')
+
+    if search:
+        queryset = queryset.filter(
+            Q(oil_product__brand__icontains=search) |
+            Q(oil_product__name__icontains=search) |
+            Q(vehicle_make__name__icontains=search) |
+            Q(vehicle_type__name__icontains=search)
+        )
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'oil_product_price/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def oil_product_price_create(request):
+    company = request.user.profile.company
+    form = OilProductPriceForm(request.POST or None, company=company)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(OilProductPrice)
+            instance.creator = request.user
+            instance.company = company
+            instance.save()
+            messages.success(request, "Oil Product Price saved successfully")
+            return redirect('oil_product_price_list')
+    return render(request, 'oil_product_price/create.html', {
+        'form': form,
+        'title': 'Add Oil Product Price'
+    })
+
+
+@login_required
+def oil_product_price_edit(request, id):
+    company = request.user.profile.company
+    instance = get_object_or_404(OilProductPrice, id=id, company=company, is_deleted=False)
+    form = OilProductPriceForm(request.POST or None, instance=instance, company=company)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Oil Product Price updated successfully")
+            return redirect('oil_product_price_list')
+    return render(request, 'oil_product_price/create.html', {
+        'form': form,
+        'title': 'Edit Oil Product Price'
+    })
+
+
+@login_required
+def oil_product_price_delete(request, id):
+    company = request.user.profile.company
+    instance = get_object_or_404(OilProductPrice, id=id, company=company)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Oil Product Price deleted successfully")
+    return redirect('oil_product_price_list')

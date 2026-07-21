@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Oil Product Pricing - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Oil Product Pricing{% endblock %}
+{% block breadcrumb_active %}Oil Product Pricing{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{ search }}" placeholder="Search by brand, make, or type..." class="search-input">
+        </form>
+
+        <a href="{% url 'oil_product_price_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Oil Price
+        </a>
+    </div>
+
+    <div style="margin-bottom:12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; font-size:0.82rem; color:#92400e; display:flex; gap:8px; align-items:flex-start;">
+        <i class="ph ph-info" style="font-size:1rem; margin-top:1px; flex-shrink:0;"></i>
+        <span>Set the price per litre for each oil product per vehicle type / make. The app will auto-calculate the oil charge when a technician enters litres used.</span>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">#</th>
+                    <th>Oil Product</th>
+                    <th>Vehicle Type</th>
+                    <th>Vehicle Make</th>
+                    <th style="text-align:right;">Price / Litre</th>
+                    <th style="text-align:center;">Rec. Qty (L)</th>
+                    <th style="text-align:center;">Status</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td>
+                        <div style="font-weight:600; color:#1e293b;">{{ obj.oil_product.brand }}</div>
+                        <div style="font-size:0.78rem; color:#64748b;">{{ obj.oil_product.name }} {{ obj.oil_product.grade }}</div>
+                    </td>
+
+                    <td>
+                        {% if obj.vehicle_type %}
+                            <span style="background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">{{ obj.vehicle_type.name }}</span>
+                        {% else %}
+                            <span style="color:#94a3b8; font-size:0.8rem;">All Types</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if obj.vehicle_make %}
+                            <span style="background:#f0fdf4; color:#166534; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">{{ obj.vehicle_make.name }}</span>
+                        {% else %}
+                            <span style="color:#94a3b8; font-size:0.8rem;">All Makes</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:right; font-weight:700; color:#1e293b; font-size:0.95rem;">
+                        ₹{{ obj.price_per_litre }}/L
+                    </td>
+
+                    <td style="text-align:center; color:#475569;">
+                        {% if obj.recommended_qty_litres %}
+                            {{ obj.recommended_qty_litres }} L
+                        {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:center;">
+                        {% if obj.is_active %}
+                            <span style="background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">Active</span>
+                        {% else %}
+                            <span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">Inactive</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Actions -->
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'oil_product_price_edit' obj.pk %}" class="action-btn edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'oil_product_price_delete' obj.pk %}" onclick="return confirm('Delete this pricing entry?')" class="action-btn delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; padding:40px; color:#94a3b8;">
+                        <i class="ph ph-currency-inr" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+                        No oil pricing entries found. <a href="{% url 'oil_product_price_create' %}" style="color:#3b82f6;">Add one now</a>.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

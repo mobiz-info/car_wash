@@ -203,6 +203,7 @@ urlpatterns = [
 
     # Multi-Category Service Platform APIs
     path('api/oil-products/', api_views.api_oil_products, name='api_oil_products'),
+    path('api/oil-price/', api_views.api_get_oil_price, name='api_get_oil_price'),
     path('api/tyre-brands/', api_views.api_tyre_brands, name='api_tyre_brands'),
     path('api/oil-stock/', api_views.api_oil_stock, name='api_oil_stock'),
     path('api/vehicle-service-history/<uuid:vehicle_id>/', api_views.api_vehicle_service_history, name='api_vehicle_service_history'),

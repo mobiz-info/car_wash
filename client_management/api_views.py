@@ -4857,6 +4857,63 @@ def api_oil_products(request):
 
 
 @csrf_exempt
+def api_get_oil_price(request):
+    """GET: Return price_per_litre and recommended_qty for a given oil product + vehicle make.
+    Priority: make match > vehicle_type match > generic (no type/make set).
+    Query params: oil_product_id, vehicle_make_id (optional), vehicle_type_id (optional)
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        company = user.profile.company
+        from master.models import OilProductPrice
+        oil_product_id = request.GET.get('oil_product_id')
+        vehicle_make_id = request.GET.get('vehicle_make_id')
+        vehicle_type_id = request.GET.get('vehicle_type_id')
+
+        if not oil_product_id:
+            return JsonResponse({'success': False, 'message': 'oil_product_id required'}, status=400)
+
+        base_qs = OilProductPrice.objects.filter(
+            company=company,
+            oil_product_id=oil_product_id,
+            is_active=True,
+            is_deleted=False,
+        )
+
+        # Priority 1: exact make match
+        pricing = None
+        if vehicle_make_id:
+            pricing = base_qs.filter(vehicle_make_id=vehicle_make_id).first()
+
+        # Priority 2: vehicle type match (no make filter)
+        if pricing is None and vehicle_type_id:
+            pricing = base_qs.filter(vehicle_type_id=vehicle_type_id, vehicle_make__isnull=True).first()
+
+        # Priority 3: generic (no type, no make)
+        if pricing is None:
+            pricing = base_qs.filter(vehicle_type__isnull=True, vehicle_make__isnull=True).first()
+
+        # Priority 4: any price for this product
+        if pricing is None:
+            pricing = base_qs.first()
+
+        if pricing:
+            return JsonResponse({
+                'success': True,
+                'price_per_litre': float(pricing.price_per_litre),
+                'recommended_qty_litres': float(pricing.recommended_qty_litres) if pricing.recommended_qty_litres else None,
+            })
+        else:
+            return JsonResponse({'success': True, 'price_per_litre': None, 'recommended_qty_litres': None})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_tyre_brands(request):
     """GET: List active tyre brands for the company (for app dropdown)."""
     if request.method != 'GET':

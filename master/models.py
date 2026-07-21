@@ -220,6 +220,46 @@ class OilProduct(BaseModel):
         return f"{self.brand} {self.name} {self.grade}"
 
 
+class OilProductPrice(BaseModel):
+    """Per-company pricing: Oil Product × Vehicle Type × Vehicle Make → price per litre.
+    Lookup priority: make match > type match > generic (no type/make).
+    """
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='oil_product_prices'
+    )
+    oil_product = models.ForeignKey(
+        OilProduct, on_delete=models.CASCADE, related_name='prices'
+    )
+    vehicle_type = models.ForeignKey(
+        VehicleType, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='oil_prices', help_text="Leave blank to apply to all vehicle types"
+    )
+    vehicle_make = models.ForeignKey(
+        VehicleMake, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='oil_prices', help_text="Leave blank to apply to all makes"
+    )
+    price_per_litre = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        help_text="Price charged per litre of this oil (e.g. 450.00)"
+    )
+    recommended_qty_litres = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        help_text="Recommended fill quantity for this vehicle (e.g. 4.0 for Sedan)"
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['oil_product__brand', 'oil_product__name']
+
+    def __str__(self):
+        parts = [str(self.oil_product)]
+        if self.vehicle_make:
+            parts.append(self.vehicle_make.name)
+        elif self.vehicle_type:
+            parts.append(self.vehicle_type.name)
+        return ' — '.join(parts) + f' @ {self.price_per_litre}/L'
+
+
 class TyreBrand(BaseModel):
     """Company-level master list of tyre brands."""
     company = models.ForeignKey(
