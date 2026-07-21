@@ -85,22 +85,15 @@ for branch in branches:
                 bsc.is_enabled = True
                 bsc.save()
     
-    # 2. Ensure oil products & tyre brands exist for company
-    oil_items = [
-        {'brand': 'Castrol', 'name': 'GTX Premium', 'grade': '5W-30'},
-        {'brand': 'Mobil 1', 'name': 'Super Synthetic', 'grade': '0W-20'},
-    ]
-    for item in oil_items:
-        op, created = OilProduct.objects.get_or_create(
-            company=client,
-            brand=item['brand'],
-            name=item['name'],
-            grade=item['grade'],
-            defaults={'auto_id': next_op_id}
-        )
-        if created:
-            next_op_id += 1
-        
+    # 2. Ensure oil brands & grades exist
+    brands_list = ["Castrol", "Mobil 1", "Shell", "TotalEnergies", "Motul"]
+    for bname in brands_list:
+        OilBrand.objects.get_or_create(name=bname, defaults={'auto_id': get_auto_id(OilBrand), 'is_active': True})
+
+    grades_list = ["5W-30", "10W-40", "15W-40", "0W-20", "20W-50"]
+    for gname in grades_list:
+        OilGrade.objects.get_or_create(name=gname, defaults={'auto_id': get_auto_id(OilGrade), 'is_active': True})
+
     tyre_items = ['MRF', 'Bridgestone', 'Michelin']
     for brand in tyre_items:
         tb, created = TyreBrand.objects.get_or_create(
