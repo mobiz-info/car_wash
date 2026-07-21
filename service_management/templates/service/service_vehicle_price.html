@@ -146,35 +146,53 @@
     <hr style="border:none; border-top:1px solid #f1f5f9; margin-bottom:16px;">
     {% endif %}
 
-    <form method="GET" style="margin-bottom:20px;">
+    <form method="GET" style="margin-bottom:24px;">
+        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+            <div>
+                <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:6px;">
+                    <i class="ph ph-squares-four" style="margin-right:4px;"></i> Select Category
+                </label>
+                <select
+                    name="category"
+                    onchange="this.form.submit()"
+                    class="form-control"
+                    style="min-width:240px;"
+                >
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                    <option
+                        value="{{ cat.id }}"
+                        {% if selected_category and selected_category.id == cat.id %}selected{% endif %}
+                    >
+                        {{ cat.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
 
-    <label>Select Vehicle Type</label>
-
-    <select
-        name="vehicle_type"
-        onchange="this.form.submit()"
-        class="form-control"
-        style="max-width:300px;"
-    >
-
-        <option value="">Select</option>
-
-        {% for vt in vehicle_types %}
-
-        <option
-            value="{{ vt.id }}"
-            {% if selected_vehicle_type and selected_vehicle_type.id == vt.id %}
-                selected
-            {% endif %}
-        >
-            {{ vt.name }}
-        </option>
-
-        {% endfor %}
-
-    </select>
-
-</form>
+            <div>
+                <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:6px;">
+                    <i class="ph ph-car" style="margin-right:4px;"></i> Select Vehicle Type
+                </label>
+                <select
+                    name="vehicle_type"
+                    onchange="this.form.submit()"
+                    class="form-control"
+                    style="min-width:240px;"
+                >
+                    <option value="">Select Vehicle Type</option>
+                    {% for vt in vehicle_types %}
+                    <option
+                        value="{{ vt.id }}"
+                        {% if selected_vehicle_type and selected_vehicle_type.id == vt.id %}selected{% endif %}
+                    >
+                        {{ vt.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </form>
 
     {% if not services %}
     <div style="padding:48px 0; text-align:center; color:#94a3b8;">

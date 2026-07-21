@@ -432,6 +432,35 @@ def service_vehicle_price_manage(request, branch_id):
         if company:
             company_branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
 
+    enabled_service_ids = BranchService.objects.filter(
+        branch=branch,
+        is_enabled=True,
+        is_deleted=False
+    ).values_list('service_id', flat=True)
+
+    services_qs = Service.objects.filter(
+        id__in=enabled_service_ids,
+        is_active=True,
+        is_deleted=False
+    ).select_related('service_type')
+
+    # Service categories (ServiceTypes) for enabled branch services
+    categories = ServiceType.objects.filter(
+        id__in=services_qs.values_list('service_type_id', flat=True)
+    ).order_by('name')
+
+    selected_category_id = request.GET.get('category')
+    selected_category = None
+    if selected_category_id:
+        selected_category = ServiceType.objects.filter(id=selected_category_id).first()
+        if selected_category:
+            services_qs = services_qs.filter(service_type=selected_category)
+
+    services = services_qs.order_by(
+        'service_type__name',
+        'name'
+    )
+
     vehicle_types = VehicleType.objects.filter(
         is_active=True,
         is_deleted=False
@@ -454,21 +483,6 @@ def service_vehicle_price_manage(request, branch_id):
             is_active=True,
             is_deleted=False
         ).order_by('name')
-
-    enabled_service_ids = BranchService.objects.filter(
-        branch=branch,
-        is_enabled=True,
-        is_deleted=False
-    ).values_list('service_id', flat=True)
-
-    services = Service.objects.filter(
-        id__in=enabled_service_ids,
-        is_active=True,
-        is_deleted=False
-    ).select_related('service_type').order_by(
-        'service_type__name',
-        'name'
-    )
 
     existing_prices = ServiceVehicleTypePrice.objects.filter(
         branch=branch,
@@ -510,12 +524,20 @@ def service_vehicle_price_manage(request, branch_id):
                     obj.save()
 
         messages.success(request, "Pricing updated successfully.")
+        redirect_url = reverse('service_vehicle_price_manage', kwargs={'branch_id': branch.id})
+        params = []
+        if selected_category:
+            params.append(f"category={selected_category.id}")
         if selected_vehicle_type:
-            return redirect(f"{reverse('service_vehicle_price_manage', kwargs={'branch_id': branch.id})}?vehicle_type={selected_vehicle_type.id}")
-        return redirect('service_vehicle_price_manage', branch_id=branch_id)
+            params.append(f"vehicle_type={selected_vehicle_type.id}")
+        if params:
+            redirect_url += "?" + "&".join(params)
+        return redirect(redirect_url)
 
     return render(request, 'service/service_vehicle_price.html', {
         'branch': branch,
+        'categories': categories,
+        'selected_category': selected_category,
         'vehicle_types': vehicle_types,
         'selected_vehicle_type': selected_vehicle_type,
         'vehicle_models': vehicle_models,
