@@ -352,7 +352,31 @@
             {% for item in invoice.items.all %}
                 <tr>
                     <td class="align-center">{{ forloop.counter }}</td>
-                    <td>{{ item.service_name }}</td>
+                    <td>
+                        <div style="font-weight: 600;">{{ item.service_name }}</div>
+                        {% if item.service_detail %}
+                            <div style="font-size: 8pt; color: #475569; margin-top: 4px; padding-left: 8px; border-left: 2px solid #3b82f6; line-height: 1.4;">
+                                {% if item.service_detail.service_category == 'oil_change' %}
+                                    <strong>Oil:</strong> {{ item.service_detail.oil_product.brand }} {{ item.service_detail.oil_product.name }} ({{ item.service_detail.oil_product.grade }})
+                                    {% if item.service_detail.oil_litres_used %} | <strong>Qty:</strong> {{ item.service_detail.oil_litres_used }}L{% endif %}
+                                    {% if item.service_detail.oil_filter_changed %} | <strong>Filter Changed</strong>{% endif %}
+                                    {% if item.service_detail.odometer_at_service %} | <strong>Odometer:</strong> {{ item.service_detail.odometer_at_service }} km{% endif %}
+                                    {% if item.service_detail.next_oil_change_km %} | <strong style="color: #1e3a8a;">Next Change:</strong> {{ item.service_detail.next_oil_change_km }} km{% endif %}
+                                {% elif item.service_detail.service_category == 'tyre_change' %}
+                                    <strong>Tyre:</strong> {{ item.service_detail.tyre_brand.brand }}
+                                    {% if item.service_detail.tyre_size %} | <strong>Size:</strong> {{ item.service_detail.tyre_size }}{% endif %}
+                                    {% if item.service_detail.tyres_changed_count %} | <strong>Qty:</strong> {{ item.service_detail.tyres_changed_count }}{% endif %}
+                                    {% if item.service_detail.next_tyre_change_km %} | <strong style="color: #1e3a8a;">Next Change:</strong> {{ item.service_detail.next_tyre_change_km }} km{% endif %}
+                                {% elif item.service_detail.service_category == 'wheel_alignment' %}
+                                    <strong>Tasks:</strong> 
+                                    {% if item.service_detail.alignment_done %}Wheel Alignment{% endif %}
+                                    {% if item.service_detail.balancing_done %}{% if item.service_detail.alignment_done %} & {% endif %}Wheel Balancing{% endif %}
+                                    {% if item.service_detail.alignment_notes %} | <strong>Notes:</strong> {{ item.service_detail.alignment_notes }}{% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </td>
+
                     <td class="align-right">{{ currency }}{{ item.rate }}</td>
                 </tr>
             {% empty %}

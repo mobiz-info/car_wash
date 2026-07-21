@@ -218,6 +218,23 @@ class CustomerVehicle(BaseModel):
     make = models.ForeignKey('master.VehicleMake', on_delete=models.SET_NULL, blank=True, null=True)
     brand_model = models.ForeignKey('master.VehicleBrandModel', on_delete=models.SET_NULL, blank=True, null=True)
 
+    # ── Service tracking (denormalized, updated when invoice saved) ───────────
+    current_odometer_km = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Last recorded odometer reading (km)"
+    )
+    next_oil_change_km = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Next recommended oil change at this km"
+    )
+    next_tyre_change_km = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Next recommended tyre change at this km"
+    )
+    last_oil_change_date = models.DateField(
+        null=True, blank=True, help_text="Date of last oil change"
+    )
+    last_tyre_change_date = models.DateField(
+        null=True, blank=True, help_text="Date of last tyre change"
+    )
+
     def __str__(self):
         return f"{self.vehicle_number} - {self.vehicle_type_model.name}"
 
@@ -449,3 +466,30 @@ class GmailCredential(BaseModel):
 
     def __str__(self):
         return f"Gmail Credential - {self.company.company_name}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vehicle Odometer Tracking
+# ─────────────────────────────────────────────────────────────────────────────
+
+class VehicleOdometerLog(BaseModel):
+    """Records the odometer reading each time a vehicle comes in for service.
+    Linked to the invoice that triggered the reading.
+    """
+    vehicle = models.ForeignKey(
+        CustomerVehicle, on_delete=models.CASCADE, related_name='odometer_logs'
+    )
+    invoice = models.ForeignKey(
+        'finance_management.Invoice',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='odometer_logs'
+    )
+    odometer_km = models.PositiveIntegerField(help_text="Odometer reading in km")
+    recorded_date = models.DateField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-recorded_date']
+
+    def __str__(self):
+        return f"{self.vehicle.vehicle_number} — {self.odometer_km} km on {self.recorded_date}"

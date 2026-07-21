@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Configure Services - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Configure Services — {{ branch.name }}{% endblock %}
+{% block breadcrumb_active %}Configure Services{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container" style="max-width: 600px;">
+    <div class="premium-form-title">
+        <i class="ph ph-sliders" style="color: #2563eb; font-size: 1.5rem;"></i>
+        Configure Service Categories
+    </div>
+    
+    <p style="color: #64748b; margin-bottom: 24px; font-size: 0.9rem;">
+        Select which service categories are enabled for <strong>{{ branch.name }}</strong>. 
+        Only the enabled categories will be visible in the mobile application for this branch.
+    </p>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px;">
+            {% for cat in categories %}
+                {% if cat.slug %}
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc;">
+                    <div>
+                        <strong style="display: block; color: #1e293b; font-size: 1rem;">{{ cat.name }}</strong>
+                        <span style="color: #94a3b8; font-size: 0.8rem; font-family: monospace;">slug: {{ cat.slug }}</span>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" name="enabled_categories" value="{{ cat.slug }}" id="cat_{{ cat.slug }}"
+                               {% if cat.slug in enabled_slugs %}checked{% endif %}
+                               style="width: 20px; height: 20px; cursor: pointer; accent-color: #2563eb;">
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'branch_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Configuration
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

@@ -5,7 +5,16 @@ from client_management.models import Branch
 
 
 class ServiceType(BaseModel):
+    SLUG_WASHING = 'washing'
+    SLUG_OIL_CHANGE = 'oil_change'
+    SLUG_TYRE_CHANGE = 'tyre_change'
+    SLUG_WHEEL_ALIGNMENT = 'wheel_alignment'
+
     name = models.CharField(max_length=100)
+    slug = models.SlugField(
+        max_length=50, unique=True, blank=True, null=True,
+        help_text="Machine-readable key: washing | oil_change | tyre_change | wheel_alignment"
+    )
 
     def __str__(self):
         return self.name
@@ -99,3 +108,27 @@ class ServiceVehicleTypePrice(BaseModel):
 
     def __str__(self):
         return f"{self.branch} | {self.service.name} | {self.vehicle_model} - Rs.{self.price}"
+
+
+class BranchServiceCategory(BaseModel):
+    """Controls which service categories (ServiceType) are enabled for a branch.
+    Only enabled categories appear in the mobile app.
+    """
+    branch = models.ForeignKey(
+        'client_management.Branch',
+        on_delete=models.CASCADE,
+        related_name='enabled_categories'
+    )
+    service_type = models.ForeignKey(
+        ServiceType,
+        on_delete=models.CASCADE,
+        related_name='branch_categories'
+    )
+    is_enabled = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('branch', 'service_type')
+
+    def __str__(self):
+        status = 'ON' if self.is_enabled else 'OFF'
+        return f"{self.branch.name} — {self.service_type.name} ({status})"

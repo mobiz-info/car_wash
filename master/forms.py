@@ -130,3 +130,25 @@ class SupplierForm(forms.ModelForm):
             'gst_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'GST No. (Optional)'}),
             'phone_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone Number'}),
         }
+
+
+class OilProductForm(forms.ModelForm):
+    class Meta:
+        model = OilProduct
+        fields = ['brand', 'name', 'grade', 'is_active']
+        widgets = {
+            'brand': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Castrol, Mobil 1, Shell'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GTX, Edge, Helix'}),
+            'grade': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 5W-30, 10W-40'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class TyreBrandForm(forms.ModelForm):
+    class Meta:
+        model = TyreBrand
+        fields = ['brand', 'is_active']
+        widgets = {
+            'brand': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. MRF, Apollo, Bridgestone, CEAT'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }

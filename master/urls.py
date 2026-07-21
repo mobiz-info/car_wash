@@ -77,4 +77,17 @@ urlpatterns = [
     path('supplier/create/', views.supplier_create, name='supplier_create'),
     path('supplier/edit/<uuid:id>/', views.supplier_edit, name='supplier_edit'),
     path('supplier/delete/<uuid:id>/', views.supplier_delete, name='supplier_delete'),
+
+    # Oil Product CRUD
+    path('oil-product/', views.oil_product_list, name='oil_product_list'),
+    path('oil-product/create/', views.oil_product_create, name='oil_product_create'),
+    path('oil-product/edit/<uuid:id>/', views.oil_product_edit, name='oil_product_edit'),
+    path('oil-product/delete/<uuid:id>/', views.oil_product_delete, name='oil_product_delete'),
+
+    # Tyre Brand CRUD
+    path('tyre-brand/', views.tyre_brand_list, name='tyre_brand_list'),
+    path('tyre-brand/create/', views.tyre_brand_create, name='tyre_brand_create'),
+    path('tyre-brand/edit/<uuid:id>/', views.tyre_brand_edit, name='tyre_brand_edit'),
+    path('tyre-brand/delete/<uuid:id>/', views.tyre_brand_delete, name='tyre_brand_delete'),
 ]
+

@@ -192,3 +192,104 @@ class VehicleBrandModel(BaseModel):
     class Meta:
         ordering = ['vehicle_type_model__name', 'name']
         unique_together = ['vehicle_type_model', 'make', 'name']
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Oil & Tyre Masters (for multi-category service tracking)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class OilProduct(BaseModel):
+    """Company-level master list of oil brands and grades."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='oil_products'
+    )
+    brand = models.CharField(max_length=100, help_text="e.g. Castrol, Mobil 1, Shell")
+    name = models.CharField(max_length=150, help_text="Product name e.g. GTX, Edge, Helix")
+    grade = models.CharField(max_length=50, help_text="Viscosity grade e.g. 5W-30, 10W-40")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('company', 'brand', 'name', 'grade')
+        ordering = ['brand', 'name']
+
+    def __str__(self):
+        return f"{self.brand} — {self.name} ({self.grade})"
+
+    @property
+    def display_name(self):
+        return f"{self.brand} {self.name} {self.grade}"
+
+
+class TyreBrand(BaseModel):
+    """Company-level master list of tyre brands."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='tyre_brands'
+    )
+    brand = models.CharField(max_length=100, help_text="e.g. MRF, Apollo, Bridgestone, CEAT")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('company', 'brand')
+        ordering = ['brand']
+
+    def __str__(self):
+        return self.brand
+
+
+class OilStock(BaseModel):
+    """Per-branch stock level for a specific oil product."""
+    branch = models.ForeignKey(
+        Branch, on_delete=models.CASCADE, related_name='oil_stocks'
+    )
+    oil_product = models.ForeignKey(
+        OilProduct, on_delete=models.CASCADE, related_name='stocks'
+    )
+    quantity_litres = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text="Current stock in litres"
+    )
+    low_stock_alert_litres = models.DecimalField(
+        max_digits=10, decimal_places=2, default=5,
+        help_text="Alert when stock falls below this level"
+    )
+
+    class Meta:
+        unique_together = ('branch', 'oil_product')
+
+    def __str__(self):
+        return f"{self.branch.name} — {self.oil_product} : {self.quantity_litres}L"
+
+    @property
+    def is_low(self):
+        return self.quantity_litres <= self.low_stock_alert_litres
+
+
+class OilStockTransaction(BaseModel):
+    """Ledger of stock-in (purchases) and stock-out (usage on invoices)."""
+    TYPE_IN = 'in'
+    TYPE_OUT = 'out'
+    TYPE_CHOICES = [
+        (TYPE_IN, 'Stock In (Purchase)'),
+        (TYPE_OUT, 'Stock Out (Used in Service)'),
+    ]
+
+    branch = models.ForeignKey(
+        Branch, on_delete=models.CASCADE, related_name='oil_transactions'
+    )
+    oil_product = models.ForeignKey(
+        OilProduct, on_delete=models.CASCADE, related_name='transactions'
+    )
+    transaction_type = models.CharField(max_length=5, choices=TYPE_CHOICES)
+    quantity_litres = models.DecimalField(max_digits=10, decimal_places=2)
+    reference_invoice = models.ForeignKey(
+        'finance_management.Invoice',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='oil_transactions',
+        help_text="Linked invoice for stock-out entries"
+    )
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        direction = '↑' if self.transaction_type == self.TYPE_IN else '↓'
+        return f"{direction} {self.quantity_litres}L — {self.oil_product} @ {self.branch.name}"

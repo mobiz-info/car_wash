@@ -471,6 +471,58 @@ def branch_delete(request, id):
     return redirect('branch_list')
 
 
+@login_required
+def branch_services_configure(request, id):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    instance = get_object_or_404(Branch, id=id, company=company, is_deleted=False)
+    
+    from service_management.models import ServiceType, BranchServiceCategory
+    
+    # Get all categories
+    categories = ServiceType.objects.filter(is_deleted=False).order_by('name')
+    
+    # Get enabled category slugs
+    enabled_slugs = set(
+        BranchServiceCategory.objects.filter(
+            branch=instance, is_enabled=True, is_deleted=False
+        ).values_list('service_type__slug', flat=True)
+    )
+
+    if request.method == 'POST':
+        selected_slugs = request.POST.getlist('enabled_categories')
+        
+        # Iterate over all categories and set status
+        for st in categories:
+            if not st.slug:
+                continue
+            should_enable = st.slug in selected_slugs
+            
+            bsc, created = BranchServiceCategory.objects.get_or_create(
+                branch=instance,
+                service_type=st,
+                defaults={'auto_id': get_auto_id(BranchServiceCategory), 'creator': request.user}
+            )
+            bsc.is_enabled = should_enable
+            bsc.updater = request.user
+            bsc.save()
+
+        messages.success(request, f"Service categories for branch '{instance.name}' configured successfully.")
+        return redirect('branch_list')
+
+    return render(request, 'branch/configure_services.html', {
+        'branch': instance,
+        'categories': categories,
+        'enabled_slugs': enabled_slugs,
+        'title': f'Configure Services — {instance.name}'
+    })
+
+
+
 # ==========================================
 # STAFF MANAGEMENT
 # ==========================================

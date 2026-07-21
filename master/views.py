@@ -1294,3 +1294,141 @@ def supplier_delete(request, id):
     instance.save()
     messages.success(request, "Supplier deleted successfully")
     return redirect('supplier_list')
+
+
+# ==========================================
+# OIL PRODUCT MASTER
+# ==========================================
+
+@login_required
+def oil_product_list(request):
+    search = request.GET.get('search', '')
+    company = request.user.profile.company
+    queryset = OilProduct.objects.filter(company=company, is_deleted=False)
+
+    if search:
+        queryset = queryset.filter(
+            Q(brand__icontains=search) | Q(name__icontains=search) | Q(grade__icontains=search)
+        )
+
+    paginator = Paginator(queryset, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'oil_product/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def oil_product_create(request):
+    form = OilProductForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(OilProduct)
+            instance.creator = request.user
+            instance.company = request.user.profile.company
+            instance.save()
+            messages.success(request, "Oil Product created successfully")
+            return redirect('oil_product_list')
+    return render(request, 'oil_product/create.html', {
+        'form': form,
+        'title': 'Create Oil Product'
+    })
+
+
+@login_required
+def oil_product_edit(request, id):
+    company = request.user.profile.company
+    instance = get_object_or_404(OilProduct, id=id, company=company, is_deleted=False)
+    form = OilProductForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Oil Product updated successfully")
+            return redirect('oil_product_list')
+    return render(request, 'oil_product/create.html', {
+        'form': form,
+        'title': 'Edit Oil Product'
+    })
+
+
+@login_required
+def oil_product_delete(request, id):
+    company = request.user.profile.company
+    instance = get_object_or_404(OilProduct, id=id, company=company)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Oil Product deleted successfully")
+    return redirect('oil_product_list')
+
+
+# ==========================================
+# TYRE BRAND MASTER
+# ==========================================
+
+@login_required
+def tyre_brand_list(request):
+    search = request.GET.get('search', '')
+    company = request.user.profile.company
+    queryset = TyreBrand.objects.filter(company=company, is_deleted=False)
+
+    if search:
+        queryset = queryset.filter(brand__icontains=search)
+
+    paginator = Paginator(queryset, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'tyre_brand/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def tyre_brand_create(request):
+    form = TyreBrandForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(TyreBrand)
+            instance.creator = request.user
+            instance.company = request.user.profile.company
+            instance.save()
+            messages.success(request, "Tyre Brand created successfully")
+            return redirect('tyre_brand_list')
+    return render(request, 'tyre_brand/create.html', {
+        'form': form,
+        'title': 'Create Tyre Brand'
+    })
+
+
+@login_required
+def tyre_brand_edit(request, id):
+    company = request.user.profile.company
+    instance = get_object_or_404(TyreBrand, id=id, company=company, is_deleted=False)
+    form = TyreBrandForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Tyre Brand updated successfully")
+            return redirect('tyre_brand_list')
+    return render(request, 'tyre_brand/create.html', {
+        'form': form,
+        'title': 'Edit Tyre Brand'
+    })
+
+
+@login_required
+def tyre_brand_delete(request, id):
+    company = request.user.profile.company
+    instance = get_object_or_404(TyreBrand, id=id, company=company)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Tyre Brand deleted successfully")
+    return redirect('tyre_brand_list')

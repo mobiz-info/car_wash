@@ -25,6 +25,8 @@ urlpatterns = [
     path('branch/create/', views.branch_create, name='branch_create'),
     path('branch/edit/<uuid:id>/', views.branch_edit, name='branch_edit'),
     path('branch/delete/<uuid:id>/', views.branch_delete, name='branch_delete'),
+    path('branch/configure-services/<uuid:id>/', views.branch_services_configure, name='branch_services_configure'),
+
 
     # Staff Management
     path('staff/', views.staff_list, name='staff_list'),
@@ -193,4 +195,12 @@ urlpatterns = [
     path('api/stock/delete/<uuid:id>/', api_views.api_delete_stock, name='api_delete_stock'),
     path('api/reports/expense-head-wise/detail/', api_views.api_report_expense_head_detail, name='api_report_expense_head_detail'),
     path('api/reports/leave/', api_views.api_report_leave, name='api_report_leave'),
+
+    # Multi-Category Service Platform APIs
+    path('api/oil-products/', api_views.api_oil_products, name='api_oil_products'),
+    path('api/tyre-brands/', api_views.api_tyre_brands, name='api_tyre_brands'),
+    path('api/oil-stock/', api_views.api_oil_stock, name='api_oil_stock'),
+    path('api/vehicle-service-history/<uuid:vehicle_id>/', api_views.api_vehicle_service_history, name='api_vehicle_service_history'),
+    path('api/branch-categories/', api_views.api_branch_categories, name='api_branch_categories'),
 ]
+

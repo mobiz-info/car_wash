@@ -7,7 +7,7 @@ from django.utils import timezone
 from core.models import APIToken
 from core.functions import get_auto_id
 from .models import Customer, CustomerVehicle, Scheme, CustomerType, SchemeVoucher, Subscription
-from service_management.models import Service
+from service_management.models import Service, BranchService, ServiceVehicleTypePrice, BranchServiceCategory
 
 
 def _index_to_invoice_prefix(index):
@@ -503,18 +503,33 @@ def api_get_services(request):
         
         if not branch or not vehicle_type:
             return JsonResponse({'success': False, 'message': 'Customer branch or vehicle type is missing'}, status=400)
-            
-        # Get enabled Service IDs for this branch
-        from service_management.models import Service as ServiceModel
+
+        # ── Get branch-enabled service CATEGORIES ─────────────────────────────
+        enabled_category_slugs = list(
+            BranchServiceCategory.objects.filter(
+                branch=branch, is_enabled=True, is_deleted=False
+            ).values_list('service_type__slug', flat=True)
+        )
+
+        # If no categories configured yet, fall back to showing all (backward compat)
+        if not enabled_category_slugs:
+            from service_management.models import ServiceType
+            enabled_category_slugs = list(
+                ServiceType.objects.values_list('slug', flat=True)
+            )
+
+        # ── Get enabled Service IDs for this branch (filtered by category) ────
+        from service_management.models import Service as ServiceModel, ServiceType
         enabled_service_ids = BranchService.objects.filter(
             branch=branch, is_enabled=True, is_deleted=False
         ).values_list('service_id', flat=True)
 
-        # Get individual Service objects
+        # Filter to only services belonging to enabled categories
         individual_services = ServiceModel.objects.filter(
             id__in=enabled_service_ids,
             is_active=True,
             is_deleted=False,
+            service_type__slug__in=enabled_category_slugs,
         ).select_related('service_type').order_by('service_type__name', 'name')
 
         services_data = []
@@ -535,6 +550,7 @@ def api_get_services(request):
                     'id': str(svc.id),
                     'name': svc.name,
                     'service_type': svc.service_type.name,
+                    'service_type_slug': svc.service_type.slug or '',  # ← for app panel detection
                     'rate': rate,
                     'has_price': True,
                 })
@@ -559,6 +575,7 @@ def api_get_services(request):
             'services': services_data,
             'taxes': taxes_data,
             'vehicle_type': vehicle_type.name if vehicle_type else '',
+            'enabled_categories': enabled_category_slugs,  # ← branch-level category filter
         })
         
     except (Customer.DoesNotExist, CustomerVehicle.DoesNotExist) as e:
@@ -765,6 +782,117 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             pass
 
 
+def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
+    """Helper: Create InvoiceServiceDetail for an InvoiceItem + side effects.
+    Called from api_create_invoice for each item that has 'service_detail' data.
+    """
+    from finance_management.models import InvoiceServiceDetail
+    from master.models import OilProduct, TyreBrand, OilStock, OilStockTransaction
+    from client_management.models import VehicleOdometerLog
+    from django.utils import timezone
+    from decimal import Decimal
+
+    category = detail_data.get('service_category', '')
+
+    detail = InvoiceServiceDetail(
+        invoice_item=item,
+        service_category=category,
+        auto_id=get_auto_id(InvoiceServiceDetail),
+        creator=user,
+    )
+
+    if category == InvoiceServiceDetail.CATEGORY_OIL:
+        oil_product_id = detail_data.get('oil_product_id')
+        if oil_product_id:
+            try:
+                detail.oil_product = OilProduct.objects.get(id=oil_product_id)
+            except OilProduct.DoesNotExist:
+                pass
+        detail.oil_litres_used = detail_data.get('oil_litres_used') or None
+        detail.oil_filter_changed = bool(detail_data.get('oil_filter_changed', False))
+        detail.odometer_at_service = detail_data.get('odometer_at_service') or None
+        detail.next_oil_change_km = detail_data.get('next_oil_change_km') or None
+        detail.next_oil_change_date = detail_data.get('next_oil_change_date') or None
+
+        # Deduct from OilStock
+        if detail.oil_product and detail.oil_litres_used:
+            stock, _ = OilStock.objects.get_or_create(
+                branch=invoice.branch,
+                oil_product=detail.oil_product,
+                defaults={'auto_id': get_auto_id(OilStock), 'creator': user}
+            )
+            litres = Decimal(str(detail.oil_litres_used))
+            stock.quantity_litres = max(Decimal('0'), stock.quantity_litres - litres)
+            stock.save()
+            OilStockTransaction.objects.create(
+                branch=invoice.branch,
+                oil_product=detail.oil_product,
+                transaction_type=OilStockTransaction.TYPE_OUT,
+                quantity_litres=litres,
+                reference_invoice=invoice,
+                notes=f"Service invoice {invoice.invoice_number}",
+                auto_id=get_auto_id(OilStockTransaction),
+                creator=user,
+            )
+
+        # Update vehicle denormalized fields
+        update_fields = []
+        if detail.next_oil_change_km:
+            vehicle.next_oil_change_km = detail.next_oil_change_km
+            update_fields.append('next_oil_change_km')
+        if detail.odometer_at_service:
+            vehicle.current_odometer_km = detail.odometer_at_service
+            update_fields.append('current_odometer_km')
+        vehicle.last_oil_change_date = timezone.now().date()
+        update_fields.append('last_oil_change_date')
+        if update_fields:
+            vehicle.save(update_fields=update_fields)
+
+    elif category == InvoiceServiceDetail.CATEGORY_TYRE:
+        tyre_brand_id = detail_data.get('tyre_brand_id')
+        if tyre_brand_id:
+            try:
+                detail.tyre_brand = TyreBrand.objects.get(id=tyre_brand_id)
+            except TyreBrand.DoesNotExist:
+                pass
+        detail.tyre_size = detail_data.get('tyre_size', '')
+        detail.tyres_changed_count = detail_data.get('tyres_changed_count', 0)
+        detail.next_tyre_change_km = detail_data.get('next_tyre_change_km') or None
+        detail.next_tyre_change_date = detail_data.get('next_tyre_change_date') or None
+
+        # Update vehicle denormalized fields
+        update_fields = []
+        if detail.next_tyre_change_km:
+            vehicle.next_tyre_change_km = detail.next_tyre_change_km
+            update_fields.append('next_tyre_change_km')
+        odometer = detail_data.get('odometer_at_service')
+        if odometer:
+            vehicle.current_odometer_km = odometer
+            update_fields.append('current_odometer_km')
+        vehicle.last_tyre_change_date = timezone.now().date()
+        update_fields.append('last_tyre_change_date')
+        if update_fields:
+            vehicle.save(update_fields=update_fields)
+
+    elif category == InvoiceServiceDetail.CATEGORY_ALIGNMENT:
+        detail.alignment_done = bool(detail_data.get('alignment_done', False))
+        detail.balancing_done = bool(detail_data.get('balancing_done', False))
+        detail.alignment_notes = detail_data.get('alignment_notes', '')
+
+    detail.save()
+
+    # Log odometer reading for ALL service categories (if odometer provided)
+    odometer_km = detail_data.get('odometer_at_service')
+    if odometer_km:
+        VehicleOdometerLog.objects.create(
+            vehicle=vehicle,
+            invoice=invoice,
+            odometer_km=int(odometer_km),
+            auto_id=get_auto_id(VehicleOdometerLog),
+            creator=user,
+        )
+
+
 @csrf_exempt
 def api_create_invoice(request):
     if request.method != 'POST':
@@ -874,7 +1002,7 @@ def api_create_invoice(request):
             except Service.DoesNotExist:
                 service_obj = None
                 
-            InvoiceItem.objects.create(
+            item = InvoiceItem.objects.create(
                 invoice=invoice,
                 service=service_obj,
                 service_name=svc.get('name', 'Unknown Service'),
@@ -883,6 +1011,12 @@ def api_create_invoice(request):
                 creator=user,
                 auto_id=get_auto_id(InvoiceItem)
             )
+
+            # ── Save category-specific service detail (oil/tyre/alignment) ───
+            svc_detail = svc.get('service_detail')
+            if svc_detail:
+                _save_invoice_service_detail(item, svc_detail, invoice, vehicle, user)
+
 
         # Create scheduled ReminderPlan entries
         from booking_management.utils import create_reminder_plans_for_invoice
@@ -4683,8 +4817,224 @@ def api_delete_customer(request):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
+# =============================================================================
+# Multi-Category Masters & Stock APIs
+# =============================================================================
+
+@csrf_exempt
+def api_oil_products(request):
+    """GET: List active oil products for the company (for app dropdown)."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        company = user.profile.company
+        from master.models import OilProduct
+        products = OilProduct.objects.filter(
+            company=company, is_active=True, is_deleted=False
+        ).order_by('brand', 'name')
+        data = [
+            {
+                'id': str(p.id),
+                'brand': p.brand,
+                'name': p.name,
+                'grade': p.grade,
+                'display_name': p.display_name,
+            }
+            for p in products
+        ]
+        return JsonResponse({'success': True, 'oil_products': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
+@csrf_exempt
+def api_tyre_brands(request):
+    """GET: List active tyre brands for the company (for app dropdown)."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        company = user.profile.company
+        from master.models import TyreBrand
+        brands = TyreBrand.objects.filter(
+            company=company, is_active=True, is_deleted=False
+        ).order_by('brand')
+        data = [{'id': str(b.id), 'brand': b.brand} for b in brands]
+        return JsonResponse({'success': True, 'tyre_brands': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
+@csrf_exempt
+def api_oil_stock(request):
+    """GET: Current oil stock levels for the branch.
+       POST: Record a stock-in transaction.
+    """
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
+    if request.method == 'GET':
+        try:
+            branch = user.managed_branch if hasattr(user, 'managed_branch') else None
+            if not branch:
+                return JsonResponse({'success': False, 'message': 'No branch assigned'}, status=400)
+            from master.models import OilStock
+            stocks = OilStock.objects.filter(branch=branch, is_deleted=False).select_related('oil_product')
+            data = [
+                {
+                    'id': str(s.id),
+                    'oil_product_id': str(s.oil_product.id),
+                    'oil_product': s.oil_product.display_name,
+                    'brand': s.oil_product.brand,
+                    'grade': s.oil_product.grade,
+                    'quantity_litres': float(s.quantity_litres),
+                    'low_stock_alert_litres': float(s.low_stock_alert_litres),
+                    'is_low': s.is_low,
+                }
+                for s in stocks
+            ]
+            return JsonResponse({'success': True, 'oil_stock': data})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            branch = user.managed_branch if hasattr(user, 'managed_branch') else None
+            if not branch:
+                return JsonResponse({'success': False, 'message': 'No branch assigned'}, status=400)
+            from master.models import OilProduct, OilStock, OilStockTransaction
+            from decimal import Decimal
+            oil_product_id = data.get('oil_product_id')
+            quantity = Decimal(str(data.get('quantity_litres', 0)))
+            if not oil_product_id or quantity <= 0:
+                return JsonResponse({'success': False, 'message': 'oil_product_id and quantity_litres required'}, status=400)
+            oil_product = OilProduct.objects.get(id=oil_product_id, company=user.profile.company)
+            stock, _ = OilStock.objects.get_or_create(
+                branch=branch, oil_product=oil_product,
+                defaults={'auto_id': get_auto_id(OilStock), 'creator': user}
+            )
+            stock.quantity_litres += quantity
+            stock.save()
+            OilStockTransaction.objects.create(
+                branch=branch,
+                oil_product=oil_product,
+                transaction_type=OilStockTransaction.TYPE_IN,
+                quantity_litres=quantity,
+                notes=data.get('notes', ''),
+                auto_id=get_auto_id(OilStockTransaction),
+                creator=user,
+            )
+            return JsonResponse({
+                'success': True,
+                'message': f'{quantity}L added to stock',
+                'new_balance': float(stock.quantity_litres),
+            })
+        except OilProduct.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Oil product not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+def api_vehicle_service_history(request, vehicle_id):
+    """GET: Full service history for a vehicle, grouped by category."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        vehicle = CustomerVehicle.objects.get(id=vehicle_id, is_deleted=False)
+        from finance_management.models import Invoice, InvoiceServiceDetail
+        invoices = Invoice.objects.filter(
+            vehicle=vehicle, is_deleted=False
+        ).order_by('-date').prefetch_related('items__service_detail')
+
+        history = []
+        for inv in invoices:
+            for item in inv.items.all():
+                entry = {
+                    'invoice_number': inv.invoice_number,
+                    'date': str(inv.date),
+                    'service_name': item.service_name,
+                    'category': 'washing',
+                    'rate': float(item.rate),
+                }
+                if hasattr(item, 'service_detail') and item.service_detail:
+                    sd = item.service_detail
+                    entry['category'] = sd.service_category
+                    if sd.service_category == 'oil_change':
+                        entry['oil_product'] = sd.oil_product.display_name if sd.oil_product else ''
+                        entry['oil_litres'] = float(sd.oil_litres_used) if sd.oil_litres_used else 0
+                        entry['oil_filter_changed'] = sd.oil_filter_changed
+                        entry['odometer'] = sd.odometer_at_service
+                        entry['next_oil_change_km'] = sd.next_oil_change_km
+                        entry['next_oil_change_date'] = str(sd.next_oil_change_date) if sd.next_oil_change_date else None
+                    elif sd.service_category == 'tyre_change':
+                        entry['tyre_brand'] = sd.tyre_brand.brand if sd.tyre_brand else ''
+                        entry['tyre_size'] = sd.tyre_size
+                        entry['tyres_count'] = sd.tyres_changed_count
+                        entry['next_tyre_change_km'] = sd.next_tyre_change_km
+                        entry['next_tyre_change_date'] = str(sd.next_tyre_change_date) if sd.next_tyre_change_date else None
+                    elif sd.service_category == 'wheel_alignment':
+                        entry['alignment_done'] = sd.alignment_done
+                        entry['balancing_done'] = sd.balancing_done
+                        entry['notes'] = sd.alignment_notes
+                history.append(entry)
+
+        # Vehicle next-service summary
+        next_service = {
+            'current_odometer_km': vehicle.current_odometer_km,
+            'next_oil_change_km': vehicle.next_oil_change_km,
+            'next_tyre_change_km': vehicle.next_tyre_change_km,
+            'last_oil_change_date': str(vehicle.last_oil_change_date) if vehicle.last_oil_change_date else None,
+            'last_tyre_change_date': str(vehicle.last_tyre_change_date) if vehicle.last_tyre_change_date else None,
+        }
+
+        return JsonResponse({'success': True, 'history': history, 'next_service': next_service})
+    except CustomerVehicle.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Vehicle not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_branch_categories(request):
+    """GET: List service categories and which are enabled for the current branch."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        branch = user.managed_branch if hasattr(user, 'managed_branch') else None
+        if not branch:
+            return JsonResponse({'success': False, 'message': 'No branch assigned'}, status=400)
+        from service_management.models import ServiceType
+        all_types = ServiceType.objects.filter(is_deleted=False).order_by('name')
+        enabled_slugs = set(
+            BranchServiceCategory.objects.filter(
+                branch=branch, is_enabled=True, is_deleted=False
+            ).values_list('service_type__slug', flat=True)
+        )
+        data = [
+            {
+                'id': str(st.id),
+                'name': st.name,
+                'slug': st.slug or '',
+                'is_enabled': (st.slug in enabled_slugs) if st.slug else False,
+            }
+            for st in all_types
+        ]
+        return JsonResponse({'success': True, 'categories': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)

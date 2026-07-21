@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Oil Product - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Oil Product{% endblock %}
+{% block breadcrumb_active %}Oil Product{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-drop" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label>Brand *</label>
+            {{ form.brand }}
+            {{ form.brand.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>Product Name *</label>
+            {{ form.name }}
+            {{ form.name.errors }}
+        </div>
+
+        <div class="form-group">
+            <label>Grade (e.g. 5W-30) *</label>
+            {{ form.grade }}
+            {{ form.grade.errors }}
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+            {{ form.is_active }}
+            <label for="id_is_active" style="margin-bottom:0; cursor:pointer;">Is Active</label>
+            {{ form.is_active.errors }}
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'oil_product_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save 
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
