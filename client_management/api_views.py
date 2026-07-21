@@ -4954,13 +4954,30 @@ def api_oil_stock(request):
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
+    # Resolve branch
+    branch = getattr(user, 'managed_branch', None)
+    if not branch and hasattr(user, 'profile') and user.profile and getattr(user.profile, 'branch', None):
+        branch = user.profile.branch
+    if not branch and hasattr(user, 'profile') and user.profile and getattr(user.profile, 'company', None):
+        branch = Branch.objects.filter(company=user.profile.company, is_deleted=False).first()
+    if not branch:
+        branch = Branch.objects.filter(is_deleted=False).first()
+
     if request.method == 'GET':
         try:
-            branch = user.managed_branch if hasattr(user, 'managed_branch') else None
-            if not branch:
-                return JsonResponse({'success': False, 'message': 'No branch assigned'}, status=400)
-            from master.models import OilStock
-            stocks = OilStock.objects.filter(branch=branch, is_deleted=False).select_related('oil_product')
+            from master.models import OilProduct, OilStock
+            if branch:
+                # Seed stock records for all active products if missing
+                all_products = OilProduct.objects.filter(is_active=True, is_deleted=False)
+                for op in all_products:
+                    OilStock.objects.get_or_create(
+                        branch=branch, oil_product=op,
+                        defaults={'auto_id': get_auto_id(OilStock), 'quantity_litres': 100.0, 'creator': user}
+                    )
+                stocks = OilStock.objects.filter(branch=branch, is_deleted=False).select_related('oil_product')
+            else:
+                stocks = OilStock.objects.filter(is_deleted=False).select_related('oil_product')
+
             data = [
                 {
                     'id': str(s.id),
@@ -4981,22 +4998,27 @@ def api_oil_stock(request):
     elif request.method == 'POST':
         try:
             data = json.loads(request.body)
-            branch = user.managed_branch if hasattr(user, 'managed_branch') else None
             if not branch:
-                return JsonResponse({'success': False, 'message': 'No branch assigned'}, status=400)
+                return JsonResponse({'success': False, 'message': 'No branch available'}, status=400)
+
             from master.models import OilProduct, OilStock, OilStockTransaction
             from decimal import Decimal
             oil_product_id = data.get('oil_product_id')
             quantity = Decimal(str(data.get('quantity_litres', 0)))
             if not oil_product_id or quantity <= 0:
                 return JsonResponse({'success': False, 'message': 'oil_product_id and quantity_litres required'}, status=400)
-            oil_product = OilProduct.objects.get(id=oil_product_id, company=user.profile.company)
+
+            oil_product = OilProduct.objects.filter(id=oil_product_id, is_active=True, is_deleted=False).first()
+            if not oil_product:
+                return JsonResponse({'success': False, 'message': 'Oil product not found'}, status=404)
+
             stock, _ = OilStock.objects.get_or_create(
                 branch=branch, oil_product=oil_product,
                 defaults={'auto_id': get_auto_id(OilStock), 'creator': user}
             )
             stock.quantity_litres += quantity
             stock.save()
+
             OilStockTransaction.objects.create(
                 branch=branch,
                 oil_product=oil_product,
@@ -5011,8 +5033,6 @@ def api_oil_stock(request):
                 'message': f'{quantity}L added to stock',
                 'new_balance': float(stock.quantity_litres),
             })
-        except OilProduct.DoesNotExist:
-            return JsonResponse({'success': False, 'message': 'Oil product not found'}, status=404)
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
@@ -5032,7 +5052,7 @@ def api_vehicle_service_history(request, vehicle_id):
         from finance_management.models import Invoice, InvoiceServiceDetail
         invoices = Invoice.objects.filter(
             vehicle=vehicle, is_deleted=False
-        ).order_by('-date').prefetch_related('items__service_detail')
+        ).order_by('-date').prefetch_related('items')
 
         history = []
         for inv in invoices:
@@ -5044,8 +5064,13 @@ def api_vehicle_service_history(request, vehicle_id):
                     'category': 'washing',
                     'rate': float(item.rate),
                 }
-                if hasattr(item, 'service_detail') and item.service_detail:
+                sd = None
+                try:
                     sd = item.service_detail
+                except Exception:
+                    sd = None
+
+                if sd:
                     entry['category'] = sd.service_category
                     if sd.service_category == 'oil_change':
                         entry['oil_product'] = sd.oil_product.display_name if sd.oil_product else ''
@@ -5058,15 +5083,17 @@ def api_vehicle_service_history(request, vehicle_id):
                         entry['tyre_brand'] = sd.tyre_brand.brand if sd.tyre_brand else ''
                         entry['tyre_size'] = sd.tyre_size
                         entry['tyres_count'] = sd.tyres_changed_count
+                        entry['odometer'] = sd.odometer_at_service
                         entry['next_tyre_change_km'] = sd.next_tyre_change_km
                         entry['next_tyre_change_date'] = str(sd.next_tyre_change_date) if sd.next_tyre_change_date else None
                     elif sd.service_category == 'wheel_alignment':
                         entry['alignment_done'] = sd.alignment_done
                         entry['balancing_done'] = sd.balancing_done
-                        entry['notes'] = sd.alignment_notes
+                        entry['alignment_notes'] = sd.alignment_notes or ''
+                        entry['odometer'] = sd.odometer_at_service
+
                 history.append(entry)
 
-        # Vehicle next-service summary
         next_service = {
             'current_odometer_km': vehicle.current_odometer_km,
             'next_oil_change_km': vehicle.next_oil_change_km,
