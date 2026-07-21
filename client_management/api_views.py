@@ -4974,23 +4974,31 @@ def api_oil_stock(request):
                         branch=branch, oil_product=op,
                         defaults={'auto_id': get_auto_id(OilStock), 'quantity_litres': 100.0, 'creator': user}
                     )
-                stocks = OilStock.objects.filter(branch=branch, is_deleted=False).select_related('oil_product')
+                stocks = OilStock.objects.filter(
+                    branch=branch, is_deleted=False, oil_product__isnull=False, oil_product__is_deleted=False
+                ).select_related('oil_product', 'oil_product__oil_brand', 'oil_product__oil_grade')
             else:
-                stocks = OilStock.objects.filter(is_deleted=False).select_related('oil_product')
+                stocks = OilStock.objects.filter(
+                    is_deleted=False, oil_product__isnull=False, oil_product__is_deleted=False
+                ).select_related('oil_product', 'oil_product__oil_brand', 'oil_product__oil_grade')
 
-            data = [
-                {
+            data = []
+            for s in stocks:
+                if not s.oil_product:
+                    continue
+                brand_name = s.oil_product.oil_brand.name if s.oil_product.oil_brand else (s.oil_product.brand or '')
+                grade_name = s.oil_product.oil_grade.name if s.oil_product.oil_grade else (s.oil_product.grade or '')
+                data.append({
                     'id': str(s.id),
                     'oil_product_id': str(s.oil_product.id),
                     'oil_product': s.oil_product.display_name,
-                    'brand': s.oil_product.brand,
-                    'grade': s.oil_product.grade,
+                    'brand': brand_name,
+                    'grade': grade_name,
                     'quantity_litres': float(s.quantity_litres),
                     'low_stock_alert_litres': float(s.low_stock_alert_litres),
                     'is_low': s.is_low,
-                }
-                for s in stocks
-            ]
+                })
+
             return JsonResponse({'success': True, 'oil_stock': data})
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
