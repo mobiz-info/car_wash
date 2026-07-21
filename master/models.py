@@ -199,9 +199,10 @@ class VehicleBrandModel(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class OilProduct(BaseModel):
-    """Company-level master list of oil brands and grades."""
+    """Company-level or Global master list of oil brands and grades."""
     company = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name='oil_products'
+        Client, on_delete=models.CASCADE, related_name='oil_products',
+        null=True, blank=True, help_text="Leave blank for Superadmin global master"
     )
     brand = models.CharField(max_length=100, help_text="e.g. Castrol, Mobil 1, Shell")
     name = models.CharField(max_length=150, help_text="Product name e.g. GTX, Edge, Helix")

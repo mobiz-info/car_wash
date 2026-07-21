@@ -1303,15 +1303,20 @@ def supplier_delete(request, id):
 @login_required
 def oil_product_list(request):
     search = request.GET.get('search', '')
-    company = request.user.profile.company
-    queryset = OilProduct.objects.filter(company=company, is_deleted=False)
+    profile = getattr(request.user, 'profile', None)
+    company = getattr(profile, 'company', None) if profile else None
+
+    if company:
+        queryset = OilProduct.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False)
+    else:
+        queryset = OilProduct.objects.filter(is_deleted=False)
 
     if search:
         queryset = queryset.filter(
             Q(brand__icontains=search) | Q(name__icontains=search) | Q(grade__icontains=search)
         )
 
-    paginator = Paginator(queryset, 10)
+    paginator = Paginator(queryset, 15)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'oil_product/list.html', {
@@ -1328,7 +1333,8 @@ def oil_product_create(request):
             instance = form.save(commit=False)
             instance.auto_id = get_auto_id(OilProduct)
             instance.creator = request.user
-            instance.company = request.user.profile.company
+            profile = getattr(request.user, 'profile', None)
+            instance.company = getattr(profile, 'company', None) if profile else None
             instance.save()
             messages.success(request, "Oil Product created successfully")
             return redirect('oil_product_list')
@@ -1340,8 +1346,7 @@ def oil_product_create(request):
 
 @login_required
 def oil_product_edit(request, id):
-    company = request.user.profile.company
-    instance = get_object_or_404(OilProduct, id=id, company=company, is_deleted=False)
+    instance = get_object_or_404(OilProduct, id=id, is_deleted=False)
     form = OilProductForm(request.POST or None, instance=instance)
     if request.method == 'POST':
         if form.is_valid():
@@ -1358,8 +1363,7 @@ def oil_product_edit(request, id):
 
 @login_required
 def oil_product_delete(request, id):
-    company = request.user.profile.company
-    instance = get_object_or_404(OilProduct, id=id, company=company)
+    instance = get_object_or_404(OilProduct, id=id)
     instance.is_deleted = True
     instance.save()
     messages.success(request, "Oil Product deleted successfully")
