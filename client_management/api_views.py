@@ -4955,6 +4955,7 @@ def api_oil_stock(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
     # Resolve branch
+    from client_management.models import Branch
     branch = getattr(user, 'managed_branch', None)
     if not branch and hasattr(user, 'profile') and user.profile and getattr(user.profile, 'branch', None):
         branch = user.profile.branch
