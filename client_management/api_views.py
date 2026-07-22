@@ -5016,6 +5016,7 @@ def api_oil_stock(request):
                     'quantity_litres': float(s.quantity_litres),
                     'low_stock_alert_litres': float(s.low_stock_alert_litres),
                     'is_low': s.is_low,
+                    'volume_litres': float(s.oil_product.recommended_qty_litres) if s.oil_product.recommended_qty_litres else 1.0,
                 })
 
             return JsonResponse({'success': True, 'oil_stock': data})
