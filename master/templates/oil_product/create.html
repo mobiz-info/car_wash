@@ -81,9 +81,9 @@
                 {% endif %}
             </div>
             <div class="form-group" style="margin-bottom:16px;">
-                <label>Stock Qty (Litres)</label>
+                <label>Volume (Litres) *</label>
                 {{ form.recommended_qty_litres }}
-                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Available stock in litres</div>
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Volume in litres (e.g. 1.0, 3.0)</div>
                 {% if form.recommended_qty_litres.errors %}
                     <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.recommended_qty_litres.errors }}</div>
                 {% endif %}

@@ -184,7 +184,9 @@ class OilProductForm(forms.ModelForm):
         self.fields['name'].required = False
         self.fields['vehicle_type'].required = False
         self.fields['vehicle_make'].required = False
-        self.fields['recommended_qty_litres'].required = False
+        self.fields['recommended_qty_litres'].required = True
+        self.fields['recommended_qty_litres'].label = "Volume (Litres)"
+        self.fields['recommended_qty_litres'].help_text = "Volume in litres (e.g. 1.0, 3.0)"
 
 
 class TyreBrandForm(forms.ModelForm):
@@ -206,7 +208,7 @@ class OilProductPriceForm(forms.ModelForm):
             'vehicle_type': forms.Select(attrs={'class': 'form-control'}),
             'vehicle_make': forms.Select(attrs={'class': 'form-control'}),
             'price_per_litre': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 450.00', 'step': '0.01', 'min': '0'}),
-            'recommended_qty_litres': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 4.0 (optional)', 'step': '0.1', 'min': '0'}),
+            'recommended_qty_litres': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 1.0, 3.0', 'step': '0.1', 'min': '0'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -227,3 +229,4 @@ class OilProductPriceForm(forms.ModelForm):
         self.fields['vehicle_type'].empty_label = '-- All Vehicle Types --'
         self.fields['vehicle_make'].empty_label = '-- All Makes --'
         self.fields['recommended_qty_litres'].required = False
+        self.fields['recommended_qty_litres'].label = "Volume (Litres)"

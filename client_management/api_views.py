@@ -814,23 +814,23 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
         detail.next_oil_change_km = detail_data.get('next_oil_change_km') or None
         detail.next_oil_change_date = detail_data.get('next_oil_change_date') or None
 
-        # Deduct from OilStock
-        if detail.oil_product and detail.oil_litres_used:
+        # Deduct from OilStock (1 unit/bottle of this variant)
+        if detail.oil_product:
             stock, _ = OilStock.objects.get_or_create(
                 branch=invoice.branch,
                 oil_product=detail.oil_product,
                 defaults={'auto_id': get_auto_id(OilStock), 'creator': user}
             )
-            litres = Decimal(str(detail.oil_litres_used))
-            stock.quantity_litres = max(Decimal('0'), stock.quantity_litres - litres)
+            qty_deduct = Decimal('1.0')
+            stock.quantity_litres = max(Decimal('0'), stock.quantity_litres - qty_deduct)
             stock.save()
             OilStockTransaction.objects.create(
                 branch=invoice.branch,
                 oil_product=detail.oil_product,
                 transaction_type=OilStockTransaction.TYPE_OUT,
-                quantity_litres=litres,
+                quantity_litres=qty_deduct,
                 reference_invoice=invoice,
-                notes=f"Service invoice {invoice.invoice_number}",
+                notes=f"Service invoice {invoice.invoice_number} ({detail.oil_product.recommended_qty_litres}L variant)",
                 auto_id=get_auto_id(OilStockTransaction),
                 creator=user,
             )
@@ -4829,7 +4829,7 @@ def api_delete_customer(request):
 
 @csrf_exempt
 def api_oil_products(request):
-    """GET: List active oil products for the company or global master."""
+    """GET: List active oil products for the company or global master with branch stock."""
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
     user = get_user_from_token(request)
@@ -4837,8 +4837,24 @@ def api_oil_products(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
     try:
         company = getattr(getattr(user, 'profile', None), 'company', None)
-        from master.models import OilProduct
+        from master.models import OilProduct, OilStock
+        from client_management.models import Branch
         from django.db.models import Q
+        
+        branch = getattr(user, 'managed_branch', None)
+        if not branch and hasattr(user, 'profile') and user.profile and getattr(user.profile, 'branch', None):
+            branch = user.profile.branch
+        if not branch and hasattr(user, 'profile') and user.profile and getattr(user.profile, 'company', None):
+            branch = Branch.objects.filter(company=user.profile.company, is_deleted=False).first()
+        if not branch:
+            branch = Branch.objects.filter(is_deleted=False).first()
+
+        stock_map = {}
+        if branch:
+            stocks = OilStock.objects.filter(branch=branch, is_deleted=False)
+            for s in stocks:
+                stock_map[s.oil_product_id] = float(s.quantity_litres)
+
         if company:
             products = OilProduct.objects.filter(
                 Q(company=company) | Q(company__isnull=True),
@@ -4857,7 +4873,8 @@ def api_oil_products(request):
                 'name': p.name or '',
                 'display_name': p.display_name,
                 'price_per_litre': float(p.price_per_litre) if p.price_per_litre else 0.0,
-                'recommended_qty_litres': float(p.recommended_qty_litres) if p.recommended_qty_litres else None,
+                'recommended_qty_litres': float(p.recommended_qty_litres) if p.recommended_qty_litres else 1.0,
+                'stock_qty': stock_map.get(p.id, 0.0),
             }
             for p in products
         ]

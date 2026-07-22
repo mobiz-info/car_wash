@@ -8,10 +8,13 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'wash_pilot.settings')
 import django
 django.setup()
 
-from master.models import OilBrand, OilGrade, OilProduct, VehicleType, VehicleMake
+from master.models import OilBrand, OilGrade, OilProduct, OilStock, OilStockTransaction, VehicleType, VehicleMake
+from client_management.models import Branch
 from core.functions import get_auto_id
 
-print("Clearing existing oil products, brands, and grades...")
+print("Clearing existing oil transactions, stocks, products, brands, and grades...")
+OilStockTransaction.objects.all().delete()
+OilStock.objects.all().delete()
 OilProduct.objects.all().delete()
 OilBrand.objects.all().delete()
 OilGrade.objects.all().delete()
@@ -46,8 +49,9 @@ hatchback = VehicleType.objects.filter(name__icontains="Hatchback").first()
 honda = VehicleMake.objects.filter(name__icontains="Honda").first()
 toyota = VehicleMake.objects.filter(name__icontains="Toyota").first()
 
-# 3. Create 5 Famous Oil Products
+# 3. Create Oil Products with Multiple Volumes (Variants)
 products_data = [
+    # Castrol GTX 5W-30 variants
     {
         "brand": created_brands["Castrol"],
         "grade": created_grades["5W-30"],
@@ -55,7 +59,29 @@ products_data = [
         "vehicle_type": sedan,
         "vehicle_make": honda,
         "price_per_litre": 450.00,
-        "recommended_qty_litres": 4.0,
+        "recommended_qty_litres": 1.0,
+        "initial_stock": 5.0,
+    },
+    {
+        "brand": created_brands["Castrol"],
+        "grade": created_grades["5W-30"],
+        "name": "GTX Fully Synthetic",
+        "vehicle_type": sedan,
+        "vehicle_make": honda,
+        "price_per_litre": 450.00,
+        "recommended_qty_litres": 3.0,
+        "initial_stock": 10.0,
+    },
+    # Mobil 1 0W-20 variants
+    {
+        "brand": created_brands["Mobil 1"],
+        "grade": created_grades["0W-20"],
+        "name": "Advanced Fuel Economy",
+        "vehicle_type": suv,
+        "vehicle_make": toyota,
+        "price_per_litre": 620.00,
+        "recommended_qty_litres": 1.0,
+        "initial_stock": 5.0,
     },
     {
         "brand": created_brands["Mobil 1"],
@@ -64,7 +90,19 @@ products_data = [
         "vehicle_type": suv,
         "vehicle_make": toyota,
         "price_per_litre": 620.00,
-        "recommended_qty_litres": 5.5,
+        "recommended_qty_litres": 4.0,
+        "initial_stock": 10.0,
+    },
+    # Shell Helix 10W-40 variants
+    {
+        "brand": created_brands["Shell"],
+        "grade": created_grades["10W-40"],
+        "name": "Helix HX7 Synthetic Technology",
+        "vehicle_type": hatchback,
+        "vehicle_make": None,
+        "price_per_litre": 380.00,
+        "recommended_qty_litres": 1.0,
+        "initial_stock": 5.0,
     },
     {
         "brand": created_brands["Shell"],
@@ -73,27 +111,12 @@ products_data = [
         "vehicle_type": hatchback,
         "vehicle_make": None,
         "price_per_litre": 380.00,
-        "recommended_qty_litres": 3.5,
-    },
-    {
-        "brand": created_brands["TotalEnergies"],
-        "grade": created_grades["15W-40"],
-        "name": "Quartz 7000 CleanShield",
-        "vehicle_type": None,
-        "vehicle_make": None,
-        "price_per_litre": 340.00,
-        "recommended_qty_litres": 4.0,
-    },
-    {
-        "brand": created_brands["Motul"],
-        "grade": created_grades["5W-30"],
-        "name": "8100 X-cess Gen2",
-        "vehicle_type": sedan,
-        "vehicle_make": None,
-        "price_per_litre": 750.00,
-        "recommended_qty_litres": 4.5,
+        "recommended_qty_litres": 3.0,
+        "initial_stock": 10.0,
     },
 ]
+
+active_branches = list(Branch.objects.filter(is_deleted=False))
 
 for pdata in products_data:
     p = OilProduct.objects.create(
@@ -108,6 +131,17 @@ for pdata in products_data:
         recommended_qty_litres=pdata["recommended_qty_litres"],
         is_active=True
     )
-    print(f"Created Oil Product: {p}")
+    print(f"Created Oil Product Variant: {p.display_name} ({p.recommended_qty_litres}L)")
 
-print("\nFinished seeding oil brands, grades, and 5 products successfully!")
+    # Seed stock for all branches
+    for b in active_branches:
+        stock = OilStock.objects.create(
+            auto_id=get_auto_id(OilStock),
+            branch=b,
+            oil_product=p,
+            quantity_litres=pdata["initial_stock"],
+            low_stock_alert_litres=2.0,
+        )
+        print(f"  -> Seeded Stock for Branch {b.name}: {stock.quantity_litres} units")
+
+print("\nFinished seeding oil brands, grades, variants, and stock successfully!")
