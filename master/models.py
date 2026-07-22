@@ -254,6 +254,10 @@ class OilProduct(BaseModel):
         max_digits=6, decimal_places=2, null=True, blank=True,
         help_text="Recommended fill quantity for this vehicle (e.g. 4.0 for Sedan)"
     )
+    oil_run_km = models.PositiveIntegerField(
+        default=5000,
+        help_text="Number of KM this oil lasts for (e.g. 5000)"
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:

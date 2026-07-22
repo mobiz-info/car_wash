@@ -33,6 +33,7 @@
                     <th>Vehicle Make</th>
                     <th style="text-align:right;">Price / Litre</th>
                     <th style="text-align:center;">Volume (Litres)</th>
+                    <th style="text-align:center;">Lifespan (KM)</th>
                     <th style="text-align:center;">Status</th>
                     <th style="text-align:right;">Action</th>
                 </tr>
@@ -88,6 +89,10 @@
                         {% else %}
                             <span style="color:#cbd5e1;">—</span>
                         {% endif %}
+                    </td>
+
+                    <td style="text-align:center; color:#475569; font-weight:600;">
+                        {{ obj.oil_run_km }} KM
                     </td>
 
                     <td style="text-align:center;">

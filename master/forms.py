@@ -155,7 +155,7 @@ class OilGradeForm(forms.ModelForm):
 class OilProductForm(forms.ModelForm):
     class Meta:
         model = OilProduct
-        fields = ['oil_brand', 'oil_grade', 'name', 'vehicle_type', 'vehicle_make', 'price_per_litre', 'recommended_qty_litres', 'is_active']
+        fields = ['oil_brand', 'oil_grade', 'name', 'vehicle_type', 'vehicle_make', 'price_per_litre', 'recommended_qty_litres', 'oil_run_km', 'is_active']
         widgets = {
             'oil_brand': forms.Select(attrs={'class': 'form-control'}),
             'oil_grade': forms.Select(attrs={'class': 'form-control'}),
@@ -164,6 +164,7 @@ class OilProductForm(forms.ModelForm):
             'vehicle_make': forms.Select(attrs={'class': 'form-control'}),
             'price_per_litre': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 450.00', 'step': '0.01', 'min': '0'}),
             'recommended_qty_litres': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 4.0 (optional)', 'step': '0.1', 'min': '0'}),
+            'oil_run_km': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 5000', 'min': '0'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -187,6 +188,9 @@ class OilProductForm(forms.ModelForm):
         self.fields['recommended_qty_litres'].required = True
         self.fields['recommended_qty_litres'].label = "Volume (Litres)"
         self.fields['recommended_qty_litres'].help_text = "Volume in litres (e.g. 1.0, 3.0)"
+        self.fields['oil_run_km'].required = True
+        self.fields['oil_run_km'].label = "Lifespan (KM)"
+        self.fields['oil_run_km'].help_text = "Number of KM this oil lasts (e.g. 5000)"
 
 
 class TyreBrandForm(forms.ModelForm):

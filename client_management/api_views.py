@@ -4875,6 +4875,7 @@ def api_oil_products(request):
                 'price_per_litre': float(p.price_per_litre) if p.price_per_litre else 0.0,
                 'recommended_qty_litres': float(p.recommended_qty_litres) if p.recommended_qty_litres else 1.0,
                 'stock_qty': stock_map.get(p.id, 0.0),
+                'oil_run_km': p.oil_run_km or 5000,
             }
             for p in products
         ]
