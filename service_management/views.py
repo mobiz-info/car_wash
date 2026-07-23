@@ -31,7 +31,7 @@ def service_type_list(request):
     return render(request, 'service_type/list.html', {
         'page_obj': page_obj,
         'search': search,
-        'title': 'Service Types'
+        'title': 'Service Categories'
     })
 
 @login_required
@@ -43,14 +43,14 @@ def service_type_create(request):
             instance.auto_id = get_auto_id(ServiceType)
             instance.creator = request.user
             instance.save()
-            messages.success(request, 'Service Type created successfully.')
+            messages.success(request, 'Service Category created successfully.')
             return redirect('service_type_list')
     else:
         form = ServiceTypeForm()
     
     return render(request, 'service_type/create.html', {
         'form': form,
-        'title': 'Create Service Type'
+        'title': 'Create Service Category'
     })
 
 @login_required
@@ -62,14 +62,14 @@ def service_type_edit(request, id):
             instance = form.save(commit=False)
             instance.updater = request.user
             instance.save()
-            messages.success(request, 'Service Type updated successfully.')
+            messages.success(request, 'Service Category updated successfully.')
             return redirect('service_type_list')
     else:
         form = ServiceTypeForm(instance=instance)
     
     return render(request, 'service_type/create.html', {
         'form': form,
-        'title': 'Edit Service Type'
+        'title': 'Edit Service Category'
     })
 
 @login_required
@@ -77,7 +77,7 @@ def service_type_delete(request, id):
     instance = get_object_or_404(ServiceType, id=id, is_deleted=False)
     instance.is_deleted = True
     instance.save()
-    messages.success(request, 'Service Type deleted successfully.')
+    messages.success(request, 'Service Category deleted successfully.')
     return redirect('service_type_list')
 
 

@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Service Types - Mobiz Car Wash Solution{% endblock %}
-{% block page_title %}Service Types{% endblock %}
-{% block breadcrumb_active %}Service Types{% endblock %}
+{% block title %}Service Categories - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Service Categories{% endblock %}
+{% block breadcrumb_active %}Service Categories{% endblock %}
 
 {% block content %}
 <style>
@@ -135,7 +135,7 @@
         </form>
 
         <a href="{% url 'service_type_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Service Type
+            <i class="ph-bold ph-plus"></i> Add Service Category
         </a>
     </div>
 
@@ -145,7 +145,7 @@
             <thead>
                 <tr>
                     <th style="width: 80px;">#</th>
-                    <th>Type Name</th>
+                    <th>Category Name</th>
                    
                     <th style="width: 120px; text-align: right;">Action</th>
                 </tr>
@@ -169,7 +169,7 @@
                             <a href="{% url 'service_type_edit' obj.id %}" class="action-btn edit" title="Edit">
                                 <i class="ph ph-pencil-simple" style="font-size: 1.2rem;"></i>
                             </a>
-                            <a href="{% url 'service_type_delete' obj.id %}" onclick="return confirm('Delete this service type?')" class="action-btn delete" title="Delete">
+                            <a href="{% url 'service_type_delete' obj.id %}" onclick="return confirm('Delete this service category?')" class="action-btn delete" title="Delete">
                                 <i class="ph ph-trash" style="font-size: 1.2rem;"></i>
                             </a>
                         </div>
@@ -179,7 +179,7 @@
                 <tr>
                     <td colspan="5" style="text-align:center; padding: 40px; color: #94a3b8;">
                         <i class="ph ph-tag" style="font-size: 3rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
-                        No service types found.
+                        No service categories found.
                     </td>
                 </tr>
                 {% endfor %}

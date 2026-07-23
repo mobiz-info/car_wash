@@ -8,7 +8,7 @@ class ServiceTypeForm(forms.ModelForm):
         model = ServiceType
         fields = [ 'name']
         widgets = {
-            'name': TextInput(attrs={'class': 'form-control', 'placeholder': 'Service type name (e.g. Basic Wash)'}),
+            'name': TextInput(attrs={'class': 'form-control', 'placeholder': 'Service category name (e.g. Wash, Oil Change)'}),
         }
         
 class ServiceForm(forms.ModelForm):
@@ -26,3 +26,5 @@ class ServiceForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['service_type'].queryset = ServiceType.objects.filter(is_deleted=False)
+        self.fields['service_type'].label = "Service Category"
+        self.fields['service_type'].empty_label = "-- Select Service Category --"
