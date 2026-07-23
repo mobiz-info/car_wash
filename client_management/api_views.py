@@ -505,18 +505,19 @@ def api_get_services(request):
             return JsonResponse({'success': False, 'message': 'Customer branch or vehicle type is missing'}, status=400)
 
         # ── Get branch-enabled service CATEGORIES ─────────────────────────────
-        enabled_category_slugs = list(
+        from service_management.models import ServiceType
+        
+        disabled_category_slugs = set(
             BranchServiceCategory.objects.filter(
-                branch=branch, is_enabled=True, is_deleted=False
+                branch=branch, is_enabled=False, is_deleted=False
             ).values_list('service_type__slug', flat=True)
         )
 
-        # If no categories configured yet, fall back to showing all (backward compat)
-        if not enabled_category_slugs:
-            from service_management.models import ServiceType
-            enabled_category_slugs = list(
-                ServiceType.objects.values_list('slug', flat=True)
-            )
+        all_category_slugs = list(
+            ServiceType.objects.filter(is_deleted=False).values_list('slug', flat=True)
+        )
+
+        enabled_category_slugs = [s for s in all_category_slugs if s and s not in disabled_category_slugs]
 
         # ── Get enabled Service IDs for this branch (filtered by category) ────
         from service_management.models import Service as ServiceModel, ServiceType
