@@ -4,6 +4,8 @@ from master.models import VehicleType,VehicleTypeModel
 from client_management.models import Branch
 
 
+from django.utils.text import slugify
+
 class ServiceType(BaseModel):
     SLUG_WASHING = 'washing'
     SLUG_OIL_CHANGE = 'oil_change'
@@ -15,6 +17,17 @@ class ServiceType(BaseModel):
         max_length=50, unique=True, blank=True, null=True,
         help_text="Machine-readable key: washing | oil_change | tyre_change | wheel_alignment"
     )
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.name).replace('-', '_')
+            slug = base_slug
+            counter = 1
+            while ServiceType.objects.filter(slug=slug).exclude(id=self.id).exists():
+                slug = f"{base_slug}_{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
