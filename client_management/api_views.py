@@ -4975,32 +4975,33 @@ def api_oil_stock(request):
 
     # Resolve branch
     from client_management.models import Branch
+    from django.db.models import Q
+    company = getattr(getattr(user, 'profile', None), 'company', None)
     branch = getattr(user, 'managed_branch', None)
     if not branch and hasattr(user, 'profile') and user.profile and getattr(user.profile, 'branch', None):
         branch = user.profile.branch
-    if not branch and hasattr(user, 'profile') and user.profile and getattr(user.profile, 'company', None):
-        branch = Branch.objects.filter(company=user.profile.company, is_deleted=False).first()
-    if not branch:
-        branch = Branch.objects.filter(is_deleted=False).first()
+    if not branch and company:
+        branch = Branch.objects.filter(company=company, is_deleted=False).first()
 
     if request.method == 'GET':
         try:
             from master.models import OilProduct, OilStock
             if branch:
                 # Seed stock records for all active products if missing
-                all_products = OilProduct.objects.filter(is_active=True, is_deleted=False)
+                all_products = OilProduct.objects.filter(
+                    Q(company=branch.company) | Q(company__isnull=True),
+                    is_active=True, is_deleted=False
+                )
                 for op in all_products:
                     OilStock.objects.get_or_create(
                         branch=branch, oil_product=op,
-                        defaults={'auto_id': get_auto_id(OilStock), 'quantity_litres': 100.0, 'creator': user}
+                        defaults={'auto_id': get_auto_id(OilStock), 'quantity_litres': 0.0, 'creator': user}
                     )
                 stocks = OilStock.objects.filter(
                     branch=branch, is_deleted=False, oil_product__isnull=False, oil_product__is_deleted=False
                 ).select_related('oil_product', 'oil_product__oil_brand', 'oil_product__oil_grade')
             else:
-                stocks = OilStock.objects.filter(
-                    is_deleted=False, oil_product__isnull=False, oil_product__is_deleted=False
-                ).select_related('oil_product', 'oil_product__oil_brand', 'oil_product__oil_grade')
+                stocks = OilStock.objects.none()
 
             data = []
             for s in stocks:
@@ -5037,7 +5038,10 @@ def api_oil_stock(request):
             if not oil_product_id or quantity <= 0:
                 return JsonResponse({'success': False, 'message': 'oil_product_id and quantity_litres required'}, status=400)
 
-            oil_product = OilProduct.objects.filter(id=oil_product_id, is_active=True, is_deleted=False).first()
+            oil_product = OilProduct.objects.filter(
+                Q(company=branch.company) | Q(company__isnull=True),
+                id=oil_product_id, is_active=True, is_deleted=False
+            ).first()
             if not oil_product:
                 return JsonResponse({'success': False, 'message': 'Oil product not found'}, status=404)
 
