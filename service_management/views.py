@@ -221,7 +221,24 @@ def company_service_manage(request):
             if not created:
                 obj.is_enabled = is_checked
                 obj.save()
-        messages.success(request, "Company services updated successfully.")
+
+            # Auto-propagate company service enable/disable status to all company branches
+            branches = Branch.objects.filter(company=company, is_deleted=False)
+            for b in branches:
+                bs_obj, bs_created = BranchService.objects.get_or_create(
+                    branch=b,
+                    service=service,
+                    defaults={
+                        'auto_id': get_auto_id(BranchService),
+                        'creator': request.user,
+                        'is_enabled': is_checked,
+                    }
+                )
+                if not bs_created:
+                    bs_obj.is_enabled = is_checked
+                    bs_obj.save()
+
+        messages.success(request, "Company services updated successfully and synchronized to all branches.")
         return redirect('company_service_manage')
 
     return render(request, 'branch/company_service_manage.html', {
@@ -432,8 +449,14 @@ def service_vehicle_price_manage(request, branch_id):
         if company:
             company_branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
 
+    company_enabled_ids = CompanyService.objects.filter(
+        company=branch.company,
+        is_enabled=True
+    ).values_list('service_id', flat=True)
+
     enabled_service_ids = BranchService.objects.filter(
         branch=branch,
+        service_id__in=company_enabled_ids,
         is_enabled=True,
         is_deleted=False
     ).values_list('service_id', flat=True)

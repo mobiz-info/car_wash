@@ -520,9 +520,16 @@ def api_get_services(request):
         enabled_category_slugs = [s for s in all_category_slugs if s and s not in disabled_category_slugs]
 
         # ── Get enabled Service IDs for this branch (filtered by category) ────
-        from service_management.models import Service as ServiceModel, ServiceType
+        from service_management.models import Service as ServiceModel, ServiceType, CompanyService
+        company_enabled_service_ids = CompanyService.objects.filter(
+            company=branch.company, is_enabled=True
+        ).values_list('service_id', flat=True)
+
         enabled_service_ids = BranchService.objects.filter(
-            branch=branch, is_enabled=True, is_deleted=False
+            branch=branch,
+            service_id__in=company_enabled_service_ids,
+            is_enabled=True,
+            is_deleted=False
         ).values_list('service_id', flat=True)
 
         # Filter to only services belonging to enabled categories
