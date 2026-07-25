@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph-bold ph-shopping-bag" style="color: #3b82f6;"></i>
+        {{ title }}
+    </div>
+    
+    <form method="POST" action="">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="expense_head">Expense Head <span style="color:red;">*</span></label>
+            <select name="expense_head" id="expense_head" required>
+                <option value="">-- Select Expense Head --</option>
+                {% for head in expense_heads %}
+                    <option value="{{ head.id }}" {% if item and item.expense_head_id == head.id %}selected{% endif %}>
+                        {{ head.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="name">Expense Item Name <span style="color:red;">*</span></label>
+            <input type="text" name="name" id="name" value="{{ item.name|default:'' }}" placeholder="e.g. Paper Rolls, Printer, Perfumes" required>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'expense_item_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph-bold ph-check"></i> Save Item
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

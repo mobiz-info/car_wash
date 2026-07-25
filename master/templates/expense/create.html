@@ -6,14 +6,12 @@
 {% block content %}
 
 <style>
-
 .form-control,
 textarea,
 select,
 input[type="date"],
 input[type="number"],
 input[type="text"] {
-
     width: 100%;
     padding: 12px 14px;
     border: 1px solid #d1d5db;
@@ -22,343 +20,219 @@ input[type="text"] {
     background: #fff;
     transition: all 0.2s ease;
     outline: none;
-
 }
 
 .form-control:focus,
 textarea:focus,
 select:focus,
 input:focus {
-
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59,130,246,0.10);
-
 }
 
 textarea.form-control {
-
     min-height: 120px;
     resize: vertical;
-
 }
-
 </style>
-<div class="premium-form-container">
 
+<div class="premium-form-container">
     <div class="premium-form-title">
         <i class="ph ph-wallet" style="color:#3b82f6;"></i>
         {{ title }}
     </div>
 
     <form method="POST">
-
         {% csrf_token %}
 
-        <div class="row">
+        <div class="row" style="display: flex; flex-wrap: wrap; margin: -8px;">
 
             {% if role_name == 'COMPANY_ADMIN' %}
-
-            <div class="col-md-6">
-
+            <!-- Branch -->
+            <div style="width: 50%; padding: 8px;">
                 <div class="form-group">
-
-                    <label>
-                        Branch
-                        <span style="color:red;">*</span>
-                    </label>
-
-                    <select name="branch"
-                            class="form-control"
-                            required>
-
-                        <option value="">
-                            Select Branch
-                        </option>
-
+                    <label>Branch <span style="color:red;">*</span></label>
+                    <select name="branch" class="form-control" required>
+                        <option value="">Select Branch</option>
                         {% for branch in branches %}
-
-                        <option value="{{ branch.id }}"
-                        {% if expense_entry.branch.id == branch.id %}
-                        selected
-                        {% endif %}>
-
+                        <option value="{{ branch.id }}" {% if expense_entry and expense_entry.branch.id == branch.id %}selected{% endif %}>
                             {{ branch.name }}
-
                         </option>
-
                         {% endfor %}
-
                     </select>
-
                 </div>
-
             </div>
-
             {% endif %}
 
+            <!-- Expense Date -->
+            <div style="width: 50%; padding: 8px;">
+                <div class="form-group">
+                    <label>Expense Date <span style="color:red;">*</span></label>
+                    <input type="date" name="expense_date" class="form-control" value="{% if expense_entry %}{{ expense_entry.expense_date|date:'Y-m-d' }}{% endif %}" required>
+                </div>
+            </div>
+
             <!-- Expense Head -->
-
-            <div class="col-md-6">
-
+            <div style="width: 50%; padding: 8px;">
                 <div class="form-group">
-
-                    <label>
-                        Expense Head
-                        <span style="color:red;">*</span>
-                    </label>
-
-                    <select name="expense_head"
-                        id="expense_head"
-                        class="form-control"
-                        required>
-
-                    <option value="">
-                        Select Expense Head
-                    </option>
-
-                    {% for head in expense_heads %}
-
-                    <option value="{{ head.id }}"
-
-                    {% if expense_entry %}
-
-                        {% if expense_entry.expense.expense_head.id == head.id %}
-                        selected
-                        {% endif %}
-
-                    {% endif %}>
-
-                        {{ head.name }}
-
-                    </option>
-
-                    {% endfor %}
-
-                </select>
-
+                    <label>Expense Head <span style="color:red;">*</span></label>
+                    <select name="expense_head" id="expense_head" class="form-control" required>
+                        <option value="">Select Expense Head</option>
+                        {% for head in expense_heads %}
+                        <option value="{{ head.id }}" {% if expense_entry and expense_entry.expense.expense_head.id == head.id %}selected{% endif %}>
+                            {{ head.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
-
             </div>
 
-
-            <!-- Expense -->
-
-            <div class="col-md-6">
-
+            <!-- Stock / Expense Item (Dropdown) -->
+            <div style="width: 50%; padding: 8px;">
                 <div class="form-group">
-
-                    <label>
-                        Expense Name
-                        <span style="color:red;">*</span>
-                    </label>
-
+                    <label>Stock / Expense Item <span style="color:red;">*</span></label>
                     <div id="expense_name_container">
-                        <input type="text"
-                            name="expense_name"
-                            class="form-control"
-                            placeholder="Enter Expense Name"
-                            value="{{ expense_entry.expense.name }}"
-                            required>
+                        <select name="expense_name" id="expense_name_select" class="form-control" required disabled>
+                            <option value="">Select Expense Head first</option>
+                        </select>
                     </div>
-
                 </div>
-
             </div>
 
-            <div class="col-md-6">
-
+            <!-- Supplier (Optional) -->
+            <div style="width: 50%; padding: 8px;">
                 <div class="form-group">
-
-                    <label>
-                        Amount
-                        <span style="color:red;">*</span>
-                    </label>
-
-                    <input type="number"
-                           step="0.01"
-                           name="amount"
-                           class="form-control"
-                           value="{{ expense_entry.amount }}"
-                           required>
-
+                    <label>Supplier (Optional)</label>
+                    <select name="supplier" class="form-control">
+                        <option value="">Select Supplier (Optional)</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if expense_entry and expense_entry.supplier_id == supplier.id %}selected{% endif %}>
+                            {{ supplier.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
-
             </div>
 
-            <div class="col-md-6">
-
+            <!-- Amount -->
+            <div style="width: 50%; padding: 8px;">
                 <div class="form-group">
-
-                    <label>
-                        Expense Date
-                        <span style="color:red;">*</span>
-                    </label>
-
-                    <input type="date"
-                           name="expense_date"
-                           class="form-control"
-                           value="{{ expense_entry.expense_date|date:'Y-m-d' }}"
-                           required>
-
+                    <label>Amount <span style="color:red;">*</span></label>
+                    <input type="number" step="0.01" name="amount" id="amount_input" class="form-control" value="{{ expense_entry.amount|default:'' }}" required placeholder="0.00">
                 </div>
-
             </div>
 
-            <div class="col-md-12">
-
+            <!-- Paid Amount -->
+            <div style="width: 50%; padding: 8px;">
                 <div class="form-group">
-
-                    <label>
-                        Remarks
-                    </label>
-
-                    <textarea name="remarks"
-                              rows="4"
-                              class="form-control">{{ expense_entry.remarks }}</textarea>
-
+                    <label>Paid Amount</label>
+                    <input type="number" step="0.01" name="paid_amount" id="paid_amount_input" class="form-control" value="{{ expense_entry.paid_amount|default:'' }}" placeholder="0.00">
                 </div>
+            </div>
 
+            <!-- Remarks -->
+            <div style="width: 100%; padding: 8px;">
+                <div class="form-group">
+                    <label>Remarks</label>
+                    <textarea name="remarks" rows="3" class="form-control" placeholder="Optional remarks">{{ expense_entry.remarks|default:'' }}</textarea>
+                </div>
             </div>
 
         </div>
 
         <div class="form-actions">
-
-            <a href="{% url 'expense_list' %}"
-               class="btn-secondary">
-
-                Cancel
-
-            </a>
-
-            <button type="submit"
-                    class="btn-primary">
-
-                <i class="ph ph-check-circle"></i>
-
-                Save Expense
-
+            <a href="{% url 'expense_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Expense
             </button>
-
         </div>
-
     </form>
-
 </div>
 
 <script>
-    const stocks = [
-        {% for stock in stocks %}
-        {
-            "id": "{{ stock.id|escapejs }}",
-            "name": "{{ stock.item_name|escapejs }}",
-            "expense_head_id": "{{ stock.expense_head.id|escapejs }}"
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ];
-
-    const staffs = [
-        {% for staff in staffs %}
-        {
-            "id": "{{ staff.id|escapejs }}",
-            "name": "{{ staff.name|escapejs }}"
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ];
-    
     const initialExpenseName = "{{ expense_entry.expense.name|escapejs }}";
+    const initialDate = "{% if not expense_entry %}" + new Date().toISOString().split('T')[0] + "{% endif %}";
 
     document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.querySelector('input[name="expense_date"]');
+        if (dateInput && !dateInput.value && initialDate) {
+            dateInput.value = initialDate;
+        }
+
         const expenseHeadSelect = document.getElementById('expense_head');
         const expenseNameContainer = document.getElementById('expense_name_container');
-        
-        function updateExpenseNameField() {
-            const selectedHeadId = expenseHeadSelect.value;
-            const selectedHeadText = expenseHeadSelect.options[expenseHeadSelect.selectedIndex]?.text || '';
-            
-            // Clear container first
+
+        async function loadItemsForHead() {
+            const headId = expenseHeadSelect.value;
             expenseNameContainer.innerHTML = '';
-            
-            if (!selectedHeadId) {
-                // No head selected, show disabled text input
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.name = 'expense_name';
-                input.className = 'form-control';
-                input.placeholder = 'Select Expense Head first';
-                input.disabled = true;
-                input.required = true;
-                expenseNameContainer.appendChild(input);
+
+            if (!headId) {
+                const select = document.createElement('select');
+                select.name = 'expense_name';
+                select.className = 'form-control';
+                select.disabled = true;
+                select.required = true;
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'Select Expense Head first';
+                select.appendChild(opt);
+                expenseNameContainer.appendChild(select);
                 return;
             }
-            
-            // 1. If Salary
-            if (selectedHeadText.toLowerCase().trim() === 'salary' || selectedHeadText.toLowerCase().includes('salary')) {
+
+            // Show loading dropdown
+            const loadingSelect = document.createElement('select');
+            loadingSelect.className = 'form-control';
+            loadingSelect.disabled = true;
+            const loadingOpt = document.createElement('option');
+            loadingOpt.textContent = 'Loading items...';
+            loadingSelect.appendChild(loadingOpt);
+            expenseNameContainer.appendChild(loadingSelect);
+
+            try {
+                const response = await fetch(`/api/expenses/items-by-head/?expense_head_id=${headId}`);
+                const data = await response.json();
+                
+                expenseNameContainer.innerHTML = '';
                 const select = document.createElement('select');
                 select.name = 'expense_name';
                 select.className = 'form-control';
                 select.required = true;
-                
+
                 const defaultOpt = document.createElement('option');
                 defaultOpt.value = '';
-                defaultOpt.textContent = 'Select Employee';
+                defaultOpt.textContent = '-- Select Stock / Expense Item --';
                 select.appendChild(defaultOpt);
-                
-                staffs.forEach(staff => {
-                    const opt = document.createElement('option');
-                    opt.value = staff.name;
-                    opt.textContent = staff.name;
-                    if (staff.name === initialExpenseName) {
-                        opt.selected = true;
-                    }
-                    select.appendChild(opt);
-                });
-                
-                expenseNameContainer.appendChild(select);
-            }
-            // 2. Filter stocks by expense_head_id
-            else {
-                const filteredStocks = stocks.filter(stock => stock.expense_head_id === selectedHeadId);
-                
-                if (filteredStocks.length > 0) {
-                    const select = document.createElement('select');
-                    select.name = 'expense_name';
-                    select.className = 'form-control';
-                    select.required = true;
-                    
-                    const defaultOpt = document.createElement('option');
-                    defaultOpt.value = '';
-                    defaultOpt.textContent = 'Select Stock Item';
-                    select.appendChild(defaultOpt);
-                    
-                    filteredStocks.forEach(stock => {
+
+                if (data.success && data.items && data.items.length > 0) {
+                    data.items.forEach(item => {
                         const opt = document.createElement('option');
-                        opt.value = stock.name;
-                        opt.textContent = stock.name;
-                        if (stock.name === initialExpenseName) {
+                        opt.value = item;
+                        opt.textContent = item;
+                        if (item === initialExpenseName) {
                             opt.selected = true;
                         }
                         select.appendChild(opt);
                     });
-                    
-                    expenseNameContainer.appendChild(select);
                 } else {
-                    // 3. Fallback to text input
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.name = 'expense_name';
-                    input.className = 'form-control';
-                    input.placeholder = 'Enter Expense Name';
-                    input.value = initialExpenseName;
-                    input.required = true;
-                    expenseNameContainer.appendChild(input);
+                    const customOpt = document.createElement('option');
+                    customOpt.value = 'General Expense';
+                    customOpt.textContent = 'General Expense';
+                    select.appendChild(customOpt);
                 }
+
+                expenseNameContainer.appendChild(select);
+
+            } catch (err) {
+                console.error("Error loading expense items:", err);
+                expenseNameContainer.innerHTML = `<input type="text" name="expense_name" class="form-control" value="${initialExpenseName}" placeholder="Enter Expense Name" required>`;
             }
         }
-        
-        expenseHeadSelect.addEventListener('change', updateExpenseNameField);
-        updateExpenseNameField();
+
+        expenseHeadSelect.addEventListener('change', loadItemsForHead);
+        if (expenseHeadSelect.value) {
+            loadItemsForHead();
+        }
     });
 </script>
-
 {% endblock %}

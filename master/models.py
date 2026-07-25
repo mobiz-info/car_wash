@@ -210,6 +210,56 @@ class OilBrand(BaseModel):
         return self.name
 
 
+class OilFilterBrand(BaseModel):
+    """Master list of Oil Filter Brands (e.g. Bosch, Mann, FRAM, Mobil 1, Wix, Denso)."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='oil_filter_brands',
+        null=True, blank=True, help_text="Leave blank for global master"
+    )
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class OilFilter(BaseModel):
+    """Master list of Oil Filters with Brand, Price, and Running KM interval."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='oil_filters',
+        null=True, blank=True, help_text="Leave blank for global master"
+    )
+    oil_filter_brand = models.ForeignKey(
+        OilFilterBrand, on_delete=models.CASCADE, related_name='filters'
+    )
+    name = models.CharField(max_length=150, help_text="Filter part number / model name e.g. OF-101")
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00,
+        help_text="Price charged for this filter"
+    )
+    running_km = models.PositiveIntegerField(
+        default=5000,
+        help_text="Recommended running KM for this oil filter e.g. 5000"
+    )
+    stock_qty = models.IntegerField(default=0, help_text="Current stock quantity in units")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['oil_filter_brand__name', 'name']
+
+    def __str__(self):
+        brand_name = self.oil_filter_brand.name if self.oil_filter_brand else ''
+        return f"{brand_name} - {self.name} (₹{self.price})"
+
+    @property
+    def display_name(self):
+        brand_name = self.oil_filter_brand.name if self.oil_filter_brand else ''
+        return f"{brand_name} - {self.name}"
+
+
 class OilGrade(BaseModel):
     """Superadmin / Master list of Oil Grades (e.g. 5W-30, 10W-40, 15W-40, 0W-20, 20W-50)."""
     name = models.CharField(max_length=50, unique=True)
@@ -257,6 +307,12 @@ class OilProduct(BaseModel):
     oil_run_km = models.PositiveIntegerField(
         default=5000,
         help_text="Number of KM this oil lasts for (e.g. 5000)"
+    )
+    for_petrol = models.BooleanField(default=True, help_text="Suitable for Petrol vehicles")
+    for_diesel = models.BooleanField(default=True, help_text="Suitable for Diesel vehicles")
+    oil_run_days = models.PositiveIntegerField(
+        default=180,
+        help_text="Number of days duration this oil lasts for (e.g. 30, 90, 180 days)"
     )
     is_active = models.BooleanField(default=True)
 

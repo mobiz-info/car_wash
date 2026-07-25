@@ -35,6 +35,7 @@ urlpatterns = [
     # Reminder Planner API
     path('api/booking/reminder/list/', api_views.api_reminder_list, name='api_reminder_list'),
     path('api/booking/reminder/send/', api_views.api_send_reminder, name='api_send_reminder'),
+    path('api/booking/oil-reminder/generic/', api_views.api_send_oil_reminder, name='api_send_oil_reminder'),
 
     path('holiday-calendar/', views.holiday_calendar, name='holiday_calendar'),
     path('holiday-calendar/create/', views.holiday_create, name='holiday_create'),

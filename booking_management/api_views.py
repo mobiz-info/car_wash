@@ -3152,12 +3152,23 @@ def api_reminder_list(request):
         customer_name = plan.invoice.customer.name or "Customer"
         vehicle_no = plan.invoice.vehicle.vehicle_number if plan.invoice.vehicle else "your vehicle"
         service_name = plan.reminder.service.name if (plan.reminder and plan.reminder.service) else ""
+        service_category = plan.reminder.service.category if (plan.reminder and plan.reminder.service) else ""
         
-        # Format the prefilled reminder message text
-        msg_template = plan.reminder.reminder_message if plan.reminder else ""
-        message = msg_template.replace('{customer_name}', customer_name) \
-                               .replace('{vehicle_number}', vehicle_no) \
-                               .replace('{service_name}', service_name)
+        next_oil_change_km = None
+        for item in plan.invoice.items.all():
+            if hasattr(item, 'service_detail') and item.service_detail:
+                if item.service_detail.service_category == 'oil_change' or item.service_detail.next_oil_change_km:
+                    service_category = 'oil_change'
+                    if item.service_detail.next_oil_change_km:
+                        next_oil_change_km = item.service_detail.next_oil_change_km
+
+        if service_category == 'oil_change':
+            message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_oil_change_km or 'N/A'} km"
+        else:
+            msg_template = plan.reminder.reminder_message if plan.reminder else ""
+            message = msg_template.replace('{customer_name}', customer_name) \
+                                   .replace('{vehicle_number}', vehicle_no) \
+                                   .replace('{service_name}', service_name)
 
         plans_data.append({
             'id': str(plan.id),
@@ -3167,6 +3178,8 @@ def api_reminder_list(request):
             'vehicle_type': plan.invoice.vehicle.vehicle_type_model.name if (plan.invoice.vehicle and plan.invoice.vehicle.vehicle_type_model) else "N/A",
             'reminder_no': plan.reminder_no,
             'service_name': service_name,
+            'service_category': service_category,
+            'next_oil_change_km': next_oil_change_km,
             'scheduled_date': str(plan.scheduled_date),
             'message': message,
         })
@@ -3267,12 +3280,54 @@ def api_send_reminder(request):
 
             # Send via API
             try:
+            # Check if this is an oil change reminder
+            is_oil = False
+            next_km = ""
+            if reminder and reminder.service and reminder.service.category == 'oil_change':
+                is_oil = True
+            for item in invoice.items.all():
+                if hasattr(item, 'service_detail') and item.service_detail:
+                    sd = item.service_detail
+                    if sd.service_category == 'oil_change' or sd.next_oil_change_km:
+                        is_oil = True
+                        if sd.next_oil_change_km:
+                            next_km = str(sd.next_oil_change_km)
+
+            if is_oil:
+                tmpl_name = 'oilreminder'
+                tmpl_values = [customer_name, vehicle_no, next_km or "N/A"]
+                message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km"
+            else:
+                tmpl_name = 'servicereminder'
+                tmpl_values = [customer_name, vehicle_no, reminder.service.name]
+
+            encoded_message = urllib.parse.quote(message)
+            fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
+
+            # Check if API is available
+            if not setting or not setting.username or not setting.password:
+                if len(plan_ids) == 1:
+                    # Return fallback prefill link directly
+                    return JsonResponse({
+                        'success': False,
+                        'use_fallback': True,
+                        'whatsapp_url': fallback_url,
+                        'plan_id': plan.id,
+                        'message': 'WhatsApp API not configured. Use manual sending.'
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'WhatsApp API is not configured. Send individually to use manual prefill.'
+                    })
+
+            # Send via API
+            try:
                 if setting.is_official_api:
-                    # Template details: name="reminder", value1=customer_name, value2=vehicle_no
                     send_whatsapp_template(
                         to_number=cleaned_phone,
-                        template_name='servicereminder',
-                        values=[customer_name, vehicle_no, reminder.service.name],
+                        template_name=tmpl_name,
+                        values=tmpl_values,
                         setting=setting
                     )
                 else:
@@ -3306,6 +3361,91 @@ def api_send_reminder(request):
             sent_count += 1
 
         return JsonResponse({'success': True, 'sent_count': sent_count})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_send_oil_reminder(request):
+    """Trigger WhatsApp oil service reminder (template: 'oilreminder').
+    Template parameters:
+      {{1}} = Customer Name
+      {{2}} = Vehicle Number
+      {{3}} = Next Oil Change KM
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        phone = data.get('phone', '')
+        customer_name = data.get('customer_name', 'Customer')
+        vehicle_number = data.get('vehicle_number', 'your vehicle')
+        next_oil_change_km = str(data.get('next_oil_change_km') or data.get('next_km') or 'N/A')
+
+        # Clean phone
+        import re
+        cleaned_phone = re.sub(r'\D', '', str(phone))
+        if cleaned_phone.startswith('0'):
+            cleaned_phone = cleaned_phone[1:]
+
+        # Resolve branch & company
+        branch = getattr(user, 'managed_branch', None)
+        company = user.profile.company if hasattr(user, 'profile') and user.profile else None
+        if not company and branch and branch.company:
+            company = branch.company
+
+        if not company:
+            return JsonResponse({'success': False, 'message': 'Company profile not found'}, status=400)
+
+        from client_management.models import WhatsAppSetting
+        setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+
+        message_text = f"Dear {customer_name} your vehicle no {vehicle_number} next oil change to be done on {next_oil_change_km} km"
+        import urllib.parse
+        encoded_msg = urllib.parse.quote(message_text)
+        whatsapp_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_msg}"
+
+        has_api = bool(setting and setting.username and setting.password)
+
+        if has_api and cleaned_phone:
+            import threading
+            if setting.is_official_api:
+                # Meta official WABA template: 'oilreminder'
+                # {{1}} = customer_name, {{2}} = vehicle_number, {{3}} = next_oil_change_km
+                threading.Thread(
+                    target=send_whatsapp_template,
+                    args=(cleaned_phone, 'oilreminder', [customer_name, vehicle_number, next_oil_change_km]),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
+            else:
+                threading.Thread(
+                    target=send_whatsapp_simple,
+                    args=(cleaned_phone, message_text),
+                    kwargs={'setting': setting},
+                    daemon=True
+                ).start()
+
+            return JsonResponse({
+                'success': True,
+                'action': 'auto',
+                'message': 'Oil service reminder sent successfully via WhatsApp API',
+                'whatsapp_url': whatsapp_url
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'action': 'manual',
+                'message': 'WhatsApp API is not configured',
+                'message_text': message_text,
+                'whatsapp_url': whatsapp_url
+            })
+
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 

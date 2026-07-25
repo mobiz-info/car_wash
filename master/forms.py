@@ -142,6 +142,43 @@ class OilBrandForm(forms.ModelForm):
         }
 
 
+class OilFilterBrandForm(forms.ModelForm):
+    class Meta:
+        model = OilFilterBrand
+        fields = ['name', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Bosch, Mann, FRAM, Mobil 1, Wix, Denso'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class OilFilterForm(forms.ModelForm):
+    class Meta:
+        model = OilFilter
+        fields = ['oil_filter_brand', 'name', 'price', 'running_km', 'stock_qty', 'is_active']
+        widgets = {
+            'oil_filter_brand': forms.Select(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Part No / Filter Model e.g. OF-101'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 250.00', 'step': '0.01', 'min': '0'}),
+            'running_km': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 5000', 'min': '0'}),
+            'stock_qty': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 10', 'min': '0'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['oil_filter_brand'].queryset = OilFilterBrand.objects.filter(is_active=True, is_deleted=False).order_by('name')
+        self.fields['oil_filter_brand'].empty_label = '-- Select Oil Filter Brand --'
+        self.fields['oil_filter_brand'].required = True
+        self.fields['name'].required = True
+        self.fields['price'].required = True
+        self.fields['running_km'].required = True
+        self.fields['running_km'].label = "Running KM"
+        self.fields['stock_qty'].required = False
+        self.fields['stock_qty'].label = "Stock Quantity (Units)"
+        self.fields['stock_qty'].help_text = "Current available units in stock"
+
+
 class OilGradeForm(forms.ModelForm):
     class Meta:
         model = OilGrade
@@ -155,7 +192,11 @@ class OilGradeForm(forms.ModelForm):
 class OilProductForm(forms.ModelForm):
     class Meta:
         model = OilProduct
-        fields = ['oil_brand', 'oil_grade', 'name', 'vehicle_type', 'vehicle_make', 'price_per_litre', 'recommended_qty_litres', 'oil_run_km', 'is_active']
+        fields = [
+            'oil_brand', 'oil_grade', 'name', 'vehicle_type', 'vehicle_make',
+            'price_per_litre', 'recommended_qty_litres', 'oil_run_km',
+            'for_petrol', 'for_diesel', 'oil_run_days', 'is_active'
+        ]
         widgets = {
             'oil_brand': forms.Select(attrs={'class': 'form-control'}),
             'oil_grade': forms.Select(attrs={'class': 'form-control'}),
@@ -165,6 +206,9 @@ class OilProductForm(forms.ModelForm):
             'price_per_litre': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 450.00', 'step': '0.01', 'min': '0'}),
             'recommended_qty_litres': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 4.0 (optional)', 'step': '0.1', 'min': '0'}),
             'oil_run_km': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 5000', 'min': '0'}),
+            'for_petrol': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'for_diesel': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'oil_run_days': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 30, 90, 180', 'min': '0'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 

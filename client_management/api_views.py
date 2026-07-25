@@ -818,19 +818,32 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
                 pass
         detail.oil_litres_used = detail_data.get('oil_litres_used') or None
         detail.oil_filter_changed = bool(detail_data.get('oil_filter_changed', False))
+        oil_filter_id = detail_data.get('oil_filter_id')
+        if oil_filter_id:
+            try:
+                from master.models import OilFilter
+                detail.oil_filter = OilFilter.objects.get(id=oil_filter_id)
+                detail.oil_filter_changed = True
+            except Exception:
+                pass
+        if detail_data.get('oil_filter_price') is not None:
+            detail.oil_filter_price = detail_data.get('oil_filter_price')
+        elif detail.oil_filter and detail.oil_filter.price:
+            detail.oil_filter_price = detail.oil_filter.price
+
         detail.odometer_at_service = detail_data.get('odometer_at_service') or None
         detail.next_oil_change_km = detail_data.get('next_oil_change_km') or None
         detail.next_oil_change_date = detail_data.get('next_oil_change_date') or None
 
-        # Deduct from OilStock (1 unit/bottle of this variant)
+        # Deduct from OilStock
         if detail.oil_product:
             stock, _ = OilStock.objects.get_or_create(
                 branch=invoice.branch,
                 oil_product=detail.oil_product,
                 defaults={'auto_id': get_auto_id(OilStock), 'creator': user}
             )
-            qty_deduct = Decimal('1.0')
-            stock.quantity_litres = max(Decimal('0'), stock.quantity_litres - qty_deduct)
+            qty_deduct = Decimal(str(detail.oil_litres_used or detail.oil_product.recommended_qty_litres or 1.0))
+            stock.quantity_litres = stock.quantity_litres - qty_deduct
             stock.save()
             OilStockTransaction.objects.create(
                 branch=invoice.branch,
@@ -838,7 +851,7 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
                 transaction_type=OilStockTransaction.TYPE_OUT,
                 quantity_litres=qty_deduct,
                 reference_invoice=invoice,
-                notes=f"Service invoice {invoice.invoice_number} ({detail.oil_product.recommended_qty_litres}L variant)",
+                notes=f"Service invoice {invoice.invoice_number} ({qty_deduct}L)",
                 auto_id=get_auto_id(OilStockTransaction),
                 creator=user,
             )
@@ -3385,8 +3398,72 @@ def api_get_expense_heads(request):
             heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
         else:
             heads = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
-        head_list = [{'id': str(h.id), 'name': h.name, 'is_deletable': h.is_deletable} for h in heads]
+        
+        seen_names = set()
+        unique_heads = []
+        for h in heads:
+            norm_name = (h.name or '').strip().lower()
+            if norm_name and norm_name not in seen_names:
+                seen_names.add(norm_name)
+                unique_heads.append(h)
+
+        head_list = [{'id': str(h.id), 'name': h.name, 'is_deletable': h.is_deletable} for h in unique_heads]
         return JsonResponse({'success': True, 'expense_heads': head_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_expense_items_by_head(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    expense_head_id = request.GET.get('expense_head_id')
+    if not expense_head_id:
+        return JsonResponse({'success': False, 'message': 'expense_head_id parameter is required'}, status=400)
+        
+    try:
+        from master.models import ExpenseHead, Expense
+        from client_management.models import Stock
+        from django.db.models import Q
+        from django.shortcuts import get_object_or_404
+
+        head = get_object_or_404(ExpenseHead, Q(company=getattr(getattr(user, 'profile', None), 'company', None)) | Q(company__isnull=True), id=expense_head_id, is_deleted=False)
+        
+        items_set = set()
+
+        # 1. Fetch from Expense model under this head (by FK or by matching name)
+        expenses = Expense.objects.filter(
+            Q(expense_head=head) | Q(expense_head__name__iexact=head.name),
+            is_deleted=False
+        ).order_by('name')
+        for e in expenses:
+            if e.name and e.name.strip():
+                items_set.add(e.name.strip())
+
+        # 2. Fetch from Stock model under this head (by FK or by matching name)
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        stock_qs = Stock.objects.filter(
+            Q(expense_head=head) | Q(expense_head__name__iexact=head.name),
+            is_deleted=False
+        )
+        if company:
+            stock_qs = stock_qs.filter(Q(company=company) | Q(company__isnull=True))
+        for s in stock_qs:
+            if s.item_name and s.item_name.strip():
+                items_set.add(s.item_name.strip())
+
+        items_list = sorted(list(items_set))
+        return JsonResponse({
+            'success': True,
+            'expense_head_id': str(head.id),
+            'expense_head_name': head.name,
+            'items': items_list
+        })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
@@ -3735,20 +3812,23 @@ def api_get_stock_list(request):
     try:
         from .models import Stock
         from django.db.models import Q
-        company = user.profile.company
-        if not company:
-            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
-            
-        stocks = Stock.objects.filter(
-            Q(company=company) | Q(company__isnull=True),
-            is_deleted=False
-        ).select_related('expense_head').order_by('item_name')
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if company:
+            stocks = Stock.objects.filter(
+                Q(company=company) | Q(company__isnull=True),
+                is_deleted=False
+            ).select_related('expense_head').order_by('item_name')
+        else:
+            stocks = Stock.objects.filter(
+                is_deleted=False
+            ).select_related('expense_head').order_by('item_name')
         
         stock_list = [{
             'id': str(s.id),
             'item_name': s.item_name,
             'unit': s.unit,
             'unit_display': s.get_unit_display(),
+            'quantity': float(s.quantity) if s.quantity else 0.0,
             'expense_head_id': str(s.expense_head.id) if s.expense_head else None,
             'expense_head_name': s.expense_head.name if s.expense_head else None,
         } for s in stocks]
@@ -4873,8 +4953,14 @@ def api_oil_products(request):
                 is_active=True, is_deleted=False
             ).select_related('oil_brand', 'oil_grade')
 
-        data = [
-            {
+        data = []
+        for p in products:
+            fuel_types = []
+            if getattr(p, 'for_petrol', True):
+                fuel_types.append('Petrol')
+            if getattr(p, 'for_diesel', True):
+                fuel_types.append('Diesel')
+            data.append({
                 'id': str(p.id),
                 'brand': p.oil_brand.name if p.oil_brand else (p.brand or ''),
                 'grade': p.oil_grade.name if p.oil_grade else (p.grade or ''),
@@ -4884,11 +4970,73 @@ def api_oil_products(request):
                 'recommended_qty_litres': float(p.recommended_qty_litres) if p.recommended_qty_litres else 1.0,
                 'stock_qty': stock_map.get(p.id, 0.0),
                 'oil_run_km': p.oil_run_km or 5000,
-            }
-            for p in products
-        ]
+                'for_petrol': getattr(p, 'for_petrol', True),
+                'for_diesel': getattr(p, 'for_diesel', True),
+                'oil_run_days': getattr(p, 'oil_run_days', 180) or 180,
+                'fuel_types': fuel_types,
+                'fuel_types_display': ', '.join(fuel_types) if fuel_types else 'All',
+            })
         return JsonResponse({'success': True, 'oil_products': data})
     except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_oil_filters(request):
+    """GET: List active oil filters for the company or global master.
+       POST: Record stock-in for an oil filter.
+    """
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    if request.method == 'GET':
+        try:
+            company = getattr(getattr(user, 'profile', None), 'company', None)
+            from master.models import OilFilter
+            from django.db.models import Q
+
+            if company:
+                filters = OilFilter.objects.filter(
+                    Q(company=company) | Q(company__isnull=True),
+                    is_active=True, is_deleted=False
+                ).select_related('oil_filter_brand')
+            else:
+                filters = OilFilter.objects.filter(
+                    is_active=True, is_deleted=False
+                ).select_related('oil_filter_brand')
+
+            data = [
+                {
+                    'id': str(f.id),
+                    'brand_id': str(f.oil_filter_brand.id) if f.oil_filter_brand else '',
+                    'brand_name': f.oil_filter_brand.name if f.oil_filter_brand else '',
+                    'name': f.name or '',
+                    'display_name': f.display_name,
+                    'price': float(f.price) if f.price else 0.0,
+                    'running_km': f.running_km or 5000,
+                    'stock_qty': f.stock_qty or 0,
+                }
+                for f in filters
+            ]
+            return JsonResponse({'success': True, 'oil_filters': data})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            filter_id = data.get('oil_filter_id') or data.get('id')
+            qty = int(data.get('quantity', 0))
+            if not filter_id or qty <= 0:
+                return JsonResponse({'success': False, 'message': 'Filter ID and valid quantity required'}, status=400)
+            from master.models import OilFilter
+            flt = OilFilter.objects.get(id=filter_id)
+            flt.stock_qty = (flt.stock_qty or 0) + qty
+            flt.save()
+            return JsonResponse({'success': True, 'message': f'Added {qty} units to {flt.display_name} stock'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
@@ -4984,7 +5132,24 @@ def api_oil_stock(request):
     from client_management.models import Branch
     from django.db.models import Q
     company = getattr(getattr(user, 'profile', None), 'company', None)
-    branch = getattr(user, 'managed_branch', None)
+
+    req_branch_id = request.GET.get('branch_id')
+    if not req_branch_id and request.method == 'POST':
+        try:
+            parsed_data = json.loads(request.body)
+            req_branch_id = parsed_data.get('branch_id')
+        except Exception:
+            pass
+
+    branch = None
+    if req_branch_id:
+        try:
+            branch = Branch.objects.get(id=req_branch_id, is_deleted=False)
+        except Exception:
+            pass
+
+    if not branch:
+        branch = getattr(user, 'managed_branch', None)
     if not branch and hasattr(user, 'profile') and user.profile and getattr(user.profile, 'branch', None):
         branch = user.profile.branch
     if not branch and company:

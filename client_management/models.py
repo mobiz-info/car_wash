@@ -379,6 +379,7 @@ class Stock(BaseModel):
     company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='stocks', null=True, blank=True)
     item_name = models.CharField(max_length=200)
     unit = models.CharField(max_length=50, choices=UNIT_CHOICES)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Current stock quantity")
     expense_head = models.ForeignKey('master.ExpenseHead', on_delete=models.SET_NULL, null=True, blank=True, related_name='stock_items')
 
     def __str__(self):

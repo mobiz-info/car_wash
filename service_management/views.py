@@ -164,23 +164,39 @@ def branch_service_list(request):
             branches = branches.filter(name__icontains=search)
             
         data = []
-        for branch in branches:
-            services = BranchService.objects.filter(branch=branch, is_enabled=True).select_related('service')
+        for b in branches:
+            company_enabled_ids = CompanyService.objects.filter(
+                company=b.company, is_enabled=True
+            ).values_list('service_id', flat=True)
+            services = BranchService.objects.filter(
+                branch=b,
+                service_id__in=company_enabled_ids,
+                is_enabled=True,
+                is_deleted=False
+            ).select_related('service')
             data.append({
-                'branch': branch,
+                'branch': b,
                 'services': services
             })
     else:
-        branch = getattr(request.user, 'managed_branch', None)
-        if not branch:
+        b = getattr(request.user, 'managed_branch', None)
+        if not b:
             messages.error(request, "No branch assigned.")
             return redirect('dashboard')
         
-        services = BranchService.objects.filter(branch=branch, is_enabled=True).select_related('service')
-        if search and search.lower() not in branch.name.lower():
+        company_enabled_ids = CompanyService.objects.filter(
+            company=b.company, is_enabled=True
+        ).values_list('service_id', flat=True)
+        services = BranchService.objects.filter(
+            branch=b,
+            service_id__in=company_enabled_ids,
+            is_enabled=True,
+            is_deleted=False
+        ).select_related('service')
+        if search and search.lower() not in b.name.lower():
             data = []
         else:
-            data = [{'branch': branch, 'services': services}]
+            data = [{'branch': b, 'services': services}]
 
     return render(request, 'branch/branch_service_list.html', {
         'data': data,
@@ -238,6 +254,22 @@ def company_service_manage(request):
                     bs_obj.is_enabled = is_checked
                     bs_obj.save()
 
+                # Automatically enable the service category if the service is enabled
+                if is_checked and service.service_type:
+                    from service_management.models import BranchServiceCategory
+                    bsc_obj, bsc_created = BranchServiceCategory.objects.get_or_create(
+                        branch=b,
+                        service_type=service.service_type,
+                        defaults={
+                            'auto_id': get_auto_id(BranchServiceCategory),
+                            'creator': request.user,
+                            'is_enabled': True,
+                        }
+                    )
+                    if not bsc_created and not bsc_obj.is_enabled:
+                        bsc_obj.is_enabled = True
+                        bsc_obj.save()
+
         messages.success(request, "Company services updated successfully and synchronized to all branches.")
         return redirect('company_service_manage')
 
@@ -286,7 +318,23 @@ def branch_service_manage(request, branch_id):
                 obj.is_enabled = is_checked
                 obj.save()
 
-        messages.success(request, "Branch services updated.")
+            # Automatically enable the category if this service is enabled
+            if is_checked and service.service_type:
+                from service_management.models import BranchServiceCategory
+                bsc_obj, bsc_created = BranchServiceCategory.objects.get_or_create(
+                    branch=branch,
+                    service_type=service.service_type,
+                    defaults={
+                        'auto_id': get_auto_id(BranchServiceCategory),
+                        'creator': request.user,
+                        'is_enabled': True,
+                    }
+                )
+                if not bsc_created and not bsc_obj.is_enabled:
+                    bsc_obj.is_enabled = True
+                    bsc_obj.save()
+
+        messages.success(request, "Branch services updated and service categories auto-enabled.")
         return redirect('branch_service_list')
 
     context = {

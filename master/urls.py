@@ -47,6 +47,12 @@ urlpatterns = [
     path('expense-head/create/', views.expense_head_create, name='expense_head_create'),
     path('expense-head/edit/<uuid:id>/', views.expense_head_edit, name='expense_head_edit'),
     path('expense-head/delete/<uuid:id>/', views.expense_head_delete, name='expense_head_delete'),
+
+    # Expense Item
+    path('expense-item/', views.expense_item_list, name='expense_item_list'),
+    path('expense-item/create/', views.expense_item_create, name='expense_item_create'),
+    path('expense-item/edit/<uuid:id>/', views.expense_item_edit, name='expense_item_edit'),
+    path('expense-item/delete/<uuid:id>/', views.expense_item_delete, name='expense_item_delete'),
     
     #Expense
     path('expense/list/',views.expense_list,name='expense_list'),
@@ -83,6 +89,18 @@ urlpatterns = [
     path('oil-brand/create/', views.oil_brand_create, name='oil_brand_create'),
     path('oil-brand/edit/<uuid:id>/', views.oil_brand_edit, name='oil_brand_edit'),
     path('oil-brand/delete/<uuid:id>/', views.oil_brand_delete, name='oil_brand_delete'),
+
+    # Oil Filter Brand CRUD
+    path('oil-filter-brand/', views.oil_filter_brand_list, name='oil_filter_brand_list'),
+    path('oil-filter-brand/create/', views.oil_filter_brand_create, name='oil_filter_brand_create'),
+    path('oil-filter-brand/edit/<uuid:id>/', views.oil_filter_brand_edit, name='oil_filter_brand_edit'),
+    path('oil-filter-brand/delete/<uuid:id>/', views.oil_filter_brand_delete, name='oil_filter_brand_delete'),
+
+    # Oil Filter CRUD
+    path('oil-filter/', views.oil_filter_list, name='oil_filter_list'),
+    path('oil-filter/create/', views.oil_filter_create, name='oil_filter_create'),
+    path('oil-filter/edit/<uuid:id>/', views.oil_filter_edit, name='oil_filter_edit'),
+    path('oil-filter/delete/<uuid:id>/', views.oil_filter_delete, name='oil_filter_delete'),
 
     # Oil Grade CRUD
     path('oil-grade/', views.oil_grade_list, name='oil_grade_list'),

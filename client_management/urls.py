@@ -91,6 +91,7 @@ urlpatterns = [
     
     # Expense APIs
     path('api/expenses/heads/', api_views.api_get_expense_heads, name='api_get_expense_heads'),
+    path('api/expenses/items-by-head/', api_views.api_get_expense_items_by_head, name='api_get_expense_items_by_head'),
     path('api/expenses/create/', api_views.api_create_expense_entry, name='api_create_expense_entry'),
     
     # Supplier APIs
@@ -203,6 +204,7 @@ urlpatterns = [
 
     # Multi-Category Service Platform APIs
     path('api/oil-products/', api_views.api_oil_products, name='api_oil_products'),
+    path('api/oil-filters/', api_views.api_oil_filters, name='api_oil_filters'),
     path('api/oil-price/', api_views.api_get_oil_price, name='api_get_oil_price'),
     path('api/tyre-brands/', api_views.api_tyre_brands, name='api_tyre_brands'),
     path('api/oil-stock/', api_views.api_oil_stock, name='api_oil_stock'),

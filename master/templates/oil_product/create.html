@@ -98,6 +98,32 @@
             </div>
         </div>
 
+        <div class="form-section-label" style="margin-top:20px;">
+            <i class="ph ph-gas-pump"></i> Fuel Type & Duration
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Suitable Fuel Types</label>
+                <div style="display:flex; gap:16px; align-items:center; margin-top:8px;">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
+                        {{ form.for_petrol }} Petrol
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
+                        {{ form.for_diesel }} Diesel
+                    </label>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Running Days Duration *</label>
+                {{ form.oil_run_days }}
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Expected lifespan in days (e.g. 30, 90, 180)</div>
+                {% if form.oil_run_days.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.oil_run_days.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top:12px;">
             {{ form.is_active }}
             <label for="id_is_active" style="margin-bottom:0; cursor:pointer;">Is Active</label>

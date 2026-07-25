@@ -268,7 +268,7 @@
                 </table>
             </td>
             <td class="invoice-title" style="width: 40%; vertical-align: top;">
-                <h1>INVOICE</h1>
+                <h1>{% if invoice.tax_amount > 0 %}TAX INVOICE{% else %}INVOICE{% endif %}</h1>
                 <table class="invoice-meta-table">
                     <tr>
                         <td class="meta-label">Invoice No:</td>
@@ -360,7 +360,7 @@
                                     <strong>Oil:</strong> {% if item.service_detail.oil_product.oil_brand %}{{ item.service_detail.oil_product.oil_brand.name }}{% else %}{{ item.service_detail.oil_product.brand }}{% endif %} {{ item.service_detail.oil_product.name }} ({% if item.service_detail.oil_product.oil_grade %}{{ item.service_detail.oil_product.oil_grade.name }}{% else %}{{ item.service_detail.oil_product.grade }}{% endif %})
                                     {% if item.service_detail.oil_litres_used %} | <strong>Litres:</strong> {{ item.service_detail.oil_litres_used }}L{% endif %}
                                     {% if item.service_detail.oil_product.price_per_litre %} | <strong>Price/L:</strong> {{ currency }}{{ item.service_detail.oil_product.price_per_litre }}{% endif %}
-                                    {% if item.service_detail.oil_filter_changed %} | <strong>Filter Changed</strong>{% endif %}
+                                    {% if item.service_detail.oil_filter_changed or item.service_detail.oil_filter %} | <strong>Filter:</strong> {% if item.service_detail.oil_filter.brand %}{{ item.service_detail.oil_filter.brand.name }}{% endif %} {{ item.service_detail.oil_filter.name }} ({% if item.service_detail.oil_filter_price %}{{ currency }}{{ item.service_detail.oil_filter_price }}{% else %}Included{% endif %}){% endif %}
                                     {% if item.service_detail.odometer_at_service %} | <strong>Odometer:</strong> {{ item.service_detail.odometer_at_service }} km{% endif %}
                                     {% if item.service_detail.next_oil_change_km %} | <strong style="color: #1e3a8a;">Next Change:</strong> {{ item.service_detail.next_oil_change_km }} km{% endif %}
                                 {% elif item.service_detail.service_category == 'tyre_change' %}

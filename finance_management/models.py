@@ -102,6 +102,14 @@ class InvoiceServiceDetail(BaseModel):
         help_text="Litres of oil used in this service"
     )
     oil_filter_changed = models.BooleanField(default=False)
+    oil_filter = models.ForeignKey(
+        'master.OilFilter', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='invoice_details'
+    )
+    oil_filter_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Price charged for oil filter"
+    )
     odometer_at_service = models.PositiveIntegerField(
         null=True, blank=True, help_text="Vehicle km at time of service"
     )

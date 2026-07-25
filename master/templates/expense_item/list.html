@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Expense Items - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Expense Items{% endblock %}
+{% block breadcrumb_active %}Expense Items{% endblock %}
+
+{% block content %}
+<div class="list-container">
+    <div class="list-header">
+        <form method="GET" action="" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{ search }}" placeholder="Search Expense Item..." class="search-input">
+        </form>
+        <a href="{% url 'expense_item_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Expense Item
+        </a>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">SL.NO</th>
+                    <th>Expense Head</th>
+                    <th>Expense Item Name</th>
+                    <th style="width: 120px; text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in page_obj %}
+                <tr>
+                    <td>{{ forloop.counter0|add:page_obj.start_index }}</td>
+                    <td>
+                        <span style="font-weight: 600; color: #1e293b;">
+                            {{ item.expense_head.name|default:"General" }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 500;">
+                            {{ item.name }}
+                        </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <a href="{% url 'expense_item_edit' item.id %}" class="action-btn edit" title="Edit">
+                            <i class="ph-bold ph-pencil-simple" style="font-size: 1.1rem;"></i>
+                        </a>
+                        <a href="{% url 'expense_item_delete' item.id %}" class="action-btn delete" title="Delete" onclick="return confirm('Delete this Expense Item?')">
+                            <i class="ph-bold ph-trash" style="font-size: 1.1rem;"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #94a3b8; padding: 32px;">
+                        No Expense Items found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">&laquo; Previous</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

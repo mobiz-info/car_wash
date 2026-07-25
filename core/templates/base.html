@@ -602,7 +602,9 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'expense_head_list' %}" class="nav-item submenu-item">Expense Head</a>
-                <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense</a>
+                <a href="{% url 'expense_item_list' %}" class="nav-item submenu-item">Expense Item</a>
+                <a href="{% url 'expense_create' %}" class="nav-item submenu-item">Add Expense</a>
+                <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense List</a>
                 <a href="{% url 'supplier_list' %}" class="nav-item submenu-item">Suppliers</a>
             </div>
 
@@ -620,6 +622,8 @@
                 <a href="{% url 'vehicle_color_list' %}" class="nav-item submenu-item">Vehicle Colors</a>
                 <a href="{% url 'vehicle_brand_model_list' %}" class="nav-item submenu-item">Vehicle Brands</a>
                 <a href="{% url 'oil_brand_list' %}" class="nav-item submenu-item">Oil Brands</a>
+                <a href="{% url 'oil_filter_brand_list' %}" class="nav-item submenu-item">Oil Filter Brands</a>
+                <a href="{% url 'oil_filter_list' %}" class="nav-item submenu-item">Oil Filters</a>
                 <a href="{% url 'oil_grade_list' %}" class="nav-item submenu-item">Oil Grades</a>
                 <a href="{% url 'oil_product_list' %}" class="nav-item submenu-item">Oil Products</a>
                 <a href="{% url 'tyre_brand_list' %}" class="nav-item submenu-item">Tyre Brands</a>
@@ -800,10 +804,8 @@
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                {% comment %} <a href="{% url 'expense_head_list' %}" class="nav-item submenu-item">Expense Head</a> {% endcomment %}
-                <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense</a>
-                <!-- <a href="#" class="nav-item submenu-item">Packages</a>
-                <a href="#" class="nav-item submenu-item">Add-ons</a> -->
+                <a href="{% url 'expense_create' %}" class="nav-item submenu-item">Add Expense</a>
+                <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense List</a>
             </div>
 
             <!-- Vehicle Management -->
@@ -974,10 +976,8 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'expense_head_list' %}" class="nav-item submenu-item">Expense Head</a>
-                {% comment %} <a href="{% url 'expense_list' %}" class="nav-item submenu-item">Expense</a> {% endcomment %}
-                <!-- <a href="#" class="nav-item submenu-item">Packages</a>
-                <a href="#" class="nav-item submenu-item">Add-ons</a> -->
-            </div> 
+                <a href="{% url 'expense_item_list' %}" class="nav-item submenu-item">Expense Item</a>
+            </div>
 
             <!-- Vehicle Management -->
             <div class="nav-item dropdown-toggle">
@@ -995,6 +995,8 @@
                 <a href="{% url 'vehicle_color_list' %}" class="nav-item submenu-item">Vehicle Colors</a>
                 <a href="{% url 'vehicle_brand_model_list' %}" class="nav-item submenu-item">Vehicle Brands</a>
                 <a href="{% url 'oil_brand_list' %}" class="nav-item submenu-item">Oil Brands</a>
+                <a href="{% url 'oil_filter_brand_list' %}" class="nav-item submenu-item">Oil Filter Brands</a>
+                <a href="{% url 'oil_filter_list' %}" class="nav-item submenu-item">Oil Filters</a>
                 <a href="{% url 'oil_grade_list' %}" class="nav-item submenu-item">Oil Grades</a>
                 <a href="{% url 'oil_product_list' %}" class="nav-item submenu-item">Oil Products</a>
                 <a href="{% url 'tyre_brand_list' %}" class="nav-item submenu-item">Tyre Brands</a>

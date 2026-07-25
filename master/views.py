@@ -683,6 +683,103 @@ def expense_head_delete(request, id):
     return redirect("expense_head_list")
 
 
+# ==========================================
+# EXPENSE ITEM
+# ==========================================
+
+from master.models import Expense
+
+@login_required
+def expense_item_list(request):
+    search = request.GET.get('search', '')
+    from django.db.models import Q
+    queryset = Expense.objects.filter(is_deleted=False).select_related('expense_head').order_by('expense_head__name', 'name')
+    
+    if search:
+        queryset = queryset.filter(
+            Q(name__icontains=search) |
+            Q(expense_head__name__icontains=search)
+        )
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'expense_item/list.html', {'page_obj': page_obj, 'search': search})
+
+
+@login_required
+def expense_item_create(request):
+    from master.models import ExpenseHead
+    from django.db.models import Q
+
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    heads = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
+
+    if request.method == 'POST':
+        expense_head_id = request.POST.get('expense_head')
+        name = request.POST.get('name', '').strip()
+
+        if not expense_head_id or not name:
+            messages.error(request, "Expense Head and Item Name are required.")
+        else:
+            head = get_object_or_404(ExpenseHead, id=expense_head_id, is_deleted=False)
+            item, created = Expense.objects.get_or_create(
+                expense_head=head,
+                name=name,
+                defaults={'auto_id': get_auto_id(Expense), 'creator': request.user}
+            )
+            if not created and item.is_deleted:
+                item.is_deleted = False
+                item.save()
+
+            messages.success(request, f"Expense Item '{name}' saved successfully under '{head.name}'")
+            return redirect('expense_item_list')
+
+    return render(request, 'expense_item/create.html', {
+        'expense_heads': heads,
+        'title': 'Create Expense Item'
+    })
+
+
+@login_required
+def expense_item_edit(request, id):
+    item = get_object_or_404(Expense, id=id, is_deleted=False)
+    from master.models import ExpenseHead
+    from django.db.models import Q
+
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    heads = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
+
+    if request.method == 'POST':
+        expense_head_id = request.POST.get('expense_head')
+        name = request.POST.get('name', '').strip()
+
+        if not expense_head_id or not name:
+            messages.error(request, "Expense Head and Item Name are required.")
+        else:
+            head = get_object_or_404(ExpenseHead, id=expense_head_id, is_deleted=False)
+            item.expense_head = head
+            item.name = name
+            item.updater = request.user
+            item.save()
+            messages.success(request, "Expense Item updated successfully.")
+            return redirect('expense_item_list')
+
+    return render(request, 'expense_item/create.html', {
+        'item': item,
+        'expense_heads': heads,
+        'title': 'Edit Expense Item'
+    })
+
+
+@login_required
+def expense_item_delete(request, id):
+    item = get_object_or_404(Expense, id=id)
+    item.is_deleted = True
+    item.save()
+    messages.success(request, "Expense Item deleted successfully.")
+    return redirect('expense_item_list')
+
+
 @login_required
 def expense_list(request):
 
@@ -801,9 +898,10 @@ def expense_create(request):
         expense_name = request.POST.get('expense_name')
 
         amount = request.POST.get('amount')
+        paid_amount = request.POST.get('paid_amount') or amount
+        supplier_id = request.POST.get('supplier') or None
         expense_date = request.POST.get('expense_date')
         remarks = request.POST.get('remarks')
-
 
         if role_name == 'COMPANY_ADMIN':
 
@@ -829,6 +927,8 @@ def expense_create(request):
             branch_id=branch_id,
             expense=expense,
             amount=amount,
+            paid_amount=paid_amount,
+            supplier_id=supplier_id,
             expense_date=expense_date,
             remarks=remarks
         )
@@ -837,6 +937,7 @@ def expense_create(request):
         return redirect('expense_list')
 
     from client_management.models import Stock, Staff
+    from master.models import Supplier
     from django.db.models import Q
     stocks = Stock.objects.filter(
         Q(company=company) | Q(company__isnull=True),
@@ -850,14 +951,20 @@ def expense_create(request):
     if branch:
         staffs = staffs.filter(branch=branch)
 
+    suppliers = Supplier.objects.filter(
+        company=company,
+        is_deleted=False
+    ).order_by('name')
+
     context = {
         'expense_heads': expense_heads,
         'expenses': expenses,
         'branches': branches,
         'stocks': stocks,
         'staffs': staffs,
+        'suppliers': suppliers,
         'role_name': role_name,
-        'title': 'Expense Create'
+        'title': 'Add Expense'
     }
 
     return render(request, 'expense/create.html', context)
@@ -1359,6 +1466,149 @@ def oil_brand_delete(request, id):
     instance.save()
     messages.success(request, "Oil Brand deleted successfully")
     return redirect('oil_brand_list')
+
+
+# ==========================================
+# OIL FILTER BRAND MASTER
+# ==========================================
+
+@login_required
+def oil_filter_brand_list(request):
+    search = request.GET.get('search', '')
+    queryset = OilFilterBrand.objects.filter(is_deleted=False)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'oil_filter_brand/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def oil_filter_brand_create(request):
+    form = OilFilterBrandForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(OilFilterBrand)
+            instance.creator = request.user
+            profile = getattr(request.user, 'profile', None)
+            instance.company = getattr(profile, 'company', None) if profile else None
+            instance.save()
+            messages.success(request, "Oil Filter Brand created successfully")
+            return redirect('oil_filter_brand_list')
+    return render(request, 'oil_filter_brand/create.html', {
+        'form': form,
+        'title': 'Create Oil Filter Brand'
+    })
+
+
+@login_required
+def oil_filter_brand_edit(request, id):
+    instance = get_object_or_404(OilFilterBrand, id=id, is_deleted=False)
+    form = OilFilterBrandForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Oil Filter Brand updated successfully")
+            return redirect('oil_filter_brand_list')
+    return render(request, 'oil_filter_brand/create.html', {
+        'form': form,
+        'title': 'Edit Oil Filter Brand'
+    })
+
+
+@login_required
+def oil_filter_brand_delete(request, id):
+    instance = get_object_or_404(OilFilterBrand, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Oil Filter Brand deleted successfully")
+    return redirect('oil_filter_brand_list')
+
+
+# ==========================================
+# OIL FILTER MASTER
+# ==========================================
+
+@login_required
+def oil_filter_list(request):
+    search = request.GET.get('search', '')
+    profile = getattr(request.user, 'profile', None)
+    company = getattr(profile, 'company', None) if profile else None
+
+    if company:
+        queryset = OilFilter.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False)
+    else:
+        queryset = OilFilter.objects.filter(is_deleted=False)
+
+    queryset = queryset.select_related('oil_filter_brand')
+
+    if search:
+        queryset = queryset.filter(
+            Q(oil_filter_brand__name__icontains=search) |
+            Q(name__icontains=search)
+        )
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'oil_filter/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def oil_filter_create(request):
+    form = OilFilterForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(OilFilter)
+            instance.creator = request.user
+            profile = getattr(request.user, 'profile', None)
+            instance.company = getattr(profile, 'company', None) if profile else None
+            instance.save()
+            messages.success(request, "Oil Filter created successfully")
+            return redirect('oil_filter_list')
+    return render(request, 'oil_filter/create.html', {
+        'form': form,
+        'title': 'Create Oil Filter'
+    })
+
+
+@login_required
+def oil_filter_edit(request, id):
+    instance = get_object_or_404(OilFilter, id=id, is_deleted=False)
+    form = OilFilterForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Oil Filter updated successfully")
+            return redirect('oil_filter_list')
+    return render(request, 'oil_filter/create.html', {
+        'form': form,
+        'title': 'Edit Oil Filter'
+    })
+
+
+@login_required
+def oil_filter_delete(request, id):
+    instance = get_object_or_404(OilFilter, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Oil Filter deleted successfully")
+    return redirect('oil_filter_list')
 
 
 # ==========================================

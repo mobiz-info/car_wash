@@ -50,7 +50,9 @@ def custom_login(request):
             error = "Invalid username or password."
 
     return render(request, 'auth/login.html', {'error': error})
-from client_management.models import Client, Branch, Staff
+from client_management.models import Client, Branch, Staff, CustomerVehicle, Subscription, RenewalTransaction
+from finance_management.models import Invoice, Receipt
+from django.db.models import Sum, Count, Q
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
@@ -65,14 +67,54 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             role_name = None
             
         context['subscription_notification'] = None
+        context['role_name'] = role_name
 
         if role_name == 'SUPER_ADMIN':
+            today = timezone.now().date()
+            
+            total_companies = Client.objects.filter(is_deleted=False).count()
+            active_companies = Client.objects.filter(is_deleted=False, status=True).count()
+            total_branches = Branch.objects.filter(is_deleted=False).count()
+            total_staff = Staff.objects.filter(is_deleted=False).count()
+            total_users = User.objects.filter(is_active=True).count()
+            total_vehicles = CustomerVehicle.objects.filter(is_deleted=False).count()
+            
+            # Financial & Invoicing metrics
+            inv_qs = Invoice.objects.filter(is_deleted=False)
+            total_invoices = inv_qs.count()
+            total_revenue_sum = inv_qs.aggregate(s=Sum('total'))['s'] or 0.0
+            
+            sub_qs = Subscription.objects.filter(is_deleted=False)
+            sub_revenue_sum = sub_qs.aggregate(s=Sum('usage_fee'))['s'] or 0.0
+            
+            active_subs_count = sub_qs.filter(end_date__gte=today).count()
+            expiring_subs_count = sub_qs.filter(end_date__gte=today, end_date__lte=today + timedelta(days=30)).count()
+
             context['stats'] = [
-                {'label': 'Total Companies', 'value': Client.objects.filter(is_deleted=False).count(), 'icon': 'ph-fill ph-buildings', 'color': '#3b82f6'},
-                {'label': 'Total Branches', 'value': Branch.objects.filter(is_deleted=False).count(), 'icon': 'ph-fill ph-git-branch', 'color': '#10b981'},
-                {'label': 'Total Staff', 'value': Staff.objects.filter(is_deleted=False).count(), 'icon': 'ph-fill ph-users', 'color': '#f59e0b'},
-                {'label': 'Total Users', 'value': User.objects.filter(is_active=True).count(), 'icon': 'ph-fill ph-user-check', 'color': '#8b5cf6'},
+                {'label': 'Total Companies', 'value': f"{active_companies} / {total_companies}", 'icon': 'ph-fill ph-buildings', 'color': '#3b82f6', 'subtext': 'Active / Total'},
+                {'label': 'Total Branches', 'value': total_branches, 'icon': 'ph-fill ph-git-branch', 'color': '#10b981', 'subtext': 'Across all companies'},
+                {'label': 'Subscription Revenue', 'value': f"₹{sub_revenue_sum:,.2f}", 'icon': 'ph-fill ph-currency-circle-dollar', 'color': '#059669', 'subtext': 'Total usage fees'},
+                {'label': 'System Invoices', 'value': total_invoices, 'icon': 'ph-fill ph-receipt', 'color': '#6366f1', 'subtext': f"₹{total_revenue_sum:,.2f} Total"},
+                {'label': 'Vehicles Registered', 'value': total_vehicles, 'icon': 'ph-fill ph-car', 'color': '#f59e0b', 'subtext': 'Serviced in platform'},
+                {'label': 'Active Subscriptions', 'value': active_subs_count, 'icon': 'ph-fill ph-check-circle', 'color': '#0284c7', 'subtext': f"{expiring_subs_count} due in 30 days"},
+                {'label': 'Total Staff', 'value': total_staff, 'icon': 'ph-fill ph-users', 'color': '#ec4899', 'subtext': 'All branch employees'},
+                {'label': 'Active Users', 'value': total_users, 'icon': 'ph-fill ph-user-check', 'color': '#8b5cf6', 'subtext': 'Logins active'},
             ]
+
+            # Recent Companies List
+            context['recent_companies'] = Client.objects.filter(is_deleted=False).order_by('-date_added')[:6]
+            
+            # Expiring Subscriptions List
+            context['expiring_subscriptions'] = Subscription.objects.filter(
+                is_deleted=False,
+                end_date__gte=today,
+                end_date__lte=today + timedelta(days=30)
+            ).select_related('company').order_by('end_date')[:6]
+
+            # Recent Invoices List
+            context['recent_invoices'] = Invoice.objects.filter(
+                is_deleted=False
+            ).select_related('branch', 'branch__company', 'customer').order_by('-date_added')[:6]
 
         elif role_name == 'COMPANY_ADMIN':
             company = user.profile.company

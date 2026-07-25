@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Oil Filter Brand - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Oil Filter Brand{% endblock %}
+{% block breadcrumb_active %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container" style="max-width:550px;">
+    <div class="premium-form-title">
+        <i class="ph ph-funnel" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label>Brand Name * (e.g. Bosch, Mann, FRAM, Mobil 1, Wix, Denso)</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.name.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top:16px;">
+            {{ form.is_active }}
+            <label for="id_is_active" style="margin-bottom:0; cursor:pointer;">Is Active</label>
+        </div>
+
+        <div class="form-actions" style="margin-top:24px;">
+            <a href="{% url 'oil_filter_brand_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Brand
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

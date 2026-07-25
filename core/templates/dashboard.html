@@ -1,323 +1,201 @@
 {% extends 'base.html' %}
 
-{% block title %}Dashboard - Mobiz Car Wash Solution{% endblock %}
+{% block title %}Superadmin Command Center - Mobiz Car Wash Solution{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block breadcrumb_active %}Dashboard{% endblock %}
 
 {% block content %}
 
-<!-- Top Header -->
-<div style="
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 28px;
-    flex-wrap: wrap;
-    gap: 16px;
-">
+<!-- Top Header Bar -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+    <div></div>
 
-    <!-- Welcome -->
-    <div>
-        
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        {% if role_name == 'SUPER_ADMIN' %}
+        <a href="{% url 'client_create' %}" class="btn-create" style="padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 0.88rem; display: flex; align-items: center; gap: 6px;">
+            <i class="ph-bold ph-plus"></i> Add Company
+        </a>
+        <a href="{% url 'subscription_create' %}" style="background: #10b981; color: white; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 0.88rem; text-decoration: none; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.25);">
+            <i class="ph-bold ph-sketch-logo"></i> Add Subscription
+        </a>
+        {% endif %}
+
+        <div style="background-color: white; padding: 10px 18px; border-radius: 10px; border: 1px solid #e2e8f0; color: #475569; font-weight: 600; font-size: 0.88rem; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+            <i class="ph-fill ph-calendar-blank" style="color: #3b82f6;"></i>
+            {% now "jS F Y" %}
+        </div>
     </div>
-
-    <!-- Date -->
-    <div style="
-        background-color: white;
-        padding: 10px 18px;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        color: #475569;
-        font-weight: 600;
-        font-size: 0.92rem;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    ">
-        <i class="ph-fill ph-calendar-blank"></i>
-        {% now "jS F Y" %}
-    </div>
-
 </div>
 
-
-<!-- Subscription Notification -->
+<!-- Subscription Notification for Company Admin -->
 {% if subscription_notification %}
-<div style="
-    margin-bottom: 28px;
-    border-radius: 20px;
-    overflow: hidden;
-    background: white;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-">
-
-    <!-- Top Color Line -->
-    <div style="
-        height: 5px;
-        background:
-            {% if subscription_notification.type == 'danger' %}
-                linear-gradient(90deg, #ef4444, #dc2626)
-            {% else %}
-                linear-gradient(90deg, #f59e0b, #d97706)
-            {% endif %};
-    "></div>
-
-    <div style="
-        padding: 24px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
-    ">
-
-        <!-- Left Side -->
-        <div style="
-            display: flex;
-            align-items: center;
-            gap: 18px;
-        ">
-
-            <!-- Icon -->
-            <div style="
-                width: 70px;
-                height: 70px;
-                border-radius: 18px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-
-                background:
-                    {% if subscription_notification.type == 'danger' %}
-                        rgba(239, 68, 68, 0.12)
-                    {% else %}
-                        rgba(245, 158, 11, 0.12)
-                    {% endif %};
-            ">
-
-                <i class="ph-fill ph-warning-circle"
-                   style="
-                        font-size: 2rem;
-
-                        color:
-                            {% if subscription_notification.type == 'danger' %}
-                                #dc2626
-                            {% else %}
-                                #d97706
-                            {% endif %};
-                   ">
-                </i>
-
+<div style="margin-bottom: 28px; border-radius: 16px; overflow: hidden; background: white; border: 1px solid #e2e8f0; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);">
+    <div style="height: 5px; background: {% if subscription_notification.type == 'danger' %}linear-gradient(90deg, #ef4444, #dc2626){% else %}linear-gradient(90deg, #f59e0b, #d97706){% endif %};"></div>
+    <div style="padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: {% if subscription_notification.type == 'danger' %}rgba(239, 68, 68, 0.12){% else %}rgba(245, 158, 11, 0.12){% endif %};">
+                <i class="ph-fill ph-warning-circle" style="font-size: 1.8rem; color: {% if subscription_notification.type == 'danger' %}#dc2626{% else %}#d97706{% endif %};"></i>
             </div>
-
-            <!-- Text -->
             <div>
-
-                <div style="
-                    font-size: 1.15rem;
-                    font-weight: 700;
-                    color: #0f172a;
-                    margin-bottom: 6px;
-                ">
-                    Subscription Alert
-                </div>
-
-                <div style="
-                    font-size: 0.96rem;
-                    color: #475569;
-                    line-height: 1.7;
-                    max-width: 650px;
-                ">
-                    {{ subscription_notification.message }}
-                </div>
-
+                <div style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Subscription Alert</div>
+                <div style="font-size: 0.9rem; color: #475569;">{{ subscription_notification.message }}</div>
             </div>
-
         </div>
-
-        <!-- Right Side -->
-        <div style="
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            flex-wrap: wrap;
-        ">
-
-            <!-- Badge -->
-            <div style="
-                padding: 9px 16px;
-                border-radius: 999px;
-                font-size: 0.78rem;
-                font-weight: 700;
-                letter-spacing: 0.04em;
-
-                background:
-                    {% if subscription_notification.type == 'danger' %}
-                        #fee2e2
-                    {% else %}
-                        #fef3c7
-                    {% endif %};
-
-                color:
-                    {% if subscription_notification.type == 'danger' %}
-                        #b91c1c
-                    {% else %}
-                        #92400e
-                    {% endif %};
-            ">
-                {% if subscription_notification.type == 'danger' %}
-                    EXPIRED
-                {% else %}
-                    RENEWAL DUE
-                {% endif %}
-            </div>
-
-            <!-- Button -->
-            {% comment %} <a href="{% url 'subscription_create' %}"
-               style="
-                    text-decoration: none;
-                    padding: 12px 22px;
-                    border-radius: 12px;
-                    font-size: 0.92rem;
-                    font-weight: 600;
-                    color: white;
-
-                    background:
-                        {% if subscription_notification.type == 'danger' %}
-                            #dc2626
-                        {% else %}
-                            #d97706
-                        {% endif %};
-
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-                    transition: 0.3s ease;
-               ">
-                Renew Subscription
-            </a> {% endcomment %}
-
+        <div style="padding: 6px 14px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: {% if subscription_notification.type == 'danger' %}#fee2e2{% else %}#fef3c7{% endif %}; color: {% if subscription_notification.type == 'danger' %}#b91c1c{% else %}#92400e{% endif %};">
+            {% if subscription_notification.type == 'danger' %}EXPIRED{% else %}RENEWAL DUE{% endif %}
         </div>
-
     </div>
 </div>
 {% endif %}
 
-
 <!-- Dashboard Cards -->
-<div class="dashboard-cards"
-     style="
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 24px;
-        margin-bottom: 32px;
-">
-
+<div class="dashboard-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; margin-bottom: 32px;">
     {% for stat in stats %}
-
-    <div style="
-        background: white;
-        padding: 24px;
-        border-radius: 18px;
-        border: 1px solid #e2e8f0;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
-        position: relative;
-        overflow: hidden;
-        transition: 0.3s ease;
-    ">
-
-        <!-- Left Border -->
-        <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 5px;
-            height: 100%;
-            background-color: {{ stat.color }};
-        "></div>
-
-        <!-- Header -->
-        <div style="
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        ">
-
-            <span style="
-                font-size: 0.82rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                color: #64748b;
-            ">
+    <div style="background: white; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04); position: relative; overflow: hidden; transition: transform 0.2s ease;">
+        <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background-color: {{ stat.color }};"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+            <span style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b;">
                 {{ stat.label }}
             </span>
-
-            <div style="
-                width: 52px;
-                height: 52px;
-                border-radius: 14px;
-                background: {{ stat.color }}15;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            ">
-                <i class="{{ stat.icon }}"
-                   style="
-                        font-size: 1.5rem;
-                        color: {{ stat.color }};
-                   ">
-                </i>
+            <div style="width: 44px; height: 44px; border-radius: 12px; background: {{ stat.color }}15; display: flex; align-items: center; justify-content: center;">
+                <i class="{{ stat.icon }}" style="font-size: 1.35rem; color: {{ stat.color }};"></i>
             </div>
-
         </div>
-
-        <!-- Value -->
-        <div style="
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: #0f172a;
-            margin-top: 8px;
-        ">
-            {{ stat.value }}
+        <div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: #0f172a; line-height: 1.2;">
+                {{ stat.value }}
+            </div>
+            {% if stat.subtext %}
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px; font-weight: 500;">
+                {{ stat.subtext }}
+            </div>
+            {% endif %}
         </div>
-
     </div>
-
     {% empty %}
+    <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: white; border-radius: 16px; border: 1px dashed #cbd5e1; color: #94a3b8;">
+        <i class="ph-fill ph-chart-bar" style="font-size: 2.5rem; margin-bottom: 8px;"></i>
+        <p style="margin: 0; font-size: 0.95rem; font-weight: 500;">No dashboard metrics available.</p>
+    </div>
+    {% endfor %}
+</div>
 
-    <div style="
-        grid-column: 1/-1;
-        text-align: center;
-        padding: 60px;
-        background: white;
-        border-radius: 18px;
-        border: 1px dashed #cbd5e1;
-        color: #94a3b8;
-    ">
+<!-- Superadmin Data Analytics Grid -->
+{% if role_name == 'SUPER_ADMIN' %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px;">
 
-        <i class="ph-fill ph-chart-bar"
-           style="
-                font-size: 3rem;
-                margin-bottom: 12px;
-           ">
-        </i>
+    <!-- Recent Registered Companies -->
+    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <i class="ph-fill ph-buildings" style="color: #3b82f6;"></i> Recent Companies
+            </h3>
+            <a href="{% url 'client_list' %}" style="font-size: 0.8rem; font-weight: 700; color: #3b82f6; text-decoration: none;">View All →</a>
+        </div>
 
-        <p style="
-            margin: 0;
-            font-size: 1rem;
-            font-weight: 500;
-        ">
-            No dashboard data available.
-        </p>
-
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #f1f5f9; color: #64748b;">
+                        <th style="padding: 8px 10px; font-weight: 600;">Company</th>
+                        <th style="padding: 8px 10px; font-weight: 600;">Owner</th>
+                        <th style="padding: 8px 10px; font-weight: 600;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in recent_companies %}
+                    <tr style="border-bottom: 1px solid #f8fafc;">
+                        <td style="padding: 10px; font-weight: 700; color: #1e293b;">{{ c.company_name }}</td>
+                        <td style="padding: 10px; color: #475569;">{{ c.owner_name }}</td>
+                        <td style="padding: 10px;">
+                            {% if c.status %}
+                                <span style="background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">Active</span>
+                            {% else %}
+                                <span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">Inactive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" style="padding: 20px; text-align: center; color: #94a3b8;">No companies onboarded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    {% endfor %}
+    <!-- Expiring Subscriptions Alert -->
+    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <i class="ph-fill ph-clock-countdown" style="color: #f59e0b;"></i> Expiring Subscriptions (30 Days)
+            </h3>
+            <a href="{% url 'subscription_list' %}" style="font-size: 0.8rem; font-weight: 700; color: #f59e0b; text-decoration: none;">View All →</a>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #f1f5f9; color: #64748b;">
+                        <th style="padding: 8px 10px; font-weight: 600;">Company</th>
+                        <th style="padding: 8px 10px; font-weight: 600;">Expiry Date</th>
+                        <th style="padding: 8px 10px; font-weight: 600;">Fee (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sub in expiring_subscriptions %}
+                    <tr style="border-bottom: 1px solid #f8fafc;">
+                        <td style="padding: 10px; font-weight: 700; color: #1e293b;">{{ sub.company.company_name }}</td>
+                        <td style="padding: 10px; color: #d97706; font-weight: 600;">{{ sub.end_date|date:"j M Y" }}</td>
+                        <td style="padding: 10px; font-weight: 700; color: #10b981;">₹{{ sub.usage_fee }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" style="padding: 20px; text-align: center; color: #94a3b8;">No subscriptions expiring soon.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
 </div>
+
+<!-- Recent Invoices Across Platform -->
+<div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04); margin-bottom: 32px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="ph-fill ph-receipt" style="color: #6366f1;"></i> Recent System Invoices
+        </h3>
+        <a href="{% url 'invoice_list' %}" style="font-size: 0.8rem; font-weight: 700; color: #6366f1; text-decoration: none;">All Invoices →</a>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+            <thead>
+                <tr style="border-bottom: 1px solid #f1f5f9; color: #64748b;">
+                    <th style="padding: 10px; font-weight: 600;">Invoice No</th>
+                    <th style="padding: 10px; font-weight: 600;">Company / Branch</th>
+                    <th style="padding: 10px; font-weight: 600;">Customer</th>
+                    <th style="padding: 10px; font-weight: 600;">Date</th>
+                    <th style="padding: 10px; font-weight: 600; text-align: right;">Amount (₹)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in recent_invoices %}
+                <tr style="border-bottom: 1px solid #f8fafc;">
+                    <td style="padding: 10px; font-weight: 700; color: #3b82f6;">{{ inv.invoice_number }}</td>
+                    <td style="padding: 10px; color: #1e293b;">
+                        {{ inv.branch.company.company_name }} — <span style="color: #64748b;">{{ inv.branch.name }}</span>
+                    </td>
+                    <td style="padding: 10px; color: #475569;">{{ inv.customer.name }}</td>
+                    <td style="padding: 10px; color: #64748b;">{{ inv.date_added|date:"j M Y" }}</td>
+                    <td style="padding: 10px; font-weight: 800; color: #10b981; text-align: right;">₹{{ inv.total }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">No invoices created yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 {% endblock %}

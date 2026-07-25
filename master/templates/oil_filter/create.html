@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container" style="max-width:650px;">
+    <div class="premium-form-title">
+        <i class="ph ph-funnel" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-section-label">
+            <i class="ph ph-tag"></i> Filter Details
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label>Select Oil Filter Brand *</label>
+            {{ form.oil_filter_brand }}
+            {% if form.oil_filter_brand.errors %}
+                <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.oil_filter_brand.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label>Filter Part No. / Name * (e.g. OF-101, W712/94, 04152-YZZA1)</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.name.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-section-label" style="margin-top:20px;">
+            <i class="ph ph-currency-inr"></i> Pricing, Lifespan & Stock
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Price (₹) *</label>
+                {{ form.price }}
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Customer retail price</div>
+                {% if form.price.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.price.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Running KM *</label>
+                {{ form.running_km }}
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">e.g. 5000 KM</div>
+                {% if form.running_km.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.running_km.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Stock Qty (Units)</label>
+                {{ form.stock_qty }}
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Current stock in units</div>
+                {% if form.stock_qty.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.stock_qty.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top:12px;">
+            {{ form.is_active }}
+            <label for="id_is_active" style="margin-bottom:0; cursor:pointer;">Is Active</label>
+        </div>
+
+        <div class="form-actions" style="margin-top:24px;">
+            <a href="{% url 'oil_filter_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Filter
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
