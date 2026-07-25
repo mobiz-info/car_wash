@@ -3278,8 +3278,6 @@ def api_send_reminder(request):
                         'message': 'WhatsApp API is not configured. Send individually to use manual prefill.'
                     })
 
-            # Send via API
-            try:
             # Check if this is an oil change reminder
             is_oil = False
             next_km = ""
