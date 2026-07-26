@@ -142,6 +142,8 @@ def api_login(request):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 def get_user_from_token(request):
+    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
+        return request.user
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
         token = auth_header.split(' ')[1]
