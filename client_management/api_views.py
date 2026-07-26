@@ -3637,7 +3637,7 @@ def api_create_expense_entry(request):
         expense_head_id = data.get('expense_head_id')
         expense_name = data.get('expense_name')
         amount = data.get('amount')
-        expense_date = data.get('date')  # 'yyyy-mm-dd'
+        expense_date = data.get('expense_date') or data.get('date')  # 'yyyy-mm-dd'
         remarks = data.get('remarks', '')
         
         if not expense_head_id or not expense_name or not amount or not expense_date:
