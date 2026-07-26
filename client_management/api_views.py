@@ -3492,7 +3492,18 @@ def api_get_all_expenses(request):
         
         if hasattr(user, 'managed_branch') and user.managed_branch:
             qs = qs.filter(branch=user.managed_branch)
-            
+        else:
+            branch_id = request.GET.get('branch_id', '').strip()
+            if branch_id and branch_id.lower() != 'all':
+                qs = qs.filter(branch_id=branch_id)
+                
+        from_date = request.GET.get('from_date', '').strip()
+        to_date = request.GET.get('to_date', '').strip()
+        if from_date:
+            qs = qs.filter(expense_date__gte=from_date)
+        if to_date:
+            qs = qs.filter(expense_date__lte=to_date)
+
         search = request.GET.get('search', '').strip()
         if search:
             from django.db.models import Q
