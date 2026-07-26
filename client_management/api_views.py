@@ -3662,25 +3662,39 @@ def api_create_expense_entry(request):
             return JsonResponse({'success': False, 'message': 'No branch associated with user'}, status=400)
             
         # Get or create the Expense
-        expense_head = get_object_or_404(ExpenseHead, id=expense_head_id, is_deleted=False)
-        expense, created = Expense.objects.get_or_create(
+        try:
+            expense_head = ExpenseHead.objects.get(id=expense_head_id)
+        except Exception:
+            return JsonResponse({'success': False, 'message': f'Expense Head not found for ID: {expense_head_id}'}, status=400)
+
+        expense = Expense.objects.filter(
             expense_head=expense_head,
-            name=expense_name,
-            defaults={
-                'auto_id': get_auto_id(Expense),
-                'creator': user
-            }
-        )
+            name__iexact=str(expense_name).strip(),
+            is_deleted=False
+        ).first()
+
+        if not expense:
+            expense = Expense.objects.create(
+                auto_id=get_auto_id(Expense),
+                creator=user,
+                expense_head=expense_head,
+                name=str(expense_name).strip()
+            )
         
-        # If it's a purchase expense, handle supplier and paid_amount
         supplier = None
-        paid_amount = amount
-        if expense_head.name.strip().lower() == 'purchase':
-            supplier_id = data.get('supplier_id')
-            if supplier_id:
-                from master.models import Supplier
-                supplier = get_object_or_404(Supplier, id=supplier_id, company=company, is_deleted=False)
-            paid_amount = data.get('paid_amount', 0.00)
+        supplier_id = data.get('supplier_id')
+        if supplier_id:
+            from master.models import Supplier
+            supplier = Supplier.objects.filter(id=supplier_id, is_deleted=False).first()
+
+        paid_amount_raw = data.get('paid_amount')
+        if paid_amount_raw is not None and str(paid_amount_raw).strip() != '':
+            try:
+                paid_amount = float(paid_amount_raw)
+            except (ValueError, TypeError):
+                paid_amount = float(amount)
+        else:
+            paid_amount = float(amount)
             
         # Create ExpenseEntry
         entry = ExpenseEntry.objects.create(
@@ -3689,7 +3703,7 @@ def api_create_expense_entry(request):
             company=company,
             branch=branch,
             expense=expense,
-            amount=amount,
+            amount=float(amount),
             expense_date=expense_date,
             remarks=remarks,
             supplier=supplier,
