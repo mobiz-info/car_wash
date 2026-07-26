@@ -1359,13 +1359,16 @@ def supplier_list(request):
 
 @login_required
 def supplier_create(request):
-    form = SupplierForm(request.POST or None)
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    form = SupplierForm(request.POST or None, company=company)
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)
             instance.auto_id = get_auto_id(Supplier)
             instance.creator = request.user
-            instance.company = request.user.profile.company
+            instance.company = company
+            if getattr(request.user, 'managed_branch', None):
+                instance.branch = request.user.managed_branch
             instance.save()
             messages.success(request, "Supplier created successfully")
             return redirect('supplier_list')
@@ -1380,7 +1383,7 @@ def supplier_edit(request, id):
     else:
         instance = get_object_or_404(Supplier, id=id, company=company, is_deleted=False)
         
-    form = SupplierForm(request.POST or None, instance=instance)
+    form = SupplierForm(request.POST or None, instance=instance, company=company)
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)

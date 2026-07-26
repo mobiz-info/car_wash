@@ -123,13 +123,25 @@ class VehicleBrandModelForm(forms.ModelForm):
 class SupplierForm(forms.ModelForm):
     class Meta:
         model = Supplier
-        fields = ['name', 'address', 'gst_no', 'phone_no', 'is_active']
+        fields = ['branch', 'name', 'address', 'gst_no', 'phone_no', 'is_active']
         widgets = {
+            'branch': forms.Select(attrs={'class': 'form-control'}),
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Supplier Name'}),
             'address': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Supplier Address', 'rows': 3}),
             'gst_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'GST No. (Optional)'}),
             'phone_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone Number'}),
         }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if company:
+            from client_management.models import Branch
+            self.fields['branch'].queryset = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+            self.fields['branch'].empty_label = '-- All Branches (Company Level) --'
+            self.fields['branch'].required = False
+        else:
+            self.fields['branch'].widget = forms.HiddenInput()
+            self.fields['branch'].required = False
 
 
 class OilBrandForm(forms.ModelForm):

@@ -104,6 +104,7 @@ class Expense(BaseModel):
     
 class Supplier(BaseModel):
     company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='suppliers')
+    branch = models.ForeignKey('client_management.Branch', on_delete=models.SET_NULL, blank=True, null=True, related_name='suppliers')
     name = models.CharField(max_length=200)
     address = models.TextField()
     gst_no = models.CharField(max_length=50, blank=True, null=True)
