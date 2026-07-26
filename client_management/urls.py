@@ -94,6 +94,7 @@ urlpatterns = [
     path('api/expenses/items-by-head/', api_views.api_get_expense_items_by_head, name='api_get_expense_items_by_head'),
     path('api/expenses/create/', api_views.api_create_expense_entry, name='api_create_expense_entry'),
     path('api/expenses/list/', api_views.api_get_all_expenses, name='api_get_all_expenses'),
+    path('api/expenses/delete/', api_views.api_delete_expense_entry, name='api_delete_expense_entry'),
     
     # Supplier APIs
     path('api/supplier/list/', api_views.api_list_suppliers, name='api_list_suppliers'),

@@ -3720,6 +3720,43 @@ def api_create_expense_entry(request):
 
 
 @csrf_exempt
+def api_delete_expense_entry(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import ExpenseEntry
+        data = json.loads(request.body)
+        expense_id = data.get('id') or data.get('expense_id')
+        if not expense_id:
+            return JsonResponse({'success': False, 'message': 'Expense ID is required'}, status=400)
+            
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        qs = ExpenseEntry.objects.filter(id=expense_id, company=company, is_deleted=False)
+        if hasattr(user, 'managed_branch') and user.managed_branch:
+            qs = qs.filter(branch=user.managed_branch)
+            
+        entry = qs.first()
+        if not entry:
+            return JsonResponse({'success': False, 'message': 'Expense record not found or permission denied'}, status=404)
+            
+        entry.is_deleted = True
+        entry.updater = user
+        entry.save()
+        
+        return JsonResponse({'success': True, 'message': 'Expense deleted successfully'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_get_staff_list(request):
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
