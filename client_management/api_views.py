@@ -3467,6 +3467,9 @@ def api_get_expense_items_by_head(request):
             'items': items_list
         })
     except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
 @csrf_exempt
 def api_get_all_expenses(request):
     if request.method != 'GET':
