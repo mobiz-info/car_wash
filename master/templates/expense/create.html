@@ -99,11 +99,21 @@ textarea.form-control {
                 </div>
             </div>
 
+            <!-- Has Supplier Checkbox -->
+            <div style="width: 100%; padding: 8px; margin-top: 4px; margin-bottom: 4px;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="has_supplier_checkbox" name="has_supplier" style="width: 18px; height: 18px; cursor: pointer;" {% if expense_entry and expense_entry.supplier %}checked{% endif %}>
+                    <label for="has_supplier_checkbox" style="margin-bottom: 0; font-weight: 600; cursor: pointer; color: #1e293b;">
+                        Has Supplier / Credit Supplier Payment
+                    </label>
+                </div>
+            </div>
+
             <!-- Supplier (Optional) -->
-            <div style="width: 50%; padding: 8px;">
+            <div id="supplier_wrapper" style="width: 50%; padding: 8px; display: none;">
                 <div class="form-group">
                     <label>Supplier (Optional)</label>
-                    <select name="supplier" class="form-control">
+                    <select name="supplier" id="supplier_select" class="form-control">
                         <option value="">Select Supplier (Optional)</option>
                         {% for supplier in suppliers %}
                         <option value="{{ supplier.id }}" {% if expense_entry and expense_entry.supplier_id == supplier.id %}selected{% endif %}>
@@ -123,7 +133,7 @@ textarea.form-control {
             </div>
 
             <!-- Paid Amount -->
-            <div style="width: 50%; padding: 8px;">
+            <div id="paid_amount_wrapper" style="width: 50%; padding: 8px; display: none;">
                 <div class="form-group">
                     <label>Paid Amount</label>
                     <input type="number" step="0.01" name="paid_amount" id="paid_amount_input" class="form-control" value="{{ expense_entry.paid_amount|default:'' }}" placeholder="0.00">
@@ -161,6 +171,36 @@ textarea.form-control {
 
         const expenseHeadSelect = document.getElementById('expense_head');
         const expenseNameContainer = document.getElementById('expense_name_container');
+        const hasSupplierCheckbox = document.getElementById('has_supplier_checkbox');
+        const supplierWrapper = document.getElementById('supplier_wrapper');
+        const supplierSelect = document.getElementById('supplier_select');
+        const paidAmountWrapper = document.getElementById('paid_amount_wrapper');
+        const paidAmountInput = document.getElementById('paid_amount_input');
+        const amountInput = document.getElementById('amount_input');
+
+        function toggleSupplierFields() {
+            if (hasSupplierCheckbox.checked) {
+                supplierWrapper.style.display = 'block';
+                paidAmountWrapper.style.display = 'block';
+            } else {
+                supplierWrapper.style.display = 'none';
+                if (supplierSelect) supplierSelect.value = '';
+                paidAmountWrapper.style.display = 'none';
+                if (amountInput && paidAmountInput) {
+                    paidAmountInput.value = amountInput.value;
+                }
+            }
+        }
+
+        hasSupplierCheckbox.addEventListener('change', toggleSupplierFields);
+
+        if (amountInput && paidAmountInput) {
+            amountInput.addEventListener('input', function() {
+                if (!hasSupplierCheckbox.checked) {
+                    paidAmountInput.value = amountInput.value;
+                }
+            });
+        }
 
         async function loadItemsForHead() {
             const headId = expenseHeadSelect.value;
@@ -229,6 +269,7 @@ textarea.form-control {
             }
         }
 
+        toggleSupplierFields();
         expenseHeadSelect.addEventListener('change', loadItemsForHead);
         if (expenseHeadSelect.value) {
             loadItemsForHead();
