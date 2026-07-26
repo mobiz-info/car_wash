@@ -3467,6 +3467,55 @@ def api_get_expense_items_by_head(request):
             'items': items_list
         })
     except Exception as e:
+@csrf_exempt
+def api_get_all_expenses(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import ExpenseEntry
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company:
+            return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+            
+        qs = ExpenseEntry.objects.filter(
+            company=company,
+            is_deleted=False
+        ).select_related('expense', 'expense__expense_head', 'supplier', 'branch').order_by('-expense_date', '-id')
+        
+        if hasattr(user, 'managed_branch') and user.managed_branch:
+            qs = qs.filter(branch=user.managed_branch)
+            
+        search = request.GET.get('search', '').strip()
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(expense__name__icontains=search) |
+                Q(expense__expense_head__name__icontains=search) |
+                Q(remarks__icontains=search)
+            )
+
+        expense_list = []
+        for e in qs:
+            expense_list.append({
+                'id': str(e.id),
+                'expense_head_name': e.expense.expense_head.name if (e.expense and e.expense.expense_head) else 'General',
+                'expense_name': e.expense.name if e.expense else '',
+                'amount': str(e.amount or 0),
+                'paid_amount': str(e.paid_amount or 0),
+                'balance_amount': str((e.amount or 0) - (e.paid_amount or 0)),
+                'expense_date': e.expense_date.strftime('%Y-%m-%d') if e.expense_date else '',
+                'remarks': e.remarks or '',
+                'supplier_name': e.supplier.name if e.supplier else 'N/A',
+                'branch_name': e.branch.name if e.branch else 'N/A',
+            })
+            
+        return JsonResponse({'success': True, 'expenses': expense_list})
+    except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
