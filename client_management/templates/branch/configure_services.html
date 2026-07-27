@@ -13,21 +13,17 @@
     </div>
 
     {% if branches and branches|length > 1 %}
-    <div
-        style="margin-bottom: 20px; padding: 14px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+    <div style="margin-bottom: 20px; padding: 14px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
         <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1e40af; font-size: 0.9rem;">
             <i class="ph ph-storefront"></i> Select Branch:
         </label>
-        <select onchange="location.href='?branch_id=' + this.value;" class="form-control"
-            style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; background: #ffffff; font-weight: 500;">
+        <select onchange="location.href='?branch_id=' + this.value;" class="form-control" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; background: #ffffff; font-weight: 500;">
             {% for b in branches %}
             <option value="{{ b.id }}" {% if b.id == branch.id %}selected{% endif %}>{{ b.name }}</option>
             {% endfor %}
         </select>
     </div>
     {% endif %}
-
-
 
     <form method="POST">
         {% csrf_token %}
@@ -36,16 +32,13 @@
         <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px;">
             {% for cat in categories %}
             {% if cat.slug %}
-            <div
-                style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc;">
                 <div>
                     <strong style="display: block; color: #1e293b; font-size: 1rem;">{{ cat.name }}</strong>
                     <span style="color: #94a3b8; font-size: 0.8rem; font-family: monospace;">slug: {{ cat.slug }}</span>
                 </div>
                 <div style="display: flex; align-items: center;">
-                    <input type="checkbox" name="enabled_categories" value="{{ cat.slug }}" id="cat_{{ cat.slug }}" {%
-                        if cat.slug in enabled_slugs %}checked{% endif %}
-                        style="width: 20px; height: 20px; cursor: pointer; accent-color: #2563eb;">
+                    <input type="checkbox" name="enabled_categories" value="{{ cat.slug }}" id="cat_{{ cat.slug }}" {% if cat.slug in enabled_slugs %}checked{% endif %} style="width: 20px; height: 20px; cursor: pointer; accent-color: #2563eb;">
                 </div>
             </div>
             {% endif %}
