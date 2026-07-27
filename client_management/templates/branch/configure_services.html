@@ -1,17 +1,30 @@
 {% extends 'base.html' %}
 
-{% block title %}Configure Services - Mobiz Car Wash Solution{% endblock %}
-{% block page_title %}Configure Services — {{ branch.name }}{% endblock %}
-{% block breadcrumb_active %}Configure Services{% endblock %}
+{% block title %}Enable Categories - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Enable Categories — {{ branch.name }}{% endblock %}
+{% block breadcrumb_active %}Enable Categories{% endblock %}
 
 {% block content %}
 
-<div class="premium-form-container" style="max-width: 600px;">
+<div class="premium-form-container" style="max-width: 650px;">
     <div class="premium-form-title">
         <i class="ph ph-sliders" style="color: #2563eb; font-size: 1.5rem;"></i>
-        Configure Service Categories
+        Enable Service Categories
     </div>
     
+    {% if branches and branches|length > 1 %}
+    <div style="margin-bottom: 20px; padding: 14px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1e40af; font-size: 0.9rem;">
+            <i class="ph ph-storefront"></i> Select Branch:
+        </label>
+        <select onchange="location.href='?branch_id=' + this.value;" class="form-control" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #93c5fd; background: #ffffff; font-weight: 500;">
+            {% for b in branches %}
+                <option value="{{ b.id }}" {% if b.id == branch.id %}selected{% endif %}>{{ b.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
     <p style="color: #64748b; margin-bottom: 24px; font-size: 0.9rem;">
         Select which service categories are enabled for <strong>{{ branch.name }}</strong>. 
         Only the enabled categories will be visible in the mobile application for this branch.
@@ -19,6 +32,7 @@
 
     <form method="POST">
         {% csrf_token %}
+        <input type="hidden" name="branch_id" value="{{ branch.id }}">
 
         <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px;">
             {% for cat in categories %}
@@ -39,7 +53,7 @@
         </div>
 
         <div class="form-actions">
-            <a href="{% url 'branch_list' %}" class="btn-secondary">Cancel</a>
+            <a href="{% url 'dashboard' %}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary">
                 <i class="ph ph-check-circle"></i> Save Configuration
             </button>

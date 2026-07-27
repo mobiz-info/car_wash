@@ -472,21 +472,39 @@ def branch_delete(request, id):
 
 
 @login_required
-def branch_services_configure(request, id):
-    try:
-        company = request.user.profile.company
-    except AttributeError:
-        messages.error(request, "You are not associated with any company.")
-        return redirect('dashboard')
+def branch_services_configure(request, id=None):
+    from django.urls import reverse
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    role = getattr(getattr(request.user.profile, 'role', None), 'name', '')
 
-    instance = get_object_or_404(Branch, id=id, company=company, is_deleted=False)
-    
+    branches = None
+    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch') and request.user.managed_branch:
+        instance = request.user.managed_branch
+    else:
+        if company:
+            branches = Branch.objects.filter(is_deleted=False, company=company).order_by('name')
+        else:
+            branches = Branch.objects.filter(is_deleted=False).order_by('name')
+            
+        if id:
+            instance = get_object_or_404(Branch, id=id, is_deleted=False)
+        else:
+            selected_branch_id = request.GET.get('branch_id') or request.POST.get('branch_id')
+            if selected_branch_id:
+                instance = get_object_or_404(Branch, id=selected_branch_id, is_deleted=False)
+            elif branches and branches.exists():
+                instance = branches.first()
+            else:
+                instance = None
+
+    if not instance:
+        messages.error(request, "No branch found. Please create a branch first.")
+        return redirect('branch_create')
+
     from service_management.models import ServiceType, BranchServiceCategory
-    
-    # Get all categories
+
     categories = ServiceType.objects.filter(is_deleted=False).order_by('name')
-    
-    # Get enabled category slugs
+
     enabled_slugs = set(
         BranchServiceCategory.objects.filter(
             branch=instance, is_enabled=True, is_deleted=False
@@ -495,13 +513,12 @@ def branch_services_configure(request, id):
 
     if request.method == 'POST':
         selected_slugs = request.POST.getlist('enabled_categories')
-        
-        # Iterate over all categories and set status
+
         for st in categories:
             if not st.slug:
                 continue
             should_enable = st.slug in selected_slugs
-            
+
             bsc, created = BranchServiceCategory.objects.get_or_create(
                 branch=instance,
                 service_type=st,
@@ -512,13 +529,14 @@ def branch_services_configure(request, id):
             bsc.save()
 
         messages.success(request, f"Service categories for branch '{instance.name}' configured successfully.")
-        return redirect('branch_list')
+        return redirect(f"{reverse('enable_categories')}?branch_id={instance.id}")
 
     return render(request, 'branch/configure_services.html', {
         'branch': instance,
+        'branches': branches,
         'categories': categories,
         'enabled_slugs': enabled_slugs,
-        'title': f'Configure Services — {instance.name}'
+        'title': f'Enable Categories — {instance.name}'
     })
 
 

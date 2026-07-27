@@ -26,6 +26,8 @@ urlpatterns = [
     path('branch/edit/<uuid:id>/', views.branch_edit, name='branch_edit'),
     path('branch/delete/<uuid:id>/', views.branch_delete, name='branch_delete'),
     path('branch/configure-services/<uuid:id>/', views.branch_services_configure, name='branch_services_configure'),
+    path('services/enable-categories/', views.branch_services_configure, name='enable_categories'),
+    path('services/enable-categories/<uuid:id>/', views.branch_services_configure, name='enable_categories_branch'),
 
 
     # Staff Management
