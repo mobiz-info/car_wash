@@ -393,6 +393,45 @@ class TyreBrand(BaseModel):
         return self.brand
 
 
+class Tyre(BaseModel):
+    """Master list of Tyres with Brand, Name, Size, Price, Stock Count, Lifespan KM, and Pattern."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='tyres',
+        null=True, blank=True, help_text="Leave blank for global master"
+    )
+    tyre_brand = models.ForeignKey(
+        TyreBrand, on_delete=models.CASCADE, related_name='tyres'
+    )
+    name = models.CharField(max_length=150, help_text="Tyre model / name e.g. ZLX, Earth-1, Turanza")
+    size = models.CharField(max_length=100, help_text="Tyre size e.g. 185/65 R15, 195/55 R16")
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00,
+        help_text="Price per tyre"
+    )
+    stock_qty = models.IntegerField(default=0, help_text="Available stock quantity in units")
+    running_km = models.PositiveIntegerField(
+        default=40000,
+        help_text="Recommended running KM / Lifespan for this tyre e.g. 40000"
+    )
+    pattern_type = models.CharField(
+        max_length=50, blank=True, null=True,
+        help_text="Pattern type e.g. Tubeless, Radial, All-Terrain"
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['tyre_brand__brand', 'name', 'size']
+
+    def __str__(self):
+        brand_name = self.tyre_brand.brand if self.tyre_brand else ''
+        return f"{brand_name} - {self.name} ({self.size}) (₹{self.price})"
+
+    @property
+    def display_name(self):
+        brand_name = self.tyre_brand.brand if self.tyre_brand else ''
+        return f"{brand_name} {self.name} {self.size}"
+
+
 class OilStock(BaseModel):
     """Per-branch stock level for a specific oil product."""
     branch = models.ForeignKey(

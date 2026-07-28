@@ -1900,3 +1900,89 @@ def oil_product_price_delete(request, id):
     instance.save()
     messages.success(request, "Oil Product Price deleted successfully")
     return redirect('oil_product_price_list')
+
+
+# ==========================================
+# TYRE MASTER & STOCK
+# ==========================================
+
+@login_required
+def tyre_list(request):
+    search = request.GET.get('search', '')
+    profile = getattr(request.user, 'profile', None)
+    company = getattr(profile, 'company', None) if profile else None
+
+    if company:
+        queryset = Tyre.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False)
+    else:
+        queryset = Tyre.objects.filter(is_deleted=False)
+
+    queryset = queryset.select_related('tyre_brand')
+
+    if search:
+        queryset = queryset.filter(
+            Q(tyre_brand__brand__icontains=search) |
+            Q(name__icontains=search) |
+            Q(size__icontains=search) |
+            Q(pattern_type__icontains=search)
+        )
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'tyre/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def tyre_create(request):
+    profile = getattr(request.user, 'profile', None)
+    company = getattr(profile, 'company', None) if profile else None
+    form = TyreForm(request.POST or None, company=company)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(Tyre)
+            instance.creator = request.user
+            instance.company = company
+            instance.save()
+            messages.success(request, "Tyre product created successfully")
+            return redirect('tyre_list')
+    return render(request, 'tyre/create.html', {
+        'form': form,
+        'title': 'Create Tyre Product'
+    })
+
+
+@login_required
+def tyre_edit(request, id):
+    profile = getattr(request.user, 'profile', None)
+    company = getattr(profile, 'company', None) if profile else None
+    if company:
+        instance = get_object_or_404(Tyre, id=id, is_deleted=False)
+    else:
+        instance = get_object_or_404(Tyre, id=id, is_deleted=False)
+        
+    form = TyreForm(request.POST or None, instance=instance, company=company)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Tyre product updated successfully")
+            return redirect('tyre_list')
+    return render(request, 'tyre/create.html', {
+        'form': form,
+        'title': 'Edit Tyre Product'
+    })
+
+
+@login_required
+def tyre_delete(request, id):
+    instance = get_object_or_404(Tyre, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Tyre product deleted successfully")
+    return redirect('tyre_list')

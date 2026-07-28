@@ -211,6 +211,7 @@ urlpatterns = [
     path('api/oil-filters/', api_views.api_oil_filters, name='api_oil_filters'),
     path('api/oil-price/', api_views.api_get_oil_price, name='api_get_oil_price'),
     path('api/tyre-brands/', api_views.api_tyre_brands, name='api_tyre_brands'),
+    path('api/tyres/', api_views.api_tyres, name='api_tyres'),
     path('api/oil-stock/', api_views.api_oil_stock, name='api_oil_stock'),
     path('api/vehicle-service-history/<uuid:vehicle_id>/', api_views.api_vehicle_service_history, name='api_vehicle_service_history'),
     path('api/branch-categories/', api_views.api_branch_categories, name='api_branch_categories'),

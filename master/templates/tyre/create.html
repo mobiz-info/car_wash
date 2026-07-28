@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container" style="max-width:700px;">
+    <div class="premium-form-title">
+        <i class="ph ph-disc" style="color: #2563eb; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-section-label">
+            <i class="ph ph-tag"></i> Tyre Identification & Specifications
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Select Tyre Brand *</label>
+                {{ form.tyre_brand }}
+                {% if form.tyre_brand.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.tyre_brand.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Tyre Name / Model * (e.g. ZLX, Earth-1, Turanza)</label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.name.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Size * (e.g. 185/65 R15, 195/55 R16)</label>
+                {{ form.size }}
+                {% if form.size.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.size.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Pattern / Type (Optional e.g. Tubeless, Radial, All-Terrain)</label>
+                {{ form.pattern_type }}
+                {% if form.pattern_type.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.pattern_type.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-section-label" style="margin-top:20px;">
+            <i class="ph ph-currency-inr"></i> Pricing, Stock & Warranty
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Price (₹) *</label>
+                {{ form.price }}
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Selling price per tyre</div>
+                {% if form.price.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.price.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Stock Qty (Units)</label>
+                {{ form.stock_qty }}
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">Available units in stock</div>
+                {% if form.stock_qty.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.stock_qty.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Lifespan / Warranty (KM)</label>
+                {{ form.running_km }}
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">e.g. 40000 KM</div>
+                {% if form.running_km.errors %}
+                    <div style="color:#ef4444; font-size:0.8rem; margin-top:4px;">{{ form.running_km.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top:12px;">
+            {{ form.is_active }}
+            <label for="id_is_active" style="margin-bottom:0; cursor:pointer;">Is Active</label>
+        </div>
+
+        <div class="form-actions" style="margin-top:24px;">
+            <a href="{% url 'tyre_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Tyre Product
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

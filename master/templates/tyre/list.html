@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Tyres Master - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Tyres Master{% endblock %}
+{% block breadcrumb_active %}Tyres Master{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{search}}" placeholder="Search Tyre Brand, Name, Size, Pattern..." class="search-input">
+        </form>
+
+        <a href="{% url 'tyre_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Tyre Product
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">#</th>
+                    <th>Tyre Brand</th>
+                    <th>Tyre Name</th>
+                    <th>Size</th>
+                    <th>Price</th>
+                    <th>Stock Count</th>
+                    <th>Lifespan (KM)</th>
+                    <th>Pattern / Type</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td style="font-weight:700; color:#1e293b;">
+                        <span style="background:#e0f2fe; color:#0369a1; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:700;">
+                            {{ obj.tyre_brand.brand }}
+                        </span>
+                    </td>
+
+                    <td style="font-weight:700; color:#0f172a;">
+                        {{ obj.name }}
+                    </td>
+
+                    <td>
+                        <span style="background:#f1f5f9; color:#334155; padding:3px 8px; border-radius:6px; font-size:0.8rem; font-family:monospace; font-weight:600;">
+                            {{ obj.size }}
+                        </span>
+                    </td>
+
+                    <td style="font-weight:700; color:#10b981; font-size:0.95rem;">
+                        ₹{{ obj.price }}
+                    </td>
+
+                    <td>
+                        {% if obj.stock_qty <= 2 %}
+                            <span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:700;">
+                                {{ obj.stock_qty|default:"0" }} Units (Low Stock)
+                            </span>
+                        {% else %}
+                            <span style="background:#dcfce7; color:#15803d; padding:3px 10px; border-radius:20px; font-size:0.8rem; font-weight:700;">
+                                {{ obj.stock_qty|default:"0" }} Units
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td style="font-weight:600; color:#6366f1;">
+                        {{ obj.running_km }} KM
+                    </td>
+
+                    <td style="color:#64748b; font-size:0.85rem;">
+                        {{ obj.pattern_type|default:"-" }}
+                    </td>
+
+                    <td>
+                        {% if obj.is_active %}
+                            <span style="background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">Active</span>
+                        {% else %}
+                            <span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">Inactive</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Actions -->
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'tyre_edit' obj.pk %}" class="action-btn edit" title="Edit Tyre">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'tyre_delete' obj.pk %}" onclick="return confirm('Delete this tyre product?')" class="action-btn delete" title="Delete Tyre">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" style="text-align:center; padding:40px; color:#94a3b8;">
+                        <i class="ph ph-disc" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+                        No tyre products found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{search}}" class="page-link">Previous</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{search}}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

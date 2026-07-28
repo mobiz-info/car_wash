@@ -5236,6 +5236,50 @@ def api_tyre_brands(request):
 
 
 @csrf_exempt
+def api_tyres(request):
+    """GET: List active tyres for the company or global master.
+       POST: Record stock update for a tyre.
+    """
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company = getattr(getattr(user, 'profile', None), 'company', None)
+    try:
+        from master.models import Tyre
+        if request.method == 'GET':
+            if company:
+                tyres = Tyre.objects.filter(Q(company=company) | Q(company__isnull=True), is_active=True, is_deleted=False)
+            else:
+                tyres = Tyre.objects.filter(is_active=True, is_deleted=False)
+            tyres = tyres.select_related('tyre_brand').order_by('tyre_brand__brand', 'name', 'size')
+            data = [{
+                'id': str(t.id),
+                'tyre_brand_id': str(t.tyre_brand.id) if t.tyre_brand else '',
+                'tyre_brand_name': t.tyre_brand.brand if t.tyre_brand else '',
+                'name': t.name,
+                'size': t.size,
+                'price': float(t.price),
+                'stock_qty': t.stock_qty,
+                'running_km': t.running_km,
+                'pattern_type': t.pattern_type or '',
+                'display_name': t.display_name,
+            } for t in tyres]
+            return JsonResponse({'success': True, 'tyres': data})
+        elif request.method == 'POST':
+            body = json.loads(request.body.decode('utf-8'))
+            tyre_id = body.get('tyre_id')
+            qty_add = int(body.get('stock_qty_add', 0))
+            tyre = get_object_or_404(Tyre, id=tyre_id)
+            tyre.stock_qty += qty_add
+            tyre.save()
+            return JsonResponse({'success': True, 'message': f'Stock updated for {tyre.display_name}', 'new_stock_qty': tyre.stock_qty})
+        else:
+            return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_oil_stock(request):
     """GET: Current oil stock levels for the branch.
        POST: Record a stock-in transaction.

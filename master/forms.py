@@ -259,6 +259,40 @@ class TyreBrandForm(forms.ModelForm):
         }
 
 
+class TyreForm(forms.ModelForm):
+    class Meta:
+        model = Tyre
+        fields = ['tyre_brand', 'name', 'size', 'price', 'stock_qty', 'running_km', 'pattern_type', 'is_active']
+        widgets = {
+            'tyre_brand': forms.Select(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. ZLX, Earth-1, Turanza, SecuraDrive'}),
+            'size': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 185/65 R15, 195/55 R16, 205/65 R16'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 4500.00', 'step': '0.01', 'min': '0'}),
+            'stock_qty': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 8', 'min': '0'}),
+            'running_km': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 40000', 'min': '0'}),
+            'pattern_type': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Tubeless, Radial, All-Terrain'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        qs = TyreBrand.objects.filter(is_active=True, is_deleted=False)
+        if company:
+            qs = qs.filter(company=company)
+        self.fields['tyre_brand'].queryset = qs.order_by('brand')
+        self.fields['tyre_brand'].empty_label = '-- Select Tyre Brand --'
+        self.fields['tyre_brand'].required = True
+        self.fields['name'].required = True
+        self.fields['size'].required = True
+        self.fields['price'].required = True
+        self.fields['stock_qty'].required = False
+        self.fields['stock_qty'].label = "Stock Quantity (Units)"
+        self.fields['running_km'].required = False
+        self.fields['running_km'].label = "Lifespan / Warranty (KM)"
+        self.fields['pattern_type'].required = False
+        self.fields['pattern_type'].label = "Pattern / Type (Optional)"
+
+
 class OilProductPriceForm(forms.ModelForm):
     class Meta:
         model = OilProductPrice
