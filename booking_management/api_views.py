@@ -499,8 +499,62 @@ def get_local_date():
     return timezone.now().astimezone(ZoneInfo('Asia/Kolkata')).date()
 
 
+def _get_available_services(br, vehicle_match):
+    """
+    Return list of Service objects enabled for `br` and compatible with
+    the vehicle model of `vehicle_match`.
+    If vehicle has no vehicle_type_model, all branch-enabled services are returned.
+    """
+    from service_management.models import Service as ServiceModel, ServiceType, CompanyService
+    from client_management.models import BranchService, BranchServiceCategory, ServiceVehicleTypePrice
+
+    disabled_cat_slugs = set(
+        BranchServiceCategory.objects.filter(
+            branch=br, is_enabled=False, is_deleted=False
+        ).values_list('service_type__slug', flat=True)
+    )
+    all_cat_slugs = list(
+        ServiceType.objects.filter(is_deleted=False).values_list('slug', flat=True)
+    )
+    enabled_cat_slugs = [s for s in all_cat_slugs if s and s not in disabled_cat_slugs]
+
+    company_svc_ids = CompanyService.objects.filter(
+        company=br.company, is_enabled=True
+    ).values_list('service_id', flat=True)
+
+    enabled_svc_ids = BranchService.objects.filter(
+        branch=br,
+        service_id__in=company_svc_ids,
+        is_enabled=True,
+        is_deleted=False
+    ).values_list('service_id', flat=True)
+
+    vehicle_type_model = vehicle_match.vehicle_type_model if vehicle_match else None
+    available_services = []
+    for svc in ServiceModel.objects.filter(
+        id__in=enabled_svc_ids,
+        is_active=True,
+        is_deleted=False,
+        service_type__slug__in=enabled_cat_slugs,
+    ).order_by('service_type__name', 'name'):
+        if vehicle_type_model:
+            from client_management.models import ServiceVehicleTypePrice
+            price_obj = ServiceVehicleTypePrice.objects.filter(
+                branch=br,
+                service=svc,
+                vehicle_model=vehicle_type_model,
+                is_active=True,
+                is_deleted=False,
+            ).first()
+            if not price_obj:
+                continue
+        available_services.append(svc)
+    return available_services
+
+
 def find_matching_branch(company, choice, choice_id_raw='', choice_title_raw='', incoming_msg=''):
     all_branches = company.branches.filter(is_deleted=False)
+
     if not all_branches.exists():
         return None
     if all_branches.count() == 1:
@@ -1276,11 +1330,11 @@ def api_whatsapp_webhook(request):
                         
                         vehicles = CustomerVehicle.objects.filter(customer=customer, is_deleted=False)
                         if not vehicles.exists():
-                            reply_text = "⚠️ No registered vehicles found on your account. Please visit us or contact our team to add your vehicle."
+                            reply_text = "\u26a0\ufe0f No registered vehicles found on your account. Please visit us or contact our team to add your vehicle."
                             is_menu = False
                             session.delete()
                         elif vehicles.count() == 1:
-                            # Only one vehicle – auto-confirm booking
+                            # Only one vehicle — go straight to service selection
                             v = vehicles.first()
                             booking_date = get_local_date()
                             if target_day == "tomorrow":
@@ -1288,42 +1342,64 @@ def api_whatsapp_webhook(request):
                             from .utils import validate_booking
                             is_valid, validation_msg = validate_booking(br, booking_date)
                             if not is_valid:
-                                reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d-%b-%Y')}: {validation_msg}. Please try another date."
+                                reply_text = f"\u26a0\ufe0f We're unable to accept bookings for {booking_date.strftime('%d-%b-%Y')}: {validation_msg}. Please try another date."
                                 is_menu = False
+                                session.delete()
                             else:
-                                from core.functions import get_auto_id
-                                bk_num = f"BK{get_auto_id(Booking)}"
-                                booking = safe_create_model(
-                                    Booking,
-                                    customer=customer,
-                                    vehicle=v,
-                                    branch=br,
-                                    booking_date=booking_date,
-                                    booking_number=bk_num,
-                                    status=Booking.STATUS_PENDING
-                                )
-                                model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
-                                reply_text = (
-                                    f"✅ *Booking Confirmed!*\n\n"
-                                    f"📋 Booking No: *{bk_num}*\n"
-                                    f"🚗 Vehicle: {v.vehicle_number} {model_name}\n"
-                                    f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
-                                    f"📍 Branch: {br.name}\n\n"
-                                    f"We look forward to serving you! 🫧"
-                                )
-                                is_menu = False
-                            session.delete()
+                                available_services = _get_available_services(br, v)
+                                session.data['booking_vehicle_id'] = str(v.id)
+                                session.data['booking_date_resolved'] = str(booking_date)
+                                session.state = 'book_select_service'
+                                session.save()
+                                if not available_services:
+                                    # No services configured — confirm booking directly
+                                    from core.functions import get_auto_id
+                                    bk_num = f"BK{get_auto_id(Booking)}"
+                                    safe_create_model(
+                                        Booking,
+                                        customer=customer, vehicle=v, branch=br,
+                                        booking_date=booking_date, booking_number=bk_num,
+                                        status=Booking.STATUS_PENDING
+                                    )
+                                    model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                    reply_text = (
+                                        f"\u2705 *Booking Confirmed!*\n\n"
+                                        f"\U0001f4cb Booking No: *{bk_num}*\n"
+                                        f"\U0001f697 Vehicle: {v.vehicle_number} {model_name}\n"
+                                        f"\U0001f4c5 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                        f"\U0001f4cd Branch: {br.name}\n\n"
+                                        f"We look forward to serving you! \U0001f9fc"
+                                    )
+                                    session.delete()
+                                    is_menu = False
+                                else:
+                                    choices_list = []
+                                    for svc in available_services:
+                                        choices_list.append({
+                                            "title": svc.name[:24],
+                                            "choice_id": f"book_svc_{svc.id}",
+                                            "id": f"book_svc_{svc.id}",
+                                            "button_id": f"book_svc_{svc.id}",
+                                            "description": svc.name[:72]
+                                        })
+                                    reply_text = "Please select the service you'd like to book:"
+                                    interactive_menu = {
+                                        "header_message": "",
+                                        "list_title": "Choose Service",
+                                        "sections": [{"title": "Available Services", "choices": choices_list}]
+                                    }
                         else:
                             reply_text = f"Choose a vehicle to book for {target_day.capitalize()}:"
                             choices_list = []
                             for v in vehicles:
                                 model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                full_desc = f"{v.vehicle_number} {model_name}".strip()
                                 choices_list.append({
-                                    "title": f"{v.vehicle_number} {model_name}"[:24],
+                                    "title": full_desc[:24],
                                     "choice_id": f"book_veh_{v.id}_{target_day}",
                                     "id": f"book_veh_{v.id}_{target_day}",
                                     "button_id": f"book_veh_{v.id}_{target_day}",
-                                    "description": ""
+                                    "description": full_desc[:72]
                                 })
                             interactive_menu = {
                                 "header_message": "",
@@ -1395,6 +1471,17 @@ def api_whatsapp_webhook(request):
                         vehicle_id = parts[2]
                         vehicle_match = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer).first()
                         
+                    # Also try matching via description (full "vehicle_number model" string)
+                    if not vehicle_match:
+                        desc_candidate = (choice_title_raw or choice or '').strip()
+                        if desc_candidate:
+                            for v in CustomerVehicle.objects.filter(customer=customer, is_deleted=False):
+                                v_num_clean = ''.join(c for c in v.vehicle_number.lower() if c.isalnum())
+                                cand_clean = ''.join(c for c in desc_candidate.lower() if c.isalnum())
+                                if v_num_clean and v_num_clean in cand_clean:
+                                    vehicle_match = v
+                                    break
+
                     if vehicle_match:
                         booking_date = get_local_date()
                         if target_day == "tomorrow":
@@ -1410,53 +1497,8 @@ def api_whatsapp_webhook(request):
                             reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d-%b-%Y')}: {validation_msg}. Please try another date."
                             is_menu = False
                         else:
-                            # ── Fetch available services for this vehicle/branch ─────────
-                            from service_management.models import Service as ServiceModel, ServiceType, CompanyService
-                            from client_management.models import BranchService, BranchServiceCategory, ServiceVehicleTypePrice
+                            available_services = _get_available_services(br, vehicle_match)
 
-                            disabled_cat_slugs = set(
-                                BranchServiceCategory.objects.filter(
-                                    branch=br, is_enabled=False, is_deleted=False
-                                ).values_list('service_type__slug', flat=True)
-                            )
-                            all_cat_slugs = list(
-                                ServiceType.objects.filter(is_deleted=False).values_list('slug', flat=True)
-                            )
-                            enabled_cat_slugs = [s for s in all_cat_slugs if s and s not in disabled_cat_slugs]
-
-                            company_svc_ids = CompanyService.objects.filter(
-                                company=br.company, is_enabled=True
-                            ).values_list('service_id', flat=True)
-
-                            enabled_svc_ids = BranchService.objects.filter(
-                                branch=br,
-                                service_id__in=company_svc_ids,
-                                is_enabled=True,
-                                is_deleted=False
-                            ).values_list('service_id', flat=True)
-
-                            vehicle_type_model = vehicle_match.vehicle_type_model
-                            available_services = []
-                            for svc in ServiceModel.objects.filter(
-                                id__in=enabled_svc_ids,
-                                is_active=True,
-                                is_deleted=False,
-                                service_type__slug__in=enabled_cat_slugs,
-                            ).order_by('service_type__name', 'name'):
-                                # Only include if price exists for this vehicle model
-                                if vehicle_type_model:
-                                    price_obj = ServiceVehicleTypePrice.objects.filter(
-                                        branch=br,
-                                        service=svc,
-                                        vehicle_model=vehicle_type_model,
-                                        is_active=True,
-                                        is_deleted=False,
-                                    ).first()
-                                    if not price_obj:
-                                        continue
-                                available_services.append(svc)
-
-                            # Store vehicle & date in session, move to service selection
                             session.data['booking_vehicle_id'] = str(vehicle_match.id)
                             session.data['booking_date_resolved'] = str(booking_date)
                             session.state = 'book_select_service'
@@ -1497,7 +1539,7 @@ def api_whatsapp_webhook(request):
                                         "choice_id": f"book_svc_{svc.id}",
                                         "id": f"book_svc_{svc.id}",
                                         "button_id": f"book_svc_{svc.id}",
-                                        "description": ""
+                                        "description": svc.name[:72]
                                     })
                                 reply_text = "Please select the service you'd like to book:"
                                 interactive_menu = {
