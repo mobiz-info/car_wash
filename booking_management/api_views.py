@@ -527,12 +527,21 @@ def find_matching_branch(company, choice, choice_id_raw='', choice_title_raw='',
         if br:
             return br
 
-    # 3. Match by 24 & 20-char truncated title (WhatsApp list title limit)
+    # 3. Match by truncated prefix (WhatsApp may truncate title to any length)
     for cand in candidates:
-        cand_lower = cand.lower()
+        cand_lower = cand.lower().strip()
+        if not cand_lower:
+            continue
         for b in all_branches:
             b_lower = b.name.lower()
-            if b_lower[:24] == cand_lower[:24] or b_lower[:20] == cand_lower[:20]:
+            # branch name starts with what we received (WhatsApp truncated it)
+            if b_lower.startswith(cand_lower):
+                return b
+            # what we received starts with branch name (unlikely but safe)
+            if cand_lower.startswith(b_lower):
+                return b
+            # match first 20 chars prefix
+            if len(cand_lower) >= 10 and b_lower[:len(cand_lower)] == cand_lower:
                 return b
 
     # 4. Match by substring overlap
@@ -543,6 +552,7 @@ def find_matching_branch(company, choice, choice_id_raw='', choice_title_raw='',
                 b_lower = b.name.lower()
                 if cand_lower in b_lower or b_lower in cand_lower:
                     return b
+
 
     # 5. Match by word overlap
     for cand in candidates:
@@ -1232,8 +1242,8 @@ def api_whatsapp_webhook(request):
                             "list_title": "Choose Branch",
                             "sections": [{"title": "Our Branches", "choices": choices_list}]
                         }
-                            "sections": [{"title": "Our Branches", "choices": choices_list}]
-                        }
+
+
 
                 elif session.state == 'book_select_date':
                     cleaned_choice = choice.lower().strip()
@@ -1506,7 +1516,8 @@ def api_whatsapp_webhook(request):
                             "sections": [{"title": "Your Vehicles", "choices": choices_list}]
                         }
 
-                 elif session.state == 'book_select_service':
+                elif session.state == 'book_select_service':
+
                     # ── Resolve selected service ───────────────────────────────────
                     from service_management.models import Service as ServiceModel
                     selected_svc = None
