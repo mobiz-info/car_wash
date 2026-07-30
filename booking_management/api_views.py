@@ -550,6 +550,23 @@ def _get_available_services(br, vehicle_match):
     return available_services
 
 
+
+
+def _build_service_choice(svc):
+    desc = ""
+    if svc.description and svc.description.strip() and svc.description.strip().lower() != svc.name.strip().lower():
+        desc = svc.description.strip()[:72]
+    elif svc.service_type and svc.service_type.name.strip().lower() != svc.name.strip().lower():
+        desc = svc.service_type.name.strip()[:72]
+    return {
+        "title": svc.name[:24],
+        "choice_id": f"book_svc_{svc.id}",
+        "id": f"book_svc_{svc.id}",
+        "button_id": f"book_svc_{svc.id}",
+        "description": desc
+    }
+
+
 def find_matching_branch(company, choice, choice_id_raw='', choice_title_raw='', incoming_msg=''):
     all_branches = company.branches.filter(is_deleted=False)
 
@@ -1371,15 +1388,8 @@ def api_whatsapp_webhook(request):
                                     session.delete()
                                     is_menu = False
                                 else:
-                                    choices_list = []
-                                    for svc in available_services:
-                                        choices_list.append({
-                                            "title": svc.name[:24],
-                                            "choice_id": f"book_svc_{svc.id}",
-                                            "id": f"book_svc_{svc.id}",
-                                            "button_id": f"book_svc_{svc.id}",
-                                            "description": svc.name[:72]
-                                        })
+                                    choices_list = [_build_service_choice(svc) for svc in available_services]
+
                                     reply_text = "Please select the service you'd like to book:"
                                     interactive_menu = {
                                         "header_message": "",
@@ -1530,15 +1540,8 @@ def api_whatsapp_webhook(request):
                                 is_menu = False
                             else:
                                 # Ask which service
-                                choices_list = []
-                                for svc in available_services:
-                                    choices_list.append({
-                                        "title": svc.name[:24],
-                                        "choice_id": f"book_svc_{svc.id}",
-                                        "id": f"book_svc_{svc.id}",
-                                        "button_id": f"book_svc_{svc.id}",
-                                        "description": svc.name[:72]
-                                    })
+                                choices_list = [_build_service_choice(svc) for svc in available_services]
+
                                 reply_text = "Please select the service you'd like to book:"
                                 interactive_menu = {
                                     "header_message": "",
@@ -1639,15 +1642,8 @@ def api_whatsapp_webhook(request):
                         vehicle_match = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer).first()
                         available_services = _get_available_services(br, vehicle_match)
 
-                        choices_list = []
-                        for svc in available_services:
-                            choices_list.append({
-                                "title": svc.name[:24],
-                                "choice_id": f"book_svc_{svc.id}",
-                                "id": f"book_svc_{svc.id}",
-                                "button_id": f"book_svc_{svc.id}",
-                                "description": svc.name[:72]
-                            })
+                        choices_list = [_build_service_choice(svc) for svc in available_services]
+
 
                         if choices_list:
                             reply_text = "⚠️ Could not identify that service. Please choose from the list:"
