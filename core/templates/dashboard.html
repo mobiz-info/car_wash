@@ -196,6 +196,78 @@
         </table>
     </div>
 </div>
+<!-- App Users Active Today -->
+<div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04); margin-bottom: 32px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="ph-fill ph-device-mobile" style="color: #10b981; font-size: 1.3rem;"></i> 
+            Users Who Opened App Today
+            <span style="background: #d1fae5; color: #065f46; padding: 2px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 800;">
+                {{ today_app_users_count }}
+            </span>
+        </h3>
+        <a href="{% url 'user_list' %}" style="font-size: 0.8rem; font-weight: 700; color: #10b981; text-decoration: none;">View All System Users →</a>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+            <thead>
+                <tr style="border-bottom: 1px solid #f1f5f9; color: #64748b; background: #f8fafc;">
+                    <th style="padding: 10px 14px; font-weight: 600;">User</th>
+                    <th style="padding: 10px 14px; font-weight: 600;">Username</th>
+                    <th style="padding: 10px 14px; font-weight: 600;">Role</th>
+                    <th style="padding: 10px 14px; font-weight: 600;">Company</th>
+                    <th style="padding: 10px 14px; font-weight: 600;">Last App Activity</th>
+                    <th style="padding: 10px 14px; font-weight: 600; text-align: center;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prof in today_app_users %}
+                <tr style="border-bottom: 1px solid #f8fafc;">
+                    <td style="padding: 12px 14px; font-weight: 700; color: #1e293b;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;">
+                                <i class="ph-fill ph-user"></i>
+                            </div>
+                            <div>
+                                {% if prof.user.first_name or prof.user.last_name %}
+                                    {{ prof.user.first_name }} {{ prof.user.last_name }}
+                                {% else %}
+                                    {{ prof.user.username }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding: 12px 14px; color: #3b82f6; font-weight: 600;">{{ prof.user.username }}</td>
+                    <td style="padding: 12px 14px; color: #475569;">
+                        <span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 600;">
+                            {{ prof.role.name|default:"User" }}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 14px; color: #64748b;">{{ prof.company.company_name|default:"-" }}</td>
+                    <td style="padding: 12px 14px; color: #0f172a; font-weight: 700;">
+                        <i class="ph-bold ph-clock" style="color: #10b981; margin-right: 4px;"></i>
+                        {{ prof.last_app_open|date:"h:i A" }}
+                    </td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        <span style="background: #d1fae5; color: #065f46; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
+                            Active Today
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding: 24px; text-align: center; color: #94a3b8;">
+                        <i class="ph ph-device-mobile-slash" style="font-size: 2rem; color: #cbd5e1; display: block; margin-bottom: 6px;"></i>
+                        No users have opened the mobile app today yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endif %}
 
 {% endblock %}

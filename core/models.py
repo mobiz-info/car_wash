@@ -28,6 +28,7 @@ class UserProfile(BaseModel):
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, blank=True, null=True)
     company = models.ForeignKey('client_management.Client', on_delete=models.SET_NULL, blank=True, null=True)
     raw_password = models.CharField(max_length=128, blank=True, null=True, help_text="Stored plain text password")
+    last_app_open = models.DateTimeField(blank=True, null=True, help_text="Timestamp of last app activity/open")
 
     
     def __str__(self):

@@ -84,6 +84,8 @@ urlpatterns = [
 
     # Mobile API Endpoints
     path('api/login/', api_views.api_login, name='api_login'),
+    path('api/user/ping/', api_views.api_ping_app_open, name='api_ping_app_open'),
+
     path('api/customer/search/', api_views.api_customer_search, name='api_customer_search'),
     path('api/customer/search-list/', api_views.api_customer_search_list, name='api_customer_search_list'),
     path('api/invoice/services/', api_views.api_get_services, name='api_get_services'),

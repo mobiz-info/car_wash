@@ -150,6 +150,17 @@ def get_user_from_token(request):
         try:
             token_obj = APIToken.objects.get(token=token)
             user = token_obj.user
+
+            # Update last app activity timestamp on user profile
+            try:
+                if hasattr(user, 'profile') and user.profile:
+                    now = timezone.now()
+                    if not user.profile.last_app_open or (now - user.profile.last_app_open).total_seconds() > 60:
+                        user.profile.last_app_open = now
+                        user.profile.save(update_fields=['last_app_open'])
+            except Exception:
+                pass
+
             # Handle staff members
             if hasattr(user, 'staff_profile') and user.staff_profile:
                 # Scope to their branch
@@ -171,6 +182,21 @@ def get_user_from_token(request):
         except APIToken.DoesNotExist:
             return None
     return None
+
+
+@csrf_exempt
+def api_ping_app_open(request):
+    """Explicit endpoint for Flutter App startup / resume ping"""
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    now = timezone.now()
+    if hasattr(user, 'profile') and user.profile:
+        user.profile.last_app_open = now
+        user.profile.save(update_fields=['last_app_open'])
+    return JsonResponse({'success': True, 'last_app_open': now.isoformat()})
+
 
 
 
@@ -872,14 +898,26 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
             vehicle.save(update_fields=update_fields)
 
     elif category == InvoiceServiceDetail.CATEGORY_TYRE:
+        tyre_items = detail_data.get('tyre_items')
         tyre_brand_id = detail_data.get('tyre_brand_id')
+
+        if not tyre_brand_id and tyre_items and len(tyre_items) > 0:
+            tyre_brand_id = tyre_items[0].get('tyre_brand_id')
+
         if tyre_brand_id:
             try:
                 detail.tyre_brand = TyreBrand.objects.get(id=tyre_brand_id)
             except TyreBrand.DoesNotExist:
                 pass
-        detail.tyre_size = detail_data.get('tyre_size', '')
-        detail.tyres_changed_count = detail_data.get('tyres_changed_count', 0)
+
+        if tyre_items and len(tyre_items) > 0:
+            sizes = [str(i.get('size', '')) for i in tyre_items if i.get('size')]
+            detail.tyre_size = ', '.join(sizes) if sizes else detail_data.get('tyre_size', '')
+            detail.tyres_changed_count = sum(int(i.get('quantity', 1)) for i in tyre_items)
+        else:
+            detail.tyre_size = detail_data.get('tyre_size', '')
+            detail.tyres_changed_count = detail_data.get('tyres_changed_count', 0)
+
         detail.next_tyre_change_km = detail_data.get('next_tyre_change_km') or None
         detail.next_tyre_change_date = detail_data.get('next_tyre_change_date') or None
 
@@ -5246,6 +5284,7 @@ def api_tyres(request):
     company = getattr(getattr(user, 'profile', None), 'company', None)
     try:
         from master.models import Tyre
+        from django.db.models import Q
         if request.method == 'GET':
             if company:
                 tyres = Tyre.objects.filter(Q(company=company) | Q(company__isnull=True), is_active=True, is_deleted=False)

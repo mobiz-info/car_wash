@@ -179,10 +179,27 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 ]
             else:
                 context['stats'] = []
-        else:
-            context['stats'] = []
+        # App users who opened/used app today
+        today_date = timezone.now().date()
+        today_app_users = UserProfile.objects.filter(
+            last_app_open__date=today_date
+        ).select_related('user', 'role', 'company').order_by('-last_app_open')
+
+        if role_name == 'COMPANY_ADMIN' and hasattr(user, 'profile') and user.profile and user.profile.company:
+            today_app_users = today_app_users.filter(company=user.profile.company)
+        elif role_name == 'BRANCH_ADMIN':
+            try:
+                branch = getattr(user, 'managed_branch', None)
+                if branch and branch.company:
+                    today_app_users = today_app_users.filter(company=branch.company)
+            except Exception:
+                pass
+
+        context['today_app_users'] = today_app_users
+        context['today_app_users_count'] = today_app_users.count()
 
         return context
+
 
 
 # ==========================================

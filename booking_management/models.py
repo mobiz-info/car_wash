@@ -19,6 +19,8 @@ class Booking(BaseModel):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='bookings')
     vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.CASCADE, related_name='bookings')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='bookings')
+    service = models.ForeignKey('service_management.Service', on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings')
+    service_name = models.CharField(max_length=150, blank=True, null=True)
 
     booking_number = models.CharField(max_length=20, unique=True, null=True, blank=True, help_text="Human-readable booking ID e.g. BK1, BK2")
     booking_date = models.DateField()

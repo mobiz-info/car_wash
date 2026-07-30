@@ -364,9 +364,9 @@
                                     {% if item.service_detail.odometer_at_service %} | <strong>Odometer:</strong> {{ item.service_detail.odometer_at_service }} km{% endif %}
                                     {% if item.service_detail.next_oil_change_km %} | <strong style="color: #1e3a8a;">Next Change:</strong> {{ item.service_detail.next_oil_change_km }} km{% endif %}
                                 {% elif item.service_detail.service_category == 'tyre_change' %}
-                                    <strong>Tyre:</strong> {{ item.service_detail.tyre_brand.brand }}
+                                    {% if item.service_detail.tyre_brand %}<strong>Brand:</strong> {{ item.service_detail.tyre_brand.brand }}{% endif %}
                                     {% if item.service_detail.tyre_size %} | <strong>Size:</strong> {{ item.service_detail.tyre_size }}{% endif %}
-                                    {% if item.service_detail.tyres_changed_count %} | <strong>Qty:</strong> {{ item.service_detail.tyres_changed_count }}{% endif %}
+                                    {% if item.service_detail.tyres_changed_count %} | <strong>Qty:</strong> {{ item.service_detail.tyres_changed_count }} pcs{% endif %}
                                     {% if item.service_detail.next_tyre_change_km %} | <strong style="color: #1e3a8a;">Next Change:</strong> {{ item.service_detail.next_tyre_change_km }} km{% endif %}
                                 {% elif item.service_detail.service_category == 'wheel_alignment' %}
                                     <strong>Tasks:</strong> 

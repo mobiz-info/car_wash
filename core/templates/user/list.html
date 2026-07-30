@@ -139,6 +139,7 @@
                     <th>Password</th>
                     <th>Role</th>
                     <th>Company</th>
+                    <th>Last App Activity</th>
                     <th style="text-align:right;">Actions</th>
                 </tr>
             </thead>
@@ -173,6 +174,16 @@
                     </td>
                     <td>{{ obj.profile.role.name|default:"-" }}</td>
                     <td>{{ obj.profile.company.company_name|default:"-" }}</td>
+                    <td>
+                        {% if obj.profile.last_app_open %}
+                            <span style="font-weight: 600; color: #10b981;">
+                                {{ obj.profile.last_app_open|date:"j M Y, h:i A" }}
+                            </span>
+                        {% else %}
+                            <span style="color: #94a3b8; font-style: italic;">Never</span>
+                        {% endif %}
+                    </td>
+
                     <td style="text-align:right;">
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
                             <a href="{% url 'user_edit' obj.pk %}" class="action-btn edit" style="color: #3b82f6; background: #eff6ff; padding: 6px 10px; border-radius: 6px; text-decoration: none;">

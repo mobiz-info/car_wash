@@ -27,6 +27,8 @@ def api_create_booking(request):
         customer_id = data.get('customer_id')
         vehicle_id = data.get('vehicle_id')
         booking_date = data.get('booking_date')  # 'YYYY-MM-DD'
+        service_id = data.get('service_id')
+        service_name = data.get('service_name')
 
         if not customer_id or not vehicle_id or not booking_date:
             return JsonResponse({'success': False, 'message': 'customer_id, vehicle_id and booking_date are required'}, status=400)
@@ -48,11 +50,24 @@ def api_create_booking(request):
                 'success': False,
                 'message': message
             }, status=400)
+
+        service_obj = None
+        if service_id:
+            from service_management.models import Service
+            try:
+                service_obj = Service.objects.get(id=service_id)
+                if not service_name:
+                    service_name = service_obj.name
+            except Service.DoesNotExist:
+                pass
+
         from core.functions import get_auto_id
         booking = Booking.objects.create(
             customer=customer,
             vehicle=vehicle,
             branch=customer.branch,
+            service=service_obj,
+            service_name=service_name or (service_obj.name if service_obj else ''),
             booking_date=booking_date_obj,
             booking_time=data.get('booking_time') or None,
             notes=data.get('notes', ''),
@@ -75,7 +90,7 @@ def api_create_booking(request):
 
 
 def api_list_bookings(request):
-    """List bookings for the branch with optional date filters."""
+    """List bookings for the branch with optional date and service filters."""
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
 
@@ -84,7 +99,7 @@ def api_list_bookings(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
     bookings = Booking.objects.filter(is_deleted=False).select_related(
-        'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
+        'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch', 'service'
     ).order_by('booking_date', 'booking_time')
 
     role = user.profile.role.name if user.profile.role else None
@@ -95,10 +110,13 @@ def api_list_bookings(request):
 
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
+    service_id = request.GET.get('service_id')
     if from_date:
         bookings = bookings.filter(booking_date__gte=from_date)
     if to_date:
         bookings = bookings.filter(booking_date__lte=to_date)
+    if service_id and service_id != 'all':
+        bookings = bookings.filter(Q(service_id=service_id) | Q(service_name__icontains=service_id))
 
     results = []
     for b in bookings:
@@ -108,6 +126,8 @@ def api_list_bookings(request):
             'booking_time': str(b.booking_time) if b.booking_time else None,
             'status': b.status,
             'notes': b.notes or '',
+            'service_name': b.service_name or (b.service.name if b.service else ''),
+            'service_id': str(b.service.id) if b.service else None,
             'customer': {
                 'id': str(b.customer.id),
                 'name': b.customer.name,
@@ -472,14 +492,75 @@ def api_whatsapp_debug(request):
         'env_info': env_info,
     }, json_dumps_params={'indent': 2})
 
-def get_local_date():
-    from zoneinfo import ZoneInfo
-    from django.utils import timezone
-    return timezone.now().astimezone(ZoneInfo('Asia/Kolkata')).date()
+def find_matching_branch(company, choice, choice_id_raw='', choice_title_raw='', incoming_msg=''):
+    all_branches = company.branches.filter(is_deleted=False)
+    if not all_branches.exists():
+        return None
+    if all_branches.count() == 1:
+        return all_branches.first()
+
+    candidates = []
+    for raw in [choice_id_raw, choice_title_raw, choice, incoming_msg]:
+        if not raw:
+            continue
+        cleaned = str(raw).strip()
+        if cleaned:
+            candidates.append(cleaned)
+            for prefix in ['reg_br_', 'book_br_', 'sch_br_', 'contact_br_', 'loc_br_', 'br_']:
+                if cleaned.lower().startswith(prefix):
+                    candidates.append(cleaned[len(prefix):].strip())
+
+    # 1. Match by UUID if candidate is valid UUID
+    import uuid
+    for cand in candidates:
+        try:
+            u = uuid.UUID(cand)
+            br = all_branches.filter(id=u).first()
+            if br:
+                return br
+        except Exception:
+            pass
+
+    # 2. Match by exact name (case-insensitive)
+    for cand in candidates:
+        br = all_branches.filter(name__iexact=cand).first()
+        if br:
+            return br
+
+    # 3. Match by 24 & 20-char truncated title (WhatsApp list title limit)
+    for cand in candidates:
+        cand_lower = cand.lower()
+        for b in all_branches:
+            b_lower = b.name.lower()
+            if b_lower[:24] == cand_lower[:24] or b_lower[:20] == cand_lower[:20]:
+                return b
+
+    # 4. Match by substring overlap
+    for cand in candidates:
+        cand_lower = cand.lower()
+        if len(cand_lower) >= 3:
+            for b in all_branches:
+                b_lower = b.name.lower()
+                if cand_lower in b_lower or b_lower in cand_lower:
+                    return b
+
+    # 5. Match by word overlap
+    for cand in candidates:
+        cand_words = [w for w in cand.lower().split() if len(w) >= 3]
+        if not cand_words:
+            continue
+        for b in all_branches:
+            b_words = [w for w in b.name.lower().split() if len(w) >= 3]
+            for cw in cand_words:
+                if any(cw in bw or bw in cw for bw in b_words):
+                    return b
+
+    return None
 
 
 @csrf_exempt
 def api_whatsapp_webhook(request):
+
     """
     Webgenie/wawy.org WhatsApp Chatbot Webhook.
     Webgenie sends incoming customer messages as a GET request with query parameters:
@@ -521,10 +602,13 @@ def api_whatsapp_webhook(request):
                 # Check interactive dict first (for wawy.org list/button selection)
                 interactive_data = body.get('interactive') or {}
                 interactive_type = str(interactive_data.get('type', '')).strip()
+                choice_title = str(interactive_data.get('title', '') or body.get('title', '')).strip()
                 if interactive_type == '1':
-                    # For list messages (type 1), wawy.org replaces the custom choice ID with a random 
-                    # numeric 'btnid'. The actual selection title/ID is preserved in the 'id' field.
+                    # For list messages (type 1), wawy.org sends custom ID in 'id' and
+                    # the selected item title in 'title'. Grab both.
                     choice_id = str(interactive_data.get('id', '')).strip()
+                    if not choice_id:
+                        choice_id = choice_title  # fallback to title if id is empty
                 elif interactive_type == '2':
                     # For button messages (type 2), the custom button_id is preserved in 'btnid'.
                     choice_id = str(interactive_data.get('btnid', '') or interactive_data.get('id', '')).strip()
@@ -536,6 +620,7 @@ def api_whatsapp_webhook(request):
                         body.get('button_id', '') or 
                         body.get('choice_id', '')
                     ).strip()
+                    choice_title = choice_title or str(body.get('title', '')).strip()
             except Exception as e:
                 # Log parsing error
                 try:
@@ -561,12 +646,17 @@ def api_whatsapp_webhook(request):
         from urllib.parse import unquote_plus
         choice_id = unquote_plus(choice_id)
         incoming_msg = unquote_plus(incoming_msg)
+        # choice_title may not exist if this was a GET request
+        try:
+            choice_title = unquote_plus(choice_title)
+        except NameError:
+            choice_title = ''
 
         # Log incoming request
         try:
             with open('/tmp/whatsapp_webhook.log', 'a') as f:
                 from datetime import datetime
-                f.write(f"[{datetime.now()}] INCOMING: from_phone={from_phone}, msg={incoming_msg}, choice_id={choice_id}\n")
+                f.write(f"[{datetime.now()}] INCOMING: from_phone={from_phone}, msg={incoming_msg!r}, choice_id={choice_id!r}, choice_title={choice_title!r}\n")
         except Exception:
             pass
 
@@ -631,7 +721,16 @@ def api_whatsapp_webhook(request):
             # 3. Build reply text and check for interactive menu selections
             from booking_management.models import ChatSession
             session = ChatSession.objects.filter(phone_number=from_phone, is_deleted=False).first()
-            choice = (choice_id or '').lower().strip() or (incoming_msg or '').lower().strip()
+            # 'choice' is the normalized identifier for matching state machine branches.
+            # Priority: choice_id (our custom ID like 'reg_br_uuid') → choice_title (item display name) → incoming_msg
+            choice = (
+                (choice_id or '').lower().strip()
+                or (choice_title or '').lower().strip()
+                or (incoming_msg or '').lower().strip()
+            )
+            # Also keep the original-case title for name-based matching
+            choice_title_raw = (choice_title or '').strip()
+            choice_id_raw = (choice_id or '').strip()
             
             # Check if this is a vehicle selection (either via choice ID or via text title fallback)
             is_vehicle_selection = False
@@ -713,17 +812,14 @@ def api_whatsapp_webhook(request):
                 
                 if session.state == 'register_select_branch':
                     from client_management.models import Branch
-                    br = company.branches.filter(name__iexact=choice, is_deleted=False).first()
-                    if not br and choice.startswith('reg_br_'):
-                        br_id = choice.replace('reg_br_', '').strip()
-                        br = company.branches.filter(id=br_id, is_deleted=False).first()
-                        
+                    br = find_matching_branch(company, choice, choice_id_raw, choice_title_raw, incoming_msg)
+
                     if br:
                         session.data['branch_id'] = str(br.id)
                         session.data['branch_name'] = br.name
                         session.state = 'select_vehicle_type'
                         session.save()
-                        
+
                         from master.models import VehicleType
                         vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False)
                         if not vehicle_types.exists():
@@ -734,7 +830,7 @@ def api_whatsapp_webhook(request):
                             choices_list = []
                             for vt in vehicle_types:
                                 choices_list.append({
-                                    "title": vt.name[:20],
+                                    "title": vt.name[:24],
                                     "choice_id": f"reg_vt_{vt.id}",
                                     "id": f"reg_vt_{vt.id}",
                                     "button_id": f"reg_vt_{vt.id}",
@@ -746,16 +842,16 @@ def api_whatsapp_webhook(request):
                                 "sections": [{"title": "Vehicle Types", "choices": choices_list}]
                             }
                     else:
-                        reply_text = "Please select a branch from the list to continue:"
+                        reply_text = "Please select a branch from the list below:"
                         branches = company.branches.filter(is_deleted=False)
                         choices_list = []
                         for b in branches:
                             choices_list.append({
-                                "title": b.name[:20],
+                                "title": b.name[:24],
                                 "choice_id": f"reg_br_{b.id}",
                                 "id": f"reg_br_{b.id}",
                                 "button_id": f"reg_br_{b.id}",
-                                "description": ""
+                                "description": b.name[:72]
                             })
                         interactive_menu = {
                             "header_message": "",
@@ -765,16 +861,7 @@ def api_whatsapp_webhook(request):
 
                 elif session.state == 'scheme_select_branch':
                     from client_management.models import Branch, Scheme
-                    
-                    # Similar to booking branch selection
-                    all_branches = company.branches.filter(is_deleted=False)
-                    if all_branches.count() == 1:
-                        br = all_branches.first()
-                    else:
-                        br = all_branches.filter(name__iexact=choice, is_deleted=False).first()
-                        if not br and choice.startswith('sch_br_'):
-                            br_id = choice.replace('sch_br_', '').strip()
-                            br = all_branches.filter(id=br_id).first()
+                    br = find_matching_branch(company, choice, choice_id_raw, choice_title_raw, incoming_msg)
                             
                     if br:
                         today_date = get_local_date()
@@ -819,11 +906,11 @@ def api_whatsapp_webhook(request):
                                 ]
                             }
                     else:
-                        reply_text = "Please select a branch from the list to view schemes:"
+                        reply_text = "Please select a branch from the list below:"
                         choices_list = []
                         for b in all_branches:
                             choices_list.append({
-                                "title": b.name[:20],
+                                "title": b.name[:24],
                                 "choice_id": f"sch_br_{b.id}",
                                 "id": f"sch_br_{b.id}",
                                 "button_id": f"sch_br_{b.id}",
@@ -1061,15 +1148,7 @@ def api_whatsapp_webhook(request):
 
                 elif session.state == 'loc_select_branch':
                     from client_management.models import Branch
-                    # wawy.org sometimes sends the title instead of choice_id
-                    search_str = choice.replace("loc_br_", "").strip()
-                    br = None
-                    try:
-                        import uuid
-                        uuid.UUID(search_str)
-                        br = company.branches.filter(id=search_str, is_deleted=False).first()
-                    except ValueError:
-                        br = company.branches.filter(name__iexact=search_str, is_deleted=False).first()
+                    br = find_matching_branch(company, choice, choice_id_raw, choice_title_raw, incoming_msg)
                         
                     if br:
                         reply_text = ""
@@ -1087,15 +1166,7 @@ def api_whatsapp_webhook(request):
                         
                 elif session.state == 'contact_select_branch':
                     from client_management.models import Branch
-                    # wawy.org sometimes sends the title instead of choice_id
-                    search_str = choice.replace("contact_br_", "").strip()
-                    br = None
-                    try:
-                        import uuid
-                        uuid.UUID(search_str)
-                        br = company.branches.filter(id=search_str, is_deleted=False).first()
-                    except ValueError:
-                        br = company.branches.filter(name__iexact=search_str, is_deleted=False).first()
+                    br = find_matching_branch(company, choice, choice_id_raw, choice_title_raw, incoming_msg)
                         
                     if br:
                         lines = [f"📞 *Contact Us: {br.name}*"]
@@ -1114,16 +1185,9 @@ def api_whatsapp_webhook(request):
 
                 elif session.state == 'book_select_branch':
                     from client_management.models import Branch
-                    # Auto-select if only one branch
                     all_branches = company.branches.filter(is_deleted=False)
-                    if all_branches.count() == 1:
-                        br = all_branches.first()
-                    else:
-                        br = all_branches.filter(name__iexact=choice, is_deleted=False).first()
-                        if not br and choice.startswith('reg_br_'):
-                            br_id = choice.replace('reg_br_', '').strip()
-                            br = all_branches.filter(id=br_id).first()
-                        
+                    br = find_matching_branch(company, choice, choice_id_raw, choice_title_raw, incoming_msg)
+
                     if br:
                         session.data['booking_branch_id'] = str(br.id)
                         session.data['booking_branch_name'] = br.name
@@ -1153,19 +1217,21 @@ def api_whatsapp_webhook(request):
                                 "buttons": date_buttons
                             }
                     else:
-                        reply_text = "Please select a branch from the list to continue:"
+                        reply_text = "Please select a branch from the list below:"
                         choices_list = []
                         for b in all_branches:
                             choices_list.append({
-                                "title": b.name[:20],
+                                "title": b.name[:24],
                                 "choice_id": f"reg_br_{b.id}",
                                 "id": f"reg_br_{b.id}",
                                 "button_id": f"reg_br_{b.id}",
-                                "description": ""
+                                "description": b.name[:72]
                             })
                         interactive_menu = {
                             "header_message": "",
                             "list_title": "Choose Branch",
+                            "sections": [{"title": "Our Branches", "choices": choices_list}]
+                        }
                             "sections": [{"title": "Our Branches", "choices": choices_list}]
                         }
 
@@ -1311,17 +1377,73 @@ def api_whatsapp_webhook(request):
                         booking_date = get_local_date()
                         if target_day == "tomorrow":
                             booking_date += timedelta(days=1)
-                            
+
                         br_id = session.data.get('booking_branch_id')
                         from client_management.models import Branch
                         br = Branch.objects.get(id=br_id)
-                        
-                        try:
-                            from .utils import validate_booking
-                            is_valid, validation_msg = validate_booking(br, booking_date)
-                            if not is_valid:
-                                reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d-%b-%Y')}: {validation_msg}. Please try another date."
-                            else:
+
+                        from .utils import validate_booking
+                        is_valid, validation_msg = validate_booking(br, booking_date)
+                        if not is_valid:
+                            reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d-%b-%Y')}: {validation_msg}. Please try another date."
+                            is_menu = False
+                        else:
+                            # ── Fetch available services for this vehicle/branch ─────────
+                            from service_management.models import Service as ServiceModel, ServiceType, CompanyService
+                            from client_management.models import BranchService, BranchServiceCategory, ServiceVehicleTypePrice
+
+                            disabled_cat_slugs = set(
+                                BranchServiceCategory.objects.filter(
+                                    branch=br, is_enabled=False, is_deleted=False
+                                ).values_list('service_type__slug', flat=True)
+                            )
+                            all_cat_slugs = list(
+                                ServiceType.objects.filter(is_deleted=False).values_list('slug', flat=True)
+                            )
+                            enabled_cat_slugs = [s for s in all_cat_slugs if s and s not in disabled_cat_slugs]
+
+                            company_svc_ids = CompanyService.objects.filter(
+                                company=br.company, is_enabled=True
+                            ).values_list('service_id', flat=True)
+
+                            enabled_svc_ids = BranchService.objects.filter(
+                                branch=br,
+                                service_id__in=company_svc_ids,
+                                is_enabled=True,
+                                is_deleted=False
+                            ).values_list('service_id', flat=True)
+
+                            vehicle_type_model = vehicle_match.vehicle_type_model
+                            available_services = []
+                            for svc in ServiceModel.objects.filter(
+                                id__in=enabled_svc_ids,
+                                is_active=True,
+                                is_deleted=False,
+                                service_type__slug__in=enabled_cat_slugs,
+                            ).order_by('service_type__name', 'name'):
+                                # Only include if price exists for this vehicle model
+                                if vehicle_type_model:
+                                    price_obj = ServiceVehicleTypePrice.objects.filter(
+                                        branch=br,
+                                        service=svc,
+                                        vehicle_model=vehicle_type_model,
+                                        is_active=True,
+                                        is_deleted=False,
+                                    ).first()
+                                    if not price_obj:
+                                        continue
+                                available_services.append(svc)
+
+                            # Store vehicle & date in session, move to service selection
+                            session.data['booking_vehicle_id'] = str(vehicle_match.id)
+                            session.data['booking_date_resolved'] = str(booking_date)
+                            session.state = 'book_select_service'
+                            session.save()
+
+                            if not available_services:
+                                # No services found — skip service step and create booking directly
+                                session.data['booking_service_name'] = ''
+                                session.save()
                                 from core.functions import get_auto_id
                                 bk_num = f"BK{get_auto_id(Booking)}"
                                 booking = safe_create_model(
@@ -1343,9 +1465,24 @@ def api_whatsapp_webhook(request):
                                     f"We look forward to serving you! 🫧"
                                 )
                                 session.delete()
-                        except Exception as e:
-                            reply_text = f"⚠️ We encountered an issue while processing your booking. Please try again or contact our support team."
-                        is_menu = False
+                                is_menu = False
+                            else:
+                                # Ask which service
+                                choices_list = []
+                                for svc in available_services:
+                                    choices_list.append({
+                                        "title": svc.name[:24],
+                                        "choice_id": f"book_svc_{svc.id}",
+                                        "id": f"book_svc_{svc.id}",
+                                        "button_id": f"book_svc_{svc.id}",
+                                        "description": ""
+                                    })
+                                reply_text = "Please select the service you'd like to book:"
+                                interactive_menu = {
+                                    "header_message": "",
+                                    "list_title": "Choose Service",
+                                    "sections": [{"title": "Available Services", "choices": choices_list}]
+                                }
                     else:
                         reply_text = "⚠️ We couldn't identify that vehicle. Please select your vehicle from the list below."
                         br_id = session.data.get('booking_branch_id')
@@ -1368,6 +1505,113 @@ def api_whatsapp_webhook(request):
                             "list_title": "Choose Vehicle",
                             "sections": [{"title": "Your Vehicles", "choices": choices_list}]
                         }
+
+                 elif session.state == 'book_select_service':
+                    # ── Resolve selected service ───────────────────────────────────
+                    from service_management.models import Service as ServiceModel
+                    selected_svc = None
+
+                    if choice.startswith('book_svc_'):
+                        svc_id = choice.replace('book_svc_', '').strip()
+                        selected_svc = ServiceModel.objects.filter(id=svc_id, is_active=True).first()
+
+                    if not selected_svc:
+                        # Try exact name match
+                        selected_svc = ServiceModel.objects.filter(
+                            name__iexact=choice.strip(), is_active=True, is_deleted=False
+                        ).first()
+                    if not selected_svc:
+                        # Partial / truncated name match (WhatsApp truncates to 24 chars)
+                        for svc in ServiceModel.objects.filter(is_active=True, is_deleted=False):
+                            if svc.name[:24].lower() == choice[:24].lower():
+                                selected_svc = svc
+                                break
+
+                    if selected_svc:
+                        vehicle_id = session.data.get('booking_vehicle_id')
+                        date_str = session.data.get('booking_date_resolved')
+                        br_id = session.data.get('booking_branch_id')
+
+                        from client_management.models import Branch
+                        import datetime as dt_module
+                        br = Branch.objects.get(id=br_id)
+                        vehicle_match = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer).first()
+                        booking_date = dt_module.date.fromisoformat(date_str) if date_str else get_local_date()
+
+                        try:
+                            from core.functions import get_auto_id
+                            bk_num = f"BK{get_auto_id(Booking)}"
+                            booking = safe_create_model(
+                                Booking,
+                                customer=customer,
+                                vehicle=vehicle_match,
+                                branch=br,
+                                booking_date=booking_date,
+                                booking_number=bk_num,
+                                service=selected_svc,
+                                service_name=selected_svc.name,
+                                status=Booking.STATUS_PENDING
+                            )
+                            veh_model = vehicle_match.vehicle_type_model.name if vehicle_match and vehicle_match.vehicle_type_model else ""
+                            reply_text = (
+                                f"✅ *Booking Confirmed!*\n\n"
+                                f"📋 Booking No: *{bk_num}*\n"
+                                f"🚗 Vehicle: {vehicle_match.vehicle_number} {veh_model}\n"
+                                f"🔧 Service: {selected_svc.name}\n"
+                                f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                f"📍 Branch: {br.name}\n\n"
+                                f"We look forward to serving you! 🫧"
+                            )
+                            session.delete()
+                        except Exception as e:
+                            reply_text = f"⚠️ We encountered an issue while processing your booking. Please try again or contact our support team."
+                        is_menu = False
+                    else:
+                        # Show service list again
+                        vehicle_id = session.data.get('booking_vehicle_id')
+                        br_id = session.data.get('booking_branch_id')
+                        from client_management.models import Branch, BranchService, BranchServiceCategory, ServiceVehicleTypePrice
+                        from service_management.models import ServiceType, CompanyService
+
+                        br = Branch.objects.get(id=br_id)
+                        disabled_cat_slugs = set(
+                            BranchServiceCategory.objects.filter(
+                                branch=br, is_enabled=False, is_deleted=False
+                            ).values_list('service_type__slug', flat=True)
+                        )
+                        all_cat_slugs = list(
+                            ServiceType.objects.filter(is_deleted=False).values_list('slug', flat=True)
+                        )
+                        enabled_cat_slugs = [s for s in all_cat_slugs if s and s not in disabled_cat_slugs]
+                        company_svc_ids = CompanyService.objects.filter(
+                            company=br.company, is_enabled=True
+                        ).values_list('service_id', flat=True)
+                        enabled_svc_ids = BranchService.objects.filter(
+                            branch=br, service_id__in=company_svc_ids, is_enabled=True, is_deleted=False
+                        ).values_list('service_id', flat=True)
+
+                        choices_list = []
+                        for svc in ServiceModel.objects.filter(
+                            id__in=enabled_svc_ids, is_active=True, is_deleted=False,
+                            service_type__slug__in=enabled_cat_slugs,
+                        ).order_by('name'):
+                            choices_list.append({
+                                "title": svc.name[:24],
+                                "choice_id": f"book_svc_{svc.id}",
+                                "id": f"book_svc_{svc.id}",
+                                "button_id": f"book_svc_{svc.id}",
+                                "description": ""
+                            })
+                        if choices_list:
+                            reply_text = "⚠️ Could not identify that service. Please choose from the list:"
+                            interactive_menu = {
+                                "header_message": "",
+                                "list_title": "Choose Service",
+                                "sections": [{"title": "Available Services", "choices": choices_list}]
+                            }
+                        else:
+                            reply_text = "⚠️ No services are currently available. Please contact us directly."
+                            is_menu = False
 
                 elif session.state == 'select_vehicle_type':
                     from master.models import VehicleType, VehicleTypeModel
@@ -1619,11 +1863,11 @@ def api_whatsapp_webhook(request):
                     choices_list = []
                     for b in branches:
                         choices_list.append({
-                            "title": b.name[:20],
+                            "title": b.name[:24],
                             "choice_id": f"sch_br_{b.id}",
                             "id": f"sch_br_{b.id}",
                             "button_id": f"sch_br_{b.id}",
-                            "description": ""
+                            "description": b.name[:72]
                         })
                     interactive_menu = {
                         "header_message": "",
@@ -1701,11 +1945,11 @@ def api_whatsapp_webhook(request):
                             choices_list = []
                             for b in branches:
                                 choices_list.append({
-                                    "title": b.name[:20],
+                                    "title": b.name[:24],
                                     "choice_id": f"reg_br_{b.id}",
                                     "id": f"reg_br_{b.id}",
                                     "button_id": f"reg_br_{b.id}",
-                                    "description": ""
+                                    "description": b.name[:72]
                                 })
                             interactive_menu = {
                                 "header_message": "",
@@ -1766,11 +2010,11 @@ def api_whatsapp_webhook(request):
                         choices_list = []
                         for b in branches:
                             choices_list.append({
-                                "title": b.name[:20],
+                                "title": b.name[:24],
                                 "choice_id": f"reg_br_{b.id}",
                                 "id": f"reg_br_{b.id}",
                                 "button_id": f"reg_br_{b.id}",
-                                "description": ""
+                                "description": b.name[:72]
                             })
                         interactive_menu = {
                             "header_message": "",
@@ -2091,11 +2335,11 @@ def api_whatsapp_webhook(request):
                     choices_list = []
                     for b in branches:
                         choices_list.append({
-                            "title": b.name[:20],
+                            "title": b.name[:24],
                             "choice_id": f"loc_br_{b.id}",
                             "id": f"loc_br_{b.id}",
                             "button_id": f"loc_br_{b.id}",
-                            "description": ""
+                            "description": b.name[:72]
                         })
                     interactive_menu = {
                         "header_message": "",
@@ -2133,11 +2377,11 @@ def api_whatsapp_webhook(request):
                     choices_list = []
                     for b in branches:
                         choices_list.append({
-                            "title": b.name[:20],
+                            "title": b.name[:24],
                             "choice_id": f"contact_br_{b.id}",
                             "id": f"contact_br_{b.id}",
                             "button_id": f"contact_br_{b.id}",
-                            "description": ""
+                            "description": b.name[:72]
                         })
                     interactive_menu = {
                         "header_message": "",
