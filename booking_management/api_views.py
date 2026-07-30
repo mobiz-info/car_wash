@@ -505,8 +505,7 @@ def _get_available_services(br, vehicle_match):
     the vehicle model of `vehicle_match`.
     If vehicle has no vehicle_type_model, all branch-enabled services are returned.
     """
-    from service_management.models import Service as ServiceModel, ServiceType, CompanyService
-    from client_management.models import BranchService, BranchServiceCategory, ServiceVehicleTypePrice
+    from service_management.models import Service as ServiceModel, ServiceType, CompanyService, BranchService, BranchServiceCategory, ServiceVehicleTypePrice
 
     disabled_cat_slugs = set(
         BranchServiceCategory.objects.filter(
@@ -538,7 +537,6 @@ def _get_available_services(br, vehicle_match):
         service_type__slug__in=enabled_cat_slugs,
     ).order_by('service_type__name', 'name'):
         if vehicle_type_model:
-            from client_management.models import ServiceVehicleTypePrice
             price_obj = ServiceVehicleTypePrice.objects.filter(
                 branch=br,
                 service=svc,
@@ -1635,38 +1633,22 @@ def api_whatsapp_webhook(request):
                         # Show service list again
                         vehicle_id = session.data.get('booking_vehicle_id')
                         br_id = session.data.get('booking_branch_id')
-                        from client_management.models import Branch, BranchService, BranchServiceCategory, ServiceVehicleTypePrice
-                        from service_management.models import ServiceType, CompanyService
+                        from client_management.models import Branch
 
                         br = Branch.objects.get(id=br_id)
-                        disabled_cat_slugs = set(
-                            BranchServiceCategory.objects.filter(
-                                branch=br, is_enabled=False, is_deleted=False
-                            ).values_list('service_type__slug', flat=True)
-                        )
-                        all_cat_slugs = list(
-                            ServiceType.objects.filter(is_deleted=False).values_list('slug', flat=True)
-                        )
-                        enabled_cat_slugs = [s for s in all_cat_slugs if s and s not in disabled_cat_slugs]
-                        company_svc_ids = CompanyService.objects.filter(
-                            company=br.company, is_enabled=True
-                        ).values_list('service_id', flat=True)
-                        enabled_svc_ids = BranchService.objects.filter(
-                            branch=br, service_id__in=company_svc_ids, is_enabled=True, is_deleted=False
-                        ).values_list('service_id', flat=True)
+                        vehicle_match = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer).first()
+                        available_services = _get_available_services(br, vehicle_match)
 
                         choices_list = []
-                        for svc in ServiceModel.objects.filter(
-                            id__in=enabled_svc_ids, is_active=True, is_deleted=False,
-                            service_type__slug__in=enabled_cat_slugs,
-                        ).order_by('name'):
+                        for svc in available_services:
                             choices_list.append({
                                 "title": svc.name[:24],
                                 "choice_id": f"book_svc_{svc.id}",
                                 "id": f"book_svc_{svc.id}",
                                 "button_id": f"book_svc_{svc.id}",
-                                "description": ""
+                                "description": svc.name[:72]
                             })
+
                         if choices_list:
                             reply_text = "⚠️ Could not identify that service. Please choose from the list:"
                             interactive_menu = {
