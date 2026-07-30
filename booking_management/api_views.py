@@ -492,6 +492,13 @@ def api_whatsapp_debug(request):
         'env_info': env_info,
     }, json_dumps_params={'indent': 2})
 
+
+def get_local_date():
+    from zoneinfo import ZoneInfo
+    from django.utils import timezone
+    return timezone.now().astimezone(ZoneInfo('Asia/Kolkata')).date()
+
+
 def find_matching_branch(company, choice, choice_id_raw='', choice_title_raw='', incoming_msg=''):
     all_branches = company.branches.filter(is_deleted=False)
     if not all_branches.exists():
@@ -613,6 +620,11 @@ def api_whatsapp_webhook(request):
                 interactive_data = body.get('interactive') or {}
                 interactive_type = str(interactive_data.get('type', '')).strip()
                 choice_title = str(interactive_data.get('title', '') or body.get('title', '')).strip()
+                # description field carries the full branch name we put in it
+                choice_description = str(interactive_data.get('description', '') or '').strip()
+                if choice_description and choice_description.lower() != 'none':
+                    # Prefer description over truncated title for matching
+                    choice_title = choice_description
                 if interactive_type == '1':
                     # For list messages (type 1), wawy.org sends custom ID in 'id' and
                     # the selected item title in 'title'. Grab both.
