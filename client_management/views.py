@@ -137,6 +137,36 @@ def client_edit(request, id):
 
 
 @login_required
+def company_profile_edit(request):
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "Company profile not found.")
+        return redirect('dashboard')
+
+    if not company:
+        messages.error(request, "You are not associated with any company.")
+        return redirect('dashboard')
+
+    form = CompanyProfileForm(request.POST or None, request.FILES or None, instance=company)
+    if request.method == 'POST':
+        if form.is_valid():
+            inst = form.save(commit=False)
+            inst.updater = request.user
+            inst.save()
+            messages.success(request, "Company Profile updated successfully.")
+            return redirect('company_profile_edit')
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    return render(request, 'client/profile_edit.html', {
+        'form': form,
+        'company': company,
+        'title': 'Edit Company Profile'
+    })
+
+
+@login_required
 def client_delete(request, id):
     instance = get_object_or_404(Client, id=id)
     instance.is_deleted = True
@@ -2783,5 +2813,103 @@ def whatsapp_sent_report(request):
         'search': search,
         'title': 'WhatsApp Sent Report',
     })
+
+
+# =============================================================================
+# Extras Master Web Views
+# =============================================================================
+@login_required
+def extras_list(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    search = request.GET.get('search', '').strip()
+    extras = Extra.objects.filter(
+        Q(company=company) | Q(company__isnull=True),
+        is_deleted=False
+    ).select_related('service_type')
+
+    if search:
+        extras = extras.filter(name__icontains=search)
+
+    extras = extras.order_by('name')
+
+    return render(request, 'extras/list.html', {
+        'extras': extras,
+        'search': search,
+        'title': 'Extras Master'
+    })
+
+
+@login_required
+def extras_create(request):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    form = ExtraForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            extra = form.save(commit=False)
+            extra.company = company
+            extra.auto_id = get_auto_id(Extra)
+            extra.creator = request.user
+            extra.save()
+            messages.success(request, "Extra item created successfully.")
+            return redirect('extras_list')
+
+    return render(request, 'extras/create.html', {
+        'form': form,
+        'title': 'Add Extra Item'
+    })
+
+
+@login_required
+def extras_edit(request, id):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    extra = get_object_or_404(Extra, id=id, is_deleted=False)
+    if extra.company and extra.company != company and not request.user.is_superuser:
+        messages.error(request, "Permission denied.")
+        return redirect('extras_list')
+
+    form = ExtraForm(request.POST or None, instance=extra)
+    if request.method == 'POST':
+        if form.is_valid():
+            inst = form.save(commit=False)
+            inst.updater = request.user
+            inst.save()
+            messages.success(request, "Extra item updated successfully.")
+            return redirect('extras_list')
+
+    return render(request, 'extras/create.html', {
+        'form': form,
+        'extra': extra,
+        'title': 'Edit Extra Item'
+    })
+
+
+@login_required
+def extras_delete(request, id):
+    company, err = get_company_for_admin_view(request)
+    if err:
+        messages.error(request, err)
+        return redirect('dashboard')
+
+    extra = get_object_or_404(Extra, id=id, is_deleted=False)
+    if extra.company and extra.company != company and not request.user.is_superuser:
+        messages.error(request, "Permission denied.")
+        return redirect('extras_list')
+
+    extra.is_deleted = True
+    extra.save()
+    messages.success(request, "Extra item deleted successfully.")
+    return redirect('extras_list')
 
 

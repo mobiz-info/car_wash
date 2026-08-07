@@ -24,8 +24,11 @@ class ClientForm(forms.ModelForm):
 
             'status', 'logo_color', 'logo_bw'
         ]
-        
-            
+        widgets = {
+            'logo_color': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_color'}),
+            'logo_bw': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_bw'}),
+        }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Initially show empty querysets for state/area (populated via JS)
@@ -44,10 +47,28 @@ class ClientForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             if field_name == 'status':
                 field.widget.attrs['class'] = 'form-check-input'
+            elif field_name in ('logo_color', 'logo_bw', 'scheme_types'):
+                pass  # These have their own widget configs; don't override
             else:
                 field.widget.attrs['class'] = 'form-control'
                 if not isinstance(field.widget, forms.Select):
                     field.widget.attrs['placeholder'] = f"Enter {field.label}"
+
+
+class CompanyProfileForm(forms.ModelForm):
+    class Meta:
+        model = Client
+        fields = ['company_name', 'logo_color', 'logo_bw']
+        widgets = {
+            'logo_color': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_color'}),
+            'logo_bw': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_bw'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'company_name' in self.fields:
+            self.fields['company_name'].widget.attrs['class'] = 'form-control'
+            self.fields['company_name'].widget.attrs['placeholder'] = 'Enter Company Name'
 
 from django.contrib.auth.models import User
 from core.models import UserProfile, Role
@@ -903,6 +924,30 @@ class GmailCredentialForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            if 'class' not in field.widget.attrs:
+                field.widget.attrs['class'] = 'form-control'
+
+
+class ExtraForm(forms.ModelForm):
+    class Meta:
+        model = Extra
+        fields = ['service_type', 'name']
+        labels = {
+            'service_type': 'Service Category',
+            'name': 'Extra Name',
+        }
+        widgets = {
+            'service_type': forms.Select(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Extra Item Name'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from service_management.models import ServiceType
+        self.fields['service_type'].queryset = ServiceType.objects.filter(is_deleted=False).order_by('name')
+        self.fields['service_type'].empty_label = "-- Select Service Category --"
+        self.fields['service_type'].required = False
         for field_name, field in self.fields.items():
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'

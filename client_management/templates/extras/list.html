@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Clients Classification - Mobiz Car Wash Solution{% endblock %}
-{% block page_title %}Clients Master{% endblock %}
-{% block breadcrumb_active %}Client Management{% endblock %}
+{% block title %}Extras Master - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Extras Master{% endblock %}
+{% block breadcrumb_active %}Extras Master{% endblock %}
 
 {% block content %}
 <style>
@@ -29,7 +29,6 @@
         outline: none;
         width: 300px;
         transition: all 0.2s;
-        font-family: 'Inter', sans-serif;
     }
     .search-input:focus {
         border-color: #3b82f6;
@@ -88,20 +87,14 @@
     .premium-table tr:hover {
         background-color: #f8fafc;
     }
-    .status-badge {
+    .category-badge {
+        background-color: #eff6ff;
+        color: #2563eb;
         padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
         display: inline-block;
-    }
-    .status-active {
-        background-color: #dcfce7;
-        color: #166534;
-    }
-    .status-inactive {
-        background-color: #fee2e2;
-        color: #991b1b;
     }
     .action-btn {
         padding: 6px;
@@ -115,90 +108,49 @@
     }
     .action-btn.edit:hover { background-color: #eff6ff; color: #3b82f6; }
     .action-btn.delete:hover { background-color: #fef2f2; color: #ef4444; }
-    
-    .pagination {
-        padding: 16px 24px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 16px;
-        border-top: 1px solid #e2e8f0;
-        font-size: 0.85rem;
-        color: #64748b;
-    }
-    .page-link {
-        padding: 6px 12px;
-        border: 1px solid #cbd5e1;
-        border-radius: 6px;
-        text-decoration: none;
-        color: #475569;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-    .page-link:hover {
-        background-color: #f1f5f9;
-    }
 </style>
 
 <div class="list-container">
-    <!-- Header -->
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search by company or owner..." class="search-input">
+            <input type="text" name="search" value="{{ search }}" placeholder="Search extra items..." class="search-input">
             <button type="submit" style="display: none;"></button>
         </form>
 
-        <a href="{% url 'client_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Client
+        <a href="{% url 'extras_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Extra Item
         </a>
     </div>
 
-    <!-- Table -->
     <div style="overflow-x: auto;">
         <table class="premium-table">
             <thead>
                 <tr>
                     <th style="width: 80px;">#</th>
-                    <th>Company Name</th>
-                    <th>Owner Name</th>
-                    <th>Phone</th>
-                    <th>Status</th>
+                    <th>Extra Name</th>
+                    <th>Service Category</th>
                     <th style="width: 120px; text-align: right;">Action</th>
                 </tr>
             </thead>
             <tbody>
-                {% for obj in page_obj %}
+                {% for item in extras %}
                 <tr>
                     <td style="font-weight: 500; color: #94a3b8;">{{ forloop.counter }}</td>
-                    <td style="font-weight: 600; color: #1e293b;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b; overflow: hidden; border: 1px solid #e2e8f0;">
-                                {% if obj.logo_color %}
-                                    <img src="{{ obj.logo_color.url }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-block';">
-                                    <i class="ph-fill ph-buildings" style="display:none;"></i>
-                                {% else %}
-                                    <i class="ph-fill ph-buildings"></i>
-                                {% endif %}
-                            </div>
-                            {{ obj.company_name }}
-                        </div>
-                    </td>
-                    <td>{{ obj.owner_name }}</td>
-                    <td>{{ obj.phone|default:"-" }}</td>
+                    <td style="font-weight: 600; color: #1e293b;">{{ item.name }}</td>
                     <td>
-                        {% if obj.status %}
-                            <span class="status-badge status-active">Active</span>
+                        {% if item.service_type %}
+                            <span class="category-badge">{{ item.service_type.name }}</span>
                         {% else %}
-                            <span class="status-badge status-inactive">Inactive</span>
+                            <span style="color: #94a3b8; font-style: italic;">All Categories</span>
                         {% endif %}
                     </td>
                     <td style="text-align: right;">
                         <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                            <a href="{% url 'client_edit' obj.pk %}" class="action-btn edit" title="Edit">
+                            <a href="{% url 'extras_edit' item.pk %}" class="action-btn edit" title="Edit">
                                 <i class="ph ph-pencil-simple" style="font-size: 1.2rem;"></i>
                             </a>
-                            <a href="{% url 'client_delete' obj.pk %}" onclick="return confirm('Delete this client?')" class="action-btn delete" title="Delete">
+                            <a href="{% url 'extras_delete' item.pk %}" onclick="return confirm('Delete this extra item?')" class="action-btn delete" title="Delete">
                                 <i class="ph ph-trash" style="font-size: 1.2rem;"></i>
                             </a>
                         </div>
@@ -206,29 +158,14 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align:center; padding: 40px; color: #94a3b8;">
+                    <td colspan="4" style="text-align:center; padding: 40px; color: #94a3b8;">
                         <i class="ph ph-folder-open" style="font-size: 3rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
-                        No clients found matching your criteria.
+                        No extra items found.
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-
-    <!-- Pagination -->
-    {% if page_obj.paginator.num_pages > 1 %}
-    <div class="pagination">
-        {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}" class="page-link">Previous</a>
-        {% endif %}
-
-        <span style="font-weight: 500;">Page <span style="color: #1e293b;">{{ page_obj.number }}</span> of {{ page_obj.paginator.num_pages }}</span>
-
-        {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}" class="page-link">Next</a>
-        {% endif %}
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

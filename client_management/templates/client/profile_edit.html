@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Company Profile - Mobiz Car Wash Solution{% endblock %}
+{% block page_title %}Edit Company Profile{% endblock %}
+{% block breadcrumb_active %}Company Profile{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container {
+        max-width: 700px;
+        margin: 20px auto;
+        background: white;
+        padding: 32px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .premium-form-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .form-group {
+        margin-bottom: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .form-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #334155;
+    }
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        color: #1e293b;
+        outline: none;
+    }
+    .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid #f1f5f9;
+    }
+    .btn-primary {
+        background: #3b82f6;
+        color: white;
+        padding: 10px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-primary:hover {
+        background: #2563eb;
+    }
+    .btn-secondary {
+        background: white;
+        color: #475569;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.9rem;
+        border: 1px solid #cbd5e1;
+    }
+    .error-text {
+        color: #ef4444;
+        font-size: 0.82rem;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .spinner-icon {
+        animation: spin 1s linear infinite;
+        display: inline-block;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-buildings" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        Company Profile Settings
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_company_name">Company Name *</label>
+            {{ form.company_name }}
+            {% if form.company_name.errors %}
+                <div class="error-text">{{ form.company_name.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Color Logo (PNG 300x300)</label>
+            <div id="color-logo-preview-wrap" style="{% if form.instance.logo_color %}display:block;{% else %}display:none;{% endif %} margin-bottom:10px;">
+                <img id="color-logo-preview-img"
+                     src="{% if form.instance.logo_color %}{{ form.instance.logo_color.url }}{% endif %}"
+                     alt="Color Logo"
+                     style="height:80px; max-width:200px; border-radius:8px; border:1px solid #e2e8f0; padding:4px; background:#fff; object-fit:contain; display:block;">
+            </div>
+
+            {% if form.instance.logo_color %}
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:0.82rem; color:#64748b; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
+                        <input type="checkbox" name="logo_color-clear" id="logo_color-clear_id">
+                        Remove current logo
+                    </label>
+                </div>
+            {% endif %}
+
+            <input type="file" name="logo_color" id="id_logo_color" accept="image/*" class="form-control"
+                   style="padding:8px 12px; background:#fff; cursor:pointer;"
+                   onchange="previewImage(this, 'color-logo-preview-img', 'color-logo-preview-wrap')">
+
+            {% if form.logo_color.errors %}
+                <div class="error-text">{{ form.logo_color.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label style="font-weight: 600; margin-bottom: 6px; display: block;">B/W Logo (PNG 300x300)</label>
+            <div id="bw-logo-preview-wrap" style="{% if form.instance.logo_bw %}display:block;{% else %}display:none;{% endif %} margin-bottom:10px;">
+                <img id="bw-logo-preview-img"
+                     src="{% if form.instance.logo_bw %}{{ form.instance.logo_bw.url }}{% endif %}"
+                     alt="B/W Logo"
+                     style="height:80px; max-width:200px; border-radius:8px; border:1px solid #e2e8f0; padding:4px; background:#fff; object-fit:contain; display:block;">
+            </div>
+
+            {% if form.instance.logo_bw %}
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:0.82rem; color:#64748b; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
+                        <input type="checkbox" name="logo_bw-clear" id="logo_bw-clear_id">
+                        Remove current logo
+                    </label>
+                </div>
+            {% endif %}
+
+            <input type="file" name="logo_bw" id="id_logo_bw" accept="image/*" class="form-control"
+                   style="padding:8px 12px; background:#fff; cursor:pointer;"
+                   onchange="previewImage(this, 'bw-logo-preview-img', 'bw-logo-preview-wrap')">
+
+            {% if form.logo_bw.errors %}
+                <div class="error-text">{{ form.logo_bw.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'dashboard' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" id="save-profile-btn" class="btn-primary">
+                <span id="btn-text">Save Changes</span>
+                <span id="btn-spinner" style="display:none; align-items:center; gap:8px;">
+                    <i class="ph ph-spinner spinner-icon"></i> Uploading &amp; Saving...
+                </span>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function previewImage(input, imgId, wrapId) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = document.getElementById(imgId);
+                var wrap = document.getElementById(wrapId);
+                if (img) img.src = e.target.result;
+                if (wrap) wrap.style.display = 'block';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    const formElem = document.querySelector('form');
+    if (formElem) {
+        formElem.addEventListener('submit', function() {
+            const btn = document.getElementById('save-profile-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnSpinner = document.getElementById('btn-spinner');
+            if (btn) {
+                btn.style.opacity = '0.8';
+                btn.style.pointerEvents = 'none';
+            }
+            if (btnText) btnText.style.display = 'none';
+            if (btnSpinner) btnSpinner.style.display = 'inline-flex';
+        });
+    }
+</script>
+{% endblock %}

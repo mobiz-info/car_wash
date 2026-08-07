@@ -242,11 +242,11 @@
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                         {% if invoice.branch.company.logo_color %}
-                        <td style="width: 70px; vertical-align: middle; padding-right: 15px;">
-                            <img src="{{ invoice.branch.company.logo_color.url }}" style="height: 60px; max-width: 120px; object-fit: contain;" />
+                        <td style="width: 60px; vertical-align: top; padding-right: 12px; padding-top: 2px;">
+                            <img src="{{ invoice.branch.company.logo_color.url }}" style="height: 36px; max-width: 80px; object-fit: contain;" />
                         </td>
                         {% endif %}
-                        <td style="vertical-align: middle;">
+                        <td style="vertical-align: top;">
                             <div class="company-details">
                                 <h2>{{ invoice.branch.company.company_name|upper }}</h2>
                                 <p><strong>{{ invoice.branch.name }}</strong></p>

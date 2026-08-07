@@ -2110,29 +2110,54 @@ def api_whatsapp_webhook(request):
                             reply_text = "⚠️ No registered vehicles found on your account. Please visit us or contact our team to add your vehicle."
                             is_menu = False
                         elif vehicles.count() == 1:
-                            # Auto-confirm with the only vehicle
+                            # Only one vehicle — check for available services before confirming
                             v = vehicles.first()
-                            from core.functions import get_auto_id
-                            bk_num = f"BK{get_auto_id(Booking)}"
-                            booking = safe_create_model(
-                                Booking,
-                                customer=customer,
-                                vehicle=v,
-                                branch=branch,
-                                booking_date=booking_date,
-                                booking_number=bk_num,
-                                status=Booking.STATUS_PENDING
-                            )
-                            model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
-                            reply_text = (
-                                f"✅ *Booking Confirmed!*\n\n"
-                                f"📋 Booking No: *{bk_num}*\n"
-                                f"🚗 Vehicle: {v.vehicle_number} {model_name}\n"
-                                f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
-                                f"📍 Branch: {branch.name}\n\n"
-                                f"We look forward to serving you! 🫧"
-                            )
-                            is_menu = False
+                            available_services = _get_available_services(branch, v)
+                            if available_services:
+                                from core.functions import get_auto_id
+                                ChatSession.objects.update_or_create(
+                                    phone_number=from_phone,
+                                    defaults={
+                                        'state': 'book_select_service',
+                                        'data': {
+                                            'booking_date_str': 'today',
+                                            'booking_date_resolved': str(booking_date),
+                                            'booking_branch_id': str(branch.id),
+                                            'booking_vehicle_id': str(v.id),
+                                        },
+                                        'auto_id': get_auto_id(ChatSession)
+                                    }
+                                )
+                                choices_list = [_build_service_choice(svc) for svc in available_services]
+                                reply_text = "Please select the service you'd like to book:"
+                                interactive_menu = {
+                                    "header_message": "",
+                                    "list_title": "Choose Service",
+                                    "sections": [{"title": "Available Services", "choices": choices_list}]
+                                }
+                            else:
+                                # No services configured — confirm directly
+                                from core.functions import get_auto_id
+                                bk_num = f"BK{get_auto_id(Booking)}"
+                                booking = safe_create_model(
+                                    Booking,
+                                    customer=customer,
+                                    vehicle=v,
+                                    branch=branch,
+                                    booking_date=booking_date,
+                                    booking_number=bk_num,
+                                    status=Booking.STATUS_PENDING
+                                )
+                                model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                reply_text = (
+                                    f"✅ *Booking Confirmed!*\n\n"
+                                    f"📋 Booking No: *{bk_num}*\n"
+                                    f"🚗 Vehicle: {v.vehicle_number} {model_name}\n"
+                                    f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                    f"📍 Branch: {branch.name}\n\n"
+                                    f"We look forward to serving you! 🫧"
+                                )
+                                is_menu = False
                         else:
                             from core.functions import get_auto_id
                             ChatSession.objects.update_or_create(
@@ -2179,29 +2204,54 @@ def api_whatsapp_webhook(request):
                             reply_text = "No registered vehicles found. Please add a vehicle to your account first."
                             is_menu = False
                         elif vehicles.count() == 1:
-                            # Auto-confirm with the only vehicle
+                            # Only one vehicle — check for available services before confirming
                             v = vehicles.first()
-                            from core.functions import get_auto_id
-                            bk_num = f"BK{get_auto_id(Booking)}"
-                            booking = safe_create_model(
-                                Booking,
-                                customer=customer,
-                                vehicle=v,
-                                branch=branch,
-                                booking_date=booking_date,
-                                booking_number=bk_num,
-                                status=Booking.STATUS_PENDING
-                            )
-                            model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
-                            reply_text = (
-                                f"✅ *Booking Confirmed!*\n\n"
-                                f"📋 Booking No: *{bk_num}*\n"
-                                f"🚗 Vehicle: {v.vehicle_number} {model_name}\n"
-                                f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
-                                f"📍 Branch: {branch.name}\n\n"
-                                f"We look forward to serving you! 🫧"
-                            )
-                            is_menu = False
+                            available_services = _get_available_services(branch, v)
+                            if available_services:
+                                from core.functions import get_auto_id
+                                ChatSession.objects.update_or_create(
+                                    phone_number=from_phone,
+                                    defaults={
+                                        'state': 'book_select_service',
+                                        'data': {
+                                            'booking_date_str': 'tomorrow',
+                                            'booking_date_resolved': str(booking_date),
+                                            'booking_branch_id': str(branch.id),
+                                            'booking_vehicle_id': str(v.id),
+                                        },
+                                        'auto_id': get_auto_id(ChatSession)
+                                    }
+                                )
+                                choices_list = [_build_service_choice(svc) for svc in available_services]
+                                reply_text = "Please select the service you'd like to book:"
+                                interactive_menu = {
+                                    "header_message": "",
+                                    "list_title": "Choose Service",
+                                    "sections": [{"title": "Available Services", "choices": choices_list}]
+                                }
+                            else:
+                                # No services configured — confirm directly
+                                from core.functions import get_auto_id
+                                bk_num = f"BK{get_auto_id(Booking)}"
+                                booking = safe_create_model(
+                                    Booking,
+                                    customer=customer,
+                                    vehicle=v,
+                                    branch=branch,
+                                    booking_date=booking_date,
+                                    booking_number=bk_num,
+                                    status=Booking.STATUS_PENDING
+                                )
+                                model_name = v.vehicle_type_model.name if v.vehicle_type_model else ""
+                                reply_text = (
+                                    f"✅ *Booking Confirmed!*\n\n"
+                                    f"📋 Booking No: *{bk_num}*\n"
+                                    f"🚗 Vehicle: {v.vehicle_number} {model_name}\n"
+                                    f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                    f"📍 Branch: {branch.name}\n\n"
+                                    f"We look forward to serving you! 🫧"
+                                )
+                                is_menu = False
                         else:
                             from core.functions import get_auto_id
                             ChatSession.objects.update_or_create(
@@ -2239,44 +2289,77 @@ def api_whatsapp_webhook(request):
                     booking_date = get_local_date()
                     if day_str == "tomorrow":
                         booking_date += timedelta(days=1)
-                    
+
                     try:
                         if not vehicle_match:
                             reply_text = "⚠️ We could not find that vehicle on your profile. Please contact us if you need help."
+                            is_menu = False
                         else:
                             # Validate booking availability
                             from .utils import validate_booking
                             is_valid, validation_msg = validate_booking(branch, booking_date)
                             if not is_valid:
-                                reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d %b %Y')}: {validation_msg}. Please try another date."
+                                reply_text = f"⚠️ We're unable to accept bookings for {booking_date.strftime('%d-%b-%Y')}: {validation_msg}. Please try another date."
+                                is_menu = False
                             else:
-                                # Create the booking record safely
-                                from core.functions import get_auto_id
-                                bk_num = f"BK{get_auto_id(Booking)}"
-                                booking = safe_create_model(
-                                    Booking,
-                                    customer=customer,
-                                    vehicle=vehicle_match,
-                                    branch=branch,
-                                    booking_date=booking_date,
-                                    booking_number=bk_num,
-                                    status=Booking.STATUS_PENDING
-                                )
-                                if session:
-                                    session.delete()
-                                veh_model = vehicle_match.vehicle_type_model.name if vehicle_match.vehicle_type_model else ""
-                                reply_text = (
-                                    f"✅ *Booking Confirmed!*\n\n"
-                                    f"📋 Booking No: *{bk_num}*\n"
-                                    f"🚗 Vehicle: {vehicle_match.vehicle_number} {veh_model}\n"
-                                    f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
-                                    f"📍 Branch: {branch.name}\n\n"
-                                    f"Thank you for booking with us! We look forward to serving you. 🫧"
-                                )
+                                # Check for available services and prompt before creating booking
+                                available_services = _get_available_services(branch, vehicle_match)
+                                if available_services:
+                                    from core.functions import get_auto_id
+                                    if session:
+                                        session.state = 'book_select_service'
+                                        session.data['booking_vehicle_id'] = str(vehicle_match.id)
+                                        session.data['booking_date_resolved'] = str(booking_date)
+                                        session.data['booking_branch_id'] = str(branch.id)
+                                        session.save()
+                                    else:
+                                        ChatSession.objects.update_or_create(
+                                            phone_number=from_phone,
+                                            defaults={
+                                                'state': 'book_select_service',
+                                                'data': {
+                                                    'booking_date_resolved': str(booking_date),
+                                                    'booking_branch_id': str(branch.id),
+                                                    'booking_vehicle_id': str(vehicle_match.id),
+                                                },
+                                                'auto_id': get_auto_id(ChatSession)
+                                            }
+                                        )
+                                    choices_list = [_build_service_choice(svc) for svc in available_services]
+                                    reply_text = "Please select the service you'd like to book:"
+                                    interactive_menu = {
+                                        "header_message": "",
+                                        "list_title": "Choose Service",
+                                        "sections": [{"title": "Available Services", "choices": choices_list}]
+                                    }
+                                else:
+                                    # No services configured — confirm directly
+                                    from core.functions import get_auto_id
+                                    bk_num = f"BK{get_auto_id(Booking)}"
+                                    booking = safe_create_model(
+                                        Booking,
+                                        customer=customer,
+                                        vehicle=vehicle_match,
+                                        branch=branch,
+                                        booking_date=booking_date,
+                                        booking_number=bk_num,
+                                        status=Booking.STATUS_PENDING
+                                    )
+                                    if session:
+                                        session.delete()
+                                    veh_model = vehicle_match.vehicle_type_model.name if vehicle_match.vehicle_type_model else ""
+                                    reply_text = (
+                                        f"✅ *Booking Confirmed!*\n\n"
+                                        f"📋 Booking No: *{bk_num}*\n"
+                                        f"🚗 Vehicle: {vehicle_match.vehicle_number} {veh_model}\n"
+                                        f"📅 Date: {booking_date.strftime('%d %b %Y')}\n"
+                                        f"📍 Branch: {branch.name}\n\n"
+                                        f"Thank you for booking with us! We look forward to serving you. 🫧"
+                                    )
+                                    is_menu = False
                     except Exception as e:
                         reply_text = f"We apologise, but there was an error processing your request: {e}"
-                    
-                    is_menu = False
+                        is_menu = False
             elif choice == "menu_cancel" or choice == "cancel" or "cancel booking" in choice:
                 if not customer:
                     reply_text = "⚠️ You must be registered to cancel bookings."

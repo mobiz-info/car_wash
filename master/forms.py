@@ -205,11 +205,12 @@ class OilProductForm(forms.ModelForm):
     class Meta:
         model = OilProduct
         fields = [
-            'oil_brand', 'oil_grade', 'name', 'vehicle_type', 'vehicle_make',
+            'category', 'oil_brand', 'oil_grade', 'name', 'vehicle_type', 'vehicle_make',
             'price_per_litre', 'recommended_qty_litres', 'oil_run_km',
             'for_petrol', 'for_diesel', 'oil_run_days', 'is_active'
         ]
         widgets = {
+            'category': forms.Select(attrs={'class': 'form-control'}),
             'oil_brand': forms.Select(attrs={'class': 'form-control'}),
             'oil_grade': forms.Select(attrs={'class': 'form-control'}),
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Product name (e.g. GTX, Edge, Helix)'}),

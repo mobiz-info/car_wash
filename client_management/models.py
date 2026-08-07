@@ -428,12 +428,14 @@ class PurchaseRequest(BaseModel):
 
 class Extra(BaseModel):
     company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='extras', null=True, blank=True)
+    service_type = models.ForeignKey('service_management.ServiceType', on_delete=models.SET_NULL, null=True, blank=True, related_name='extras')
     name = models.CharField(max_length=200)
 
     def __str__(self):
+        cat = f" [{self.service_type.name}]" if self.service_type else ""
         if self.company:
-            return f"{self.name} - {self.company.company_name}"
-        return self.name
+            return f"{self.name}{cat} - {self.company.company_name}"
+        return f"{self.name}{cat}"
 
 
 class FirebaseSetting(BaseModel):

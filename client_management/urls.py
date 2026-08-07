@@ -7,6 +7,7 @@ urlpatterns = [
     path('client/create/', views.client_create, name='client_create'),
     path('client/edit/<uuid:id>/', views.client_edit, name='client_edit'),
     path('client/delete/<uuid:id>/', views.client_delete, name='client_delete'),
+    path('company/profile/edit/', views.company_profile_edit, name='company_profile_edit'),
     path('ajax/states/', views.ajax_get_states, name='ajax_get_states'),
     path('ajax/areas/', views.ajax_get_areas, name='ajax_get_areas'),
     path('ajax/district/', views.ajax_get_districts, name='ajax_get_districts'),
@@ -193,13 +194,25 @@ urlpatterns = [
     path('purchase-requests/approve/<uuid:id>/', views.purchase_request_approve, name='purchase_request_approve'),
     path('purchase-requests/reject/<uuid:id>/', views.purchase_request_reject, name='purchase_request_reject'),
     
+    # Extras Master (Web Admin)
+    path('extras/', views.extras_list, name='extras_list'),
+    path('extras/create/', views.extras_create, name='extras_create'),
+    path('extras/edit/<uuid:id>/', views.extras_edit, name='extras_edit'),
+    path('extras/delete/<uuid:id>/', views.extras_delete, name='extras_delete'),
+
     path('api/stock/list/', api_views.api_get_stock_list, name='api_get_stock_list'),
     path('api/purchase-requests/list/', api_views.api_get_purchase_requests, name='api_get_purchase_requests'),
     path('api/purchase-requests/create/', api_views.api_create_purchase_request, name='api_create_purchase_request'),
     path('api/expenses/heads/create/', api_views.api_create_expense_head, name='api_create_expense_head'),
     path('api/stock/create/', api_views.api_create_stock, name='api_create_stock'),
     path('api/extras/list/', api_views.api_get_extras_list, name='api_get_extras_list'),
+    path('api/service-categories/', api_views.api_get_service_categories, name='api_get_service_categories'),
+
     path('api/extras/create/', api_views.api_create_extra, name='api_create_extra'),
+    path('api/extras/edit/<uuid:id>/', api_views.api_edit_extra, name='api_edit_extra'),
+    path('api/extras/edit/', api_views.api_edit_extra, name='api_edit_extra_body'),
+    path('api/extras/delete/<uuid:id>/', api_views.api_delete_extra, name='api_delete_extra'),
+    path('api/extras/delete/', api_views.api_delete_extra, name='api_delete_extra_body'),
     path('api/reports/expense-head-wise/', api_views.api_report_expense_head_wise, name='api_report_expense_head_wise'),
     path('api/expenses/heads/edit/<uuid:id>/', api_views.api_edit_expense_head, name='api_edit_expense_head'),
     path('api/expenses/heads/delete/<uuid:id>/', api_views.api_delete_expense_head, name='api_delete_expense_head'),

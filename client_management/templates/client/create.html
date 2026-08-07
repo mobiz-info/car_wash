@@ -74,6 +74,14 @@
         gap: 18px 30px;
         margin-bottom: 20px;
     }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .spinner-icon {
+        animation: spin 1s linear infinite;
+        display: inline-block;
+    }
 </style>
 
 <div class="premium-form-container">
@@ -150,16 +158,27 @@
             </div>
             <!-- 🔥 LOGO SECTION INSIDE GRID -->
             <div class="form-group">
-                <label>Color Logo (PNG 300x300)</label>
-                <div class="logo-upload">
-                    {{ form.logo_color }}
+                <label style="font-weight: 600; margin-bottom: 6px; display: block;">Color Logo (PNG 300x300)</label>
+
+                <div id="color-logo-preview-wrap" style="{% if form.instance.logo_color %}display:block;{% else %}display:none;{% endif %} margin-bottom:10px;">
+                    <img id="color-logo-preview-img"
+                         src="{% if form.instance.logo_color %}{{ form.instance.logo_color.url }}{% endif %}"
+                         alt="Color Logo"
+                         style="height:80px; max-width:200px; border-radius:8px; border:1px solid #e2e8f0; padding:4px; background:#fff; object-fit:contain; display:block;">
                 </div>
 
                 {% if form.instance.logo_color %}
-                    <div class="logo-preview">
-                        <img src="{{ form.instance.logo_color.url }}">
+                    <div style="margin-bottom:8px;">
+                        <label style="font-size:0.82rem; color:#64748b; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
+                            <input type="checkbox" name="logo_color-clear" id="logo_color-clear_id">
+                            Remove current logo
+                        </label>
                     </div>
                 {% endif %}
+
+                <input type="file" name="logo_color" id="id_logo_color" accept="image/*" class="form-control"
+                       style="padding:8px 12px; background:#fff; cursor:pointer;"
+                       onchange="previewImage(this, 'color-logo-preview-img', 'color-logo-preview-wrap')">
 
                 {% if form.logo_color.errors %}
                     <div class="error-text">{{ form.logo_color.errors.0 }}</div>
@@ -167,16 +186,27 @@
             </div>
 
             <div class="form-group">
-                <label>B/W Logo (PNG 300x300)</label>
-                <div class="logo-upload">
-                    {{ form.logo_bw }}
+                <label style="font-weight: 600; margin-bottom: 6px; display: block;">B/W Logo (PNG 300x300)</label>
+
+                <div id="bw-logo-preview-wrap" style="{% if form.instance.logo_bw %}display:block;{% else %}display:none;{% endif %} margin-bottom:10px;">
+                    <img id="bw-logo-preview-img"
+                         src="{% if form.instance.logo_bw %}{{ form.instance.logo_bw.url }}{% endif %}"
+                         alt="B/W Logo"
+                         style="height:80px; max-width:200px; border-radius:8px; border:1px solid #e2e8f0; padding:4px; background:#fff; object-fit:contain; display:block;">
                 </div>
 
                 {% if form.instance.logo_bw %}
-                    <div class="logo-preview">
-                        <img src="{{ form.instance.logo_bw.url }}">
+                    <div style="margin-bottom:8px;">
+                        <label style="font-size:0.82rem; color:#64748b; display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
+                            <input type="checkbox" name="logo_bw-clear" id="logo_bw-clear_id">
+                            Remove current logo
+                        </label>
                     </div>
                 {% endif %}
+
+                <input type="file" name="logo_bw" id="id_logo_bw" accept="image/*" class="form-control"
+                       style="padding:8px 12px; background:#fff; cursor:pointer;"
+                       onchange="previewImage(this, 'bw-logo-preview-img', 'bw-logo-preview-wrap')">
 
                 {% if form.logo_bw.errors %}
                     <div class="error-text">{{ form.logo_bw.errors.0 }}</div>
@@ -238,11 +268,30 @@
 
         <div class="form-actions">
             <a href="{% url 'client_list' %}" class="btn-secondary">Cancel</a>
-            <button type="submit" class="btn-primary">Save Client</button>
+            <button type="submit" id="save-client-btn" class="btn-primary">
+                <span id="btn-text">Save Client</span>
+                <span id="btn-spinner" style="display:none; align-items:center; gap:8px;">
+                    <i class="ph ph-spinner spinner-icon"></i> Uploading &amp; Saving...
+                </span>
+            </button>
         </div>
     </form>
 
 <script>
+
+    // ---- Logo Live Preview ----
+    function previewImage(input, imgId, wrapId) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = document.getElementById(imgId);
+                var wrap = document.getElementById(wrapId);
+                if (img) img.src = e.target.result;
+                if (wrap) wrap.style.display = 'block';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
 
     const countrySelect = document.getElementById('{{ form.country.id_for_label }}');
     const stateSelect = document.getElementById('id_state');
@@ -385,33 +434,31 @@
 
     // ---------------- EVENTS ----------------
 
-    countrySelect.addEventListener('change', function () {
+    if (countrySelect) {
+        countrySelect.addEventListener('change', function () {
+            loadStates(this.value);
+        });
+    }
 
-        loadStates(this.value);
+    if (stateSelect) {
+        stateSelect.addEventListener('change', function () {
+            loadDistricts(this.value);
+        });
+    }
 
-    });
-
-    stateSelect.addEventListener('change', function () {
-
-        loadDistricts(this.value);
-
-    });
-
-    districtSelect.addEventListener('change', function () {
-
-        loadAreas(this.value);
-
-    });
+    if (districtSelect) {
+        districtSelect.addEventListener('change', function () {
+            loadAreas(this.value);
+        });
+    }
 
     // ---------------- EDIT LOAD ----------------
 
     document.addEventListener('DOMContentLoaded', function () {
 
-        const initialCountryId = countrySelect.value;
+        if (countrySelect && countrySelect.value && preSelectedStateId) {
 
-        if (initialCountryId && preSelectedStateId) {
-
-            loadStates(initialCountryId, preSelectedStateId, function () {
+            loadStates(countrySelect.value, preSelectedStateId, function () {
 
                 if (preSelectedDistrictId) {
 
@@ -432,12 +479,14 @@
         }
 
     });
+
     // ---- Scheme Facility Yes/No Toggle ----
     const facilityYes = document.getElementById('scheme_facility_yes');
     const facilityNo = document.getElementById('scheme_facility_no');
     const schemeTypesPanel = document.getElementById('scheme-types-panel');
 
     function toggleSchemePanel() {
+        if (!facilityYes || !schemeTypesPanel) return;
         if (facilityYes.checked) {
             schemeTypesPanel.style.display = 'block';
         } else {
@@ -447,10 +496,26 @@
         }
     }
 
-    facilityYes.addEventListener('change', toggleSchemePanel);
-    facilityNo.addEventListener('change', toggleSchemePanel);
+    if (facilityYes) facilityYes.addEventListener('change', toggleSchemePanel);
+    if (facilityNo) facilityNo.addEventListener('change', toggleSchemePanel);
     // Run on load to set correct initial state
     toggleSchemePanel();
+
+    // ---- Form Submit Loading Spinner ----
+    const clientForm = document.querySelector('form');
+    if (clientForm) {
+        clientForm.addEventListener('submit', function() {
+            const btn = document.getElementById('save-client-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnSpinner = document.getElementById('btn-spinner');
+            if (btn) {
+                btn.style.opacity = '0.8';
+                btn.style.pointerEvents = 'none';
+            }
+            if (btnText) btnText.style.display = 'none';
+            if (btnSpinner) btnSpinner.style.display = 'inline-flex';
+        });
+    }
 </script>
 
 {% endblock %}

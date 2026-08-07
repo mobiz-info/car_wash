@@ -1056,17 +1056,26 @@ def api_create_invoice(request):
         
         # Create Items
         services_list = data.get('services', [])
+        if not services_list and (data.get('extras') or data.get('items')):
+            services_list = data.get('extras') or data.get('items')
+
+        if not services_list:
+            return JsonResponse({'success': False, 'message': 'At least one service or extra item is required'}, status=400)
+
         for svc in services_list:
             from service_management.models import Service
-            try:
-                service_obj = Service.objects.get(id=svc.get('id'))
-            except Service.DoesNotExist:
-                service_obj = None
+            svc_id = svc.get('id')
+            service_obj = None
+            if svc_id:
+                try:
+                    service_obj = Service.objects.get(id=svc_id)
+                except Exception:
+                    service_obj = None
                 
             item = InvoiceItem.objects.create(
                 invoice=invoice,
                 service=service_obj,
-                service_name=svc.get('name', 'Unknown Service'),
+                service_name=svc.get('name', 'Unknown Item'),
                 rate=svc.get('rate', 0),
                 discount=svc.get('discount', 0),  # per-item scheme/manual discount
                 creator=user,
@@ -4630,6 +4639,7 @@ def api_report_leave(request):
 
 
 @csrf_exempt
+@csrf_exempt
 def api_get_extras_list(request):
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
@@ -4648,14 +4658,34 @@ def api_get_extras_list(request):
         extras = Extra.objects.filter(
             Q(company=company) | Q(company__isnull=True),
             is_deleted=False
-        ).order_by('name')
+        ).select_related('service_type').order_by('name')
         
         extras_list = [{
             'id': str(e.id),
             'name': e.name,
+            'service_type_id': str(e.service_type.id) if e.service_type else None,
+            'service_type_name': e.service_type.name if e.service_type else None,
+            'service_type_slug': e.service_type.slug if e.service_type else None,
         } for e in extras]
         
         return JsonResponse({'success': True, 'extras': extras_list})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_service_categories(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from service_management.models import ServiceType
+        categories = ServiceType.objects.filter(is_deleted=False).order_by('name')
+        cat_list = [{'id': str(c.id), 'name': c.name, 'slug': c.slug} for c in categories]
+        return JsonResponse({'success': True, 'categories': cat_list})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
@@ -4669,20 +4699,18 @@ def api_create_extra(request):
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
         
-    role = user.profile.role.name if user.profile.role else None
-    if role != 'COMPANY_ADMIN':
-        return JsonResponse({'success': False, 'message': 'Only Owner/Company Admin can create extras'}, status=403)
-        
-    company = user.profile.company
-    if not company:
+    company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
+    if not company and not user.is_superuser:
         return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
         
     try:
         from .models import Extra
+        from service_management.models import ServiceType
         from core.functions import get_auto_id
         
         data = json.loads(request.body)
         name = data.get('name', '').strip()
+        service_type_id = data.get('service_type_id') or data.get('service_category_id')
         
         if not name:
             return JsonResponse({'success': False, 'message': 'name is required'}, status=400)
@@ -4690,8 +4718,13 @@ def api_create_extra(request):
         if Extra.objects.filter(company=company, name__iexact=name, is_deleted=False).exists():
             return JsonResponse({'success': False, 'message': 'Extra item already exists'}, status=400)
             
+        service_type = None
+        if service_type_id:
+            service_type = get_object_or_404(ServiceType, id=service_type_id, is_deleted=False)
+
         extra = Extra.objects.create(
             company=company,
+            service_type=service_type,
             name=name,
             auto_id=get_auto_id(Extra),
             creator=user
@@ -4702,10 +4735,106 @@ def api_create_extra(request):
             'extra': {
                 'id': str(extra.id),
                 'name': extra.name,
+                'service_type_id': str(extra.service_type.id) if extra.service_type else None,
+                'service_type_name': extra.service_type.name if extra.service_type else None,
             }
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_edit_extra(request, id=None):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
+    if not company and not user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+        
+    try:
+        from .models import Extra
+        from service_management.models import ServiceType
+        
+        data = json.loads(request.body or '{}')
+        extra_id = id or data.get('id') or data.get('extra_id')
+        if not extra_id:
+            return JsonResponse({'success': False, 'message': 'extra id is required'}, status=400)
+            
+        extra = get_object_or_404(Extra, id=extra_id, is_deleted=False)
+        if extra.company and extra.company != company and not user.is_superuser:
+            return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+        name = data.get('name', '').strip()
+        if name:
+            if Extra.objects.filter(company=company, name__iexact=name, is_deleted=False).exclude(id=extra.id).exists():
+                return JsonResponse({'success': False, 'message': 'An extra item with this name already exists'}, status=400)
+            extra.name = name
+
+        service_type_id = data.get('service_type_id') or data.get('service_category_id')
+        if service_type_id is not None:
+            if service_type_id:
+                extra.service_type = get_object_or_404(ServiceType, id=service_type_id, is_deleted=False)
+            else:
+                extra.service_type = None
+
+        extra.updater = user
+        extra.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Extra item updated successfully',
+            'extra': {
+                'id': str(extra.id),
+                'name': extra.name,
+                'service_type_id': str(extra.service_type.id) if extra.service_type else None,
+                'service_type_name': extra.service_type.name if extra.service_type else None,
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_delete_extra(request, id=None):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
+    if not company and not user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
+        
+    try:
+        from .models import Extra
+        
+        data = json.loads(request.body or '{}') if request.body else {}
+        extra_id = id or data.get('id') or data.get('extra_id')
+        if not extra_id:
+            return JsonResponse({'success': False, 'message': 'extra id is required'}, status=400)
+            
+        extra = get_object_or_404(Extra, id=extra_id, is_deleted=False)
+        if extra.company and extra.company != company and not user.is_superuser:
+            return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+        extra.is_deleted = True
+        extra.updater = user
+        extra.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Extra item deleted successfully'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
 
 
 @csrf_exempt
@@ -5116,6 +5245,7 @@ def api_oil_products(request):
                 fuel_types.append('Diesel')
             data.append({
                 'id': str(p.id),
+                'category': getattr(p, 'category', 'Engine Oil') or 'Engine Oil',
                 'brand': p.oil_brand.name if p.oil_brand else (p.brand or ''),
                 'grade': p.oil_grade.name if p.oil_grade else (p.grade or ''),
                 'name': p.name or '',

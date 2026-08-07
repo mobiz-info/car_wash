@@ -275,9 +275,24 @@ class OilGrade(BaseModel):
 
 class OilProduct(BaseModel):
     """Master list of Oil Products combining Brand, Grade, Vehicle Type/Make, and Price per Litre."""
+    CATEGORY_CHOICES = [
+        ('Engine Oil', 'Engine Oil'),
+        ('Brake Fluid', 'Brake Fluid'),
+        ('Power Steering Oil', 'Power Steering Oil'),
+        ('Transmission Fluid', 'Transmission Fluid'),
+        ('Differential Oil', 'Differential Oil'),
+        ('Coolant', 'Coolant'),
+        ('Gear Oil', 'Gear Oil'),
+        ('Transfer Case Fluid', 'Transfer Case Fluid'),
+    ]
+
     company = models.ForeignKey(
         Client, on_delete=models.CASCADE, related_name='oil_products',
         null=True, blank=True, help_text="Leave blank for Superadmin global master"
+    )
+    category = models.CharField(
+        max_length=100, choices=CATEGORY_CHOICES, default='Engine Oil',
+        help_text="Category of oil / fluid"
     )
     oil_brand = models.ForeignKey(
         OilBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products'

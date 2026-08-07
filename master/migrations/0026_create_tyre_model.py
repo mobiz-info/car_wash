@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('auth', '0012_alter_user_first_name_max_length'),
         ('client_management', '0042_stock_quantity'),
-        ('master', '0025_supplier_branch'),
+        ('master', '0023_oilproduct_for_diesel_oilproduct_for_petrol_and_more'),
     ]
 
     operations = [
