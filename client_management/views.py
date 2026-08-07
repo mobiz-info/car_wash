@@ -1435,11 +1435,30 @@ def customer_vehicle_create(request):
 
 @login_required
 def branch_vehicle_type_manage(request):
-    """BRANCH_ADMIN enables/disables vehicle types for their branch."""
-    branch = getattr(request.user, 'managed_branch', None)
-    if not branch:
-        messages.error(request, "No branch assigned to you.")
-        return redirect('dashboard')
+    """BRANCH_ADMIN / COMPANY_ADMIN enables/disables vehicle types for branch."""
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+    
+    branch_id = request.GET.get('branch')
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        if not company:
+            messages.error(request, "No company assigned.")
+            return redirect('dashboard')
+        branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+        if branch_id:
+            branch = branches.filter(id=branch_id).first()
+        else:
+            branch = branches.first()
+        if not branch:
+            messages.error(request, "No branch found.")
+            return redirect('dashboard')
+    else:
+        branch = getattr(request.user, 'managed_branch', None)
+        branches = []
+        if not branch:
+            messages.error(request, "No branch assigned to you.")
+            return redirect('dashboard')
 
     all_vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')
     enabled_ids = set(branch.enabled_vehicle_types.values_list('id', flat=True))
@@ -1449,14 +1468,18 @@ def branch_vehicle_type_manage(request):
         branch.enabled_vehicle_types.set(
             VehicleType.objects.filter(id__in=selected_ids, is_active=True, is_deleted=False)
         )
-        messages.success(request, "Vehicle types updated successfully.")
-        return redirect('branch_vehicle_type_manage')
+        messages.success(request, f"Vehicle types updated for {branch.name}.")
+        redirect_url = reverse('branch_vehicle_type_manage')
+        if role_name == 'COMPANY_ADMIN' and branch:
+            redirect_url += f"?branch={branch.id}"
+        return redirect(redirect_url)
 
     return render(request, 'customer_vehicle/vehicle_type_manage.html', {
         'branch': branch,
+        'branches': branches if role_name == 'COMPANY_ADMIN' else None,
         'vehicle_types': all_vehicle_types,
         'enabled_ids': enabled_ids,
-        'title': 'Enable Vehicle Types',
+        'title': 'Enable Vehicle Categories',
     })
 
 

@@ -532,10 +532,13 @@ def service_vehicle_price_manage(request, branch_id):
         'name'
     )
 
-    vehicle_types = VehicleType.objects.filter(
-        is_active=True,
-        is_deleted=False
-    )
+    if branch and branch.enabled_vehicle_types.exists():
+        vehicle_types = branch.enabled_vehicle_types.filter(is_active=True, is_deleted=False).order_by('name')
+    else:
+        vehicle_types = VehicleType.objects.filter(
+            is_active=True,
+            is_deleted=False
+        ).order_by('name')
 
     selected_vehicle_type_id = request.GET.get('vehicle_type')
 

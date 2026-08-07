@@ -709,9 +709,10 @@ def get_invoice_scheme_progress_message(invoice):
 
 def send_invoice_whatsapp_background(invoice_id, base_url):
     try:
+        from datetime import datetime
         from finance_management.models import Invoice
         from finance_management.views import generate_invoice_pdf_file
-        from booking_management.api_views import send_whatsapp_simple
+        from booking_management.api_views import send_whatsapp_simple, clean_whatsapp_number
         from client_management.models import WhatsAppSetting
         
         invoice = Invoice.objects.get(id=invoice_id)
@@ -723,13 +724,15 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         customer = invoice.customer
         phone_to_send = customer.whatsapp_number or customer.phone
         if not phone_to_send:
+            with open('/tmp/whatsapp_invoice.log', 'a') as f:
+                f.write(f"[{datetime.now()}] Invoice {invoice_id}: No phone for customer {customer.name}\n")
             return
             
-        # Normalize the number — strip non-digits and a leading 0 if present.
-        # Phone numbers are stored with country code, so no prefix is added.
-        cleaned_num = ''.join(filter(str.isdigit, str(phone_to_send)))
-        if cleaned_num.startswith('0'):
-            cleaned_num = cleaned_num[1:]
+        cleaned_num = clean_whatsapp_number(phone_to_send)
+        if not cleaned_num:
+            with open('/tmp/whatsapp_invoice.log', 'a') as f:
+                f.write(f"[{datetime.now()}] Invoice {invoice_id}: Invalid phone number '{phone_to_send}'\n")
+            return
             
         # 3. Format message text
         company_name = invoice.branch.company.company_name if invoice.branch and invoice.branch.company else "Wash Pilot"
@@ -756,7 +759,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             f"Dear {customer.name},\n\n"
             f"Your invoice *{invoice.invoice_number}* has been generated successfully at {company_name}.\n\n"
             f"*Invoice Details:*\n"
-            f"Vehicle: {invoice.vehicle.vehicle_number}\n"
+            f"Vehicle: {invoice.vehicle.vehicle_number if invoice.vehicle else ''}\n"
             f"Services:\n{services_str}\n"
             f"Total: {currency}{invoice.total}\n"
             f"Paid: {currency}{invoice.amount_collected}\n"
@@ -770,19 +773,19 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         )
         
         # 4. Fetch branch/company whatsapp setting
-        company = invoice.branch.company if invoice.branch else None
+        company = (invoice.branch.company if invoice.branch else None) or (customer.company if customer else None)
         setting = None
         if company:
-            setting = WhatsAppSetting.objects.filter(company=company).first()
+            setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
             
-        # Only dispatch WhatsApp message if setting exists and has configured credentials
         if not setting or not setting.username or not setting.password:
+            with open('/tmp/whatsapp_invoice.log', 'a') as f:
+                f.write(f"[{datetime.now()}] Invoice {invoice_id}: Missing/incomplete WhatsAppSetting for company {company}\n")
             return
             
         # 5. Dispatch
         if setting.is_official_api:
             from booking_management.api_views import send_whatsapp_template
-            # The 'invoice' template expects values
             values = [
                 customer.name,
                 invoice.invoice_number,
@@ -793,7 +796,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 f"{currency}{invoice.amount_collected}",
                 f"{currency}{invoice.total - invoice.amount_collected}"
             ]
-            send_whatsapp_template(
+            res = send_whatsapp_template(
                 to_number=cleaned_num,
                 template_name='invoice',
                 values=values,
@@ -801,15 +804,24 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 setting=setting
             )
         else:
-            send_whatsapp_simple(
+            res = send_whatsapp_simple(
                 to_number=cleaned_num,
                 message=message_text,
                 setting=setting,
                 media_url=pdf_url
             )
+            
+        with open('/tmp/whatsapp_invoice.log', 'a') as f:
+            f.write(f"[{datetime.now()}] Invoice {invoice_id} WhatsApp sent to {cleaned_num}: {res}\n")
         
     except Exception as e:
         import traceback
+        try:
+            with open('/tmp/whatsapp_invoice.log', 'a') as f:
+                from datetime import datetime
+                f.write(f"[{datetime.now()}] ERROR for invoice {invoice_id}: {str(e)}\n{traceback.format_exc()}\n")
+        except Exception:
+            pass
         try:
             with open('/tmp/whatsapp_webhook.log', 'a') as f:
                 from datetime import datetime
@@ -1359,7 +1371,10 @@ def api_get_form_data(request):
     # --- Vehicle Types (branch-filtered) ---
     role = user.profile.role.name if user.profile.role else None
     branch = None
-    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+    branch_id_param = request.GET.get('branch_id') or request.GET.get('branch')
+    if branch_id_param:
+        branch = Branch.objects.filter(id=branch_id_param, is_deleted=False).first()
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         branch = user.managed_branch
 
     if branch and branch.enabled_vehicle_types.exists():

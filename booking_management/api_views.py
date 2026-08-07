@@ -205,7 +205,7 @@ def clean_whatsapp_number(number):
     Cleans a phone number for WhatsApp sending.
     - Strips spaces, dashes, +, parentheses and other non-digit characters
     - Removes a single leading 0 (local dialing format)
-    - Works for any country — phone numbers are expected to be stored with country code
+    - Automatically prepends country code 91 if a 10-digit number is provided
     - Returns the cleaned digit string or None if too short to be valid
     """
     if not number:
@@ -217,6 +217,9 @@ def clean_whatsapp_number(number):
     # Strip a single leading 0 (local dialing prefix used in some countries)
     if digits.startswith('0'):
         digits = digits[1:]
+    # If 10 digits and starts with 6,7,8,9 (Indian mobile), prepend country code 91
+    if len(digits) == 10 and digits[0] in ('6', '7', '8', '9'):
+        digits = '91' + digits
     # Reject obviously invalid numbers (anything shorter than 7 digits is not a real phone)
     if len(digits) < 7:
         return None
