@@ -7,153 +7,342 @@
 {% block content %}
 
 <style>
-/* Reuse same styles */
-.list-container {
-    background: white;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
-}
-.list-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid #e2e8f0;
+/* ── Page Layout ─────────────────────────────────────────── */
+.bs-toolbar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
 }
-.search-input {
-    padding: 10px 16px;
-    padding-left: 36px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    width: 300px;
-}
-.search-wrapper {
+.bs-search-wrap {
     position: relative;
+    flex: 1;
+    max-width: 340px;
 }
-.search-icon {
+.bs-search-wrap i {
     position: absolute;
     left: 12px;
-    top: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     color: #94a3b8;
+    font-size: 1rem;
 }
-.premium-table {
+.bs-search-input {
     width: 100%;
-    border-collapse: collapse;
+    padding: 10px 16px 10px 38px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    color: #1e293b;
+    background: #fff;
+    transition: border-color .2s, box-shadow .2s;
+    outline: none;
 }
-.premium-table th {
-    background-color: #f8fafc;
-    padding: 14px 24px;
-    font-size: 0.75rem;
+.bs-search-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,.12);
 }
-.premium-table td {
-    padding: 16px 24px;
+
+/* ── Cards Grid ──────────────────────────────────────────── */
+.bs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 20px;
+}
+
+/* ── Single Branch Card ──────────────────────────────────── */
+.bs-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e8edf4;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    overflow: hidden;
+    transition: box-shadow .2s, transform .2s;
+}
+.bs-card:hover {
+    box-shadow: 0 6px 24px rgba(99,102,241,.10);
+    transform: translateY(-2px);
+}
+
+/* Card header */
+.bs-card-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
     border-bottom: 1px solid #f1f5f9;
+    background: linear-gradient(135deg, #f8faff 0%, #f1f5f9 100%);
 }
-.premium-table tr:hover {
-    background-color: #f8fafc;
+.bs-branch-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.15rem;
+    flex-shrink: 0;
 }
-.status-badge {
+.bs-branch-info {
+    flex: 1;
+    min-width: 0;
+}
+.bs-branch-name {
+    font-size: .95rem;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.bs-branch-meta {
+    font-size: .75rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+.bs-count-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: .78rem;
+    font-weight: 600;
+    background: #e0e7ff;
+    color: #4338ca;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.bs-count-badge.zero {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* Card body */
+.bs-card-body {
+    padding: 16px 20px 14px;
+    min-height: 90px;
+}
+
+/* Service chips */
+.bs-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.bs-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     padding: 4px 10px;
     border-radius: 20px;
-    font-size: 0.8rem;
+    font-size: .76rem;
+    font-weight: 500;
+    background: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.status-active { background: #dcfce7; color: #166534; }
-.empty-state {
-    text-align: center;
-    padding: 40px;
+.bs-chip i { font-size: .7rem; color: #38bdf8; }
+
+.bs-no-services {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: #94a3b8;
+    font-size: .85rem;
+    padding: 8px 0;
 }
+
+/* "Show more / less" toggle */
+.bs-toggle {
+    background: none;
+    border: none;
+    color: #6366f1;
+    font-size: .8rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 0;
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.bs-toggle:hover { text-decoration: underline; }
+
+/* Hidden overflow chips */
+.bs-extra { display: none; }
+.bs-expanded .bs-extra { display: inline-flex; }
+
+/* Card footer */
+.bs-card-foot {
+    padding: 12px 20px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: flex-end;
+}
+.bs-manage-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 8px;
+    background: #6366f1;
+    color: #fff;
+    font-size: .82rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .2s, box-shadow .2s;
+}
+.bs-manage-btn:hover {
+    background: #4f46e5;
+    box-shadow: 0 4px 12px rgba(99,102,241,.3);
+    color: #fff;
+    text-decoration: none;
+}
+
+/* Empty state */
+.bs-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #94a3b8;
+    grid-column: 1/-1;
+}
+.bs-empty i { font-size: 3rem; margin-bottom: 12px; display: block; }
+.bs-empty p { font-size: 1rem; margin: 0; }
+
+/* Pagination */
+.bs-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 28px;
+}
+.bs-pagination a, .bs-pagination span {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: .85rem;
+    font-weight: 500;
+    text-decoration: none;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    transition: all .15s;
+}
+.bs-pagination a:hover { background: #6366f1; color: #fff; border-color: #6366f1; }
+.bs-pagination .current { background: #6366f1; color: #fff; border-color: #6366f1; }
 </style>
 
-<div class="list-container">
-
-    <!-- Header -->
-    <div class="list-header">
-        <form method="GET" class="search-wrapper">
-            <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{ search }}" placeholder="Search branch..." class="search-input">
-        </form>
-        {% if role_name == 'COMPANY_ADMIN' or request.user.profile.role.name == 'COMPANY_ADMIN' %}
-            <a href="{% url 'company_service_manage' %}" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
-                <i class="ph ph-buildings" style="font-size:1.2rem;"></i> Manage Company Services
-            </a>
-        {% endif %}
-    </div>
-    <!-- Table -->
-    <div style="overflow-x:auto;">
-        <table class="premium-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Branch</th>
-                    <th>Enabled Services</th>
-                    <th style="text-align:right;">Action</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {% for item in data %}
-                <tr>
-                    <td>{{ forloop.counter }}</td>
-
-                    <!-- Branch -->
-                    <td style="font-weight:600; color:#1e293b;">
-                        {{ item.branch.name }}
-                    </td>
-
-                    <!-- Services -->
-                    <td>
-                        {% if item.services %}
-                            {% for bs in item.services %}
-                                <span style="background:#e0f2fe; padding:4px 8px; border-radius:6px; margin-right:5px;">
-                                    {{ bs.service.name }}
-                                </span>
-                            {% endfor %}
-                        {% else %}
-                            <span class="status-badge" style="background:#fee2e2; color:#991b1b;">
-                                No services
-                            </span>
-                        {% endif %}
-                    </td>
-
-                    <td style="text-align:right;">
-                    <a href="{% url 'branch_service_manage' item.branch.id %}" 
-                    title="Manage"
-                    style="color:#64748b;">
-                        <i class="ph ph-gear" style="font-size:1.2rem;"></i>
-                    </a>
-                </td>
-                </tr>
-
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="empty-state">
-                        No branches found
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Pagination -->
-    {% if page_obj.paginator.num_pages > 1 %}
-    <div class="pagination">
-        {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}">Previous</a>
-        {% endif %}
-
-        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-
-        {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}">Next</a>
-        {% endif %}
-    </div>
+<!-- Toolbar -->
+<div class="bs-toolbar">
+    <form method="GET" class="bs-search-wrap">
+        <i class="ph ph-magnifying-glass"></i>
+        <input type="text" name="search" value="{{ search }}"
+               placeholder="Search branch..." class="bs-search-input" autocomplete="off">
+    </form>
+    {% if role_name == 'COMPANY_ADMIN' or request.user.profile.role.name == 'COMPANY_ADMIN' %}
+        <a href="{% url 'company_service_manage' %}" class="btn-primary"
+           style="text-decoration:none; display:inline-flex; align-items:center; gap:8px; padding:10px 18px;">
+            <i class="ph ph-buildings" style="font-size:1.1rem;"></i> Manage Company Services
+        </a>
     {% endif %}
-
 </div>
+
+<!-- Cards Grid -->
+<div class="bs-grid">
+    {% for item in data %}
+    <div class="bs-card">
+
+        <!-- Head -->
+        <div class="bs-card-head">
+            <div class="bs-branch-icon">
+                <i class="ph ph-git-branch"></i>
+            </div>
+            <div class="bs-branch-info">
+                <div class="bs-branch-name">{{ item.branch.name }}</div>
+                <div class="bs-branch-meta">Branch #{{ forloop.counter }}</div>
+            </div>
+            {% if item.services %}
+                <span class="bs-count-badge">{{ item.services|length }} services</span>
+            {% else %}
+                <span class="bs-count-badge zero">No services</span>
+            {% endif %}
+        </div>
+
+        <!-- Body -->
+        <div class="bs-card-body">
+            {% if item.services %}
+                <div class="bs-chips" id="chips-{{ forloop.counter }}" data-index="{{ forloop.counter }}">
+                    {% for bs in item.services %}
+                        <span class="bs-chip{% if forloop.counter > 6 %} bs-extra{% endif %}">
+                            <i class="ph ph-check-circle"></i>
+                            {{ bs.service.name }}
+                        </span>
+                    {% endfor %}
+                </div>
+                {% if item.services|length > 6 %}
+                    <button class="bs-toggle" onclick="toggleChips({{ forloop.counter }}, this)">
+                        <i class="ph ph-caret-down"></i>
+                        Show {{ item.services|length|add:"-6" }} more
+                    </button>
+                {% endif %}
+            {% else %}
+                <div class="bs-no-services">
+                    <i class="ph ph-warning-circle" style="font-size:1.2rem; color:#fbbf24;"></i>
+                    No services assigned to this branch yet.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <div class="bs-card-foot">
+            <a href="{% url 'branch_service_manage' item.branch.id %}" class="bs-manage-btn">
+                <i class="ph ph-gear"></i> Manage Services
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="bs-empty">
+        <i class="ph ph-magnifying-glass"></i>
+        <p>No branches found</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="bs-pagination">
+    {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}">
+            <i class="ph ph-caret-left"></i> Prev
+        </a>
+    {% endif %}
+    <span class="current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&search={{ search }}">
+            Next <i class="ph ph-caret-right"></i>
+        </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+function toggleChips(index, btn) {
+    const container = document.getElementById('chips-' + index);
+    const isExpanded = container.classList.toggle('bs-expanded');
+    const extras = container.querySelectorAll('.bs-extra');
+    const count = extras.length;
+    if (isExpanded) {
+        btn.innerHTML = '<i class="ph ph-caret-up"></i> Show less';
+    } else {
+        btn.innerHTML = '<i class="ph ph-caret-down"></i> Show ' + count + ' more';
+    }
+}
+</script>
 
 {% endblock %}

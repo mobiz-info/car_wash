@@ -129,6 +129,46 @@
         padding: 50px;
         color: #94a3b8;
     }
+    /* ── Search bar ── */
+    .svc-search-wrap {
+        padding: 14px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #fff;
+    }
+    .svc-search-inner {
+        position: relative;
+        max-width: 380px;
+    }
+    .svc-search-inner i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 1rem;
+        pointer-events: none;
+    }
+    .svc-search-input {
+        width: 100%;
+        padding: 9px 16px 9px 38px;
+        border: 1px solid #e2e8f0;
+        border-radius: 9px;
+        font-size: 0.875rem;
+        color: #1e293b;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+    }
+    .svc-search-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+    }
+    .svc-no-results {
+        display: none;
+        padding: 36px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: .9rem;
+    }
 </style>
 
 
@@ -145,6 +185,18 @@
                 <span class="badge-count" id="selectedCount">0 selected</span>
             </h5>
             
+        </div>
+
+        <!-- Search bar -->
+        <div class="svc-search-wrap">
+            <div class="svc-search-inner">
+                <i class="ph ph-magnifying-glass"></i>
+                <input type="text" id="svcSearch"
+                       class="svc-search-input"
+                       placeholder="Search services..."
+                       autocomplete="off"
+                       oninput="filterServices(this.value)">
+            </div>
         </div>
 
         <!-- Select All -->
@@ -164,7 +216,7 @@
                 </thead>
                 <tbody>
                     {% for service in services %}
-                    <tr>
+                    <tr class="service-row" data-name="{{ service.name|lower }}">
                         <td style="color:#94a3b8;">{{ forloop.counter }}</td>
                         <td>
                             <span style="font-weight:600; color:#1e293b;">{{ service.name }}</span>
@@ -190,6 +242,10 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div class="svc-no-results" id="svcNoResults">
+                <i class="ph ph-magnifying-glass" style="font-size:2rem; display:block; margin-bottom:8px;"></i>
+                No services match your search.
+            </div>
         </div>
 
         <div style="padding:16px 24px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end;">
@@ -201,6 +257,19 @@
 </form>
 
 <script>
+    function filterServices(query) {
+        const q = query.toLowerCase().trim();
+        const rows = document.querySelectorAll('.service-row');
+        let visible = 0;
+        rows.forEach(row => {
+            const name = row.dataset.name || '';
+            const show = !q || name.includes(q);
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        document.getElementById('svcNoResults').style.display = visible === 0 ? 'block' : 'none';
+    }
+
     function updateCount() {
         const checked = document.querySelectorAll('.service-checkbox:checked').length;
         document.getElementById('selectedCount').textContent = checked + ' selected';
@@ -213,7 +282,6 @@
         document.querySelectorAll('.service-checkbox').forEach(cb => {
             cb.checked = !allChecked;
         });
-        // flip the checkbox itself
         document.getElementById('selectAllCheck').checked = !allChecked;
         updateCount();
     }
