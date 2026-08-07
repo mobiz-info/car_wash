@@ -144,6 +144,7 @@ class ServiceReminder(BaseModel):
     service = models.ForeignKey('service_management.Service', on_delete=models.CASCADE, related_name='reminders')
     reminder_message = models.TextField(help_text="Template for the reminder. Use placeholders: {customer_name}, {vehicle_number}, {service_name}")
     days_after = models.PositiveIntegerField(help_text="Number of days after service to send this reminder")
+    template_name = models.CharField(max_length=100, blank=True, null=True, help_text="Official Wawy/WhatsApp template name (e.g. batteryservice, servicereminder)")
 
     def save(self, *args, **kwargs):
         if not self.auto_id:

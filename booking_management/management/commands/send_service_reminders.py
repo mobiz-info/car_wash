@@ -84,13 +84,26 @@ class Command(BaseCommand):
                 # 6. Send the message
                 try:
                     if setting.is_official_api:
-                        # Official WABA account: trigger official Meta template 'reminder'
-                        # Template expectations: {{1}} = Customer Name, {{2}} = Vehicle Number
+                        # Official WABA account: trigger official Meta template
                         from booking_management.api_views import send_whatsapp_template
+                        
+                        tmpl_name = (reminder.template_name or '').strip()
+                        if not tmpl_name:
+                            if 'battery' in service_name.lower():
+                                tmpl_name = 'batteryservice'
+                            else:
+                                tmpl_name = 'reminder'
+
+                        if tmpl_name.lower() == 'batteryservice':
+                            # {{1}} = customer_name, {{2}} = service_name
+                            tmpl_values = [customer_name, service_name]
+                        else:
+                            tmpl_values = [customer_name, vehicle_no]
+
                         send_whatsapp_template(
                             to_number=cleaned_phone,
-                            template_name='reminder',
-                            values=[customer_name, vehicle_no],
+                            template_name=tmpl_name,
+                            values=tmpl_values,
                             setting=setting
                         )
                     else:

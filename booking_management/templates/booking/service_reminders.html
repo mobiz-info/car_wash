@@ -132,6 +132,14 @@
                         </div>
                     </div>
 
+                    <div style="margin-bottom: 18px;">
+                        <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Wawy Template Name (Optional)</label>
+                        <input type="text" name="template_name" class="form-control" placeholder="e.g. batteryservice (defaults to batteryservice or servicereminder)">
+                        <div style="margin-top: 4px; font-size: .72rem; color: #94a3b8;">
+                            Official Wawy template name. Leave blank for auto-matching (e.g. batteryservice for battery services).
+                        </div>
+                    </div>
+
                     <div style="margin-bottom: 24px;">
                         <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; display:block; margin-bottom:6px;">Set Days *</label>
                         <div style="display: flex; align-items: center; gap: 10px;">
@@ -159,6 +167,7 @@
                             <tr>
                                 <th>Service</th>
                                 <th>Interval</th>
+                                <th>WA Template</th>
                                 <th>Template Preview</th>
                                 <th style="text-align: right;">Action</th>
                             </tr>
@@ -175,7 +184,12 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div style="font-size: .78rem; color: #475569; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ reminder.reminder_message }}">
+                                    <span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: .78rem; font-weight: 600;">
+                                        {{ reminder.template_name|default:"Auto (batteryservice)" }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="font-size: .78rem; color: #475569; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ reminder.reminder_message }}">
                                         {{ reminder.reminder_message }}
                                     </div>
                                 </td>

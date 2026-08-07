@@ -702,6 +702,7 @@ def service_reminders_manage(request):
         service_id = request.POST.get('service_id')
         reminder_message = request.POST.get('reminder_message', '').strip()
         days_after = request.POST.get('days_after', '').strip()
+        template_name = request.POST.get('template_name', '').strip() or None
 
         # Validation
         if not service_id or not reminder_message or not days_after:
@@ -720,6 +721,7 @@ def service_reminders_manage(request):
                     service=service_obj,
                     reminder_message=reminder_message,
                     days_after=days,
+                    template_name=template_name,
                     creator=request.user,
                     auto_id=get_auto_id(ServiceReminder)
                 )
@@ -989,12 +991,27 @@ def send_reminder_ajax(request):
             # Send via API
             try:
                 if setting.is_official_api:
-                    # Template details: name="reminder", value1=customer_name, value2=vehicle_no
                     from booking_management.api_views import send_whatsapp_template
+                    
+                    # Resolve official template name
+                    tmpl_name = (reminder.template_name or '').strip()
+                    if not tmpl_name:
+                        if 'battery' in reminder.service.name.lower():
+                            tmpl_name = 'batteryservice'
+                        else:
+                            tmpl_name = 'servicereminder'
+                    
+                    # Format template parameter values
+                    if tmpl_name.lower() == 'batteryservice':
+                        # {{1}} = customer_name, {{2}} = service_name
+                        tmpl_values = [customer_name, reminder.service.name]
+                    else:
+                        tmpl_values = [customer_name, vehicle_no, reminder.service.name]
+
                     send_whatsapp_template(
                         to_number=cleaned_phone,
-                        template_name='servicereminder',
-                        values=[customer_name, vehicle_no, reminder.service.name],
+                        template_name=tmpl_name,
+                        values=tmpl_values,
                         setting=setting
                     )
                 else:
