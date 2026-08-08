@@ -5917,3 +5917,127 @@ def api_report_oil_stock_ledger(request):
         'rows': rows,
     })
 
+
+@csrf_exempt
+def api_create_quotation(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        vehicle_id = data.get('vehicle_id')
+        items = data.get('items', [])
+        extras = data.get('extras', [])
+        additional_services = data.get('additional_services', '')
+        additional_days_needed = data.get('additional_days_needed', 0)
+        subtotal = Decimal(str(data.get('subtotal', 0)))
+        tax_percentage = Decimal(str(data.get('tax_percentage', 0)))
+        tax_amount = Decimal(str(data.get('tax_amount', 0)))
+        discount = Decimal(str(data.get('discount', 0)))
+        grand_total = Decimal(str(data.get('grand_total', 0)))
+
+        customer = get_object_or_404(Customer, id=customer_id)
+        vehicle = get_object_or_404(CustomerVehicle, id=vehicle_id)
+        branch = getattr(user, 'managed_branch', None) or customer.branch
+
+        from .models import Quotation, QuotationItem, QuotationExtra, Stock
+        from service_management.models import Service
+
+        count = Quotation.objects.count() + 1
+        quotation_number = f"QT-{count:04d}"
+
+        quotation = Quotation.objects.create(
+            quotation_number=quotation_number,
+            customer=customer,
+            vehicle=vehicle,
+            branch=branch,
+            additional_services=additional_services,
+            additional_days_needed=int(additional_days_needed or 0),
+            subtotal=subtotal,
+            tax_percentage=tax_percentage,
+            tax_amount=tax_amount,
+            discount=discount,
+            grand_total=grand_total,
+            auto_id=get_auto_id(Quotation),
+            creator=user
+        )
+
+        for it in items:
+            srv_id = it.get('service_id')
+            stk_id = it.get('stock_item_id')
+            srv = Service.objects.filter(id=srv_id).first() if srv_id else None
+            stk = Stock.objects.filter(id=stk_id).first() if stk_id else None
+
+            QuotationItem.objects.create(
+                quotation=quotation,
+                service=srv,
+                service_name=it.get('service_name', srv.name if srv else ''),
+                stock_item=stk,
+                stock_item_name=it.get('stock_item_name', stk.item_name if stk else ''),
+                warranty_years=Decimal(str(it.get('warranty_years', 0))),
+                rate=Decimal(str(it.get('rate', 0))),
+                free_topup=str(it.get('free_topup', '') or ''),
+                auto_id=get_auto_id(QuotationItem),
+                creator=user
+            )
+
+        for ex in extras:
+            QuotationExtra.objects.create(
+                quotation=quotation,
+                name=ex.get('name', ''),
+                price=Decimal(str(ex.get('price', 0))),
+                auto_id=get_auto_id(QuotationExtra),
+                creator=user
+            )
+
+        return JsonResponse({
+            'success': True,
+            'quotation_id': str(quotation.id),
+            'quotation_number': quotation.quotation_number,
+            'message': 'Quotation created successfully'
+        })
+    except Exception as e:
+        import traceback
+        return JsonResponse({'success': False, 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
+@csrf_exempt
+def api_get_quotation_list(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from .models import Quotation
+        scope = get_user_data_scope(user)
+        quotations = Quotation.objects.filter(is_deleted=False).select_related('customer', 'vehicle', 'branch').order_by('-date_added')
+
+        if 'branch' in scope:
+            quotations = quotations.filter(branch=scope['branch'])
+        elif 'customer__company' in scope:
+            quotations = quotations.filter(branch__company=scope['customer__company'])
+
+        result = [{
+            'id': str(q.id),
+            'quotation_number': q.quotation_number,
+            'customer_name': q.customer.name,
+            'customer_phone': q.customer.phone,
+            'vehicle_number': q.vehicle.vehicle_number if q.vehicle else '',
+            'branch_name': q.branch.name if q.branch else '',
+            'grand_total': float(q.grand_total),
+            'created_at': q.date_added.strftime('%Y-%m-%d %H:%M'),
+        } for q in quotations]
+
+        return JsonResponse({'success': True, 'quotations': result})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+

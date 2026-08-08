@@ -230,5 +230,10 @@ urlpatterns = [
     path('api/oil-stock/', api_views.api_oil_stock, name='api_oil_stock'),
     path('api/vehicle-service-history/<uuid:vehicle_id>/', api_views.api_vehicle_service_history, name='api_vehicle_service_history'),
     path('api/branch-categories/', api_views.api_branch_categories, name='api_branch_categories'),
+
+    # Quotation APIs
+    path('api/quotation/create/', api_views.api_create_quotation, name='api_create_quotation'),
+    path('api/quotation/list/', api_views.api_get_quotation_list, name='api_get_quotation_list'),
 ]
+
 

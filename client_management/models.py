@@ -497,8 +497,44 @@ class VehicleOdometerLog(BaseModel):
     def __str__(self):
         return f"{self.vehicle.vehicle_number} — {self.odometer_km} km on {self.recorded_date}"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Quotation Management
+# ─────────────────────────────────────────────────────────────────────────────
 
-from django.db.models.signals import post_save
+class Quotation(BaseModel):
+    quotation_number = models.CharField(max_length=50, unique=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='quotations')
+    vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.CASCADE, related_name='quotations')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='quotations', null=True, blank=True)
+    additional_services = models.TextField(blank=True, null=True)
+    additional_days_needed = models.PositiveIntegerField(default=0)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"Quotation {self.quotation_number} - {self.customer.name}"
+
+
+class QuotationItem(BaseModel):
+    quotation = models.ForeignKey(Quotation, on_delete=models.CASCADE, related_name='items')
+    service = models.ForeignKey('service_management.Service', on_delete=models.SET_NULL, null=True, blank=True)
+    service_name = models.CharField(max_length=200)
+    stock_item = models.ForeignKey(Stock, on_delete=models.SET_NULL, null=True, blank=True)
+    stock_item_name = models.CharField(max_length=200, blank=True, null=True)
+    warranty_years = models.DecimalField(max_digits=4, decimal_places=1, default=0)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    free_topup = models.CharField(max_length=100, blank=True, null=True)
+
+
+class QuotationExtra(BaseModel):
+    quotation = models.ForeignKey(Quotation, on_delete=models.CASCADE, related_name='extras')
+    name = models.CharField(max_length=200)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+
 from django.dispatch import receiver
 
 @receiver(post_save, sender=Client)
