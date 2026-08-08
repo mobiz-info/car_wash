@@ -535,6 +535,7 @@ class QuotationExtra(BaseModel):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
 
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 @receiver(post_save, sender=Client)
