@@ -1,4 +1,6 @@
 import json
+from decimal import Decimal
+from django.shortcuts import get_object_or_404
 from django.db import models
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -5942,7 +5944,7 @@ def api_create_quotation(request):
         grand_total = Decimal(str(data.get('grand_total', 0)))
 
         customer = get_object_or_404(Customer, id=customer_id)
-        vehicle = get_object_or_404(CustomerVehicle, id=vehicle_id)
+        vehicle = CustomerVehicle.objects.filter(id=vehicle_id).first() if vehicle_id else None
         branch = getattr(user, 'managed_branch', None) or customer.branch
 
         from .models import Quotation, QuotationItem, QuotationExtra, Stock
