@@ -234,6 +234,11 @@ urlpatterns = [
     # Quotation APIs
     path('api/quotation/create/', api_views.api_create_quotation, name='api_create_quotation'),
     path('api/quotation/list/', api_views.api_get_quotation_list, name='api_get_quotation_list'),
+    path('api/quotation/detail/<uuid:quotation_id>/', api_views.api_get_quotation_detail, name='api_get_quotation_detail'),
+    path('api/quotation/detail/', api_views.api_get_quotation_detail, name='api_get_quotation_detail_param'),
+    path('api/quotation/edit/<uuid:quotation_id>/', api_views.api_update_quotation, name='api_update_quotation'),
+    path('api/quotation/edit/', api_views.api_update_quotation, name='api_update_quotation_param'),
 ]
+
 
 

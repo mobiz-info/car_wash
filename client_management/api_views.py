@@ -6041,3 +6041,147 @@ def api_get_quotation_list(request):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
+@csrf_exempt
+def api_get_quotation_detail(request, quotation_id=None):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        q_id = quotation_id or request.GET.get('id')
+        from .models import Quotation
+        quotation = get_object_or_404(Quotation, id=q_id, is_deleted=False)
+
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        branch = quotation.branch
+
+        company_logo = ''
+        branch_logo = ''
+        if company and hasattr(company, 'logo') and company.logo:
+            company_logo = request.build_absolute_uri(company.logo.url)
+        if branch and hasattr(branch, 'logo') and branch.logo:
+            branch_logo = request.build_absolute_uri(branch.logo.url)
+
+        items = [{
+            'id': str(it.id),
+            'service_id': str(it.service.id) if it.service else None,
+            'service_name': it.service_name,
+            'stock_item_id': str(it.stock_item.id) if it.stock_item else None,
+            'stock_item_name': it.stock_item_name or '',
+            'warranty_years': float(it.warranty_years),
+            'rate': float(it.rate),
+            'free_topup': it.free_topup or '',
+        } for it in quotation.items.filter(is_deleted=False)]
+
+        extras = [{
+            'id': str(ex.id),
+            'name': ex.name,
+            'price': float(ex.price),
+        } for ex in quotation.extras.filter(is_deleted=False)]
+
+        return JsonResponse({
+            'success': True,
+            'quotation': {
+                'id': str(quotation.id),
+                'quotation_number': quotation.quotation_number,
+                'customer_id': str(quotation.customer.id),
+                'customer_name': quotation.customer.name,
+                'customer_phone': quotation.customer.phone,
+                'customer_type': getattr(quotation.customer.customer_type, 'name', '') if hasattr(quotation.customer, 'customer_type') and quotation.customer.customer_type else '',
+                'vehicle_id': str(quotation.vehicle.id) if quotation.vehicle else None,
+                'vehicle_number': quotation.vehicle.vehicle_number if quotation.vehicle else '',
+                'vehicle_type': quotation.vehicle.vehicle_type.name if quotation.vehicle and quotation.vehicle.vehicle_type else '',
+                'vehicle_model': quotation.vehicle.model.name if quotation.vehicle and quotation.vehicle.model else '',
+                'branch_name': quotation.branch.name if quotation.branch else '',
+                'additional_services': quotation.additional_services or '',
+                'additional_days_needed': quotation.additional_days_needed,
+                'subtotal': float(quotation.subtotal),
+                'tax_percentage': float(quotation.tax_percentage),
+                'tax_amount': float(quotation.tax_amount),
+                'discount': float(quotation.discount),
+                'grand_total': float(quotation.grand_total),
+                'date': quotation.date_added.strftime('%Y-%m-%d %H:%M'),
+                'company_logo': company_logo,
+                'branch_logo': branch_logo,
+                'items': items,
+                'extras': extras,
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_update_quotation(request, quotation_id=None):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        q_id = quotation_id or data.get('id')
+        from .models import Quotation, QuotationItem, QuotationExtra, Stock
+        from service_management.models import Service
+
+        quotation = get_object_or_404(Quotation, id=q_id, is_deleted=False)
+
+        items = data.get('items', [])
+        extras = data.get('extras', [])
+        quotation.additional_services = data.get('additional_services', quotation.additional_services)
+        quotation.additional_days_needed = int(data.get('additional_days_needed', quotation.additional_days_needed) or 0)
+        quotation.subtotal = Decimal(str(data.get('subtotal', quotation.subtotal)))
+        quotation.tax_percentage = Decimal(str(data.get('tax_percentage', quotation.tax_percentage)))
+        quotation.tax_amount = Decimal(str(data.get('tax_amount', quotation.tax_amount)))
+        quotation.discount = Decimal(str(data.get('discount', quotation.discount)))
+        quotation.grand_total = Decimal(str(data.get('grand_total', quotation.grand_total)))
+        quotation.save()
+
+        quotation.items.all().delete()
+        quotation.extras.all().delete()
+
+        for it in items:
+            srv_id = it.get('service_id')
+            stk_id = it.get('stock_item_id')
+            srv = Service.objects.filter(id=srv_id).first() if srv_id else None
+            stk = Stock.objects.filter(id=stk_id).first() if stk_id else None
+
+            QuotationItem.objects.create(
+                quotation=quotation,
+                service=srv,
+                service_name=it.get('service_name', srv.name if srv else ''),
+                stock_item=stk,
+                stock_item_name=it.get('stock_item_name', stk.item_name if stk else ''),
+                warranty_years=Decimal(str(it.get('warranty_years', 0))),
+                rate=Decimal(str(it.get('rate', 0))),
+                free_topup=str(it.get('free_topup', '') or ''),
+                auto_id=get_auto_id(QuotationItem),
+                creator=user
+            )
+
+        for ex in extras:
+            QuotationExtra.objects.create(
+                quotation=quotation,
+                name=ex.get('name', ''),
+                price=Decimal(str(ex.get('price', 0))),
+                auto_id=get_auto_id(QuotationExtra),
+                creator=user
+            )
+
+        return JsonResponse({
+            'success': True,
+            'quotation_id': str(quotation.id),
+            'quotation_number': quotation.quotation_number,
+            'message': 'Quotation updated successfully'
+        })
+    except Exception as e:
+        import traceback
+        return JsonResponse({'success': False, 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
+
