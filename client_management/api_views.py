@@ -6033,13 +6033,12 @@ def api_get_quotation_list(request):
 
     try:
         from .models import Quotation
-        scope = get_user_data_scope(user)
         quotations = Quotation.objects.filter(is_deleted=False).select_related('customer', 'vehicle', 'branch').order_by('-date_added')
 
-        if 'branch' in scope:
-            quotations = quotations.filter(branch=scope['branch'])
-        elif 'customer__company' in scope:
-            quotations = quotations.filter(branch__company=scope['customer__company'])
+        if hasattr(user, 'profile') and user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+            quotations = quotations.filter(branch=user.managed_branch)
+        elif hasattr(user, 'profile') and hasattr(user.profile, 'company') and user.profile.company:
+            quotations = quotations.filter(branch__company=user.profile.company)
 
         result = [{
             'id': str(q.id),
@@ -6100,6 +6099,13 @@ def api_get_quotation_detail(request, quotation_id=None):
             'price': float(ex.price),
         } for ex in quotation.extras.filter(is_deleted=False)]
 
+        vehicle_model_name = ''
+        if quotation.vehicle:
+            if hasattr(quotation.vehicle, 'vehicle_type_model') and quotation.vehicle.vehicle_type_model:
+                vehicle_model_name = quotation.vehicle.vehicle_type_model.name
+            elif hasattr(quotation.vehicle, 'brand_model') and quotation.vehicle.brand_model:
+                vehicle_model_name = quotation.vehicle.brand_model.name
+
         return JsonResponse({
             'success': True,
             'quotation': {
@@ -6112,7 +6118,7 @@ def api_get_quotation_detail(request, quotation_id=None):
                 'vehicle_id': str(quotation.vehicle.id) if quotation.vehicle else None,
                 'vehicle_number': quotation.vehicle.vehicle_number if quotation.vehicle else '',
                 'vehicle_type': quotation.vehicle.vehicle_type.name if quotation.vehicle and quotation.vehicle.vehicle_type else '',
-                'vehicle_model': quotation.vehicle.model.name if quotation.vehicle and quotation.vehicle.model else '',
+                'vehicle_model': vehicle_model_name,
                 'branch_name': quotation.branch.name if quotation.branch else '',
                 'additional_services': quotation.additional_services or '',
                 'additional_days_needed': quotation.additional_days_needed,
