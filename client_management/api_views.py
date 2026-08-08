@@ -5920,6 +5920,17 @@ def api_report_oil_stock_ledger(request):
     })
 
 
+def _get_obj_by_uuid(model_cls, obj_id):
+    if not obj_id or str(obj_id).strip() == '' or str(obj_id).strip().lower() in ('none', 'null', 'n/a'):
+        return None
+    try:
+        import uuid
+        valid_uuid = uuid.UUID(str(obj_id).strip())
+        return model_cls.objects.filter(id=valid_uuid).first()
+    except Exception:
+        return None
+
+
 @csrf_exempt
 def api_create_quotation(request):
     if request.method != 'POST':
@@ -5943,8 +5954,11 @@ def api_create_quotation(request):
         discount = Decimal(str(data.get('discount', 0)))
         grand_total = Decimal(str(data.get('grand_total', 0)))
 
-        customer = get_object_or_404(Customer, id=customer_id)
-        vehicle = CustomerVehicle.objects.filter(id=vehicle_id).first() if vehicle_id else None
+        customer = _get_obj_by_uuid(Customer, customer_id)
+        if not customer:
+            return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+
+        vehicle = _get_obj_by_uuid(CustomerVehicle, vehicle_id)
         branch = getattr(user, 'managed_branch', None) or customer.branch
 
         from .models import Quotation, QuotationItem, QuotationExtra, Stock
@@ -5972,8 +5986,8 @@ def api_create_quotation(request):
         for it in items:
             srv_id = it.get('service_id')
             stk_id = it.get('stock_item_id')
-            srv = Service.objects.filter(id=srv_id).first() if srv_id else None
-            stk = Stock.objects.filter(id=stk_id).first() if stk_id else None
+            srv = _get_obj_by_uuid(Service, srv_id)
+            stk = _get_obj_by_uuid(Stock, stk_id)
 
             QuotationItem.objects.create(
                 quotation=quotation,
@@ -6055,7 +6069,9 @@ def api_get_quotation_detail(request, quotation_id=None):
     try:
         q_id = quotation_id or request.GET.get('id')
         from .models import Quotation
-        quotation = get_object_or_404(Quotation, id=q_id, is_deleted=False)
+        quotation = _get_obj_by_uuid(Quotation, q_id)
+        if not quotation or quotation.is_deleted:
+            return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
 
         company = getattr(getattr(user, 'profile', None), 'company', None)
         branch = quotation.branch
@@ -6131,7 +6147,9 @@ def api_update_quotation(request, quotation_id=None):
         from .models import Quotation, QuotationItem, QuotationExtra, Stock
         from service_management.models import Service
 
-        quotation = get_object_or_404(Quotation, id=q_id, is_deleted=False)
+        quotation = _get_obj_by_uuid(Quotation, q_id)
+        if not quotation or quotation.is_deleted:
+            return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
 
         items = data.get('items', [])
         extras = data.get('extras', [])
@@ -6150,8 +6168,8 @@ def api_update_quotation(request, quotation_id=None):
         for it in items:
             srv_id = it.get('service_id')
             stk_id = it.get('stock_item_id')
-            srv = Service.objects.filter(id=srv_id).first() if srv_id else None
-            stk = Stock.objects.filter(id=stk_id).first() if stk_id else None
+            srv = _get_obj_by_uuid(Service, srv_id)
+            stk = _get_obj_by_uuid(Stock, stk_id)
 
             QuotationItem.objects.create(
                 quotation=quotation,
@@ -6184,6 +6202,7 @@ def api_update_quotation(request, quotation_id=None):
     except Exception as e:
         import traceback
         return JsonResponse({'success': False, 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
 
 
 
