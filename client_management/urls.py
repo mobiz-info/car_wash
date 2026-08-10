@@ -238,6 +238,12 @@ urlpatterns = [
     path('api/quotation/detail/', api_views.api_get_quotation_detail, name='api_get_quotation_detail_param'),
     path('api/quotation/edit/<uuid:quotation_id>/', api_views.api_update_quotation, name='api_update_quotation'),
     path('api/quotation/edit/', api_views.api_update_quotation, name='api_update_quotation_param'),
+
+    # Battery Master & Stock APIs
+    path('api/battery-makes/', api_views.api_battery_makes, name='api_battery_makes'),
+    path('api/battery-amperes/', api_views.api_battery_amperes, name='api_battery_amperes'),
+    path('api/battery-segments/', api_views.api_battery_segments, name='api_battery_segments'),
+    path('api/batteries/', api_views.api_batteries, name='api_batteries'),
 ]
 
 

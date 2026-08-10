@@ -325,3 +325,68 @@ class OilProductPriceForm(forms.ModelForm):
         self.fields['vehicle_make'].empty_label = '-- All Makes --'
         self.fields['recommended_qty_litres'].required = False
         self.fields['recommended_qty_litres'].label = "Volume (Litres)"
+
+
+class BatteryMakeForm(forms.ModelForm):
+    class Meta:
+        model = BatteryMake
+        fields = ['name', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Amaron, Exide, SF Sonic, Tata Green, Bosch'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class BatteryAmpereForm(forms.ModelForm):
+    class Meta:
+        model = BatteryAmpere
+        fields = ['name', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 35 Ah, 45 Ah, 60 Ah, 75 Ah, 100 Ah'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class BatterySegmentForm(forms.ModelForm):
+    class Meta:
+        model = BatterySegment
+        fields = ['name', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Tubular, Lithium-ion, SMF, VRLA, Conventional Lead-Acid'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class BatteryForm(forms.ModelForm):
+    class Meta:
+        model = Battery
+        fields = ['make', 'ampere', 'segment', 'warranty_years', 'price', 'stock_qty', 'is_active']
+        widgets = {
+            'make': forms.Select(attrs={'class': 'form-control'}),
+            'ampere': forms.Select(attrs={'class': 'form-control'}),
+            'segment': forms.Select(attrs={'class': 'form-control'}),
+            'warranty_years': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 1.0, 2.0, 3.0, 5.0', 'step': '0.5', 'min': '0'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 4500.00', 'step': '0.01', 'min': '0'}),
+            'stock_qty': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 10', 'min': '0'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['make'].queryset = BatteryMake.objects.filter(is_active=True, is_deleted=False).order_by('name')
+        self.fields['ampere'].queryset = BatteryAmpere.objects.filter(is_active=True, is_deleted=False).order_by('name')
+        self.fields['segment'].queryset = BatterySegment.objects.filter(is_active=True, is_deleted=False).order_by('name')
+
+        self.fields['make'].empty_label = '-- Select Battery Make --'
+        self.fields['ampere'].empty_label = '-- Select Battery Ampere --'
+        self.fields['segment'].empty_label = '-- Select Battery Segment --'
+
+        self.fields['make'].required = True
+        self.fields['ampere'].required = True
+        self.fields['segment'].required = True
+        self.fields['warranty_years'].required = True
+        self.fields['warranty_years'].label = "Warranty (Years)"
+        self.fields['price'].required = True
+        self.fields['price'].label = "Price (₹)"
+        self.fields['stock_qty'].required = False
+        self.fields['stock_qty'].label = "Stock Quantity (Units)"

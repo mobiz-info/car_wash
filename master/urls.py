@@ -131,5 +131,29 @@ urlpatterns = [
     path('oil-product-price/create/', views.oil_product_price_create, name='oil_product_price_create'),
     path('oil-product-price/edit/<uuid:id>/', views.oil_product_price_edit, name='oil_product_price_edit'),
     path('oil-product-price/delete/<uuid:id>/', views.oil_product_price_delete, name='oil_product_price_delete'),
+
+    # Battery Make CRUD
+    path('battery-make/', views.battery_make_list, name='battery_make_list'),
+    path('battery-make/create/', views.battery_make_create, name='battery_make_create'),
+    path('battery-make/edit/<uuid:id>/', views.battery_make_edit, name='battery_make_edit'),
+    path('battery-make/delete/<uuid:id>/', views.battery_make_delete, name='battery_make_delete'),
+
+    # Battery Ampere CRUD
+    path('battery-ampere/', views.battery_ampere_list, name='battery_ampere_list'),
+    path('battery-ampere/create/', views.battery_ampere_create, name='battery_ampere_create'),
+    path('battery-ampere/edit/<uuid:id>/', views.battery_ampere_edit, name='battery_ampere_edit'),
+    path('battery-ampere/delete/<uuid:id>/', views.battery_ampere_delete, name='battery_ampere_delete'),
+
+    # Battery Segment CRUD
+    path('battery-segment/', views.battery_segment_list, name='battery_segment_list'),
+    path('battery-segment/create/', views.battery_segment_create, name='battery_segment_create'),
+    path('battery-segment/edit/<uuid:id>/', views.battery_segment_edit, name='battery_segment_edit'),
+    path('battery-segment/delete/<uuid:id>/', views.battery_segment_delete, name='battery_segment_delete'),
+
+    # Battery Management CRUD
+    path('battery/', views.battery_list, name='battery_list'),
+    path('battery/create/', views.battery_create, name='battery_create'),
+    path('battery/edit/<uuid:id>/', views.battery_edit, name='battery_edit'),
+    path('battery/delete/<uuid:id>/', views.battery_delete, name='battery_delete'),
 ]
 

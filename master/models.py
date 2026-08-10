@@ -504,3 +504,98 @@ class OilStockTransaction(BaseModel):
     def __str__(self):
         direction = '↑' if self.transaction_type == self.TYPE_IN else '↓'
         return f"{direction} {self.quantity_litres}L — {self.oil_product} @ {self.branch.name}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Battery Masters & Battery Stock
+# ─────────────────────────────────────────────────────────────────────────────
+
+class BatteryMake(BaseModel):
+    """Master list of Battery Makes / Brands (e.g. Exide, Amaron, SF Sonic, Tata Green, Bosch)."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='battery_makes',
+        null=True, blank=True, help_text="Leave blank for global master"
+    )
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class BatteryAmpere(BaseModel):
+    """Master list of Battery Amperes / Capacities (e.g. 35 Ah, 45 Ah, 60 Ah, 75 Ah, 100 Ah)."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='battery_amperes',
+        null=True, blank=True, help_text="Leave blank for global master"
+    )
+    name = models.CharField(max_length=50, help_text="e.g. 35 Ah, 45 Ah, 60 Ah, 75 Ah")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class BatterySegment(BaseModel):
+    """Master list of Battery Segments (e.g. Tubular, Lithium-ion, SMF/VRLA, Conventional Lead-Acid)."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='battery_segments',
+        null=True, blank=True, help_text="Leave blank for global master"
+    )
+    name = models.CharField(max_length=100, help_text="e.g. Tubular, Lithium-ion, SMF, VRLA")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class Battery(BaseModel):
+    """Master / Vehicle Management list of Batteries combining Make, Ampere, Segment, Warranty, and Price."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='batteries',
+        null=True, blank=True, help_text="Leave blank for global master"
+    )
+    make = models.ForeignKey(
+        BatteryMake, on_delete=models.CASCADE, related_name='batteries'
+    )
+    ampere = models.ForeignKey(
+        BatteryAmpere, on_delete=models.CASCADE, related_name='batteries'
+    )
+    segment = models.ForeignKey(
+        BatterySegment, on_delete=models.CASCADE, related_name='batteries'
+    )
+    warranty_years = models.DecimalField(
+        max_digits=4, decimal_places=1, default=1.0,
+        help_text="Warranty in years e.g. 1.0, 2.0, 3.0, 5.0"
+    )
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00,
+        help_text="Default price charged for this battery"
+    )
+    stock_qty = models.IntegerField(default=0, help_text="Current stock quantity in units")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['make__name', 'ampere__name', 'segment__name']
+
+    def __str__(self):
+        make_name = self.make.name if self.make else ''
+        amp_name = self.ampere.name if self.ampere else ''
+        seg_name = self.segment.name if self.segment else ''
+        return f"{make_name} {amp_name} ({seg_name}) - {self.warranty_years} Yrs - ₹{self.price}"
+
+    @property
+    def display_name(self):
+        make_name = self.make.name if self.make else ''
+        amp_name = self.ampere.name if self.ampere else ''
+        seg_name = self.segment.name if self.segment else ''
+        return f"{make_name} {amp_name} ({seg_name})"

@@ -1986,3 +1986,280 @@ def tyre_delete(request, id):
     instance.save()
     messages.success(request, "Tyre product deleted successfully")
     return redirect('tyre_list')
+
+
+# ==========================================
+# BATTERY MAKE MASTER
+# ==========================================
+
+@login_required
+def battery_make_list(request):
+    search = request.GET.get('search', '')
+    queryset = BatteryMake.objects.filter(is_deleted=False)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'battery_make/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def battery_make_create(request):
+    form = BatteryMakeForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(BatteryMake)
+            instance.creator = request.user
+            profile = getattr(request.user, 'profile', None)
+            instance.company = getattr(profile, 'company', None) if profile else None
+            instance.save()
+            messages.success(request, "Battery Make created successfully")
+            return redirect('battery_make_list')
+    return render(request, 'battery_make/create.html', {
+        'form': form,
+        'title': 'Create Battery Make'
+    })
+
+
+@login_required
+def battery_make_edit(request, id):
+    instance = get_object_or_404(BatteryMake, id=id, is_deleted=False)
+    form = BatteryMakeForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Battery Make updated successfully")
+            return redirect('battery_make_list')
+    return render(request, 'battery_make/create.html', {
+        'form': form,
+        'title': 'Edit Battery Make'
+    })
+
+
+@login_required
+def battery_make_delete(request, id):
+    instance = get_object_or_404(BatteryMake, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Battery Make deleted successfully")
+    return redirect('battery_make_list')
+
+
+# ==========================================
+# BATTERY AMPERE MASTER
+# ==========================================
+
+@login_required
+def battery_ampere_list(request):
+    search = request.GET.get('search', '')
+    queryset = BatteryAmpere.objects.filter(is_deleted=False)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'battery_ampere/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def battery_ampere_create(request):
+    form = BatteryAmpereForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(BatteryAmpere)
+            instance.creator = request.user
+            profile = getattr(request.user, 'profile', None)
+            instance.company = getattr(profile, 'company', None) if profile else None
+            instance.save()
+            messages.success(request, "Battery Ampere created successfully")
+            return redirect('battery_ampere_list')
+    return render(request, 'battery_ampere/create.html', {
+        'form': form,
+        'title': 'Create Battery Ampere'
+    })
+
+
+@login_required
+def battery_ampere_edit(request, id):
+    instance = get_object_or_404(BatteryAmpere, id=id, is_deleted=False)
+    form = BatteryAmpereForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Battery Ampere updated successfully")
+            return redirect('battery_ampere_list')
+    return render(request, 'battery_ampere/create.html', {
+        'form': form,
+        'title': 'Edit Battery Ampere'
+    })
+
+
+@login_required
+def battery_ampere_delete(request, id):
+    instance = get_object_or_404(BatteryAmpere, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Battery Ampere deleted successfully")
+    return redirect('battery_ampere_list')
+
+
+# ==========================================
+# BATTERY SEGMENT MASTER
+# ==========================================
+
+@login_required
+def battery_segment_list(request):
+    search = request.GET.get('search', '')
+    queryset = BatterySegment.objects.filter(is_deleted=False)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'battery_segment/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def battery_segment_create(request):
+    form = BatterySegmentForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(BatterySegment)
+            instance.creator = request.user
+            profile = getattr(request.user, 'profile', None)
+            instance.company = getattr(profile, 'company', None) if profile else None
+            instance.save()
+            messages.success(request, "Battery Segment created successfully")
+            return redirect('battery_segment_list')
+    return render(request, 'battery_segment/create.html', {
+        'form': form,
+        'title': 'Create Battery Segment'
+    })
+
+
+@login_required
+def battery_segment_edit(request, id):
+    instance = get_object_or_404(BatterySegment, id=id, is_deleted=False)
+    form = BatterySegmentForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Battery Segment updated successfully")
+            return redirect('battery_segment_list')
+    return render(request, 'battery_segment/create.html', {
+        'form': form,
+        'title': 'Edit Battery Segment'
+    })
+
+
+@login_required
+def battery_segment_delete(request, id):
+    instance = get_object_or_404(BatterySegment, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Battery Segment deleted successfully")
+    return redirect('battery_segment_list')
+
+
+# ==========================================
+# BATTERY MASTER & MANAGEMENT
+# ==========================================
+
+@login_required
+def battery_list(request):
+    search = request.GET.get('search', '')
+    profile = getattr(request.user, 'profile', None)
+    company = getattr(profile, 'company', None) if profile else None
+
+    if company:
+        queryset = Battery.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False)
+    else:
+        queryset = Battery.objects.filter(is_deleted=False)
+
+    queryset = queryset.select_related('make', 'ampere', 'segment')
+
+    if search:
+        queryset = queryset.filter(
+            Q(make__name__icontains=search) |
+            Q(ampere__name__icontains=search) |
+            Q(segment__name__icontains=search)
+        )
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'battery/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def battery_create(request):
+    profile = getattr(request.user, 'profile', None)
+    company = getattr(profile, 'company', None) if profile else None
+    form = BatteryForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(Battery)
+            instance.creator = request.user
+            instance.company = company
+            instance.save()
+            messages.success(request, "Battery created successfully")
+            return redirect('battery_list')
+    return render(request, 'battery/create.html', {
+        'form': form,
+        'title': 'Add Battery'
+    })
+
+
+@login_required
+def battery_edit(request, id):
+    instance = get_object_or_404(Battery, id=id, is_deleted=False)
+    form = BatteryForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Battery updated successfully")
+            return redirect('battery_list')
+    return render(request, 'battery/create.html', {
+        'form': form,
+        'title': 'Edit Battery'
+    })
+
+
+@login_required
+def battery_delete(request, id):
+    instance = get_object_or_404(Battery, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Battery deleted successfully")
+    return redirect('battery_list')

@@ -6035,25 +6035,40 @@ def api_get_quotation_list(request):
         from .models import Quotation
         quotations = Quotation.objects.filter(is_deleted=False).select_related('customer', 'vehicle', 'branch').order_by('-date_added')
 
-        if hasattr(user, 'profile') and user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
-            quotations = quotations.filter(branch=user.managed_branch)
-        elif hasattr(user, 'profile') and hasattr(user.profile, 'company') and user.profile.company:
-            quotations = quotations.filter(branch__company=user.profile.company)
+        prof = getattr(user, 'profile', None)
+        role = getattr(prof, 'role', None) if prof else None
+        role_name = getattr(role, 'name', None) if role else None
+        company = getattr(prof, 'company', None) if prof else None
 
-        result = [{
-            'id': str(q.id),
-            'quotation_number': q.quotation_number,
-            'customer_name': q.customer.name,
-            'customer_phone': q.customer.phone,
-            'vehicle_number': q.vehicle.vehicle_number if q.vehicle else '',
-            'branch_name': q.branch.name if q.branch else '',
-            'grand_total': float(q.grand_total),
-            'created_at': q.date_added.strftime('%Y-%m-%d %H:%M'),
-        } for q in quotations]
+        if role_name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+            quotations = quotations.filter(branch=user.managed_branch)
+        elif company:
+            quotations = quotations.filter(branch__company=company)
+
+        result = []
+        for q in quotations:
+            customer_name = q.customer.name if q.customer else ''
+            customer_phone = q.customer.phone if q.customer else ''
+            vehicle_number = q.vehicle.vehicle_number if q.vehicle else ''
+            branch_name = q.branch.name if q.branch else ''
+            grand_total = float(q.grand_total) if q.grand_total is not None else 0.0
+            created_at = q.date_added.strftime('%Y-%m-%d %H:%M') if q.date_added else ''
+
+            result.append({
+                'id': str(q.id),
+                'quotation_number': q.quotation_number or '',
+                'customer_name': customer_name,
+                'customer_phone': customer_phone,
+                'vehicle_number': vehicle_number,
+                'branch_name': branch_name,
+                'grand_total': grand_total,
+                'created_at': created_at,
+            })
 
         return JsonResponse({'success': True, 'quotations': result})
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+        import traceback
+        return JsonResponse({'success': False, 'message': str(e), 'trace': traceback.format_exc()}, status=500)
 
 
 @csrf_exempt
@@ -6078,56 +6093,68 @@ def api_get_quotation_detail(request, quotation_id=None):
         company_logo = ''
         branch_logo = ''
         if company and hasattr(company, 'logo') and company.logo:
-            company_logo = request.build_absolute_uri(company.logo.url)
+            try:
+                company_logo = request.build_absolute_uri(company.logo.url)
+            except Exception:
+                company_logo = ''
         if branch and hasattr(branch, 'logo') and branch.logo:
-            branch_logo = request.build_absolute_uri(branch.logo.url)
+            try:
+                branch_logo = request.build_absolute_uri(branch.logo.url)
+            except Exception:
+                branch_logo = ''
 
         items = [{
             'id': str(it.id),
             'service_id': str(it.service.id) if it.service else None,
-            'service_name': it.service_name,
+            'service_name': it.service_name or (it.service.name if it.service else ''),
             'stock_item_id': str(it.stock_item.id) if it.stock_item else None,
-            'stock_item_name': it.stock_item_name or '',
-            'warranty_years': float(it.warranty_years),
-            'rate': float(it.rate),
+            'stock_item_name': it.stock_item_name or (it.stock_item.item_name if it.stock_item else ''),
+            'warranty_years': float(it.warranty_years) if it.warranty_years is not None else 0.0,
+            'rate': float(it.rate) if it.rate is not None else 0.0,
             'free_topup': it.free_topup or '',
         } for it in quotation.items.filter(is_deleted=False)]
 
         extras = [{
             'id': str(ex.id),
-            'name': ex.name,
-            'price': float(ex.price),
+            'name': ex.name or '',
+            'price': float(ex.price) if ex.price is not None else 0.0,
         } for ex in quotation.extras.filter(is_deleted=False)]
 
         vehicle_model_name = ''
         if quotation.vehicle:
             if hasattr(quotation.vehicle, 'vehicle_type_model') and quotation.vehicle.vehicle_type_model:
-                vehicle_model_name = quotation.vehicle.vehicle_type_model.name
+                vehicle_model_name = getattr(quotation.vehicle.vehicle_type_model, 'name', '')
             elif hasattr(quotation.vehicle, 'brand_model') and quotation.vehicle.brand_model:
-                vehicle_model_name = quotation.vehicle.brand_model.name
+                vehicle_model_name = getattr(quotation.vehicle.brand_model, 'name', '')
+
+        customer_name = quotation.customer.name if quotation.customer else ''
+        customer_phone = quotation.customer.phone if quotation.customer else ''
+        customer_type_name = ''
+        if quotation.customer and hasattr(quotation.customer, 'customer_type') and quotation.customer.customer_type:
+            customer_type_name = getattr(quotation.customer.customer_type, 'name', '')
 
         return JsonResponse({
             'success': True,
             'quotation': {
                 'id': str(quotation.id),
-                'quotation_number': quotation.quotation_number,
-                'customer_id': str(quotation.customer.id),
-                'customer_name': quotation.customer.name,
-                'customer_phone': quotation.customer.phone,
-                'customer_type': getattr(quotation.customer.customer_type, 'name', '') if hasattr(quotation.customer, 'customer_type') and quotation.customer.customer_type else '',
+                'quotation_number': quotation.quotation_number or '',
+                'customer_id': str(quotation.customer.id) if quotation.customer else '',
+                'customer_name': customer_name,
+                'customer_phone': customer_phone,
+                'customer_type': customer_type_name,
                 'vehicle_id': str(quotation.vehicle.id) if quotation.vehicle else None,
                 'vehicle_number': quotation.vehicle.vehicle_number if quotation.vehicle else '',
                 'vehicle_type': quotation.vehicle.vehicle_type.name if quotation.vehicle and quotation.vehicle.vehicle_type else '',
                 'vehicle_model': vehicle_model_name,
                 'branch_name': quotation.branch.name if quotation.branch else '',
                 'additional_services': quotation.additional_services or '',
-                'additional_days_needed': quotation.additional_days_needed,
-                'subtotal': float(quotation.subtotal),
-                'tax_percentage': float(quotation.tax_percentage),
-                'tax_amount': float(quotation.tax_amount),
-                'discount': float(quotation.discount),
-                'grand_total': float(quotation.grand_total),
-                'date': quotation.date_added.strftime('%Y-%m-%d %H:%M'),
+                'additional_days_needed': quotation.additional_days_needed or 0,
+                'subtotal': float(quotation.subtotal) if quotation.subtotal is not None else 0.0,
+                'tax_percentage': float(quotation.tax_percentage) if quotation.tax_percentage is not None else 0.0,
+                'tax_amount': float(quotation.tax_amount) if quotation.tax_amount is not None else 0.0,
+                'discount': float(quotation.discount) if quotation.discount is not None else 0.0,
+                'grand_total': float(quotation.grand_total) if quotation.grand_total is not None else 0.0,
+                'date': quotation.date_added.strftime('%Y-%m-%d %H:%M') if quotation.date_added else '',
                 'company_logo': company_logo,
                 'branch_logo': branch_logo,
                 'items': items,
@@ -6135,7 +6162,8 @@ def api_get_quotation_detail(request, quotation_id=None):
             }
         })
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+        import traceback
+        return JsonResponse({'success': False, 'message': str(e), 'trace': traceback.format_exc()}, status=500)
 
 
 @csrf_exempt
@@ -6208,6 +6236,108 @@ def api_update_quotation(request, quotation_id=None):
     except Exception as e:
         import traceback
         return JsonResponse({'success': False, 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
+@csrf_exempt
+def api_battery_makes(request):
+    """GET: List active battery makes for app dropdown."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from master.models import BatteryMake
+        from django.db.models import Q
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if company:
+            makes = BatteryMake.objects.filter(Q(company=company) | Q(company__isnull=True), is_active=True, is_deleted=False)
+        else:
+            makes = BatteryMake.objects.filter(is_active=True, is_deleted=False)
+        data = [{'id': str(m.id), 'name': m.name} for m in makes.order_by('name')]
+        return JsonResponse({'success': True, 'battery_makes': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_battery_amperes(request):
+    """GET: List active battery amperes for app dropdown."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from master.models import BatteryAmpere
+        from django.db.models import Q
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if company:
+            amperes = BatteryAmpere.objects.filter(Q(company=company) | Q(company__isnull=True), is_active=True, is_deleted=False)
+        else:
+            amperes = BatteryAmpere.objects.filter(is_active=True, is_deleted=False)
+        data = [{'id': str(a.id), 'name': a.name} for a in amperes.order_by('name')]
+        return JsonResponse({'success': True, 'battery_amperes': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_battery_segments(request):
+    """GET: List active battery segments for app dropdown."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from master.models import BatterySegment
+        from django.db.models import Q
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if company:
+            segments = BatterySegment.objects.filter(Q(company=company) | Q(company__isnull=True), is_active=True, is_deleted=False)
+        else:
+            segments = BatterySegment.objects.filter(is_active=True, is_deleted=False)
+        data = [{'id': str(s.id), 'name': s.name} for s in segments.order_by('name')]
+        return JsonResponse({'success': True, 'battery_segments': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_batteries(request):
+    """GET: List active batteries for app selection."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from master.models import Battery
+        from django.db.models import Q
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if company:
+            batteries = Battery.objects.filter(Q(company=company) | Q(company__isnull=True), is_active=True, is_deleted=False)
+        else:
+            batteries = Battery.objects.filter(is_active=True, is_deleted=False)
+        batteries = batteries.select_related('make', 'ampere', 'segment').order_by('make__name', 'ampere__name')
+        data = [{
+            'id': str(b.id),
+            'make_id': str(b.make.id) if b.make else '',
+            'make_name': b.make.name if b.make else '',
+            'ampere_id': str(b.ampere.id) if b.ampere else '',
+            'ampere_name': b.ampere.name if b.ampere else '',
+            'segment_id': str(b.segment.id) if b.segment else '',
+            'segment_name': b.segment.name if b.segment else '',
+            'warranty_years': float(b.warranty_years),
+            'price': float(b.price),
+            'stock_qty': b.stock_qty,
+            'display_name': b.display_name,
+        } for b in batteries]
+        return JsonResponse({'success': True, 'batteries': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
 
 
 
