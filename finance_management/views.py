@@ -1801,6 +1801,41 @@ def generate_invoice_pdf_file(invoice, base_url):
     return f"{base_url}media/invoices/{pdf_filename}"
 
 
+def generate_quotation_pdf_file(quotation, base_url):
+    import sys
+    import os
+    from django.template.loader import render_to_string
+    from django.conf import settings
+    
+    if sys.platform == 'darwin':
+        os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
+    from weasyprint import HTML
+    
+    currency = '₹'
+    if quotation.branch and quotation.branch.company and quotation.branch.company.country:
+        currency = getattr(quotation.branch.company.country, 'currency_symbol', '₹') or '₹'
+        
+    context = {
+        'quotation': quotation,
+        'currency': currency,
+    }
+    
+    html_string = render_to_string('quotation/quotation_pdf.html', context)
+    
+    media_dir = os.path.join(settings.BASE_DIR, 'media', 'quotations')
+    os.makedirs(media_dir, exist_ok=True)
+    
+    pdf_filename = f"quotation-{quotation.quotation_number}.pdf"
+    pdf_path = os.path.join(media_dir, pdf_filename)
+    
+    html = HTML(string=html_string, base_url=base_url)
+    html.write_pdf(target=pdf_path)
+    
+    if not base_url.endswith('/'):
+        base_url += '/'
+    return f"{base_url}media/quotations/{pdf_filename}"
+
+
 @login_required
 def payment_type_report(request):
     user = request.user

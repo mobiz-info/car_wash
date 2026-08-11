@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quotation {{ quotation.quotation_number }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm 20mm;
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                font-size: 8pt;
+                color: #64748b;
+            }
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            font-size: 10pt;
+            line-height: 1.5;
+        }
+        .invoice-container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        /* Header section */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .header-table td {
+            vertical-align: top;
+            padding: 0;
+        }
+        .company-details h2 {
+            margin: 0 0 5px 0;
+            color: #1e3a8a;
+            font-size: 20pt;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .company-details p {
+            margin: 2px 0;
+            color: #475569;
+            font-size: 9pt;
+        }
+        .invoice-title {
+            text-align: right;
+        }
+        .invoice-title h1 {
+            margin: 0 0 10px 0;
+            color: #0f172a;
+            font-size: 24pt;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+        .invoice-meta-table {
+            float: right;
+            border-collapse: collapse;
+        }
+        .invoice-meta-table td {
+            padding: 3px 0 3px 15px;
+            font-size: 9pt;
+        }
+        .meta-label {
+            color: #64748b;
+            font-weight: 500;
+            text-align: right;
+        }
+        .meta-value {
+            font-weight: 600;
+            color: #0f172a;
+            text-align: right;
+        }
+
+        /* Divider line */
+        .divider {
+            border-bottom: 2px solid #e2e8f0;
+            margin: 15px 0;
+            clear: both;
+        }
+
+        /* Details cards block */
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        .details-table td {
+            width: 50%;
+            vertical-align: top;
+            padding: 0 10px 0 0;
+        }
+        .details-table td:last-child {
+            padding: 0 0 0 10px;
+        }
+        .info-card {
+            background-color: #f8fafc;
+            border: 1px solid #f1f5f9;
+            border-radius: 8px;
+            padding: 12px 15px;
+            min-height: 100px;
+        }
+        .info-card h4 {
+            margin: 0 0 8px 0;
+            color: #1e3a8a;
+            font-size: 9.5pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+        .info-row {
+            margin-bottom: 4px;
+            font-size: 9pt;
+        }
+        .info-label {
+            color: #64748b;
+            width: 100px;
+            display: inline-block;
+        }
+        .info-val {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        /* Items table styling */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        .items-table th {
+            background-color: #eff6ff;
+            color: #1e3a8a;
+            font-weight: 700;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 9pt;
+            border-bottom: 2px solid #bfdbfe;
+        }
+        .items-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 9pt;
+            color: #334155;
+        }
+        .align-right {
+            text-align: right !important;
+        }
+        .align-center {
+            text-align: center !important;
+        }
+
+        /* Summary section */
+        .summary-wrapper {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .summary-table {
+            width: 280px;
+            margin-left: auto;
+            border-collapse: collapse;
+        }
+        .summary-table td {
+            padding: 5px 12px;
+            font-size: 9.5pt;
+        }
+        .summary-label {
+            color: #64748b;
+            text-align: left;
+        }
+        .summary-value {
+            font-weight: 600;
+            color: #1e293b;
+            text-align: right;
+        }
+        .summary-total {
+            font-size: 11pt;
+            font-weight: 700;
+            color: #1e3a8a;
+            border-top: 1px solid #bfdbfe;
+            border-bottom: 2px double #bfdbfe;
+            background-color: #eff6ff;
+        }
+        .summary-total td {
+            padding: 8px 12px;
+        }
+
+        /* Footer block */
+        .footer-section {
+            margin-top: 40px;
+            width: 100%;
+        }
+        .footer-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .footer-table td {
+            vertical-align: bottom;
+            padding: 0;
+        }
+        .thanks-message {
+            font-size: 10pt;
+            font-weight: 600;
+            color: #1e3a8a;
+            font-style: italic;
+        }
+        .signature-block {
+            text-align: right;
+            width: 250px;
+        }
+        .signature-line {
+            border-top: 1px solid #94a3b8;
+            margin-bottom: 5px;
+        }
+        .signature-title {
+            font-size: 8.5pt;
+            color: #64748b;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+<div class="invoice-container">
+    <!-- Header -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 60%;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        {% if quotation.branch and quotation.branch.company and quotation.branch.company.logo_color %}
+                        <td style="width: 60px; vertical-align: top; padding-right: 12px; padding-top: 2px;">
+                            <img src="{{ quotation.branch.company.logo_color.url }}" style="height: 36px; max-width: 80px; object-fit: contain;" />
+                        </td>
+                        {% endif %}
+                        <td style="vertical-align: top;">
+                            <div class="company-details">
+                                <h2>{% if quotation.branch %}{{ quotation.branch.company.company_name|upper }}{% else %}WASH PILOT{% endif %}</h2>
+                                {% if quotation.branch %}
+                                    <p><strong>{{ quotation.branch.name }}</strong></p>
+                                    {% if quotation.branch.address %}
+                                        <p>{{ quotation.branch.address|linebreaksbr }}</p>
+                                    {% endif %}
+                                    {% if quotation.branch.phone %}
+                                        <p>Phone: {{ quotation.branch.phone }}</p>
+                                    {% endif %}
+                                    {% if quotation.branch.email %}
+                                        <p>Email: {{ quotation.branch.email }}</p>
+                                    {% endif %}
+                                    {% if quotation.branch.gst_number %}
+                                        <p>GSTIN: {{ quotation.branch.gst_number }}</p>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+            <td class="invoice-title" style="width: 40%; vertical-align: top;">
+                <h1>QUOTATION</h1>
+                <table class="invoice-meta-table">
+                    <tr>
+                        <td class="meta-label">Quotation No:</td>
+                        <td class="meta-value">{{ quotation.quotation_number }}</td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label">Date:</td>
+                        <td class="meta-value">{{ quotation.date_added|date:"d M Y" }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <div class="divider"></div>
+
+    <!-- Client & Info Details -->
+    <table class="details-table">
+        <tr>
+            <td>
+                <div class="info-card">
+                    <h4>Customer Details</h4>
+                    <div class="info-row">
+                        <span class="info-label">Customer:</span>
+                        <span class="info-val">{{ quotation.customer.name }}</span>
+                    </div>
+                    {% if quotation.customer.phone %}
+                        <div class="info-row">
+                            <span class="info-label">Phone:</span>
+                            <span class="info-val">{{ quotation.customer.phone }}</span>
+                        </div>
+                    {% endif %}
+                    {% if quotation.customer.email %}
+                        <div class="info-row">
+                            <span class="info-label">Email:</span>
+                            <span class="info-val">{{ quotation.customer.email }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </td>
+            <td>
+                <div class="info-card">
+                    <h4>Vehicle Details</h4>
+                    <div class="info-row">
+                        <span class="info-label">Reg No:</span>
+                        <span class="info-val">{{ quotation.vehicle.vehicle_number }}</span>
+                    </div>
+                    {% if quotation.vehicle.vehicle_type_model %}
+                        <div class="info-row">
+                            <span class="info-label">Type/Model:</span>
+                            <span class="info-val">{{ quotation.vehicle.vehicle_type_model.name }}</span>
+                        </div>
+                    {% endif %}
+                    {% if quotation.additional_days_needed %}
+                        <div class="info-row">
+                            <span class="info-label">Days Needed:</span>
+                            <span class="info-val">{{ quotation.additional_days_needed }} days</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Services & Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 8%;" class="align-center">#</th>
+                <th style="width: 52%;">Service / Item Description</th>
+                <th style="width: 15%;" class="align-center">Warranty</th>
+                <th style="width: 25%;" class="align-right">Rate</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in quotation.items.all %}
+                {% if not item.is_deleted %}
+                <tr>
+                    <td class="align-center">{{ forloop.counter }}</td>
+                    <td>
+                        <div style="font-weight: 600;">{{ item.service_name }}</div>
+                        {% if item.stock_item_name %}
+                            <div style="font-size: 8.5pt; color: #64748b;">Stock: {{ item.stock_item_name }}</div>
+                        {% endif %}
+                        {% if item.free_topup and item.free_topup != '0' %}
+                            <div style="font-size: 8.5pt; color: #64748b;">Topup: {{ item.free_topup }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="align-center">
+                        {% if item.warranty_years > 0 %}{{ item.warranty_years }} yrs{% else %}-{% endif %}
+                    </td>
+                    <td class="align-right">{{ currency }}{{ item.rate }}</td>
+                </tr>
+                {% endif %}
+            {% empty %}
+                <tr>
+                    <td colspan="4" class="align-center" style="color: #64748b;">No items listed.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Extras Section -->
+    {% if quotation.extras.all %}
+        <div style="margin-top: 15px; margin-bottom: 5px; font-weight: 700; font-size: 9.5pt; color: #1e3a8a;">EXTRAS</div>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 8%;" class="align-center">#</th>
+                    <th style="width: 67%;">Extra Item</th>
+                    <th style="width: 25%;" class="align-right">Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ex in quotation.extras.all %}
+                    {% if not ex.is_deleted %}
+                    <tr>
+                        <td class="align-center">{{ forloop.counter }}</td>
+                        <td>{{ ex.name }}</td>
+                        <td class="align-right">{{ currency }}{{ ex.price }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <!-- Additional Services Notes -->
+    {% if quotation.additional_services %}
+        <div style="margin-top: 15px; margin-bottom: 15px; padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <strong style="color: #1e3a8a; font-size: 9pt;">ADDITIONAL SERVICE NOTES:</strong>
+            <p style="margin: 4px 0 0 0; font-size: 9pt; color: #334155;">{{ quotation.additional_services|linebreaksbr }}</p>
+        </div>
+    {% endif %}
+
+    <!-- Financial Summary -->
+    {% if quotation.is_grand_total %}
+    <div class="summary-wrapper">
+        <table class="summary-table">
+            <tr>
+                <td class="summary-label">Subtotal</td>
+                <td class="summary-value">{{ currency }}{{ quotation.subtotal }}</td>
+            </tr>
+            {% if quotation.discount > 0 %}
+                <tr>
+                    <td class="summary-label">Discount</td>
+                    <td class="summary-value">- {{ currency }}{{ quotation.discount }}</td>
+                </tr>
+            {% endif %}
+            {% if quotation.tax_amount > 0 %}
+                <tr>
+                    <td class="summary-label">Tax ({{ quotation.tax_percentage }}%)</td>
+                    <td class="summary-value">{{ currency }}{{ quotation.tax_amount }}</td>
+                </tr>
+            {% endif %}
+            <tr class="summary-total">
+                <td class="summary-label" style="color: #1e3a8a;">Grand Total</td>
+                <td class="summary-value" style="color: #1e3a8a;">{{ currency }}{{ quotation.grand_total }}</td>
+            </tr>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer-section">
+        <table class="footer-table">
+            <tr>
+                <td>
+                    <div class="thanks-message" style="font-size: 11pt; font-weight: 700; color: #1e3a8a;">
+                        Thank you for choosing {% if quotation.branch %}{{ quotation.branch.name }}{% else %}us{% endif %}!
+                    </div>
+                    <div style="font-size: 8.5pt; color: #64748b; margin-top: 5px;">
+                        Powered by Mobiz Technologies
+                    </div>
+                </td>
+                <td class="align-right">
+                    <div class="signature-block" style="display: inline-block;">
+                        <div class="signature-line"></div>
+                        <div class="signature-title">Authorized Signatory</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>

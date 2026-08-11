@@ -5934,7 +5934,8 @@ def _get_obj_by_uuid(model_cls, obj_id):
 def send_quotation_whatsapp_background(quotation_id, base_url):
     try:
         from client_management.models import Quotation, WhatsAppSetting
-        from booking_management.api_views import send_whatsapp_simple, clean_whatsapp_number
+        from booking_management.api_views import send_whatsapp_simple, send_whatsapp_template, clean_whatsapp_number
+        from finance_management.views import generate_quotation_pdf_file
         
         quotation = Quotation.objects.get(id=quotation_id)
         customer = quotation.customer
@@ -5949,51 +5950,37 @@ def send_quotation_whatsapp_background(quotation_id, base_url):
         if not cleaned_num:
             return
             
-        company_name = quotation.branch.company.company_name if quotation.branch and quotation.branch.company else "Wash Pilot"
-        currency = "₹"
-        if quotation.branch and quotation.branch.company and quotation.branch.company.country:
-            currency = getattr(quotation.branch.company.country, 'currency_symbol', '₹') or '₹'
-            
-        items_list = []
-        for item in quotation.items.filter(is_deleted=False):
-            rate_str = f" - {currency}{item.rate}" if item.rate > 0 else ""
-            items_list.append(f"- {item.service_name}{rate_str}")
-        for ex in quotation.extras.filter(is_deleted=False):
-            price_str = f" - {currency}{ex.price}" if ex.price > 0 else ""
-            items_list.append(f"- {ex.name}{price_str}")
-            
-        items_str = "\n".join(items_list)
-        branch_name = quotation.branch.name if quotation.branch else "our service"
-
-        total_part = f"\nGrand Total: {currency}{quotation.grand_total}\n" if quotation.is_grand_total else "\n"
-
-        message_text = (
-            f"Dear {customer.name},\n\n"
-            f"Your quotation *{quotation.quotation_number}* has been prepared at {company_name}.\n\n"
-            f"*Quotation Details:*\n"
-            f"Vehicle: {quotation.vehicle.vehicle_number if quotation.vehicle else ''}\n"
-            f"Items & Services:\n{items_str}"
-            f"{total_part}"
-            f"Thank you for choosing {branch_name}!\n"
-            f"Powered by Mobiz Technologies"
-        )
+        pdf_url = ""
+        try:
+            pdf_url = generate_quotation_pdf_file(quotation, base_url)
+        except Exception as pe:
+            with open('/tmp/whatsapp_quotation.log', 'a') as f:
+                f.write(f"PDF gen error: {pe}\n")
 
         company = (quotation.branch.company if quotation.branch else None) or (customer.company if customer else None)
         setting = None
         if company:
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
 
+        message_text = (
+            f"Dear {customer.name}\n"
+            f"Please find the quotation. Awaiting your order confirmation.\n\n"
+            f"Thanks and Regards"
+        )
+        if pdf_url:
+            message_text += f"\n\nQuotation PDF: {pdf_url}"
+
         if setting and setting.username and setting.password:
             if setting.is_official_api:
-                from booking_management.api_views import send_whatsapp_template
-                tmpl_name = 'quotation_template'
-                params = [customer.name, quotation.quotation_number, quotation.vehicle.vehicle_number if quotation.vehicle else '']
-                send_whatsapp_template(company.id, cleaned_num, tmpl_name, params)
+                tmpl_name = 'quotation'
+                params = [customer.name]
+                send_whatsapp_template(cleaned_num, tmpl_name, params, doc_url=pdf_url, setting=setting)
             else:
-                send_whatsapp_simple(company.id, cleaned_num, message_text)
+                send_whatsapp_simple(cleaned_num, message_text, setting=setting, media_url=pdf_url)
     except Exception as e:
+        import traceback
         with open('/tmp/whatsapp_quotation.log', 'a') as f:
-            f.write(f"Error sending quotation whatsapp: {e}\n")
+            f.write(f"Error sending quotation whatsapp: {e}\n{traceback.format_exc()}\n")
 
 
 @csrf_exempt
