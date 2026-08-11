@@ -234,6 +234,12 @@ class CustomerVehicle(BaseModel):
     last_tyre_change_date = models.DateField(
         null=True, blank=True, help_text="Date of last tyre change"
     )
+    last_smoke_test_date = models.DateField(
+        null=True, blank=True, help_text="Date of last smoke test"
+    )
+    next_smoke_test_date = models.DateField(
+        null=True, blank=True, help_text="Recommended next smoke test renewal date"
+    )
 
     def __str__(self):
         return f"{self.vehicle_number} - {self.vehicle_type_model.name}"

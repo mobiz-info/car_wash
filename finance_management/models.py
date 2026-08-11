@@ -80,11 +80,13 @@ class InvoiceServiceDetail(BaseModel):
     CATEGORY_OIL = 'oil_change'
     CATEGORY_TYRE = 'tyre_change'
     CATEGORY_ALIGNMENT = 'wheel_alignment'
+    CATEGORY_SMOKE = 'smoke_test'
     CATEGORY_CHOICES = [
         (CATEGORY_WASHING, 'Washing'),
         (CATEGORY_OIL, 'Oil Change'),
         (CATEGORY_TYRE, 'Tyre Change'),
         (CATEGORY_ALIGNMENT, 'Wheel Alignment'),
+        (CATEGORY_SMOKE, 'Smoke Test'),
     ]
 
     invoice_item = models.OneToOneField(
@@ -142,6 +144,14 @@ class InvoiceServiceDetail(BaseModel):
     alignment_done = models.BooleanField(default=False)
     balancing_done = models.BooleanField(default=False)
     alignment_notes = models.TextField(blank=True)
+
+    # ── Smoke Test fields ────────────────────────────────────────────────────
+    smoke_test_period_months = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Renewal period in months (6 or 12)"
+    )
+    next_smoke_test_date = models.DateField(
+        null=True, blank=True, help_text="Calculated next smoke test renewal date"
+    )
 
     def __str__(self):
         return f"{self.get_service_category_display()} — {self.invoice_item.invoice.invoice_number}"
