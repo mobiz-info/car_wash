@@ -901,6 +901,61 @@ def reminder_list(request):
     return render(request, 'booking/reminder_list.html', context)
 
 
+@login_required
+def smoke_test_reminder_list(request):
+    """View to list upcoming and overdue Smoke Test / Pollution Test renewals."""
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    from client_management.models import Branch, CustomerVehicle
+    from django.utils import timezone
+
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+        vehicles = CustomerVehicle.objects.filter(
+            customer__company=company,
+            customer__is_deleted=False,
+            is_deleted=False,
+            next_smoke_test_date__isnull=False
+        ).select_related('customer', 'customer__branch', 'vehicle_type_model', 'vehicle_type').order_by('next_smoke_test_date')
+    else:
+        managed = getattr(request.user, 'managed_branch', None)
+        branches = Branch.objects.filter(id=managed.id, is_deleted=False) if managed else Branch.objects.none()
+        vehicles = CustomerVehicle.objects.filter(
+            customer__branch=managed,
+            customer__is_deleted=False,
+            is_deleted=False,
+            next_smoke_test_date__isnull=False
+        ).select_related('customer', 'customer__branch', 'vehicle_type_model', 'vehicle_type').order_by('next_smoke_test_date') if managed else CustomerVehicle.objects.none()
+
+    selected_branch_id = request.GET.get('branch_id')
+    selected_branch = None
+    if selected_branch_id:
+        selected_branch = branches.filter(id=selected_branch_id).first()
+        if selected_branch:
+            vehicles = vehicles.filter(customer__branch=selected_branch)
+
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        vehicles = vehicles.filter(
+            Q(customer__name__icontains=search_query) |
+            Q(customer__phone__icontains=search_query) |
+            Q(customer__whatsapp_number__icontains=search_query) |
+            Q(vehicle_number__icontains=search_query)
+        )
+
+    context = {
+        'branches': branches,
+        'selected_branch': selected_branch,
+        'vehicles': vehicles,
+        'today': timezone.now().date(),
+        'role_name': role_name,
+        'search': search_query,
+    }
+    return render(request, 'booking/smoke_test_reminder_list.html', context)
+
+
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 

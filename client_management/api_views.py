@@ -954,6 +954,18 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
         detail.balancing_done = bool(detail_data.get('balancing_done', False))
         detail.alignment_notes = detail_data.get('alignment_notes', '')
 
+    elif category == InvoiceServiceDetail.CATEGORY_SMOKE:
+        from datetime import timedelta
+        period_months = int(detail_data.get('smoke_test_period_months') or detail_data.get('period_months') or 6)
+        detail.smoke_test_period_months = period_months
+        days = 180 if period_months == 6 else 365
+        next_date = invoice.date + timedelta(days=days)
+        detail.next_smoke_test_date = next_date
+
+        vehicle.last_smoke_test_date = invoice.date
+        vehicle.next_smoke_test_date = next_date
+        vehicle.save(update_fields=['last_smoke_test_date', 'next_smoke_test_date'])
+
     detail.save()
 
     # Log odometer reading for ALL service categories (if odometer provided)

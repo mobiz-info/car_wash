@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}Smoke Test Renewal Reminders{% endblock %}
+{% block page_title %}Smoke Test Renewal Reminders{% endblock %}
+{% block breadcrumb_active %}Smoke Test Reminders{% endblock %}
+{% block content %}
+<style>
+    .planner-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, .04);
+        margin-bottom: 24px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: .9rem;
+        color: #1e293b;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+    }
+
+    .form-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, .1);
+    }
+
+    .planner-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .badge-due {
+        background: #fef2f2;
+        color: #991b1b;
+        font-size: .8rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 12px;
+        border: 1px solid #fca5a5;
+    }
+
+    .badge-upcoming {
+        background: #f0fdf4;
+        color: #166534;
+        font-size: .8rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 12px;
+        border: 1px solid #86efac;
+    }
+</style>
+
+<div class="premium-form-container" style="max-width: 100%; margin: 0 auto;">
+    <div id="alert-container"></div>
+
+    <div class="planner-actions">
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            {% if role_name == 'COMPANY_ADMIN' and branches.count > 1 %}
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Branch:</span>
+                <select class="form-control" style="width: 220px;" onchange="updateFilters('branch_id', this.value)">
+                    <option value="">All Branches</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if selected_branch and b.id == selected_branch.id %}selected{% endif %}>
+                        {{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Search:</span>
+                <input type="text" class="form-control" style="width: 260px;" placeholder="Name, Phone or Vehicle..." value="{{ search|default:'' }}"
+                    onkeypress="if(event.key === 'Enter') updateFilters('search', this.value)">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="planner-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 1.15rem;">Smoke Test Renewal Reminders</h4>
+                <span style="font-size: .82rem; color: #64748b;">Vehicles with upcoming or due smoke test / pollution certificate renewal dates</span>
+            </div>
+        </div>
+
+        {% if vehicles %}
+        <div class="list-container" style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: none;">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>Sl No</th>
+                        <th>Client Name</th>
+                        <th>WhatsApp / Phone</th>
+                        <th>Vehicle Model</th>
+                        <th>Vehicle No</th>
+                        <th>Last Test Date</th>
+                        <th>Renewal Due Date</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vehicles %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            <strong style="color: #1e293b;">{{ v.customer.name }}</strong>
+                        </td>
+                        <td>{{ v.customer.whatsapp_number|default:v.customer.phone|default:'-' }}</td>
+                        <td>{{ v.vehicle_type_model.name|default:'-' }}</td>
+                        <td>
+                            <span style="background: #f1f5f9; color: #475569; padding: 3px 6px; border-radius: 4px; font-family: monospace; font-size: .82rem;">
+                                {{ v.vehicle_number }}
+                            </span>
+                        </td>
+                        <td>{{ v.last_smoke_test_date|date:"d-m-Y"|default:"-" }}</td>
+                        <td>
+                            <strong style="color: #0f172a;">{{ v.next_smoke_test_date|date:"d-m-Y" }}</strong>
+                        </td>
+                        <td>
+                            {% if v.next_smoke_test_date <= today %}
+                                <span class="badge-due">Renewal Due</span>
+                            {% else %}
+                                <span class="badge-upcoming">Upcoming</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            {% with phone=v.customer.whatsapp_number|default:v.customer.phone %}
+                            {% if phone %}
+                                <a href="https://api.whatsapp.com/send?phone={{ phone }}&text=Dear%20{{ v.customer.name|urlencode }}%2C%20your%20vehicle%20{{ v.vehicle_number|urlencode }}%20Smoke%20Test%20%2F%20Pollution%20Certificate%20renewal%20is%20due%20on%20{{ v.next_smoke_test_date|date:'d-m-Y' }}.%20Please%20visit%20our%20service%20center%20for%20renewal." target="_blank" class="btn-create" style="padding: 6px 12px; font-size: .8rem; display: inline-flex; text-decoration: none; background: #25D366; color: white;">
+                                    <i class="ph ph-whatsapp-logo" style="margin-right: 4px;"></i> WhatsApp
+                                </a>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding: 80px 0; text-align: center; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 10px;">
+            <i class="ph ph-shield-check" style="font-size: 2.5rem; display: block; margin-bottom: 10px; color: #cbd5e1;"></i>
+            <div style="font-size: .95rem; font-weight: 600; color: #64748b;">No smoke test renewals found</div>
+            <div style="font-size: .8rem; color: #94a3b8; margin-top: 2px;">Vehicles with recorded smoke test renewal dates will appear here.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function updateFilters(key, val) {
+        var url = new URL(window.location.href);
+        url.searchParams.set(key, val);
+        window.location.href = url.toString();
+    }
+</script>
+{% endblock %}
