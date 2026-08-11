@@ -3,7 +3,7 @@ import sys
 import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'wash_pilot.settings')
-sys.path.append('/Users/muhammedanshid/Desktop/Mobiz Car Wash/Mobiz Carwash Admin')
+sys.path.append('/Users/muhammedanshid/Desktop/Mobiz Autocare Pro/Mobiz Carwash Admin')
 if sys.platform == 'darwin':
     os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
 
