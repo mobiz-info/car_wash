@@ -571,14 +571,6 @@ def _get_available_services(br, vehicle_match):
                 is_active=True,
                 is_deleted=False,
             ).first()
-            if not price_obj and vehicle_match and vehicle_match.vehicle_type:
-                price_obj = ServiceVehicleTypePrice.objects.filter(
-                    branch=br,
-                    service=svc,
-                    vehicle_type=vehicle_match.vehicle_type,
-                    is_active=True,
-                    is_deleted=False,
-                ).first()
             if not price_obj:
                 has_any_prices = ServiceVehicleTypePrice.objects.filter(
                     branch=br,
