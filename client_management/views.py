@@ -57,11 +57,16 @@ def _next_branch_invoice_prefix(company):
 
 @login_required
 def client_list(request):
-    search = request.GET.get('search', '')
+    search = request.GET.get('search', '').strip()
     queryset = Client.objects.filter(is_deleted=False)
     if search:
-        queryset = queryset.filter(name__icontains=search)
-    paginator = Paginator(queryset, 10)
+        queryset = queryset.filter(
+            Q(company_name__icontains=search) |
+            Q(owner_name__icontains=search) |
+            Q(phone__icontains=search) |
+            Q(email__icontains=search)
+        )
+    paginator = Paginator(queryset.order_by('-date_added'), 10)
     page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'client/list.html', {
         'page_obj': page_obj,
