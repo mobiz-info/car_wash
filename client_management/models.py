@@ -513,6 +513,7 @@ class Quotation(BaseModel):
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    is_grand_total = models.BooleanField(default=True)
 
     def __str__(self):
         return f"Quotation {self.quotation_number} - {self.customer.name}"

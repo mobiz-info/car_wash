@@ -5931,6 +5931,71 @@ def _get_obj_by_uuid(model_cls, obj_id):
         return None
 
 
+def send_quotation_whatsapp_background(quotation_id, base_url):
+    try:
+        from client_management.models import Quotation, WhatsAppSetting
+        from booking_management.api_views import send_whatsapp_simple, clean_whatsapp_number
+        
+        quotation = Quotation.objects.get(id=quotation_id)
+        customer = quotation.customer
+        if not customer:
+            return
+            
+        phone_to_send = customer.whatsapp_number or customer.phone
+        if not phone_to_send:
+            return
+            
+        cleaned_num = clean_whatsapp_number(phone_to_send)
+        if not cleaned_num:
+            return
+            
+        company_name = quotation.branch.company.company_name if quotation.branch and quotation.branch.company else "Wash Pilot"
+        currency = "₹"
+        if quotation.branch and quotation.branch.company and quotation.branch.company.country:
+            currency = getattr(quotation.branch.company.country, 'currency_symbol', '₹') or '₹'
+            
+        items_list = []
+        for item in quotation.items.filter(is_deleted=False):
+            rate_str = f" - {currency}{item.rate}" if item.rate > 0 else ""
+            items_list.append(f"- {item.service_name}{rate_str}")
+        for ex in quotation.extras.filter(is_deleted=False):
+            price_str = f" - {currency}{ex.price}" if ex.price > 0 else ""
+            items_list.append(f"- {ex.name}{price_str}")
+            
+        items_str = "\n".join(items_list)
+        branch_name = quotation.branch.name if quotation.branch else "our service"
+
+        total_part = f"\nGrand Total: {currency}{quotation.grand_total}\n" if quotation.is_grand_total else "\n"
+
+        message_text = (
+            f"Dear {customer.name},\n\n"
+            f"Your quotation *{quotation.quotation_number}* has been prepared at {company_name}.\n\n"
+            f"*Quotation Details:*\n"
+            f"Vehicle: {quotation.vehicle.vehicle_number if quotation.vehicle else ''}\n"
+            f"Items & Services:\n{items_str}"
+            f"{total_part}"
+            f"Thank you for choosing {branch_name}!\n"
+            f"Powered by Mobiz Technologies"
+        )
+
+        company = (quotation.branch.company if quotation.branch else None) or (customer.company if customer else None)
+        setting = None
+        if company:
+            setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+
+        if setting and setting.username and setting.password:
+            if setting.is_official_api:
+                from booking_management.api_views import send_whatsapp_template
+                tmpl_name = 'quotation_template'
+                params = [customer.name, quotation.quotation_number, quotation.vehicle.vehicle_number if quotation.vehicle else '']
+                send_whatsapp_template(company.id, cleaned_num, tmpl_name, params)
+            else:
+                send_whatsapp_simple(company.id, cleaned_num, message_text)
+    except Exception as e:
+        with open('/tmp/whatsapp_quotation.log', 'a') as f:
+            f.write(f"Error sending quotation whatsapp: {e}\n")
+
+
 @csrf_exempt
 def api_create_quotation(request):
     if request.method != 'POST':
@@ -5953,6 +6018,8 @@ def api_create_quotation(request):
         tax_amount = Decimal(str(data.get('tax_amount', 0)))
         discount = Decimal(str(data.get('discount', 0)))
         grand_total = Decimal(str(data.get('grand_total', 0)))
+
+        is_grand_total = data.get('is_grand_total', True)
 
         customer = _get_obj_by_uuid(Customer, customer_id)
         if not customer:
@@ -5979,6 +6046,7 @@ def api_create_quotation(request):
             tax_amount=tax_amount,
             discount=discount,
             grand_total=grand_total,
+            is_grand_total=bool(is_grand_total),
             auto_id=get_auto_id(Quotation),
             creator=user
         )
@@ -6010,6 +6078,15 @@ def api_create_quotation(request):
                 auto_id=get_auto_id(QuotationExtra),
                 creator=user
             )
+
+        # Trigger async WhatsApp sending for quotation
+        import threading
+        base_url = request.build_absolute_uri('/')
+        threading.Thread(
+            target=send_quotation_whatsapp_background,
+            args=(quotation.id, base_url),
+            daemon=True
+        ).start()
 
         return JsonResponse({
             'success': True,
@@ -6154,6 +6231,7 @@ def api_get_quotation_detail(request, quotation_id=None):
                 'tax_amount': float(quotation.tax_amount) if quotation.tax_amount is not None else 0.0,
                 'discount': float(quotation.discount) if quotation.discount is not None else 0.0,
                 'grand_total': float(quotation.grand_total) if quotation.grand_total is not None else 0.0,
+                'is_grand_total': getattr(quotation, 'is_grand_total', True),
                 'date': quotation.date_added.strftime('%d-%m-%Y %H:%M') if quotation.date_added else '',
                 'company_logo': company_logo,
                 'branch_logo': branch_logo,
@@ -6194,6 +6272,8 @@ def api_update_quotation(request, quotation_id=None):
         quotation.tax_amount = Decimal(str(data.get('tax_amount', quotation.tax_amount)))
         quotation.discount = Decimal(str(data.get('discount', quotation.discount)))
         quotation.grand_total = Decimal(str(data.get('grand_total', quotation.grand_total)))
+        if 'is_grand_total' in data:
+            quotation.is_grand_total = bool(data.get('is_grand_total'))
         quotation.save()
 
         quotation.items.all().delete()

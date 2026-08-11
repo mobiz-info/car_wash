@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('client_management', '0043_extra_service_type'),
+        ('client_management', '0042_stock_quantity'),
         ('service_management', '0014_seed_service_type_slugs'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
