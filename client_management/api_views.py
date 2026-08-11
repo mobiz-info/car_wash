@@ -6154,7 +6154,7 @@ def api_get_quotation_detail(request, quotation_id=None):
                 'tax_amount': float(quotation.tax_amount) if quotation.tax_amount is not None else 0.0,
                 'discount': float(quotation.discount) if quotation.discount is not None else 0.0,
                 'grand_total': float(quotation.grand_total) if quotation.grand_total is not None else 0.0,
-                'date': quotation.date_added.strftime('%Y-%m-%d %H:%M') if quotation.date_added else '',
+                'date': quotation.date_added.strftime('%d-%m-%Y %H:%M') if quotation.date_added else '',
                 'company_logo': company_logo,
                 'branch_logo': branch_logo,
                 'items': items,
