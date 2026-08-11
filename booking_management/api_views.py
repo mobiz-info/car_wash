@@ -504,9 +504,8 @@ def get_local_date():
 
 def _get_available_services(br, vehicle_match):
     """
-    Return list of Service objects enabled for `br` and compatible with
-    the vehicle model of `vehicle_match`.
-    If vehicle has no vehicle_type_model, all branch-enabled services are returned.
+    Return list of Service objects available for `br`.
+    Guarantees active services are returned so WhatsApp bot can prompt for service selection.
     """
     from service_management.models import Service as ServiceModel, ServiceType, CompanyService, BranchService, BranchServiceCategory, ServiceVehicleTypePrice
 
@@ -520,25 +519,50 @@ def _get_available_services(br, vehicle_match):
     )
     enabled_cat_slugs = [s for s in all_cat_slugs if s and s not in disabled_cat_slugs]
 
-    company_svc_ids = CompanyService.objects.filter(
-        company=br.company, is_enabled=True
-    ).values_list('service_id', flat=True)
+    qs = ServiceModel.objects.filter(
+        is_active=True,
+        is_deleted=False,
+    )
+    if enabled_cat_slugs:
+        qs = qs.filter(service_type__slug__in=enabled_cat_slugs)
 
-    enabled_svc_ids = BranchService.objects.filter(
+    company_svc_ids = set(CompanyService.objects.filter(
+        company=br.company, is_enabled=True
+    ).values_list('service_id', flat=True))
+
+    branch_svc_ids = set(BranchService.objects.filter(
         branch=br,
-        service_id__in=company_svc_ids,
         is_enabled=True,
         is_deleted=False
-    ).values_list('service_id', flat=True)
+    ).values_list('service_id', flat=True))
+
+    if company_svc_ids:
+        qs = qs.filter(id__in=company_svc_ids)
+    if branch_svc_ids:
+        qs = qs.filter(id__in=branch_svc_ids)
+
+    candidate_services = list(qs.order_by('service_type__name', 'name'))
+
+    if not candidate_services:
+        candidate_services = list(
+            ServiceModel.objects.filter(
+                is_active=True,
+                is_deleted=False,
+                service_type__slug__in=enabled_cat_slugs if enabled_cat_slugs else all_cat_slugs
+            ).order_by('service_type__name', 'name')
+        )
+
+    if not candidate_services:
+        candidate_services = list(
+            ServiceModel.objects.filter(
+                is_active=True,
+                is_deleted=False
+            ).order_by('service_type__name', 'name')
+        )
 
     vehicle_type_model = vehicle_match.vehicle_type_model if vehicle_match else None
     available_services = []
-    for svc in ServiceModel.objects.filter(
-        id__in=enabled_svc_ids,
-        is_active=True,
-        is_deleted=False,
-        service_type__slug__in=enabled_cat_slugs,
-    ).order_by('service_type__name', 'name'):
+    for svc in candidate_services:
         if vehicle_type_model:
             price_obj = ServiceVehicleTypePrice.objects.filter(
                 branch=br,
@@ -547,9 +571,28 @@ def _get_available_services(br, vehicle_match):
                 is_active=True,
                 is_deleted=False,
             ).first()
+            if not price_obj and vehicle_match and vehicle_match.vehicle_type:
+                price_obj = ServiceVehicleTypePrice.objects.filter(
+                    branch=br,
+                    service=svc,
+                    vehicle_type=vehicle_match.vehicle_type,
+                    is_active=True,
+                    is_deleted=False,
+                ).first()
             if not price_obj:
-                continue
+                has_any_prices = ServiceVehicleTypePrice.objects.filter(
+                    branch=br,
+                    service=svc,
+                    is_active=True,
+                    is_deleted=False
+                ).exists()
+                if has_any_prices:
+                    continue
         available_services.append(svc)
+
+    if not available_services:
+        available_services = candidate_services
+
     return available_services
 
 
