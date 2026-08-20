@@ -28,7 +28,9 @@
                     <th>#</th>
                     <th>Vehicle Type</th>
                     <th>Vehicle Segment</th>
-                    <th style="text-align:right;">Action</th>
+                    <th>Emission Standard</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -36,31 +38,56 @@
 
     {% for group in vehicle_groups %}
         <tr style="background:#f8fafc;">
-            <td colspan="4">
-                <strong>{{ group.grouper.name }}</strong>
+            <td colspan="6" style="font-weight: 700; color: #1e293b;">
+                <i class="ph ph-car-profile" style="color: #2563eb; margin-right: 6px;"></i>
+                {{ group.grouper.name }}
             </td>
         </tr>
 
         {% for obj in group.list %}
         <tr>
             <td>{{ forloop.counter }}</td>
-            <td></td>
-            <td>{{ obj.name }}</td>
-
-            <td style="text-align:right;">
-                <div style="display:flex; gap:8px; justify-content:flex-end;">
-                    <a href="{% url 'vehicle_type_model_edit' obj.pk %}" class="action-btn edit">
+            <td><span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:600; padding:4px 8px; border-radius:4px;">{{ obj.vehicle_type.name }}</span></td>
+            <td>
+                <strong style="color: #0f172a; font-size: 0.95rem;">{{ obj.name }}</strong>
+            </td>
+            <td>
+                {% if obj.emission_standard %}
+                    <span class="badge" style="background:#f0fdf4; color:#15803d; padding:4px 8px; border-radius:4px; font-weight:500;">
+                        <i class="ph ph-shield-check"></i> {{ obj.emission_standard.name }} ({{ obj.emission_standard.validity_months }} Months)
+                    </span>
+                {% else %}
+                    <span class="text-muted" style="font-size: 0.85rem;">—</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if obj.is_active %}
+                    <span style="color:#16a34a; font-weight:600; font-size:0.85rem;"><i class="ph-bold ph-check-circle"></i> Active</span>
+                {% else %}
+                    <span style="color:#dc2626; font-weight:600; font-size:0.85rem;"><i class="ph-bold ph-x-circle"></i> Inactive</span>
+                {% endif %}
+            </td>
+            <td style="text-align: right; white-space: nowrap;">
+                {% if request.user.is_superuser or request.user.profile.role.name == 'SUPER_ADMIN' or obj.company %}
+                    <a href="{% url 'vehicle_type_model_edit' obj.id %}" class="btn-icon" title="Edit" style="color: #2563eb; margin-right: 8px; font-size: 1.1rem;">
                         <i class="ph ph-pencil-simple"></i>
                     </a>
-                    <a href="{% url 'vehicle_type_model_delete' obj.pk %}"
-                       onclick="return confirm('Delete this vehicle segment?')"
-                       class="action-btn delete">
+                    <a href="{% url 'vehicle_type_model_delete' obj.id %}" class="btn-icon" title="Delete" onclick="return confirm('Are you sure you want to delete segment {{ obj.name }}?');" style="color: #ef4444; font-size: 1.1rem;">
                         <i class="ph ph-trash"></i>
                     </a>
-                </div>
+                {% else %}
+                    <span class="badge" style="background:#f1f5f9; color:#64748b; font-size:0.75rem; padding:3px 8px; border-radius:4px;"><i class="ph ph-lock-key"></i> System</span>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
+    {% empty %}
+        <tr>
+            <td colspan="6" style="text-align:center; padding: 30px; color:#64748b;">
+                <i class="ph ph-folder-open" style="font-size: 2rem; display:block; margin-bottom:8px;"></i>
+                No vehicle segments found.
+            </td>
+        </tr>
     {% endfor %}
 </tbody>
         </table>

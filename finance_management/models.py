@@ -23,6 +23,8 @@ class Invoice(BaseModel):
         default='cashinvoice'
     )
     
+    remarks = models.TextField(blank=True, null=True)
+    
     def __str__(self):
         return f"INV-{self.invoice_number} - {self.customer.name}"
 
@@ -30,8 +32,12 @@ class InvoiceItem(BaseModel):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True)
     service_name = models.CharField(max_length=150)
+    stock_item = models.ForeignKey('client_management.Stock', on_delete=models.SET_NULL, null=True, blank=True)
+    qty = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
     rate = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # per-item scheme/manual discount
+    net_taxable_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    is_operational = models.BooleanField(default=False, help_text="True if stock item was consumed operationally (0 rate)")
 
     def __str__(self):
         return f"{self.invoice.invoice_number} - {self.service_name}"
@@ -81,18 +87,28 @@ class InvoiceServiceDetail(BaseModel):
     CATEGORY_TYRE = 'tyre_change'
     CATEGORY_ALIGNMENT = 'wheel_alignment'
     CATEGORY_SMOKE = 'smoke_test'
+    CATEGORY_DETAILING = 'car_detailing'
     CATEGORY_CHOICES = [
         (CATEGORY_WASHING, 'Washing'),
         (CATEGORY_OIL, 'Oil Change'),
         (CATEGORY_TYRE, 'Tyre Change'),
         (CATEGORY_ALIGNMENT, 'Wheel Alignment'),
         (CATEGORY_SMOKE, 'Smoke Test'),
+        (CATEGORY_DETAILING, 'Car Detailing'),
     ]
 
     invoice_item = models.OneToOneField(
         InvoiceItem, on_delete=models.CASCADE, related_name='service_detail'
     )
     service_category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
+
+    # ── Car Detailing Warranty fields ─────────────────────────────────────────
+    warranty_value = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Warranty duration value (e.g. 6)"
+    )
+    warranty_unit = models.CharField(
+        max_length=10, blank=True, help_text="Warranty unit ('month' or 'year')"
+    )
 
     # ── Oil Change fields ────────────────────────────────────────────────────
     oil_product = models.ForeignKey(
@@ -144,6 +160,9 @@ class InvoiceServiceDetail(BaseModel):
     alignment_done = models.BooleanField(default=False)
     balancing_done = models.BooleanField(default=False)
     alignment_notes = models.TextField(blank=True)
+    next_alignment_km = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Recommended next wheel alignment & balancing odometer reading"
+    )
 
     # ── Smoke Test fields ────────────────────────────────────────────────────
     smoke_test_period_months = models.PositiveIntegerField(

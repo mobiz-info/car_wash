@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
-{% block title %}Stock Management - Mobiz Autocare Pro{% endblock %}
-{% block page_title %}Stock List{% endblock %}
-{% block breadcrumb_active %}Stock{% endblock %}
+{% block title %}Stock Item - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Stock Item{% endblock %}
+{% block breadcrumb_active %}Stock Item{% endblock %}
 
 {% block content %}
 <style>
@@ -23,6 +23,30 @@
         background: #eff6ff;
         color: #1d4ed8;
     }
+    .type-badge {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .type-trading {
+        background: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+    .type-operational {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+    .type-both {
+        background: #f3e8ff;
+        color: #6b21a8;
+        border: 1px solid #e9d5ff;
+    }
     .action-btn.disabled {
         opacity: 0.4;
         pointer-events: none;
@@ -34,13 +58,31 @@
 
     <!-- Header -->
     <div class="list-header">
-        <form method="GET" class="search-wrapper">
-            <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search stock item..." class="search-input">
+        <form method="GET" class="search-wrapper" style="display:flex; align-items:center; gap:10px; width:auto; flex-wrap:wrap;">
+            <div style="position:relative; flex:1; min-width:220px;">
+                <i class="ph ph-magnifying-glass search-icon"></i>
+                <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search stock item..." class="search-input">
+            </div>
+            <select name="type" class="search-input" style="width:auto; padding-left:12px; cursor:pointer;" onchange="this.form.submit()">
+                <option value="">All Item Types</option>
+                <option value="trading" {% if selected_type == 'trading' %}selected{% endif %}>Trading Items</option>
+                <option value="operational" {% if selected_type == 'operational' %}selected{% endif %}>Operational Consumables</option>
+                <option value="both" {% if selected_type == 'both' %}selected{% endif %}>Trading & Operational</option>
+            </select>
         </form>
-        <a href="{% url 'stock_create' %}" class="btn-create">
-            <i class="ph-bold ph-plus"></i> Add Stock
-        </a>
+        <div style="display:flex; gap:10px;">
+            {% if request.user.is_superuser %}
+            <form method="POST" action="{% url 'stock_delete_all' %}" style="display:inline;" onsubmit="return confirm('WARNING: Are you sure you want to delete ALL stock items across all companies? This action cannot be undone.');">
+                {% csrf_token %}
+                <button type="submit" class="btn-create" style="background:#dc2626; border-color:#dc2626; color:#fff;">
+                    <i class="ph-bold ph-trash"></i> Delete All Stock
+                </button>
+            </form>
+            {% endif %}
+            <a href="{% url 'stock_create' %}" class="btn-create">
+                <i class="ph-bold ph-plus"></i> Add Stock
+            </a>
+        </div>
     </div>
 
     <!-- Table -->
@@ -50,6 +92,7 @@
                 <tr>
                     <th>#</th>
                     <th>Item Name</th>
+                    <th>Item Type</th>
                     <th>Unit</th>
                     <th>Expense Head</th>
                     <th>Scope</th>
@@ -66,8 +109,31 @@
                             <div style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#475569;">
                                 <i class="ph-fill ph-package"></i>
                             </div>
-                            <strong>{{ stock.item_name }}</strong>
+                            <div>
+                                <strong>{{ stock.item_name }}</strong>
+                                {% if stock.brand %}
+                                    <div style="font-size:0.75rem; color:#64748b;">{{ stock.brand }}</div>
+                                {% endif %}
+                            </div>
                         </div>
+                    </td>
+
+                    <td>
+                        {% if stock.is_trading and stock.is_operational %}
+                            <span class="type-badge type-both" title="Trading & Internal Operational Consumable">
+                                <i class="ph-bold ph-swap"></i> Trading & Operational
+                            </span>
+                        {% elif stock.is_trading %}
+                            <span class="type-badge type-trading" title="Trading Item (Billed to customer)">
+                                <i class="ph-bold ph-shopping-cart"></i> Trading
+                            </span>
+                        {% elif stock.is_operational %}
+                            <span class="type-badge type-operational" title="Operational Consumable (Internal use, ₹0 billing)">
+                                <i class="ph-bold ph-wrench"></i> Operational
+                            </span>
+                        {% else %}
+                            <span style="font-weight:400; color:#94a3b8; font-style:italic;">None</span>
+                        {% endif %}
                     </td>
 
                     <td>
@@ -116,7 +182,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align:center; padding: 30px; color:#94a3b8;">
+                    <td colspan="7" style="text-align:center; padding: 30px; color:#94a3b8;">
                         No stock items found.
                     </td>
                 </tr>

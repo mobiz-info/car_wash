@@ -373,6 +373,10 @@
                                     {% if item.service_detail.alignment_done %}Wheel Alignment{% endif %}
                                     {% if item.service_detail.balancing_done %}{% if item.service_detail.alignment_done %} & {% endif %}Wheel Balancing{% endif %}
                                     {% if item.service_detail.alignment_notes %} | <strong>Notes:</strong> {{ item.service_detail.alignment_notes }}{% endif %}
+                                {% elif item.service_detail.service_category == 'car_detailing' or item.service_detail.service_category == 'detailing' %}
+                                    {% if item.service_detail.warranty_value %}
+                                        <strong>Warranty:</strong> {{ item.service_detail.warranty_value }} {{ item.service_detail.warranty_unit|title }}{% if item.service_detail.warranty_value > 1 %}s{% endif %}
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         {% endif %}

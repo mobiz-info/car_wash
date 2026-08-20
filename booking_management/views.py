@@ -945,11 +945,36 @@ def smoke_test_reminder_list(request):
             Q(vehicle_number__icontains=search_query)
         )
 
+    today = timezone.now().date()
+    vehicle_list = list(vehicles)
+    for v in vehicle_list:
+        if v.next_smoke_test_date:
+            days_until = (v.next_smoke_test_date - today).days
+            v.days_until_due = days_until
+            r1 = 15
+            r2 = 3
+            if v.vehicle_type_model and v.vehicle_type_model.emission_standard:
+                r1 = v.vehicle_type_model.emission_standard.reminder_1_days
+                r2 = v.vehicle_type_model.emission_standard.reminder_2_days
+            
+            if days_until < 0:
+                v.reminder_stage = 'Overdue'
+                v.reminder_badge_class = 'bg-danger'
+            elif days_until <= r2:
+                v.reminder_stage = f'2nd Reminder ({days_until} days left)'
+                v.reminder_badge_class = 'bg-danger'
+            elif days_until <= r1:
+                v.reminder_stage = f'1st Reminder ({days_until} days left)'
+                v.reminder_badge_class = 'bg-warning text-dark'
+            else:
+                v.reminder_stage = f'Upcoming ({days_until} days)'
+                v.reminder_badge_class = 'bg-info'
+
     context = {
         'branches': branches,
         'selected_branch': selected_branch,
-        'vehicles': vehicles,
-        'today': timezone.now().date(),
+        'vehicles': vehicle_list,
+        'today': today,
         'role_name': role_name,
         'search': search_query,
     }
@@ -1018,12 +1043,31 @@ def send_reminder_ajax(request):
                     
             customer_name = invoice.customer.name or "Customer"
             vehicle_no = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
+            formatted_date = plan.scheduled_date.strftime("%d-%m-%Y") if plan.scheduled_date else ""
+
+            first_item = invoice.items.filter(service__isnull=False).first() if invoice else None
+            if reminder and reminder.service:
+                service_name = reminder.service.name
+            elif first_item:
+                service_name = first_item.service_name or (first_item.service.name if first_item.service else '')
+            else:
+                service_name = plan.template_name or "Service Reminder"
             
             # Prefilled message (Template text fallback)
-            message = reminder.reminder_message.replace('{customer_name}', customer_name) \
-                                                .replace('{vehicle_number}', vehicle_no) \
-                                                .replace('{service_name}', reminder.service.name)
-            
+            msg_template = (reminder.reminder_message if (reminder and reminder.reminder_message) else "").strip()
+            if not msg_template:
+                msg_template = "Dear {customer_name}, your vehicle {vehicle_number} is scheduled for {service_name} reminder on {scheduled_date}."
+            if msg_template.startswith('"') and msg_template.endswith('"'):
+                msg_template = msg_template[1:-1].strip()
+
+            message = msg_template.replace('{customer_name}', customer_name) \
+                                   .replace('{vehicle_number}', vehicle_no) \
+                                   .replace('{service_name}', service_name) \
+                                   .replace('{expiry_date}', formatted_date) \
+                                   .replace('{scheduled_date}', formatted_date) \
+                                   .replace('{due_date}', formatted_date) \
+                                   .replace('{next_date}', formatted_date)
+
             encoded_message = urllib.parse.quote(message)
             fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
             
@@ -1049,19 +1093,14 @@ def send_reminder_ajax(request):
                     from booking_management.api_views import send_whatsapp_template
                     
                     # Resolve official template name
-                    tmpl_name = (reminder.template_name or '').strip()
-                    if not tmpl_name:
-                        if 'battery' in reminder.service.name.lower():
-                            tmpl_name = 'batteryservice'
-                        else:
-                            tmpl_name = 'servicereminder'
+                    tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
                     
                     # Format template parameter values
                     if tmpl_name.lower() == 'batteryservice':
                         # {{1}} = customer_name, {{2}} = service_name
-                        tmpl_values = [customer_name, reminder.service.name]
+                        tmpl_values = [customer_name, service_name]
                     else:
-                        tmpl_values = [customer_name, vehicle_no, reminder.service.name]
+                        tmpl_values = [customer_name, vehicle_no, service_name]
 
                     send_whatsapp_template(
                         to_number=cleaned_phone,
@@ -1093,12 +1132,79 @@ def send_reminder_ajax(request):
             plan.save()
             
             # Log sent reminder for reports/compatibility
-            SentServiceReminder.objects.get_or_create(
-                reminder=reminder,
-                invoice=invoice
-            )
+            if reminder:
+                SentServiceReminder.objects.get_or_create(
+                    reminder=reminder,
+                    invoice=invoice
+                )
             sent_count += 1
             
         return JsonResponse({'success': True, 'sent_count': sent_count})
     except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+@login_required
+def send_smoke_test_reminder_ajax(request):
+    """AJAX endpoint to send Smoke Test / Pollution Certificate WhatsApp reminder template."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    try:
+        import json
+        data = json.loads(request.body)
+        vehicle_id = data.get('vehicle_id')
+
+        if not vehicle_id:
+            return JsonResponse({'success': False, 'message': 'vehicle_id is required'}, status=400)
+
+        from client_management.models import CustomerVehicle, WhatsAppSetting
+        from booking_management.api_views import send_whatsapp_simple, send_whatsapp_template, clean_whatsapp_number
+        import urllib.parse
+
+        vehicle = get_object_or_404(CustomerVehicle, id=vehicle_id, is_deleted=False)
+        customer = vehicle.customer
+        if not customer:
+            return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+
+        phone = customer.whatsapp_number or customer.phone
+        cleaned_phone = clean_whatsapp_number(phone)
+        if not cleaned_phone:
+            return JsonResponse({'success': False, 'message': 'Customer phone number is invalid'}, status=400)
+
+        company = (customer.branch.company if customer.branch else None) or customer.company
+        setting = None
+        if company:
+            setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+
+        renewal_date_str = vehicle.next_smoke_test_date.strftime('%d-%m-%Y') if vehicle.next_smoke_test_date else ''
+        message_text = (
+            f"Dear {customer.name},\n"
+            f"Your vehicle {vehicle.vehicle_number} Smoke Test / Pollution Certificate renewal is due on {renewal_date_str}.\n"
+            f"Please visit our service center for renewal."
+        )
+
+        encoded_message = urllib.parse.quote(message_text)
+        fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
+
+        if setting and setting.username and setting.password:
+            if setting.is_official_api:
+                # Send template: name=smoketest, value1=Customer, value2=VehicleNo, value3=Date
+                res = send_whatsapp_template(
+                    to_number=cleaned_phone,
+                    template_name='smoketest',
+                    values=[customer.name, vehicle.vehicle_number, renewal_date_str],
+                    setting=setting
+                )
+                return JsonResponse({'success': True, 'message': 'Smoke test reminder sent via WhatsApp API', 'response': str(res)})
+            else:
+                res = send_whatsapp_simple(cleaned_phone, message_text, setting=setting)
+                return JsonResponse({'success': True, 'message': 'Smoke test reminder sent via WhatsApp', 'response': str(res)})
+        else:
+            return JsonResponse({'success': True, 'use_fallback': True, 'whatsapp_url': fallback_url, 'message': 'Using manual WhatsApp link'})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'success': False, 'message': str(e)}, status=500)

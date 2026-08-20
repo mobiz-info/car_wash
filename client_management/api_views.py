@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 from django.shortcuts import get_object_or_404
 from django.db import models
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
@@ -173,13 +174,18 @@ def get_user_from_token(request):
             elif hasattr(user, 'profile') and user.profile and user.profile.role:
                 # For non-staff BRANCH_ADMIN users logging in via the app,
                 # set managed_branch from the database so all branch-scoped APIs work
-                if user.profile.role.name == 'BRANCH_ADMIN' and not hasattr(user, 'managed_branch'):
+                if user.profile.role.name == 'BRANCH_ADMIN':
                     from client_management.models import Branch
-                    branch = Branch.objects.filter(
-                        branch_admins=user, is_deleted=False
-                    ).first()
-                    if branch:
-                        user.managed_branch = branch
+                    try:
+                        b = getattr(user, 'managed_branch', None)
+                        if not b:
+                            b = Branch.objects.filter(branch_admin=user, is_deleted=False).first()
+                            if b:
+                                user.managed_branch = b
+                    except Exception:
+                        b = Branch.objects.filter(branch_admin=user, is_deleted=False).first()
+                        if b:
+                            user.managed_branch = b
             return user
         except APIToken.DoesNotExist:
             return None
@@ -449,13 +455,12 @@ def api_customer_search(request):
     vehicles_data = []
     
     for v in customer.vehicles.filter(is_deleted=False):
+        from finance_management.models import Invoice
         scheme_name = None
         paid_visits = 0
         free_visits = 0
-        visits_count = 0
+        visits_count = Invoice.objects.filter(vehicle=v, is_deleted=False).count()
         is_eligible = False
-        
-        from finance_management.models import Invoice
 
         # Check if customer's branch has scheme facility
         if customer.branch and customer.branch.scheme_types.exists() and customer.customer_type and v.vehicle_type_model and v.vehicle_type_model.vehicle_type:
@@ -473,8 +478,6 @@ def api_customer_search(request):
                 scheme_name = scheme.name
                 paid_visits = scheme.paid_visits or 0
                 free_visits = scheme.free_visits or 0
-                # Count only invoices where THIS scheme was explicitly chosen
-                visits_count = Invoice.objects.filter(vehicle=v, scheme=scheme, is_deleted=False).count()
                 
                 if paid_visits > 0 and visits_count >= paid_visits:
                     is_eligible = True
@@ -484,6 +487,7 @@ def api_customer_search(request):
             'no': v.vehicle_number,
             'type': v.vehicle_type_model.name if v.vehicle_type_model else 'Unknown',
             'vehicle_type': v.vehicle_type_model.vehicle_type.name if (v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
+            'wheel_type': v.wheel_type or 'normal_wheel',
             'scheme_name': scheme_name,
             'paid_visits': paid_visits,
             'free_visits': free_visits,
@@ -613,6 +617,7 @@ def api_get_services(request):
             'services': services_data,
             'taxes': taxes_data,
             'vehicle_type': vehicle_type.name if vehicle_type else '',
+            'wheel_type': vehicle.wheel_type if hasattr(vehicle, 'wheel_type') else 'normal_wheel',
             'enabled_categories': enabled_category_slugs,  # ← branch-level category filter
         })
         
@@ -717,6 +722,9 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         from booking_management.api_views import send_whatsapp_simple, clean_whatsapp_number
         from client_management.models import WhatsAppSetting
         
+        if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+            base_url = 'http://68.183.94.11:78'
+
         invoice = Invoice.objects.get(id=invoice_id)
         
         # 1. Generate the PDF
@@ -953,18 +961,53 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
         detail.alignment_done = bool(detail_data.get('alignment_done', False))
         detail.balancing_done = bool(detail_data.get('balancing_done', False))
         detail.alignment_notes = detail_data.get('alignment_notes', '')
+        detail.odometer_at_service = detail_data.get('odometer_at_service') or None
+        detail.next_alignment_km = detail_data.get('next_alignment_km') or None
+
+        # Update vehicle denormalized fields
+        update_fields = []
+        if detail.next_alignment_km:
+            vehicle.next_alignment_km = detail.next_alignment_km
+            update_fields.append('next_alignment_km')
+        odometer = detail_data.get('odometer_at_service')
+        if odometer:
+            vehicle.current_odometer_km = odometer
+            update_fields.append('current_odometer_km')
+        vehicle.last_alignment_date = timezone.now().date()
+        update_fields.append('last_alignment_date')
+        if update_fields:
+            vehicle.save(update_fields=update_fields)
 
     elif category == InvoiceServiceDetail.CATEGORY_SMOKE:
         from datetime import timedelta
-        period_months = int(detail_data.get('smoke_test_period_months') or detail_data.get('period_months') or 6)
-        detail.smoke_test_period_months = period_months
-        days = 180 if period_months == 6 else 365
+        validity_months = 12
+        if vehicle and vehicle.vehicle_type_model:
+            vtm = vehicle.vehicle_type_model
+            if vtm.emission_standard:
+                validity_months = vtm.emission_standard.validity_months
+            else:
+                name_upper = (vtm.name or '').upper()
+                bs3_keywords = ['BS-1', 'BS-2', 'BS-3', 'BS 1', 'BS 2', 'BS 3', 'BS1', 'BS2', 'BS3', 'BS -1', 'BS -2', 'BS -3']
+                if any(k in name_upper for k in bs3_keywords):
+                    validity_months = 6
+
+        detail.smoke_test_period_months = validity_months
+        days = 180 if validity_months == 6 else 365
         next_date = invoice.date + timedelta(days=days)
         detail.next_smoke_test_date = next_date
 
         vehicle.last_smoke_test_date = invoice.date
         vehicle.next_smoke_test_date = next_date
         vehicle.save(update_fields=['last_smoke_test_date', 'next_smoke_test_date'])
+
+    elif category == InvoiceServiceDetail.CATEGORY_DETAILING or category == 'car_detailing':
+        detail.service_category = InvoiceServiceDetail.CATEGORY_DETAILING
+        w_val = detail_data.get('warranty_value')
+        w_unit = detail_data.get('warranty_unit')
+        if w_val:
+            detail.warranty_value = int(w_val)
+        if w_unit:
+            detail.warranty_unit = str(w_unit).lower().strip()
 
     detail.save()
 
@@ -1047,6 +1090,7 @@ def api_create_invoice(request):
         amt_collected_val = Decimal(str(data.get('amount_collected', 0)))
         inv_type = 'cashinvoice' if amt_collected_val >= total_val else 'creditinvoice'
 
+        remarks_text = (data.get('remarks') or '').strip() or None
         invoice = Invoice.objects.create(
             invoice_number=inv_number,
             customer=customer,
@@ -1059,6 +1103,7 @@ def api_create_invoice(request):
             total=data.get('total', 0),
             amount_collected=data.get('amount_collected', 0),
             invoice_type=inv_type,
+            remarks=remarks_text,
             creator=user,
             auto_id=get_auto_id(Invoice)
         )
@@ -1077,16 +1122,17 @@ def api_create_invoice(request):
                 invoice=invoice,
                 amount=amount_collected,
                 payment_mode=data.get('payment_mode') or 'cash',
-                remarks=data.get('remarks') or 'Invoice time collection'
+                remarks=remarks_text or 'Invoice time collection'
             )
         
-        # Create Items
+        # Create Services & Items
         services_list = data.get('services', [])
-        if not services_list and (data.get('extras') or data.get('items')):
+        trading_items_list = data.get('trading_items', [])
+        if not services_list and not trading_items_list and (data.get('extras') or data.get('items')):
             services_list = data.get('extras') or data.get('items')
 
-        if not services_list:
-            return JsonResponse({'success': False, 'message': 'At least one service or extra item is required'}, status=400)
+        if not services_list and not trading_items_list:
+            return JsonResponse({'success': False, 'message': 'At least one service or trading item is required'}, status=400)
 
         for svc in services_list:
             from service_management.models import Service
@@ -1113,13 +1159,54 @@ def api_create_invoice(request):
             if svc_detail:
                 _save_invoice_service_detail(item, svc_detail, invoice, vehicle, user)
 
+        # Process Stock Items (Trading / Operational)
+        from client_management.models import Stock
+        for t in trading_items_list:
+            stock_id = t.get('id')
+            stock_obj = Stock.objects.filter(id=stock_id).first() if stock_id else None
+            is_op = bool(t.get('is_operational', False))
+            
+            t_qty = Decimal(str(t.get('qty', 1)))
+            if is_op:
+                t_rate = Decimal('0.00')
+                t_disc = Decimal('0.00')
+                t_net = Decimal('0.00')
+            else:
+                t_rate = Decimal(str(t.get('rate', 0)))
+                t_disc = Decimal(str(t.get('discount', 0)))
+                t_net = (t_rate * t_qty) - t_disc
+
+            item = InvoiceItem.objects.create(
+                invoice=invoice,
+                stock_item=stock_obj,
+                service_name=t.get('item_name') or (stock_obj.item_name if stock_obj else 'Stock Item'),
+                qty=t_qty,
+                rate=t_rate,
+                discount=t_disc,
+                net_taxable_amount=t_net,
+                is_operational=is_op,
+                creator=user,
+                auto_id=get_auto_id(InvoiceItem)
+            )
+
+            # Decrement Stock Inventory Quantity
+            if stock_obj and t_qty > 0:
+                stock_obj.quantity = max(Decimal('0'), Decimal(str(stock_obj.quantity or 0)) - t_qty)
+                stock_obj.save(update_fields=['quantity'])
+
 
         # Create scheduled ReminderPlan entries
         from booking_management.utils import create_reminder_plans_for_invoice
+        import logging as _logging
+        _reminder_logger = _logging.getLogger(__name__)
         try:
-            create_reminder_plans_for_invoice(invoice)
+            custom_reminders = data.get('reminders') or data.get('custom_reminders')
+            _reminder_logger.info(f"[Reminder] Invoice {invoice.invoice_number} | custom_reminders payload: {custom_reminders}")
+            create_reminder_plans_for_invoice(invoice, custom_reminders=custom_reminders)
+            _reminder_logger.info(f"[Reminder] Reminder plans created for invoice {invoice.invoice_number}")
         except Exception as e:
-            pass
+            import traceback
+            _reminder_logger.error(f"[Reminder] Error creating reminder plans for {invoice.invoice_number}: {e}\n{traceback.format_exc()}")
             
         booking_id = data.get('booking_id')
         if booking_id:
@@ -1313,7 +1400,7 @@ def api_vehicle_search(request):
     scheme_name = None
     paid_visits = 0
     free_visits = 0
-    visits_count = 0
+    visits_count = Invoice.objects.filter(vehicle=vehicle, is_deleted=False).count()
     is_eligible = False
 
     if customer.branch and customer.branch.scheme_types.exists() and customer.customer_type and vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type:
@@ -1330,8 +1417,6 @@ def api_vehicle_search(request):
             scheme_name = scheme.name
             paid_visits = scheme.paid_visits or 0
             free_visits = scheme.free_visits or 0
-            # Count only invoices where THIS scheme was explicitly chosen
-            visits_count = Invoice.objects.filter(vehicle=vehicle, scheme=scheme, is_deleted=False).count()
             if paid_visits > 0 and visits_count >= paid_visits:
                 is_eligible = True
 
@@ -1345,8 +1430,10 @@ def api_vehicle_search(request):
             'current_odometer_km': vehicle.current_odometer_km,
             'next_oil_change_km': vehicle.next_oil_change_km,
             'next_tyre_change_km': vehicle.next_tyre_change_km,
+            'next_alignment_km': vehicle.next_alignment_km,
             'last_oil_change_date': str(vehicle.last_oil_change_date) if vehicle.last_oil_change_date else None,
             'last_tyre_change_date': str(vehicle.last_tyre_change_date) if vehicle.last_tyre_change_date else None,
+            'last_alignment_date': str(vehicle.last_alignment_date) if vehicle.last_alignment_date else None,
         },
         'customer': {
             'id': str(customer.id),
@@ -1377,6 +1464,8 @@ def api_get_form_data(request):
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
+    company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
+
     from master.models import VehicleTypeModel, VehicleType, VehicleColor, VehicleBrandModel
     from .models import CustomerType, Branch
 
@@ -1390,6 +1479,8 @@ def api_get_form_data(request):
         branch = Branch.objects.filter(id=branch_id_param, is_deleted=False).first()
     elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         branch = user.managed_branch
+    elif company:
+        branch = Branch.objects.filter(company=company, is_deleted=False).first()
 
     if branch and branch.enabled_vehicle_types.exists():
         vehicle_types_qs = branch.enabled_vehicle_types.filter(is_active=True, is_deleted=False).order_by('name')
@@ -1398,8 +1489,23 @@ def api_get_form_data(request):
 
     # --- Vehicle Segments (per vehicle type) ---
     vehicle_type_models_qs = VehicleTypeModel.objects.filter(
-        vehicle_type__in=vehicle_types_qs, is_active=True, is_deleted=False
-    ).select_related('vehicle_type').order_by('vehicle_type__name', 'name')
+        vehicle_type__in=vehicle_types_qs, is_active=True, is_deleted=False, vehicle_type__is_deleted=False
+    )
+    if company:
+        vehicle_type_models_qs = vehicle_type_models_qs.filter(
+            Q(company=company) | Q(company__isnull=True)
+        ).exclude(disabled_companies=company)
+    else:
+        vehicle_type_models_qs = vehicle_type_models_qs.filter(company__isnull=True)
+
+    if branch and branch.enabled_vehicle_segments.exists():
+        vehicle_type_models_qs = vehicle_type_models_qs.filter(id__in=branch.enabled_vehicle_segments.values_list('id', flat=True))
+
+    vehicle_type_models_qs = vehicle_type_models_qs.select_related('vehicle_type').order_by('vehicle_type__name', 'name')
+
+    # Only include vehicle types that have at least one active/enabled segment for this branch/company
+    enabled_vtype_ids = vehicle_type_models_qs.values_list('vehicle_type_id', flat=True).distinct()
+    vehicle_types_qs = vehicle_types_qs.filter(id__in=enabled_vtype_ids).order_by('name')
 
     # --- Brand Models (per segment) ---
     brand_models_qs = VehicleBrandModel.objects.filter(
@@ -1413,16 +1519,82 @@ def api_get_form_data(request):
     # --- Colors ---
     colors_qs = VehicleColor.objects.filter(is_deleted=False).order_by('name')
 
-    # Legacy vehicle_models for backward compatibility (segments grouped by type)
-    legacy_vehicle_models = [
-        {'id': str(vm.id), 'name': vm.name, 'vehicle_type': vm.vehicle_type.name, 'vehicle_type_id': str(vm.vehicle_type.id)}
-        for vm in vehicle_type_models_qs
-    ]
+    legacy_vehicle_models = []
+    for vm in vehicle_type_models_qs.select_related('emission_standard'):
+        validity = 12
+        std_name = ''
+        if vm.emission_standard:
+            validity = vm.emission_standard.validity_months
+            std_name = vm.emission_standard.name
+        else:
+            name_upper = (vm.name or '').upper()
+            bs3_keywords = ['BS-1', 'BS-2', 'BS-3', 'BS 1', 'BS 2', 'BS 3', 'BS1', 'BS2', 'BS3', 'BS -1', 'BS -2', 'BS -3']
+            if any(k in name_upper for k in bs3_keywords):
+                validity = 6
+                std_name = 'BS-3 or Older'
+            else:
+                std_name = 'BS-4 or Newer'
 
-    branches_data = []
-    if role == 'COMPANY_ADMIN' and user.profile.company:
-        branches = user.profile.company.branches.filter(is_deleted=False).order_by('name')
-        branches_data = [{'id': str(b.id), 'name': b.name} for b in branches]
+        legacy_vehicle_models.append({
+            'id': str(vm.id),
+            'name': vm.name,
+            'vehicle_type': vm.vehicle_type.name,
+            'vehicle_type_id': str(vm.vehicle_type.id),
+            'smoke_test_validity_months': validity,
+            'emission_standard_name': std_name,
+        })
+    from .models import Stock
+    from master.models import PurchaseInvoiceItem
+
+    stock_items_qs = Stock.objects.filter(is_deleted=False)
+    if company:
+        stock_items_qs = stock_items_qs.filter(Q(company=company) | Q(company__isnull=True))
+    else:
+        stock_items_qs = stock_items_qs.filter(company__isnull=True)
+
+    stock_items_data = []
+    for s in stock_items_qs.select_related('group', 'sub_group').order_by('item_name'):
+        last_purchase = PurchaseInvoiceItem.objects.filter(stock_item=s, is_deleted=False).order_by('-date_added').first()
+        purchase_price = float(last_purchase.rate) if last_purchase else 0.0
+        profit_margin = float(s.profit_margin_percent or 0.0)
+        
+        if purchase_price > 0:
+            calculated_rate = round(purchase_price * (1 + profit_margin / 100.0), 2)
+        else:
+            calculated_rate = float(getattr(s, 'selling_price', 0.0) or 0.0)
+
+        stock_items_data.append({
+            'id': str(s.id),
+            'item_name': s.item_name,
+            'brand': s.brand or '',
+            'group_id': str(s.group.id) if s.group else '',
+            'group_name': s.group.name if s.group else '',
+            'sub_group_id': str(s.sub_group.id) if s.sub_group else '',
+            'sub_group_name': s.sub_group.name if s.sub_group else '',
+            'unit': s.get_unit_display() if hasattr(s, 'get_unit_display') else (s.unit or ''),
+            'unit_name': s.unit or 'Pcs',
+            'quantity': float(s.quantity or 0.0),
+            'purchase_price': purchase_price,
+            'profit_margin_percent': profit_margin,
+            'is_trading': s.is_trading,
+            'is_operational': s.is_operational,
+            'rate': calculated_rate,
+        })
+
+    branches_qs = Branch.objects.filter(is_deleted=False)
+    if company:
+        branches_qs = branches_qs.filter(company=company)
+    branches_data = [{'id': str(b.id), 'name': b.name} for b in branches_qs]
+
+    from .models import WhatsAppTemplate
+    templates_qs = WhatsAppTemplate.objects.filter(is_deleted=False)
+    if company:
+        templates_qs = templates_qs.filter(company=company)
+    whatsapp_templates = [{'id': str(t.id), 'name': t.template_name} for t in templates_qs.order_by('template_name')]
+    default_template_names = ['servicereminder', 'batteryservice', 'wheelbalancing', 'smoketest', 'oilservice', 'tyreservice']
+    for dt in default_template_names:
+        if not any(t['name'] == dt for t in whatsapp_templates):
+            whatsapp_templates.append({'id': dt, 'name': dt})
 
     return JsonResponse({
         'success': True,
@@ -1444,6 +1616,8 @@ def api_get_form_data(request):
         # Legacy field (still used by other screens)
         'vehicle_models': legacy_vehicle_models,
         'branches': branches_data,
+        'stock_items': stock_items_data,
+        'whatsapp_templates': whatsapp_templates,
     })
 
 
@@ -1544,6 +1718,10 @@ def api_add_customer(request):
                 if color_id:
                     color = VehicleColor.objects.filter(id=color_id, is_deleted=False).first()
 
+                wheel_type = v.get('wheel_type', 'normal_wheel')
+                if wheel_type not in ['alloy_wheel', 'normal_wheel']:
+                    wheel_type = 'normal_wheel'
+
                 cv = CustomerVehicle.objects.create(
                     customer=customer,
                     vehicle_type_model=vm,
@@ -1552,6 +1730,7 @@ def api_add_customer(request):
                     make=make,
                     brand_model=brand_model,
                     color=color,
+                    wheel_type=wheel_type,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )
@@ -1563,6 +1742,7 @@ def api_add_customer(request):
                     'make': make.name if make else '',
                     'brand_model': brand_model.name if brand_model else '',
                     'color': color.name if color else '',
+                    'wheel_type': cv.wheel_type or 'normal_wheel',
                 })
 
         # Check WhatsApp settings configuration
@@ -1971,6 +2151,7 @@ def api_get_customer(request):
                 'make_name': v.make.name if v.make else '',
                 'color_id': str(v.color.id) if v.color else None,
                 'color_name': v.color.name if v.color else '',
+                'wheel_type': v.wheel_type or 'normal_wheel',
             })
 
         return JsonResponse({
@@ -2050,6 +2231,7 @@ def api_edit_customer(request):
                 brand_model_id = v.get('brand_model_id')
                 make_id = v.get('make_id')
                 color_id = v.get('color_id')
+                wheel_type = v.get('wheel_type')
                 if not vehicle_id or not vehicle_number:
                     continue
                 cv = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer, is_deleted=False).first()
@@ -2057,6 +2239,8 @@ def api_edit_customer(request):
                     continue
                 if vehicle_number:
                     cv.vehicle_number = vehicle_number
+                if wheel_type and wheel_type in ['alloy_wheel', 'normal_wheel']:
+                    cv.wheel_type = wheel_type
                 if vehicle_model_id:
                     vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
                     if vm:
@@ -2088,6 +2272,10 @@ def api_edit_customer(request):
                 brand_model_id = v.get('brand_model_id')
                 make_id = v.get('make_id')
                 color_id = v.get('color_id')
+                wheel_type = v.get('wheel_type', 'normal_wheel')
+                if wheel_type not in ['alloy_wheel', 'normal_wheel']:
+                    wheel_type = 'normal_wheel'
+
                 if not vehicle_number or not vehicle_model_id:
                     continue
                 vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
@@ -2113,6 +2301,7 @@ def api_edit_customer(request):
                     make=make,
                     brand_model=brand_model,
                     color=color,
+                    wheel_type=wheel_type,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )
@@ -2770,6 +2959,85 @@ def api_report_outstanding(request):
 
 
 @csrf_exempt
+def api_report_stock_consumption(request):
+    """Stock Consumption Report: stock items consumed during services / sales."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from finance_management.models import InvoiceItem
+        from_date, to_date = _parse_dates(request)
+        company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+        invoice_scope = {f'invoice__{k}': v for k, v in scope.items()}
+
+        qs = InvoiceItem.objects.filter(
+            stock_item__isnull=False,
+            invoice__date__gte=from_date,
+            invoice__date__lte=to_date,
+            invoice__is_deleted=False,
+            is_deleted=False,
+            **invoice_scope
+        ).select_related(
+            'invoice', 'invoice__customer', 'invoice__branch', 'stock_item', 'stock_item__group', 'stock_item__sub_group'
+        )
+
+        rows = []
+        total_items_consumed = 0
+        total_qty_consumed = Decimal('0.00')
+        operational_qty = Decimal('0.00')
+        trading_qty = Decimal('0.00')
+
+        for item in qs.order_by('-invoice__date', '-date_added'):
+            stock = item.stock_item
+            qty = Decimal(str(item.qty or 0))
+            is_op = item.is_operational or (stock and stock.is_operational and not stock.is_trading)
+            usage_type = 'Operational' if is_op else 'Trading'
+
+            group_name = stock.group.name if (stock and stock.group) else ''
+            sub_group_name = stock.sub_group.name if (stock and stock.sub_group) else ''
+            category = f"{group_name} > {sub_group_name}".strip(" >") if group_name else "Stock Item"
+
+            total_items_consumed += 1
+            total_qty_consumed += qty
+            if is_op:
+                operational_qty += qty
+            else:
+                trading_qty += qty
+
+            rows.append({
+                'id': str(item.id),
+                'date': item.invoice.date.strftime('%d-%m-%Y'),
+                'invoice_number': item.invoice.invoice_number,
+                'customer_name': item.invoice.customer.name if (item.invoice and item.invoice.customer) else 'N/A',
+                'stock_item_name': item.service_name or (stock.item_name if stock else 'Stock Item'),
+                'category': category,
+                'qty': float(qty),
+                'unit': stock.get_unit_display() if (stock and hasattr(stock, 'get_unit_display')) else (stock.unit if stock else 'Pcs'),
+                'usage_type': usage_type,
+                'rate': float(item.rate or 0.0),
+                'total_amount': float(item.net_taxable_amount or 0.0),
+                'branch_name': item.invoice.branch.name if (item.invoice and item.invoice.branch) else '',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'report_name': 'Stock Consumption Report',
+            'from_date': from_date.strftime('%d-%m-%Y'),
+            'to_date': to_date.strftime('%d-%m-%Y'),
+            'total_items_consumed': total_items_consumed,
+            'total_qty_consumed': float(total_qty_consumed),
+            'operational_qty': float(operational_qty),
+            'trading_qty': float(trading_qty),
+            'rows': rows,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_report_bookings(request):
     """Booking report: all bookings in date range."""
     if request.method != 'GET':
@@ -3378,6 +3646,11 @@ def api_create_supplier(request):
         gst_no = data.get('gst_no', '').strip() or None
         phone_no = data.get('phone_no', '').strip()
         is_active = data.get('is_active', True)
+        supplier_type = data.get('supplier_type', 'cash')
+        credit_limit = Decimal(str(data.get('credit_limit', 0))) if data.get('credit_limit') is not None else Decimal('0.00')
+        credit_days = int(data.get('credit_days', 30)) if data.get('credit_days') is not None else 30
+        no_of_invoices = int(data.get('no_of_invoices', 0)) if data.get('no_of_invoices') is not None else 0
+        payables = Decimal(str(data.get('payables', 0))) if data.get('payables') is not None else Decimal('0.00')
         
         if not name or not address or not phone_no:
             return JsonResponse({'success': False, 'message': 'Name, address, and phone number are required'}, status=400)
@@ -3389,6 +3662,11 @@ def api_create_supplier(request):
             supplier.address = address
             supplier.gst_no = gst_no
             supplier.phone_no = phone_no
+            supplier.supplier_type = supplier_type
+            supplier.credit_limit = credit_limit
+            supplier.credit_days = credit_days
+            supplier.no_of_invoices = no_of_invoices
+            supplier.payables = payables
             supplier.is_active = is_active
             supplier.updater = user
             supplier.save()
@@ -3405,6 +3683,11 @@ def api_create_supplier(request):
                 address=address,
                 gst_no=gst_no,
                 phone_no=phone_no,
+                supplier_type=supplier_type,
+                credit_limit=credit_limit,
+                credit_days=credit_days,
+                no_of_invoices=no_of_invoices,
+                payables=payables,
                 is_active=is_active,
                 creator=user
             )
@@ -3419,6 +3702,11 @@ def api_create_supplier(request):
                 'address': supplier.address,
                 'gst_no': supplier.gst_no or '',
                 'phone_no': supplier.phone_no,
+                'supplier_type': supplier.supplier_type,
+                'credit_limit': float(supplier.credit_limit or 0),
+                'credit_days': supplier.credit_days,
+                'no_of_invoices': supplier.no_of_invoices,
+                'payables': float(supplier.payables or 0),
                 'is_active': supplier.is_active
             }
         })
@@ -4009,25 +4297,78 @@ def api_get_stock_list(request):
             stocks = Stock.objects.filter(
                 Q(company=company) | Q(company__isnull=True),
                 is_deleted=False
-            ).select_related('expense_head').order_by('item_name')
+            ).select_related('expense_head', 'group', 'sub_group').order_by('item_name')
         else:
             stocks = Stock.objects.filter(
                 is_deleted=False
-            ).select_related('expense_head').order_by('item_name')
+            ).select_related('expense_head', 'group', 'sub_group').order_by('item_name')
         
         stock_list = [{
             'id': str(s.id),
             'item_name': s.item_name,
+            'brand': s.brand or '',
+            'group_id': str(s.group.id) if s.group else None,
+            'group_name': s.group.name if s.group else None,
+            'sub_group_id': str(s.sub_group.id) if s.sub_group else None,
+            'sub_group_name': s.sub_group.name if s.sub_group else None,
             'unit': s.unit,
             'unit_display': s.get_unit_display(),
+            'base_unit': s.base_unit or s.unit,
+            'main_unit': s.main_unit or s.unit,
+            'conversion_count': float(s.conversion_count) if s.conversion_count else 1.0,
             'quantity': float(s.quantity) if s.quantity else 0.0,
+            'critical_level': float(s.critical_level) if s.critical_level else 0.0,
+            'is_low_stock': (float(s.quantity or 0) <= float(s.critical_level or 0)) if s.critical_level else False,
             'expense_head_id': str(s.expense_head.id) if s.expense_head else None,
             'expense_head_name': s.expense_head.name if s.expense_head else None,
+            'hsn_code': s.hsn_code or '',
+            'cgst_percent': float(s.cgst_percent) if s.cgst_percent else 0.0,
+            'sgst_percent': float(s.sgst_percent) if s.sgst_percent else 0.0,
+            'igst_percent': float(s.igst_percent) if s.igst_percent else 0.0,
+            'tax_percent': float((s.cgst_percent or 0) + (s.sgst_percent or 0)) if (s.cgst_percent or s.sgst_percent) else float(s.igst_percent or 0.0),
         } for s in stocks]
         
         return JsonResponse({'success': True, 'stocks': stock_list})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_stock_groups(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+        
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+    try:
+        from master.models import StockGroup
+        from django.db.models import Q
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if company:
+            groups = StockGroup.objects.filter(
+                Q(company=company) | Q(company__isnull=True),
+                is_deleted=False
+            ).prefetch_related('sub_groups').order_by('name')
+        else:
+            groups = StockGroup.objects.filter(
+                is_deleted=False
+            ).prefetch_related('sub_groups').order_by('name')
+        
+        group_list = [{
+            'id': str(g.id),
+            'name': g.name,
+            'sub_groups': [{
+                'id': str(sg.id),
+                'name': sg.name,
+            } for sg in g.sub_groups.filter(is_deleted=False).order_by('name')]
+        } for g in groups]
+        
+        return JsonResponse({'success': True, 'stock_groups': group_list, 'groups': group_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
 
 
 @csrf_exempt
@@ -4183,11 +4524,11 @@ def api_create_stock(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
         
     role = user.profile.role.name if user.profile.role else None
-    if role != 'COMPANY_ADMIN':
-        return JsonResponse({'success': False, 'message': 'Only Owner/Company Admin can create stock items'}, status=403)
+    if not user.is_superuser and role not in ['COMPANY_ADMIN', 'BRANCH_ADMIN', 'BRANCH_MANAGER']:
+        return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
         
-    company = user.profile.company
-    if not company:
+    company = user.profile.company if hasattr(user, 'profile') else None
+    if not company and not user.is_superuser:
         return JsonResponse({'success': False, 'message': 'No company associated with user'}, status=400)
         
     try:
@@ -4196,29 +4537,69 @@ def api_create_stock(request):
         
         data = json.loads(request.body)
         item_name = data.get('item_name', '').strip()
-        unit = data.get('unit', '').strip()
+        brand = data.get('brand', '').strip()
+        unit = data.get('unit', data.get('base_unit', 'Piece')).strip()
         expense_head_id = data.get('expense_head_id')
         
-        if not item_name or not unit:
-            return JsonResponse({'success': False, 'message': 'item_name and unit are required'}, status=400)
+        group_id = data.get('group_id')
+        sub_group_id = data.get('sub_group_id')
+        hsn_code = data.get('hsn_code', '').strip()
+        barcode = data.get('barcode', '').strip()
+        is_trading = bool(data.get('is_trading', False))
+        is_operational = bool(data.get('is_operational', False))
+        cgst_percent = Decimal(str(data.get('cgst_percent', 0)))
+        sgst_percent = Decimal(str(data.get('sgst_percent', 0)))
+        igst_percent = Decimal(str(data.get('igst_percent', 0)))
+        profit_margin_percent = Decimal(str(data.get('profit_margin_percent', 0)))
+        critical_level = Decimal(str(data.get('critical_level', 0))) if data.get('critical_level') is not None else None
+
+        if not item_name:
+            return JsonResponse({'success': False, 'message': 'item_name is required'}, status=400)
             
-        valid_units = [u[0] for u in Stock.UNIT_CHOICES]
-        if unit not in valid_units:
-            return JsonResponse({'success': False, 'message': f'Invalid unit. Valid choices are: {", ".join(valid_units)}'}, status=400)
-            
-        if Stock.objects.filter(company=company, item_name__iexact=item_name, is_deleted=False).exists():
+        if company and Stock.objects.filter(company=company, item_name__iexact=item_name, is_deleted=False).exists():
             return JsonResponse({'success': False, 'message': 'Stock item already exists'}, status=400)
             
         expense_head = None
         if expense_head_id:
             from master.models import ExpenseHead
             from django.db.models import Q
-            expense_head = get_object_or_404(ExpenseHead, Q(company=company) | Q(company__isnull=True), id=expense_head_id, is_deleted=False)
+            expense_head = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), id=expense_head_id, is_deleted=False).first()
+        
+        if not expense_head:
+            from master.models import ExpenseHead
+            from django.db.models import Q
+            expense_head = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), name__iexact='Purchase', is_deleted=False).first()
             
+        group = None
+        if group_id:
+            from master.models import StockGroup
+            from django.db.models import Q
+            group = StockGroup.objects.filter(Q(company=company) | Q(company__isnull=True), id=group_id, is_deleted=False).first()
+
+        sub_group = None
+        if sub_group_id:
+            from master.models import StockSubGroup
+            from django.db.models import Q
+            sub_group = StockSubGroup.objects.filter(Q(company=company) | Q(company__isnull=True), id=sub_group_id, is_deleted=False).first()
+
         stock = Stock.objects.create(
             company=company,
+            group=group,
+            sub_group=sub_group,
             item_name=item_name,
+            brand=brand,
             unit=unit,
+            base_unit=unit,
+            main_unit=unit,
+            hsn_code=hsn_code,
+            barcode=barcode,
+            is_trading=is_trading,
+            is_operational=is_operational,
+            cgst_percent=cgst_percent,
+            sgst_percent=sgst_percent,
+            igst_percent=igst_percent,
+            profit_margin_percent=profit_margin_percent,
+            critical_level=critical_level,
             expense_head=expense_head,
             auto_id=get_auto_id(Stock),
             creator=user
@@ -4230,11 +4611,16 @@ def api_create_stock(request):
                 'id': str(stock.id),
                 'item_name': stock.item_name,
                 'unit': stock.unit,
-                'unit_display': stock.get_unit_display(),
+                'base_unit': stock.base_unit,
+                'hsn_code': stock.hsn_code,
+                'barcode': stock.barcode,
+                'is_trading': stock.is_trading,
+                'is_operational': stock.is_operational,
+                'critical_level': float(stock.critical_level or 0),
                 'expense_head_id': str(stock.expense_head.id) if stock.expense_head else None,
                 'expense_head_name': stock.expense_head.name if stock.expense_head else None,
             }
-        })
+        }, status=201)
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
@@ -4334,6 +4720,18 @@ def api_edit_stock(request, id):
         item_name = data.get('item_name', '').strip()
         unit = data.get('unit', '').strip()
         expense_head_id = data.get('expense_head_id')
+        brand = data.get('brand', '').strip()
+        group_id = data.get('group_id')
+        sub_group_id = data.get('sub_group_id')
+        hsn_code = data.get('hsn_code', '').strip()
+        barcode = data.get('barcode', '').strip()
+        is_trading = bool(data.get('is_trading', True))
+        is_operational = bool(data.get('is_operational', False))
+        cgst_percent = Decimal(str(data.get('cgst_percent', 0)))
+        sgst_percent = Decimal(str(data.get('sgst_percent', 0)))
+        igst_percent = Decimal(str(data.get('igst_percent', 0)))
+        profit_margin_percent = Decimal(str(data.get('profit_margin_percent', 0)))
+        critical_level = Decimal(str(data.get('critical_level', 0))) if data.get('critical_level') is not None else Decimal('0.00')
 
         if not item_name or not unit:
             return JsonResponse({'success': False, 'message': 'item_name and unit are required'}, status=400)
@@ -4349,10 +4747,36 @@ def api_edit_stock(request, id):
         if expense_head_id:
             from master.models import ExpenseHead
             from django.db.models import Q
-            expense_head = get_object_or_404(ExpenseHead, Q(company=company) | Q(company__isnull=True), id=expense_head_id, is_deleted=False)
+            expense_head = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), id=expense_head_id, is_deleted=False).first()
+
+        group = None
+        if group_id:
+            from master.models import StockGroup
+            from django.db.models import Q
+            group = StockGroup.objects.filter(Q(company=company) | Q(company__isnull=True), id=group_id, is_deleted=False).first()
+
+        sub_group = None
+        if sub_group_id:
+            from master.models import StockSubGroup
+            from django.db.models import Q
+            sub_group = StockSubGroup.objects.filter(Q(company=company) | Q(company__isnull=True), id=sub_group_id, is_deleted=False).first()
 
         stock.item_name = item_name
+        stock.brand = brand
+        stock.group = group
+        stock.sub_group = sub_group
         stock.unit = unit
+        stock.base_unit = unit
+        stock.main_unit = unit
+        stock.hsn_code = hsn_code
+        stock.barcode = barcode
+        stock.is_trading = is_trading
+        stock.is_operational = is_operational
+        stock.cgst_percent = cgst_percent
+        stock.sgst_percent = sgst_percent
+        stock.igst_percent = igst_percent
+        stock.profit_margin_percent = profit_margin_percent
+        stock.critical_level = critical_level
         stock.expense_head = expense_head
         stock.save()
 
@@ -5942,12 +6366,22 @@ def _get_obj_by_uuid(model_cls, obj_id):
     except Exception:
         return None
 
+def _log_quotation_wa(msg):
+    try:
+        with open('/tmp/whatsapp_quotation.log', 'a') as f:
+            f.write(msg + '\n')
+    except Exception:
+        pass
+
 
 def send_quotation_whatsapp_background(quotation_id, base_url):
     try:
         from client_management.models import Quotation, WhatsAppSetting
         from booking_management.api_views import send_whatsapp_simple, send_whatsapp_template, clean_whatsapp_number
         from finance_management.views import generate_quotation_pdf_file
+        
+        if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+            base_url = 'http://68.183.94.11:78'
         
         quotation = Quotation.objects.get(id=quotation_id)
         customer = quotation.customer
@@ -5966,13 +6400,16 @@ def send_quotation_whatsapp_background(quotation_id, base_url):
         try:
             pdf_url = generate_quotation_pdf_file(quotation, base_url)
         except Exception as pe:
-            with open('/tmp/whatsapp_quotation.log', 'a') as f:
-                f.write(f"PDF gen error: {pe}\n")
+            _log_quotation_wa(f"PDF gen error: {pe}")
 
         company = (quotation.branch.company if quotation.branch else None) or (customer.company if customer else None)
         setting = None
         if company:
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+        if not setting or not setting.username or not setting.password:
+            setting = WhatsAppSetting.objects.filter(is_deleted=False, sender_id='919496007007').first()
+        if not setting or not setting.username or not setting.password:
+            setting = WhatsAppSetting.objects.filter(is_deleted=False, username__isnull=False, password__isnull=False).exclude(username='').exclude(password='').first()
 
         message_text = (
             f"Dear {customer.name}\n"
@@ -5982,17 +6419,22 @@ def send_quotation_whatsapp_background(quotation_id, base_url):
         if pdf_url:
             message_text += f"\n\nQuotation PDF: {pdf_url}"
 
+        _log_quotation_wa(f"SEND QUOT WA: id={quotation_id}, num={cleaned_num}, setting={setting}, pdf_url={pdf_url}")
+
         if setting and setting.username and setting.password:
             if setting.is_official_api:
                 tmpl_name = 'quotation'
                 params = [customer.name]
-                send_whatsapp_template(cleaned_num, tmpl_name, params, doc_url=pdf_url, setting=setting)
+                res = send_whatsapp_template(cleaned_num, tmpl_name, params, doc_url=pdf_url, setting=setting)
+                _log_quotation_wa(f"SEND QUOT WA RESULT: {res}")
             else:
-                send_whatsapp_simple(cleaned_num, message_text, setting=setting, media_url=pdf_url)
+                res = send_whatsapp_simple(cleaned_num, message_text, setting=setting, media_url=pdf_url)
+                _log_quotation_wa(f"SEND QUOT WA SIMPLE RESULT: {res}")
+        else:
+            _log_quotation_wa(f"SEND QUOT WA ABORTED: setting={setting}")
     except Exception as e:
         import traceback
-        with open('/tmp/whatsapp_quotation.log', 'a') as f:
-            f.write(f"Error sending quotation whatsapp: {e}\n{traceback.format_exc()}\n")
+        _log_quotation_wa(f"Error sending quotation whatsapp: {e}\n{traceback.format_exc()}")
 
 
 @csrf_exempt
@@ -6005,30 +6447,27 @@ def api_create_quotation(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
     try:
+        from client_management.models import Customer, Branch, CustomerVehicle, Quotation, QuotationItem, QuotationExtra, Stock
+        from service_management.models import Service
+
         data = json.loads(request.body)
         customer_id = data.get('customer_id')
         vehicle_id = data.get('vehicle_id')
         items = data.get('items', [])
         extras = data.get('extras', [])
-        additional_services = data.get('additional_services', '')
-        additional_days_needed = data.get('additional_days_needed', 0)
-        subtotal = Decimal(str(data.get('subtotal', 0)))
-        tax_percentage = Decimal(str(data.get('tax_percentage', 0)))
-        tax_amount = Decimal(str(data.get('tax_amount', 0)))
-        discount = Decimal(str(data.get('discount', 0)))
-        grand_total = Decimal(str(data.get('grand_total', 0)))
 
-        is_grand_total = data.get('is_grand_total', True)
+        if not customer_id or not vehicle_id:
+            return JsonResponse({'success': False, 'message': 'customer_id and vehicle_id are required'}, status=400)
 
         customer = _get_obj_by_uuid(Customer, customer_id)
         if not customer:
             return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
 
         vehicle = _get_obj_by_uuid(CustomerVehicle, vehicle_id)
-        branch = getattr(user, 'managed_branch', None) or customer.branch
+        if not vehicle:
+            return JsonResponse({'success': False, 'message': 'Vehicle not found'}, status=404)
 
-        from .models import Quotation, QuotationItem, QuotationExtra, Stock
-        from service_management.models import Service
+        branch = getattr(user, 'managed_branch', None) or customer.branch
 
         count = Quotation.objects.count() + 1
         quotation_number = f"QT-{count:04d}"
@@ -6038,14 +6477,14 @@ def api_create_quotation(request):
             customer=customer,
             vehicle=vehicle,
             branch=branch,
-            additional_services=additional_services,
-            additional_days_needed=int(additional_days_needed or 0),
-            subtotal=subtotal,
-            tax_percentage=tax_percentage,
-            tax_amount=tax_amount,
-            discount=discount,
-            grand_total=grand_total,
-            is_grand_total=bool(is_grand_total),
+            additional_services=data.get('additional_services', ''),
+            additional_days_needed=int(data.get('additional_days_needed', 0) or 0),
+            subtotal=Decimal(str(data.get('subtotal', 0))),
+            tax_percentage=Decimal(str(data.get('tax_percentage', 0))),
+            tax_amount=Decimal(str(data.get('tax_amount', 0))),
+            discount=Decimal(str(data.get('discount', 0))),
+            grand_total=Decimal(str(data.get('grand_total', 0))),
+            is_grand_total=bool(data.get('is_grand_total', True)),
             auto_id=get_auto_id(Quotation),
             creator=user
         )
@@ -6053,8 +6492,8 @@ def api_create_quotation(request):
         for it in items:
             srv_id = it.get('service_id')
             stk_id = it.get('stock_item_id')
-            srv = _get_obj_by_uuid(Service, srv_id)
-            stk = _get_obj_by_uuid(Stock, stk_id)
+            srv = _get_obj_by_uuid(Service, srv_id) if srv_id else None
+            stk = _get_obj_by_uuid(Stock, stk_id) if stk_id else None
 
             QuotationItem.objects.create(
                 quotation=quotation,
@@ -6078,9 +6517,9 @@ def api_create_quotation(request):
                 creator=user
             )
 
-        # Trigger async WhatsApp sending for quotation
+        # Trigger WhatsApp sending for quotation in background thread
         import threading
-        base_url = request.build_absolute_uri('/')
+        base_url = 'http://68.183.94.11:78'
         threading.Thread(
             target=send_quotation_whatsapp_background,
             args=(quotation.id, base_url),
@@ -6414,6 +6853,266 @@ def api_batteries(request):
             'display_name': b.display_name,
         } for b in batteries]
         return JsonResponse({'success': True, 'batteries': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+# =============================================================================
+# SENIOR ERP PURCHASE & SUPPLIER PAYABLES APIS
+# =============================================================================
+
+@csrf_exempt
+def api_create_purchase_invoice(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from master.models import Supplier, PurchaseInvoice, PurchaseInvoiceItem
+        from master.services import process_purchase_invoice_save
+        from .models import Stock, Branch
+        from decimal import Decimal
+
+        data = json.loads(request.body)
+        supplier_id = data.get('supplier_id')
+        purchase_inv_number = data.get('purchase_inv_number')
+        invoice_date = data.get('invoice_date')
+        purchase_type = data.get('purchase_type', 'CASH')
+        payment_mode = data.get('payment_mode', 'CASH')
+        amount_paid = Decimal(str(data.get('amount_paid', 0) or 0))
+        items_data = data.get('items', [])
+
+        if not supplier_id or not purchase_inv_number or not invoice_date or not items_data:
+            return JsonResponse({'success': False, 'message': 'supplier_id, purchase_inv_number, invoice_date, and items are required'}, status=400)
+
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        branch = getattr(user, 'managed_branch', None)
+        if not branch and company:
+            branch = Branch.objects.filter(company=company, is_deleted=False).first()
+
+        supplier = Supplier.objects.get(id=supplier_id, is_deleted=False)
+
+        subtotal = Decimal('0.00')
+        tax_total = Decimal('0.00')
+        grand_total = Decimal('0.00')
+
+        parsed_items = []
+        for row in items_data:
+            stk_id = row.get('stock_id')
+            stk = Stock.objects.get(id=stk_id) if stk_id else None
+            rate = Decimal(str(row.get('rate', 0)))
+            qty = Decimal(str(row.get('qty', 1)))
+            tax_pct = Decimal(str(row.get('tax_percent', 0)))
+            conv = Decimal(str(row.get('conversion_count', 1)))
+
+            line_sub = rate * qty
+            line_tax = line_sub * (tax_pct / Decimal('100'))
+            line_total = line_sub + line_tax
+
+            subtotal += line_sub
+            tax_total += line_tax
+            grand_total += line_total
+
+            parsed_items.append({
+                'stock_item': stk,
+                'hsn_code': row.get('hsn_code', getattr(stk, 'hsn_code', '')),
+                'rate': rate,
+                'quantity': qty,
+                'main_unit': row.get('main_unit', getattr(stk, 'main_unit', '')),
+                'base_unit': row.get('base_unit', getattr(stk, 'base_unit', '')),
+                'conversion_count': conv,
+                'tax_percent': tax_pct,
+                'tax_amount': line_tax,
+                'total_including_tax': line_total,
+            })
+
+        balance_to_pay = grand_total - amount_paid
+        if balance_to_pay < Decimal('0.00'):
+            balance_to_pay = Decimal('0.00')
+
+        invoice = PurchaseInvoice.objects.create(
+            auto_id=get_auto_id(PurchaseInvoice),
+            creator=user,
+            company=company,
+            branch=branch,
+            supplier=supplier,
+            purchase_inv_number=purchase_inv_number,
+            invoice_date=invoice_date,
+            purchase_type=purchase_type,
+            subtotal=subtotal,
+            tax_total=tax_total,
+            grand_total=grand_total,
+            amount_paid=amount_paid,
+            balance_to_pay=balance_to_pay,
+            payment_mode=payment_mode,
+            bank_name=data.get('bank_name', ''),
+            cheque_number=data.get('cheque_number', ''),
+            cheque_date=data.get('cheque_date') or None,
+            remarks=data.get('remarks', '')
+        )
+
+        for p_item in parsed_items:
+            PurchaseInvoiceItem.objects.create(
+                auto_id=get_auto_id(PurchaseInvoiceItem),
+                creator=user,
+                purchase_invoice=invoice,
+                **p_item
+            )
+
+        # Trigger Senior's 4-Way Auto System Sync!
+        process_purchase_invoice_save(invoice, creator_user=user)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Purchase Invoice #{purchase_inv_number} created and synced successfully',
+            'purchase_invoice_id': str(invoice.id)
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_suppliers_payables(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from master.models import Supplier
+        from master.services import update_supplier_payables
+
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        suppliers = Supplier.objects.filter(company=company, is_deleted=False).order_by('name')
+
+        data = []
+        for s in suppliers:
+            update_supplier_payables(s)
+            data.append({
+                'id': str(s.id),
+                'name': s.name,
+                'phone_no': s.phone_no,
+                'gst_no': s.gst_no or '',
+                'payables': float(s.payables),
+                'credit_days': s.credit_days or 30,
+            })
+
+        return JsonResponse({'success': True, 'suppliers': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_create_supplier_payment(request):
+    """POST: Record a payment to a supplier from the App side."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from master.models import Supplier, SupplierPayment, PurchaseInvoice
+        from master.services import update_supplier_payables
+        from .models import Branch
+        from decimal import Decimal
+
+        data = json.loads(request.body)
+        supplier_id = data.get('supplier_id')
+        amount_paid_raw = data.get('amount_paid')
+        payment_date = data.get('payment_date')
+        payment_mode = data.get('payment_mode', 'CASH')
+
+        if not supplier_id or not amount_paid_raw or not payment_date:
+            return JsonResponse({'success': False, 'message': 'supplier_id, amount_paid, and payment_date are required'}, status=400)
+
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        branch = getattr(user, 'managed_branch', None)
+        if not branch and company:
+            branch = Branch.objects.filter(company=company, is_deleted=False).first()
+
+        supplier = Supplier.objects.get(id=supplier_id, is_deleted=False)
+        amt = Decimal(str(amount_paid_raw))
+
+        SupplierPayment.objects.create(
+            auto_id=get_auto_id(SupplierPayment),
+            creator=user,
+            supplier=supplier,
+            company=company,
+            branch=branch,
+            amount_paid=amt,
+            payment_date=payment_date,
+            payment_mode=payment_mode,
+            bank_name=data.get('bank_name', '') if payment_mode == 'CHEQUE' else '',
+            cheque_number=data.get('cheque_number', '') if payment_mode == 'CHEQUE' else '',
+            cheque_date=data.get('cheque_date') or None if payment_mode == 'CHEQUE' else None,
+            remarks=data.get('remarks', '')
+        )
+
+        # Deduct payment from pending invoices
+        pending_invoices = PurchaseInvoice.objects.filter(supplier=supplier, balance_to_pay__gt=0, is_deleted=False).order_by('invoice_date')
+        remaining_payment = amt
+        for inv in pending_invoices:
+            if remaining_payment <= 0:
+                break
+            if inv.balance_to_pay <= remaining_payment:
+                remaining_payment -= inv.balance_to_pay
+                inv.amount_paid += inv.balance_to_pay
+                inv.balance_to_pay = Decimal('0.00')
+            else:
+                inv.balance_to_pay -= remaining_payment
+                inv.amount_paid += remaining_payment
+                remaining_payment = Decimal('0.00')
+            inv.save()
+
+        update_supplier_payables(supplier)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Payment of ₹{amt} recorded for Supplier {supplier.name}',
+            'updated_payables': float(supplier.payables)
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_get_purchase_invoices(request):
+    """GET: List purchase invoices for the app."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from master.models import PurchaseInvoice
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        invoices = PurchaseInvoice.objects.filter(company=company, is_deleted=False).select_related('supplier', 'branch').order_by('-invoice_date', '-date_added')
+
+        data = [{
+            'id': str(inv.id),
+            'purchase_inv_number': inv.purchase_inv_number,
+            'invoice_date': str(inv.invoice_date),
+            'supplier_id': str(inv.supplier.id) if inv.supplier else '',
+            'supplier_name': inv.supplier.name if inv.supplier else '',
+            'purchase_type': inv.purchase_type,
+            'purchase_type_display': inv.get_purchase_type_display(),
+            'grand_total': float(inv.grand_total),
+            'amount_paid': float(inv.amount_paid),
+            'balance_to_pay': float(inv.balance_to_pay),
+            'payment_mode': inv.payment_mode,
+            'items_count': inv.items.filter(is_deleted=False).count(),
+        } for inv in invoices]
+
+        return JsonResponse({'success': True, 'purchase_invoices': data})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 

@@ -139,7 +139,13 @@ class UserEditForm(forms.ModelForm):
                 profile = user.profile
             except Exception:
                 from .models import UserProfile
-                profile = UserProfile(user=user)
+                from core.functions import get_auto_id
+                profile = UserProfile(user=user, auto_id=get_auto_id(UserProfile))
+            
+            if not profile.auto_id:
+                from core.functions import get_auto_id
+                profile.auto_id = get_auto_id(UserProfile)
+
             profile.role = self.cleaned_data.get('role')
             profile.company = self.cleaned_data.get('company')
             if new_password:

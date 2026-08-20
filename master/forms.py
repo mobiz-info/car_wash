@@ -54,17 +54,42 @@ class VehicleTypeForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-control'
                 
                 
+class EmissionStandardForm(forms.ModelForm):
+    class Meta:
+        model = EmissionStandard
+        fields = ['name', 'fuel_type', 'validity_months', 'reminder_1_days', 'reminder_2_days', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. BS-3, BS-4, BS-6, EV'}),
+            'fuel_type': forms.Select(attrs={'class': 'form-control'}),
+            'validity_months': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 6 or 12', 'min': '1'}),
+            'reminder_1_days': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 15', 'min': '0'}),
+            'reminder_2_days': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 3', 'min': '0'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+from django.db.models import Q
+
 class VehicleTypeModelForm(forms.ModelForm):
     class Meta:
         model = VehicleTypeModel
-        fields = ['vehicle_type', 'name', 'description', 'is_active']
+        fields = ['vehicle_type', 'name', 'emission_standard', 'is_active']
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.fields['vehicle_type'].queryset = VehicleType.objects.filter(
-            is_deleted=False
-        )
+        vt_qs = VehicleType.objects.filter(is_deleted=False, is_active=True)
+        if company:
+            vt_qs = vt_qs.filter(Q(company=company) | Q(company__isnull=True))
+        else:
+            vt_qs = vt_qs.filter(company__isnull=True)
+        self.fields['vehicle_type'].queryset = vt_qs.order_by('name')
+        self.fields['emission_standard'].queryset = EmissionStandard.objects.filter(
+            is_active=True, is_deleted=False
+        ).order_by('validity_months', 'name')
+        self.fields['emission_standard'].empty_label = '-- Select Emission Standard (Optional) --'
+        self.fields['emission_standard'].required = False
+
 
 class SchemeTypeForm(forms.ModelForm):
     class Meta:
@@ -123,13 +148,18 @@ class VehicleBrandModelForm(forms.ModelForm):
 class SupplierForm(forms.ModelForm):
     class Meta:
         model = Supplier
-        fields = ['branch', 'name', 'address', 'gst_no', 'phone_no', 'is_active']
+        fields = ['branch', 'name', 'address', 'gst_no', 'phone_no', 'supplier_type', 'credit_limit', 'credit_days', 'no_of_invoices', 'payables', 'is_active']
         widgets = {
             'branch': forms.Select(attrs={'class': 'form-control'}),
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Supplier Name'}),
             'address': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Supplier Address', 'rows': 3}),
             'gst_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'GST No. (Optional)'}),
             'phone_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone Number'}),
+            'supplier_type': forms.Select(attrs={'class': 'form-control', 'id': 'id_supplier_type'}),
+            'credit_limit': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Credit Limit (₹)', 'step': '0.01'}),
+            'credit_days': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Credit Days (e.g. 30)', 'min': '0'}),
+            'no_of_invoices': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Max Credit Invoices', 'min': '0'}),
+            'payables': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Opening Payables (₹)', 'step': '0.01'}),
         }
 
     def __init__(self, *args, company=None, **kwargs):

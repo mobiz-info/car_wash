@@ -8,7 +8,7 @@
 
 <div class="premium-form-container">
     <div class="premium-form-title">
-        <i class="ph ph-map-pin-line" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        <i class="ph ph-car-profile" style="color: #3b82f6; font-size: 1.5rem;"></i>
         {{ title }}
     </div>
 
@@ -16,23 +16,31 @@
         {% csrf_token %}
 
         <div class="form-group">
-            <label class="form-label">Vehicle Type</label>
+            <label class="form-label">Vehicle Type *</label>
             {{ form.vehicle_type }}
+            {% if form.vehicle_type.errors %}
+                <small style="color: #ef4444;">{{ form.vehicle_type.errors.0 }}</small>
+            {% endif %}
         </div>
 
         <div class="form-group">
-            <label>Name</label>
+            <label>Segment Name *</label>
             {{ form.name }}
+            {% if form.name.errors %}
+                <small style="color: #ef4444;">{{ form.name.errors.0 }}</small>
+            {% endif %}
         </div>
 
         <div class="form-group">
-            <label>Description</label>
-            {{ form.description }}
+            <label>Emission Standard (Smoke Test Validity)</label>
+            {{ form.emission_standard }}
+            <small style="color: #64748b;">Select Emission Standard to auto-calculate Smoke Test validity & reminders</small>
+            {% if form.emission_standard.errors %}
+                <small style="color: #ef4444;">{{ form.emission_standard.errors.0 }}</small>
+            {% endif %}
         </div>
 
-        
-
-        <div class="checkbox-wrapper">
+        <div class="checkbox-wrapper" style="margin-top: 15px; margin-bottom: 20px;">
             {{ form.is_active }} Active
         </div>
 

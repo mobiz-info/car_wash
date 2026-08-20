@@ -11,6 +11,7 @@ from django.db.models.functions import Coalesce
 from datetime import timedelta
 from django.core.paginator import Paginator
 from django.utils.timezone import now
+from django.urls import reverse
 
 from .models import *
 from finance_management.models import Invoice, InvoiceItem
@@ -1465,15 +1466,40 @@ def branch_vehicle_type_manage(request):
             messages.error(request, "No branch assigned to you.")
             return redirect('dashboard')
 
-    all_vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')
-    enabled_ids = set(branch.enabled_vehicle_types.values_list('id', flat=True))
+    from master.models import VehicleTypeModel
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+
+    if company:
+        all_vehicle_types = VehicleType.objects.filter(
+            Q(company=company) | Q(company__isnull=True),
+            is_active=True, is_deleted=False
+        ).order_by('name')
+        all_vehicle_segments = VehicleTypeModel.objects.filter(
+            Q(company=company) | Q(company__isnull=True),
+            is_active=True, is_deleted=False, vehicle_type__is_deleted=False
+        ).exclude(disabled_companies=company)
+    else:
+        all_vehicle_types = VehicleType.objects.filter(company__isnull=True, is_active=True, is_deleted=False).order_by('name')
+        all_vehicle_segments = VehicleTypeModel.objects.filter(
+            company__isnull=True, is_active=True, is_deleted=False, vehicle_type__is_deleted=False
+        )
+
+    enabled_type_ids = set(branch.enabled_vehicle_types.values_list('id', flat=True))
+    all_vehicle_segments = all_vehicle_segments.select_related('vehicle_type').order_by('vehicle_type__name', 'name')
+    enabled_segment_ids = set(branch.enabled_vehicle_segments.values_list('id', flat=True))
+
 
     if request.method == 'POST':
-        selected_ids = request.POST.getlist('vehicle_types')
+        selected_type_ids = request.POST.getlist('vehicle_types')
+        selected_segment_ids = request.POST.getlist('vehicle_segments')
+
         branch.enabled_vehicle_types.set(
-            VehicleType.objects.filter(id__in=selected_ids, is_active=True, is_deleted=False)
+            VehicleType.objects.filter(id__in=selected_type_ids, is_active=True, is_deleted=False)
         )
-        messages.success(request, f"Vehicle types updated for {branch.name}.")
+        branch.enabled_vehicle_segments.set(
+            VehicleTypeModel.objects.filter(id__in=selected_segment_ids, is_active=True, is_deleted=False)
+        )
+        messages.success(request, f"Vehicle categories & segments updated for {branch.name}.")
         redirect_url = reverse('branch_vehicle_type_manage')
         if role_name == 'COMPANY_ADMIN' and branch:
             redirect_url += f"?branch={branch.id}"
@@ -1483,8 +1509,11 @@ def branch_vehicle_type_manage(request):
         'branch': branch,
         'branches': branches if role_name == 'COMPANY_ADMIN' else None,
         'vehicle_types': all_vehicle_types,
-        'enabled_ids': enabled_ids,
-        'title': 'Enable Vehicle Categories',
+        'enabled_type_ids': enabled_type_ids,
+        'enabled_ids': enabled_type_ids,
+        'vehicle_segments': all_vehicle_segments,
+        'enabled_segment_ids': enabled_segment_ids,
+        'title': 'Enable Vehicle Categories & Segments',
     })
 
 
@@ -2102,6 +2131,7 @@ def stock_list(request):
         return redirect('dashboard')
 
     search = request.GET.get('search', '')
+    item_type = request.GET.get('type', '')
     
     if request.user.is_superuser:
         stocks = Stock.objects.filter(is_deleted=False).order_by('-date_added')
@@ -2113,7 +2143,14 @@ def stock_list(request):
         ).order_by('-date_added')
 
     if search:
-        stocks = stocks.filter(item_name__icontains=search)
+        stocks = stocks.filter(Q(item_name__icontains=search) | Q(brand__icontains=search))
+
+    if item_type == 'trading':
+        stocks = stocks.filter(is_trading=True, is_operational=False)
+    elif item_type == 'operational':
+        stocks = stocks.filter(is_operational=True, is_trading=False)
+    elif item_type == 'both':
+        stocks = stocks.filter(is_trading=True, is_operational=True)
 
     paginator = Paginator(stocks, 10)
     page_number = request.GET.get('page')
@@ -2122,7 +2159,64 @@ def stock_list(request):
     return render(request, 'stock/list.html', {
         'page_obj': page_obj,
         'search': search,
-        'title': 'Stock Management',
+        'selected_type': item_type,
+        'title': 'Stock Item',
+    })
+
+
+@login_required
+def purchased_stock_list(request):
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role.name == 'COMPANY_ADMIN') or (hasattr(request.user, 'profile') and request.user.profile.role.name == 'BRANCH_ADMIN')):
+        messages.error(request, "You do not have permission to access Purchased Stock.")
+        return redirect('dashboard')
+
+    search = request.GET.get('search', '')
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+
+    if request.user.is_superuser:
+        stocks = Stock.objects.filter(is_deleted=False).select_related('group', 'sub_group', 'company').order_by('item_name')
+    elif company:
+        stocks = Stock.objects.filter(
+            Q(company=company) | Q(company__isnull=True),
+            is_deleted=False
+        ).select_related('group', 'sub_group', 'company').order_by('item_name')
+    else:
+        stocks = Stock.objects.filter(is_deleted=False).select_related('group', 'sub_group', 'company').order_by('item_name')
+
+    if search:
+        stocks = stocks.filter(item_name__icontains=search)
+
+    from master.models import PurchaseInvoiceItem
+    from django.db.models import Sum
+
+    purchased_data = []
+    for s in stocks:
+        purchased_item_qs = PurchaseInvoiceItem.objects.filter(stock_item=s, is_deleted=False)
+        if company:
+            purchased_item_qs = purchased_item_qs.filter(purchase_invoice__company=company)
+
+        agg = purchased_item_qs.aggregate(
+            total_purchased_qty=Sum('quantity'),
+            total_purchased_val=Sum('total_including_tax')
+        )
+        total_purchased_qty = agg['total_purchased_qty'] or 0
+        total_purchased_val = agg['total_purchased_val'] or 0
+
+        purchased_data.append({
+            'stock': s,
+            'total_purchased_qty': total_purchased_qty,
+            'total_purchased_val': total_purchased_val,
+            'current_stock_qty': s.quantity or 0,
+        })
+
+    paginator = Paginator(purchased_data, 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'stock/purchased_stock_list.html', {
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Purchased Stock',
     })
 
 
@@ -2199,6 +2293,18 @@ def stock_delete(request, id):
     stock.is_deleted = True
     stock.save()
     messages.success(request, "Stock item deleted successfully")
+    return redirect('stock_list')
+
+
+@login_required
+def stock_delete_all(request):
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role.name == 'SUPER_ADMIN')):
+        messages.error(request, "Permission denied. Only Super Admin can delete all stock items.")
+        return redirect('stock_list')
+
+    if request.method == 'POST':
+        count = Stock.objects.filter(is_deleted=False).update(is_deleted=True)
+        messages.success(request, f"Successfully deleted {count} stock item(s).")
     return redirect('stock_list')
 
 
@@ -2939,5 +3045,102 @@ def extras_delete(request, id):
     extra.save()
     messages.success(request, "Extra item deleted successfully.")
     return redirect('extras_list')
+
+
+@login_required
+def stock_consumption_report(request):
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    item_type = request.GET.get('item_type', 'all')
+    search = request.GET.get('search', '')
+
+    from finance_management.models import InvoiceItem
+    queryset = InvoiceItem.objects.filter(is_deleted=False, invoice__is_deleted=False).select_related(
+        'invoice', 'invoice__branch', 'invoice__branch__company', 'stock_item', 'stock_item__group'
+    ).order_by('-invoice__date', '-id')
+
+    if not request.user.is_superuser:
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        if company:
+            queryset = queryset.filter(invoice__branch__company=company)
+
+    if start_date:
+        queryset = queryset.filter(invoice__date__gte=start_date)
+    if end_date:
+        queryset = queryset.filter(invoice__date__lte=end_date)
+
+    if item_type == 'trading':
+        queryset = queryset.filter(stock_item__is_trading=True, stock_item__is_operational=False)
+    elif item_type == 'operational':
+        queryset = queryset.filter(stock_item__is_operational=True)
+
+    if search:
+        queryset = queryset.filter(
+            Q(item_name__icontains=search) | Q(stock_item__item_name__icontains=search) | Q(invoice__invoice_number__icontains=search)
+        )
+
+    rows = []
+    total_items_consumed = 0
+    operational_qty = 0
+    trading_qty = 0
+
+    for item in queryset:
+        stk = item.stock_item
+        is_op = item.is_operational or (stk.is_operational if stk else False)
+        usage_type = 'OPERATIONAL' if is_op else 'TRADING'
+
+        qty = float(item.qty or 0)
+        total_items_consumed += 1
+        if is_op:
+            operational_qty += qty
+        else:
+            trading_qty += qty
+
+        unit_str = 'Pcs'
+        if stk and hasattr(stk, 'unit') and stk.unit:
+            unit_str = stk.unit.name if hasattr(stk.unit, 'name') else str(stk.unit)
+
+        rate_val = float(item.rate or 0)
+        tot_val = float(item.net_taxable_amount or (qty * rate_val))
+
+        rows.append({
+            'id': item.id,
+            'date': item.invoice.date.strftime('%Y-%m-%d') if item.invoice and item.invoice.date else '',
+            'invoice_number': item.invoice.invoice_number if item.invoice else '',
+            'stock_item_name': stk.item_name if stk else item.service_name,
+            'category': stk.group.name if (stk and stk.group) else 'General',
+            'usage_type': usage_type,
+            'qty': qty,
+            'unit': unit_str,
+            'unit_price': rate_val,
+            'total_amount': tot_val,
+        })
+
+    is_json = request.GET.get('format') == 'json' or 'application/json' in request.headers.get('Accept', '')
+    if is_json:
+        return JsonResponse({
+            'status': 'success',
+            'total_items_consumed': total_items_consumed,
+            'operational_qty': operational_qty,
+            'trading_qty': trading_qty,
+            'rows': rows,
+        })
+
+    paginator = Paginator(rows, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'stock/consumption_report.html', {
+        'page_obj': page_obj,
+        'start_date': start_date,
+        'end_date': end_date,
+        'item_type': item_type,
+        'search': search,
+        'total_items_consumed': total_items_consumed,
+        'operational_qty': operational_qty,
+        'trading_qty': trading_qty,
+        'title': 'Stock Consumption Report',
+    })
+
 
 

@@ -174,7 +174,8 @@ class SentServiceReminder(BaseModel):
 class ReminderPlan(BaseModel):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='reminder_plans')
     invoice = models.ForeignKey('finance_management.Invoice', on_delete=models.CASCADE, related_name='reminder_plans')
-    reminder = models.ForeignKey(ServiceReminder, on_delete=models.CASCADE, related_name='reminder_plans')
+    reminder = models.ForeignKey(ServiceReminder, on_delete=models.SET_NULL, null=True, blank=True, related_name='reminder_plans')
+    template_name = models.CharField(max_length=100, blank=True, null=True, help_text="Custom or rule template name (e.g. servicereminder, batteryservice)")
     reminder_no = models.PositiveIntegerField(default=1)
     scheduled_date = models.DateField()
     is_sent = models.BooleanField(default=False)
@@ -186,4 +187,5 @@ class ReminderPlan(BaseModel):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.invoice.customer.name} - {self.reminder.service.name} - No.{self.reminder_no} on {self.scheduled_date}"
+        title = self.reminder.service.name if (self.reminder and self.reminder.service) else (self.template_name or 'Reminder')
+        return f"{self.invoice.customer.name} - {title} - No.{self.reminder_no} on {self.scheduled_date}"

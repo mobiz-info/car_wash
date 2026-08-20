@@ -47,9 +47,12 @@ urlpatterns = [
 
     # Stock Management
     path('stock/', views.stock_list, name='stock_list'),
+    path('purchased-stock/', views.purchased_stock_list, name='purchased_stock_list'),
+    path('stock-consumption-report/', views.stock_consumption_report, name='stock_consumption_report'),
     path('stock/create/', views.stock_create, name='stock_create'),
     path('stock/edit/<uuid:id>/', views.stock_edit, name='stock_edit'),
     path('stock/delete/<uuid:id>/', views.stock_delete, name='stock_delete'),
+    path('stock/delete-all/', views.stock_delete_all, name='stock_delete_all'),
 
     # Customer Type
     path('customer-type/', views.customer_type_list, name='customer_type_list'),
@@ -145,11 +148,7 @@ urlpatterns = [
     path('api/reports/service-type/vehicle-breakdown/', api_views.api_report_service_type_vehicle_breakdown, name='api_report_service_type_vehicle_breakdown'),
     path('api/reports/profit-loss/', api_views.api_report_profit_loss, name='api_report_profit_loss'),
     path('api/reports/daywise/', api_views.api_report_daywise_consolidated, name='api_report_daywise_consolidated'),
-    path('api/reports/payment-type/', api_views.api_report_payment_type, name='api_report_payment_type'),
-    path('api/reports/oil-change/', api_views.api_report_oil_change, name='api_report_oil_change'),
-    path('api/reports/tyre-change/', api_views.api_report_tyre_change, name='api_report_tyre_change'),
-    path('api/reports/wheel-alignment/', api_views.api_report_wheel_alignment, name='api_report_wheel_alignment'),
-    path('api/reports/oil-stock/', api_views.api_report_oil_stock_ledger, name='api_report_oil_stock_ledger'),
+    path('api/reports/stock-consumption/', api_views.api_report_stock_consumption, name='api_report_stock_consumption'),
 
 
 
@@ -201,6 +200,7 @@ urlpatterns = [
     path('extras/delete/<uuid:id>/', views.extras_delete, name='extras_delete'),
 
     path('api/stock/list/', api_views.api_get_stock_list, name='api_get_stock_list'),
+    path('api/stock-groups/list/', api_views.api_get_stock_groups, name='api_get_stock_groups'),
     path('api/purchase-requests/list/', api_views.api_get_purchase_requests, name='api_get_purchase_requests'),
     path('api/purchase-requests/create/', api_views.api_create_purchase_request, name='api_create_purchase_request'),
     path('api/expenses/heads/create/', api_views.api_create_expense_head, name='api_create_expense_head'),
@@ -244,6 +244,12 @@ urlpatterns = [
     path('api/battery-amperes/', api_views.api_battery_amperes, name='api_battery_amperes'),
     path('api/battery-segments/', api_views.api_battery_segments, name='api_battery_segments'),
     path('api/batteries/', api_views.api_batteries, name='api_batteries'),
+
+    # ERP Purchase & Payables APIs
+    path('api/erp/purchase-invoice/create/', api_views.api_create_purchase_invoice, name='api_create_purchase_invoice'),
+    path('api/erp/purchase-invoices/list/', api_views.api_get_purchase_invoices, name='api_get_purchase_invoices'),
+    path('api/erp/suppliers-payables/', api_views.api_get_suppliers_payables, name='api_get_suppliers_payables'),
+    path('api/erp/supplier-payment/create/', api_views.api_create_supplier_payment, name='api_create_supplier_payment'),
 ]
 
 

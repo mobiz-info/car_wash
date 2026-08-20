@@ -36,27 +36,57 @@ class Area(BaseModel):
 
 
 class VehicleType(BaseModel):
+    company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, null=True, blank=True, related_name='vehicle_types')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
+
     
     
+class EmissionStandard(BaseModel):
+    FUEL_TYPE_CHOICES = (
+        ('ALL', 'All Fuel Types'),
+        ('PETROL', 'Petrol'),
+        ('DIESEL', 'Diesel'),
+        ('CNG', 'CNG'),
+        ('LPG', 'LPG'),
+        ('ELECTRIC', 'Electric'),
+    )
+
+    name = models.CharField(max_length=100, help_text="e.g. BS-3, BS-4, BS-6, EV")
+    fuel_type = models.CharField(max_length=20, choices=FUEL_TYPE_CHOICES, default='ALL')
+    validity_months = models.PositiveIntegerField(default=12, help_text="Smoke test validity in months (e.g. 6 or 12)")
+    reminder_1_days = models.PositiveIntegerField(default=15, help_text="1st reminder sent X days before expiry")
+    reminder_2_days = models.PositiveIntegerField(default=3, help_text="2nd reminder sent X days before expiry")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['validity_months', 'name']
+
+    def __str__(self):
+        fuel = f" ({self.get_fuel_type_display()})" if self.fuel_type != 'ALL' else ""
+        return f"{self.name}{fuel} — {self.validity_months} Months"
+
+
 class VehicleTypeModel(BaseModel):
+    company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, null=True, blank=True, related_name='vehicle_segments')
     vehicle_type = models.ForeignKey(VehicleType,on_delete=models.CASCADE,related_name='models')
 
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
+    emission_standard = models.ForeignKey(EmissionStandard, on_delete=models.SET_NULL, null=True, blank=True, related_name='vehicle_segments')
 
     is_active = models.BooleanField(default=True)
+    disabled_companies = models.ManyToManyField('client_management.Client', blank=True, related_name='disabled_global_vehicle_segments')
 
     def __str__(self):
         return f"{self.vehicle_type.name} - {self.name}"
 
     class Meta:
-        unique_together = ['vehicle_type', 'name']
+        unique_together = ['company', 'vehicle_type', 'name']
 
 
 class SchemeType(BaseModel):
@@ -109,6 +139,11 @@ class Supplier(BaseModel):
     address = models.TextField()
     gst_no = models.CharField(max_length=50, blank=True, null=True)
     phone_no = models.CharField(max_length=50)
+    supplier_type = models.CharField(max_length=20, default='cash', choices=(('cash', 'Cash'), ('credit', 'Credit'), ('bill_to_bill', 'Bill to Bill')))
+    credit_limit = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    credit_days = models.PositiveIntegerField(default=30, help_text="Default credit period in days")
+    no_of_invoices = models.PositiveIntegerField(default=0)
+    payables = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Total outstanding payables amount")
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -157,6 +192,66 @@ class ExpenseEntry(BaseModel):
         max_digits=10,
         decimal_places=2,
         default=0.00
+    )
+
+    # Stock Purchase linkage
+    CATEGORY_GENERAL = 'GENERAL'
+    CATEGORY_OIL = 'OIL'
+    CATEGORY_TYRE = 'TYRE'
+    CATEGORY_OIL_FILTER = 'OIL_FILTER'
+    CATEGORY_BATTERY = 'BATTERY'
+    ITEM_CATEGORY_CHOICES = (
+        (CATEGORY_GENERAL, 'General Stock'),
+        (CATEGORY_OIL, 'Engine Oil / Fluid'),
+        (CATEGORY_TYRE, 'Tyre'),
+        (CATEGORY_OIL_FILTER, 'Oil Filter'),
+        (CATEGORY_BATTERY, 'Battery'),
+    )
+    item_category = models.CharField(
+        max_length=20,
+        choices=ITEM_CATEGORY_CHOICES,
+        blank=True,
+        null=True
+    )
+    stock_item = models.ForeignKey(
+        'client_management.Stock',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='expense_purchases'
+    )
+    oil_product = models.ForeignKey(
+        'OilProduct',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='expense_purchases'
+    )
+    tyre = models.ForeignKey(
+        'Tyre',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='expense_purchases'
+    )
+    oil_filter = models.ForeignKey(
+        'OilFilter',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='expense_purchases'
+    )
+    battery = models.ForeignKey(
+        'Battery',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='expense_purchases'
+    )
+    quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=1.00
     )
 
 
@@ -599,3 +694,118 @@ class Battery(BaseModel):
         amp_name = self.ampere.name if self.ampere else ''
         seg_name = self.segment.name if self.segment else ''
         return f"{make_name} {amp_name} ({seg_name})"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Senior ERP Purchase & Stock Management Models
+# ─────────────────────────────────────────────────────────────────────────────
+
+class StockGroup(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='stock_groups', null=True, blank=True)
+    name = models.CharField(max_length=150)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class StockSubGroup(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='stock_sub_groups', null=True, blank=True)
+    group = models.ForeignKey(StockGroup, on_delete=models.CASCADE, related_name='sub_groups')
+    name = models.CharField(max_length=150)
+
+    class Meta:
+        ordering = ['group__name', 'name']
+
+    def __str__(self):
+        return f"{self.group.name} — {self.name}"
+
+
+class PurchaseInvoice(BaseModel):
+    PURCHASE_TYPE_CASH = 'CASH'
+    PURCHASE_TYPE_CREDIT = 'CREDIT'
+    PURCHASE_TYPE_BILL = 'BILL_TO_BILL'
+    PURCHASE_TYPE_CHOICES = (
+        (PURCHASE_TYPE_CASH, 'Cash'),
+        (PURCHASE_TYPE_CREDIT, 'Credit'),
+        (PURCHASE_TYPE_BILL, 'Bill to Bill'),
+    )
+
+    PAYMENT_MODE_CASH = 'CASH'
+    PAYMENT_MODE_DIGITAL = 'DIGITAL'
+    PAYMENT_MODE_CHEQUE = 'CHEQUE'
+    PAYMENT_MODE_CHOICES = (
+        (PAYMENT_MODE_CASH, 'Cash'),
+        (PAYMENT_MODE_DIGITAL, 'Digital'),
+        (PAYMENT_MODE_CHEQUE, 'Cheque'),
+    )
+
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='purchase_invoices')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='purchase_invoices')
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name='purchase_invoices')
+    purchase_inv_number = models.CharField(max_length=100)
+    invoice_date = models.DateField()
+    purchase_type = models.CharField(max_length=20, choices=PURCHASE_TYPE_CHOICES, default=PURCHASE_TYPE_CASH)
+
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    tax_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    balance_to_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
+    payment_mode = models.CharField(max_length=20, choices=PAYMENT_MODE_CHOICES, default=PAYMENT_MODE_CASH)
+    bank_name = models.CharField(max_length=150, blank=True, null=True)
+    cheque_number = models.CharField(max_length=100, blank=True, null=True)
+    cheque_date = models.DateField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-invoice_date', '-date_added']
+
+    def __str__(self):
+        return f"Purchase Inv #{self.purchase_inv_number} - {self.supplier.name}"
+
+
+class PurchaseInvoiceItem(BaseModel):
+    purchase_invoice = models.ForeignKey(PurchaseInvoice, on_delete=models.CASCADE, related_name='items')
+    stock_item = models.ForeignKey('client_management.Stock', on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_items')
+    hsn_code = models.CharField(max_length=50, blank=True, null=True)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    main_unit = models.CharField(max_length=50, blank=True, null=True)
+    base_unit = models.CharField(max_length=50, blank=True, null=True)
+    conversion_count = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    tax_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    total_including_tax = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
+    def __str__(self):
+        item_name = self.stock_item.item_name if self.stock_item else 'Item'
+        return f"{item_name} x {self.quantity} @ {self.rate}"
+
+
+class SupplierPayment(BaseModel):
+    PAYMENT_MODE_CHOICES = (
+        ('CASH', 'Cash'),
+        ('DIGITAL', 'Digital'),
+        ('CHEQUE', 'Cheque'),
+    )
+
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name='payments')
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='supplier_payments')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='supplier_payments')
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_date = models.DateField()
+    payment_mode = models.CharField(max_length=20, choices=PAYMENT_MODE_CHOICES, default='CASH')
+    bank_name = models.CharField(max_length=150, blank=True, null=True)
+    cheque_number = models.CharField(max_length=100, blank=True, null=True)
+    cheque_date = models.DateField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-payment_date', '-date_added']
+
+    def __str__(self):
+        return f"Payment to {self.supplier.name} - ₹{self.amount_paid} ({self.payment_mode})"

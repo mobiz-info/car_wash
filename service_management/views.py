@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from decimal import Decimal
+from django.db.models import Q
 
 from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice, CompanyService
 from master.models import VehicleType, VehicleTypeModel
@@ -532,13 +533,20 @@ def service_vehicle_price_manage(request, branch_id):
         'name'
     )
 
-    if branch and branch.enabled_vehicle_types.exists():
-        vehicle_types = branch.enabled_vehicle_types.filter(is_active=True, is_deleted=False).order_by('name')
+    if branch and branch.company:
+        created_vt_qs = VehicleType.objects.filter(company=branch.company, is_active=True, is_deleted=False)
+        if branch.enabled_vehicle_types.exists():
+            enabled_vt_qs = branch.enabled_vehicle_types.filter(is_active=True, is_deleted=False)
+        else:
+            enabled_vt_qs = VehicleType.objects.filter(company__isnull=True, is_active=True, is_deleted=False)
+        vehicle_types = (created_vt_qs | enabled_vt_qs).distinct().order_by('name')
     else:
         vehicle_types = VehicleType.objects.filter(
+            company__isnull=True,
             is_active=True,
             is_deleted=False
         ).order_by('name')
+
 
     selected_vehicle_type_id = request.GET.get('vehicle_type')
 
@@ -556,7 +564,18 @@ def service_vehicle_price_manage(request, branch_id):
             vehicle_type=selected_vehicle_type,
             is_active=True,
             is_deleted=False
-        ).order_by('name')
+        )
+        if branch.company:
+            vehicle_models = vehicle_models.filter(
+                Q(company=branch.company) | Q(company__isnull=True)
+            ).exclude(disabled_companies=branch.company)
+        else:
+            vehicle_models = vehicle_models.filter(company__isnull=True)
+
+        if branch.enabled_vehicle_segments.exists():
+            vehicle_models = vehicle_models.filter(id__in=branch.enabled_vehicle_segments.values_list('id', flat=True))
+
+        vehicle_models = vehicle_models.order_by('name')
 
     existing_prices = ServiceVehicleTypePrice.objects.filter(
         branch=branch,

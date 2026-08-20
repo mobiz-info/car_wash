@@ -790,28 +790,46 @@ class WhatsAppComposeForm(forms.ModelForm):
 class StockForm(forms.ModelForm):
     class Meta:
         model = Stock
-        fields = ['item_name', 'unit', 'expense_head']
+        fields = [
+            'group', 'sub_group', 'item_name', 'brand', 'base_unit', 'hsn_code', 'barcode',
+            'is_trading', 'is_operational', 'cgst_percent', 'sgst_percent', 'igst_percent',
+            'profit_margin_percent', 'critical_level', 'expense_head'
+        ]
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
         
-        # Filter expense head queryset by company
-        from master.models import ExpenseHead
+        from master.models import StockGroup, StockSubGroup, ExpenseHead
         from django.db.models import Q
+
+        company = None
         if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
             company = self.request.user.profile.company
-            self.fields['expense_head'].queryset = ExpenseHead.objects.filter(
-                Q(company=company) | Q(company__isnull=True),
-                is_deleted=False
-            ).order_by('name')
+
+        # Filter Groups, Sub-Groups, and Expense Heads by company
+        if company:
+            self.fields['group'].queryset = StockGroup.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
+            self.fields['sub_group'].queryset = StockSubGroup.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
+            self.fields['expense_head'].queryset = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
         else:
+            self.fields['group'].queryset = StockGroup.objects.filter(is_deleted=False).order_by('name')
+            self.fields['sub_group'].queryset = StockSubGroup.objects.filter(is_deleted=False).order_by('name')
             self.fields['expense_head'].queryset = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
 
+        self.fields['brand'].required = False
+        self.fields['hsn_code'].required = False
+        self.fields['barcode'].required = False
+        self.fields['critical_level'].required = False
+        self.fields['group'].required = False
+        self.fields['sub_group'].required = False
+        self.fields['expense_head'].required = False
+
         for field_name, field in self.fields.items():
-            field.widget.attrs['class'] = 'form-control'
-            if field_name != 'expense_head':
-                field.widget.attrs['placeholder'] = f"Enter {field.label}"
+            if not isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect)):
+                field.widget.attrs['class'] = 'form-control'
+                if not isinstance(field.widget, forms.Select):
+                    field.widget.attrs['placeholder'] = f"Enter {field.label}"
 
 
 from .models import StaffLeave

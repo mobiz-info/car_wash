@@ -145,7 +145,7 @@
                                 {{ plan.reminder_no }}
                             </span>
                         </td>
-                        <td>{{ plan.reminder.service.name }}</td>
+                        <td>{{ plan.reminder.service.name|default:plan.template_name|default:"Service Reminder" }}</td>
                         <td>{{ plan.invoice.customer.whatsapp_number|default:plan.invoice.customer.phone|default:'' }}
                         </td>
                         <td style="text-align: right;">

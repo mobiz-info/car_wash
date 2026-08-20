@@ -1,0 +1,617 @@
+{% extends 'base.html' %}
+
+{% block title %}New Purchase Entry - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}New Purchase Entry{% endblock %}
+{% block breadcrumb_active %}Purchase Entry{% endblock %}
+
+{% block content %}
+<style>
+    .purchase-container {
+        max-width: 1050px;
+        margin: 0 auto;
+    }
+
+    /* Card Container */
+    .purchase-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-heading {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .form-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .form-grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .form-grid-6 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 60px;
+        gap: 10px;
+        align-items: flex-end;
+    }
+
+    .grid-input {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        outline: none;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+
+    .grid-input:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .add-circle-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #2563eb;
+        color: #ffffff;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.2rem;
+        transition: all 0.2s;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+    }
+
+    .add-circle-btn:hover {
+        background: #1d4ed8;
+        transform: scale(1.05);
+    }
+
+    /* Table Styling */
+    .purchased-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+
+    .purchased-table th {
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 12px 14px;
+        border-bottom: 2px solid #e2e8f0;
+        text-align: left;
+    }
+
+    .purchased-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+        color: #334155;
+        vertical-align: middle;
+    }
+
+    .purchased-table tr:hover td {
+        background: #f8fafc;
+    }
+
+    /* Supplier Summary Badge Box */
+    .supplier-summary-box {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 10px;
+        padding: 14px 18px;
+        font-size: 0.85rem;
+        color: #0369a1;
+    }
+
+    .supplier-summary-box strong {
+        color: #0284c7;
+    }
+
+    /* Payment Mode Options */
+    .mode-btn-group {
+        display: flex;
+        gap: 12px;
+    }
+
+    .mode-btn {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        background: #ffffff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #475569;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+        background: #eff6ff;
+        border-color: #2563eb;
+        color: #2563eb;
+    }
+
+    .footer-note {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-style: italic;
+        margin-top: 14px;
+        text-align: center;
+    }
+</style>
+
+<div class="purchase-container">
+
+    <form method="POST" id="purchaseForm">
+        {% csrf_token %}
+        <input type="hidden" name="items_json" id="items_json">
+
+        <!-- ========================================== -->
+        <!-- SECTION 1: ITEM ADDER CONTROLS (TOP) -->
+        <!-- ========================================== -->
+        <div class="purchase-card">
+            <div class="card-heading">
+                <i class="ph ph-bag" style="color:#2563eb; font-size:1.3rem;"></i>
+                Stock Item Selection
+            </div>
+
+            <!-- Stock Group & Filterable Stock Item Selector -->
+            <div class="form-grid-2">
+                <div>
+                    <label
+                        style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Stock
+                        Item Group</label>
+                    <select id="item_group_select" class="grid-input" onchange="filterStockItemsByGroup()">
+                        <option value="">-- All Stock Groups --</option>
+                        {% for g in groups %}
+                        <option value="{{ g.id }}">{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label
+                        style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Stock
+                        Item Name <span style="color:red">*</span></label>
+                    <select id="stock_item_select" class="grid-input" onchange="onStockItemSelectChanged()">
+                        <option value="">-- Select Stock Item --</option>
+                        {% for stk in stocks %}
+                        <option value="{{ stk.id }}" data-name="{{ stk.item_name }}"
+                            data-group="{{ stk.group.id|default:'' }}" data-hsn="{{ stk.hsn_code|default:'' }}"
+                            data-mainunit="{{ stk.main_unit|default:stk.unit }}"
+                            data-baseunit="{{ stk.base_unit|default:stk.unit }}"
+                            data-conv="{{ stk.conversion_count|default:1.0 }}"
+                            data-tax="{% if stk.cgst_percent or stk.sgst_percent %}{{ stk.cgst_percent|add:stk.sgst_percent }}{% else %}{{ stk.igst_percent|default:0 }}{% endif %}">
+                            {{ stk.item_name }} {% if stk.group %}({{ stk.group.name }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Item Parameters Row & Circular Add Button -->
+            <div class="form-grid-6">
+                <div>
+                    <label
+                        style="font-size:0.8rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Quantity</label>
+                    <input type="number" step="0.01" id="input_qty" class="grid-input" value="1">
+                </div>
+                <div>
+                    <label
+                        style="font-size:0.8rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Big
+                        Unit</label>
+                    <select id="input_big_unit" class="grid-input">
+                        <option value="Box">Box</option>
+                        <option value="Barrel">Barrel</option>
+                        <option value="Carton">Carton</option>
+                        <option value="Pack">Pack</option>
+                        <option value="Set">Set</option>
+                    </select>
+                </div>
+                <div>
+                    <label
+                        style="font-size:0.8rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Base
+                        Unit</label>
+                    <select id="input_base_unit" class="grid-input">
+                        <option value="Piece">Piece / Pcs</option>
+                        <option value="Litre">Litre</option>
+                        <option value="KG">KG</option>
+                        <option value="Meter">Meter</option>
+                        <option value="Bottle">Bottle</option>
+                        <option value="Can">Can</option>
+                    </select>
+                </div>
+                <div>
+                    <label
+                        style="font-size:0.8rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Conv
+                        Count</label>
+                    <input type="number" step="0.01" id="input_conv_count" class="grid-input" value="1">
+                </div>
+                <div>
+                    <label
+                        style="font-size:0.8rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Rate
+                        (₹)</label>
+                    <input type="number" step="0.01" id="input_rate" class="grid-input" value="0.00">
+                </div>
+                <div>
+                    <label
+                        style="font-size:0.8rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Tax
+                        %</label>
+                    <input type="number" step="0.01" id="input_tax_pct" class="grid-input" value="0.00"
+                        style="font-weight:700; color:#2563eb;">
+                </div>
+                <div>
+                    <button type="button" class="add-circle-btn" onclick="addSelectedItemToTable()"
+                        title="Add Item Row">
+                        <i class="ph-bold ph-plus"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SECTION 2: PURCHASED ITEM GRID TABLE -->
+        <!-- ========================================== -->
+        <div class="purchase-card">
+            <div class="card-heading">
+                <i class="ph ph-list-numbers" style="color:#2563eb; font-size:1.3rem;"></i>
+                Purchased Item List
+            </div>
+
+            <div style="overflow-x:auto;">
+                <table class="purchased-table">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">Sl No</th>
+                            <th>Stock Item Name</th>
+                            <th style="width:100px;">HSN</th>
+                            <th style="text-align:right; width:100px;">Rate (₹)</th>
+                            <th style="text-align:right; width:80px;">Qty</th>
+                            <th style="width:90px;">Main Unit</th>
+                            <th style="width:90px;">Base Unit</th>
+                            <th style="text-align:right; width:80px;">Tax %</th>
+                            <th style="text-align:right; width:140px;">Total Including Tax</th>
+                            <th style="text-align:center; width:50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="purchasedTableTbody">
+                        <!-- Added rows will appear here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div
+                style="display:flex; justify-content:flex-end; margin-top:16px; padding-top:12px; border-top:2px solid #e2e8f0;">
+                <div style="font-size:1.2rem; font-weight:800; color:#1d4ed8;">
+                    Grand Total: <span id="displayGrandTotal">₹0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SECTION 3: SUPPLIER INFO & PAYMENT CONTROLS -->
+        <!-- ========================================== -->
+        <div class="purchase-card">
+            <div class="card-heading">
+                <i class="ph ph-user-check" style="color:#2563eb; font-size:1.3rem;"></i>
+                Supplier & Payment Details
+            </div>
+
+            <!-- Supplier & Summary Row -->
+            <div class="form-grid-2" style="align-items:center;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <label style="font-size:0.85rem; font-weight:600; color:#475569;">Supplier Details</label>
+                        <a href="{% url 'supplier_create' %}" target="_blank"
+                            style="font-size:0.8rem; font-weight:600; color:#2563eb; text-decoration:none;">+ Create
+                            New</a>
+                    </div>
+                    <select name="supplier" id="supplier_select" class="grid-input" required
+                        onchange="updateSupplierSummary()">
+                        <option value="">Select Supplier</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.id }}" data-payables="{{ s.payables }}"
+                            data-days="{{ s.credit_days|default:30 }}" data-invs="1">{{ s.name }} (Payables: ₹{{
+                            s.payables }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="supplier-summary-box" id="supplierSummaryCard">
+                    <div><strong>Total payables:</strong> <span id="summaryPayables">₹0.00</span></div>
+                    <div><strong>Credit days remaining:</strong> <span id="summaryDays">-</span></div>
+                    <div><strong>Invoices remaining:</strong> <span id="summaryInvs">-</span></div>
+                </div>
+            </div>
+
+            <!-- Invoice Details & Date -->
+            <div class="form-grid-3">
+                <div>
+                    <label
+                        style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Purchase
+                        Inv Details (Invoice #)</label>
+                    <input type="text" name="purchase_inv_number" id="purchase_inv_number" class="grid-input" required
+                        placeholder="PINV-2026-001">
+                </div>
+                <div>
+                    <label
+                        style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Date</label>
+                    <input type="date" name="invoice_date" id="invoice_date" class="grid-input" required>
+                </div>
+                <div>
+                    <label
+                        style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Purchase
+                        Type</label>
+                    <select name="purchase_type" id="purchase_type" class="grid-input" required>
+                        <option value="CASH">Cash</option>
+                        <option value="CREDIT" selected>Credit</option>
+                        <option value="BILL_TO_BILL">Bill to Bill</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Amount Paid & Balance to Pay -->
+            <div class="form-grid-2">
+                <div>
+                    <label
+                        style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Amount
+                        Paid (₹)</label>
+                    <input type="number" step="0.01" name="amount_paid" id="amount_paid" class="grid-input" value="0.00"
+                        oninput="calculatePaymentTotals()" style="font-weight:700; color:#059669;">
+                </div>
+                <div>
+                    <label
+                        style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:4px; display:block;">Balance
+                        to Pay (₹)</label>
+                    <input type="text" id="displayBalance" class="grid-input" value="₹0.00" readonly
+                        style="font-weight:700; color:#dc2626; background:#fef2f2;">
+                </div>
+            </div>
+
+            <!-- Payment Mode Selector (Cash, Digital, Cheque) -->
+            <div style="margin-top:16px;">
+                <label style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:8px; display:block;">Mode
+                    of Payment</label>
+                <input type="hidden" name="payment_mode" id="payment_mode" value="CASH">
+
+                <div class="form-grid-2">
+                    <div class="mode-btn-group">
+                        <div class="mode-btn active" id="btn_cash" onclick="setPaymentMode('CASH')">Cash</div>
+                        <div class="mode-btn" id="btn_digital" onclick="setPaymentMode('DIGITAL')">Digital</div>
+                        <div class="mode-btn" id="btn_cheque" onclick="setPaymentMode('CHEQUE')">Cheque</div>
+                    </div>
+
+                    <!-- Cheque Side Panel -->
+                    <div id="chequeSidePanel"
+                        style="display:none; background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:14px;">
+                        <div style="margin-bottom:10px;">
+                            <label style="font-size:0.8rem; font-weight:600; color:#475569;">Select Bank</label>
+                            <input type="text" name="bank_name" class="grid-input" placeholder="e.g. HDFC Bank">
+                        </div>
+                        <div style="margin-bottom:10px;">
+                            <label style="font-size:0.8rem; font-weight:600; color:#475569;">Cheque No</label>
+                            <input type="text" name="cheque_number" class="grid-input" placeholder="6-digit Cheque No">
+                        </div>
+                        <div>
+                            <label style="font-size:0.8rem; font-weight:600; color:#475569;">Cheque Date</label>
+                            <input type="date" name="cheque_date" class="grid-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button & Footer Note -->
+            <div style="margin-top:24px; text-align:center;">
+                <button type="button" onclick="submitPurchaseInvoice()" class="btn-primary"
+                    style="padding:12px 36px; font-size:1.05rem; margin:0 auto; display:inline-flex;">
+                    <i class="ph ph-check-circle"></i> Save Purchase Entry
+                </button>
+
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<script>
+    let purchasedItems = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('invoice_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('purchase_inv_number').value = 'PINV-' + Math.floor(100000 + Math.random() * 900000);
+    });
+
+    function updateSupplierSummary() {
+        const sel = document.getElementById('supplier_select');
+        const opt = sel.options[sel.selectedIndex];
+        if (opt && opt.value) {
+            document.getElementById('summaryPayables').textContent = '₹' + (opt.dataset.payables || '0.00');
+            document.getElementById('summaryDays').textContent = (opt.dataset.days || '30') + ' Days';
+            document.getElementById('summaryInvs').textContent = opt.dataset.invs || '1';
+        } else {
+            document.getElementById('summaryPayables').textContent = '₹0.00';
+            document.getElementById('summaryDays').textContent = '-';
+            document.getElementById('summaryInvs').textContent = '-';
+        }
+    }
+
+    function filterStockItemsByGroup() {
+        const selectedGroup = document.getElementById('item_group_select').value;
+        const stockSelect = document.getElementById('stock_item_select');
+
+        for (let i = 0; i < stockSelect.options.length; i++) {
+            const opt = stockSelect.options[i];
+            if (!opt.value) continue; // skip header option
+
+            const grp = opt.dataset.group;
+            if (!selectedGroup || grp === selectedGroup) {
+                opt.style.display = '';
+                opt.disabled = false;
+            } else {
+                opt.style.display = 'none';
+                opt.disabled = true;
+            }
+        }
+        stockSelect.value = '';
+        resetItemInputs();
+    }
+
+    function onStockItemSelectChanged() {
+        const stockSelect = document.getElementById('stock_item_select');
+        const opt = stockSelect.options[stockSelect.selectedIndex];
+
+        if (opt && opt.value) {
+            document.getElementById('input_rate').value = '0.00';
+            document.getElementById('input_big_unit').value = opt.dataset.mainunit || 'Box';
+            document.getElementById('input_base_unit').value = opt.dataset.baseunit || 'Piece';
+            document.getElementById('input_conv_count').value = opt.dataset.conv || '1';
+            document.getElementById('input_tax_pct').value = parseFloat(opt.dataset.tax || 0).toFixed(2);
+        } else {
+            resetItemInputs();
+        }
+    }
+
+    function resetItemInputs() {
+        document.getElementById('input_qty').value = '1';
+        document.getElementById('input_rate').value = '0.00';
+        document.getElementById('input_tax_pct').value = '0.00';
+        document.getElementById('input_conv_count').value = '1';
+    }
+
+    function addSelectedItemToTable() {
+        const stockSelect = document.getElementById('stock_item_select');
+        const opt = stockSelect.options[stockSelect.selectedIndex];
+
+        if (!opt || !opt.value) {
+            alert("Please select a Stock Item Name.");
+            return;
+        }
+
+        const stockId = opt.value;
+        const itemName = opt.dataset.name;
+        const hsn = opt.dataset.hsn || '';
+        const qty = parseFloat(document.getElementById('input_qty').value) || 1;
+        const bigUnit = document.getElementById('input_big_unit').value;
+        const baseUnit = document.getElementById('input_base_unit').value;
+        const convCount = parseFloat(document.getElementById('input_conv_count').value) || 1;
+        const rate = parseFloat(document.getElementById('input_rate').value) || 0;
+        const taxPct = parseFloat(document.getElementById('input_tax_pct').value) || 0;
+
+        const lineSub = rate * qty;
+        const lineTax = lineSub * (taxPct / 100);
+        const lineTotal = lineSub + lineTax;
+
+        purchasedItems.push({
+            stock_id: stockId,
+            item_name: itemName,
+            hsn: hsn,
+            rate: rate,
+            qty: qty,
+            main_unit: bigUnit,
+            base_unit: baseUnit,
+            conversion_count: convCount,
+            tax: taxPct,
+            total_including_tax: lineTotal
+        });
+
+        renderPurchasedTable();
+        // reset selection
+        stockSelect.value = '';
+        resetItemInputs();
+    }
+
+    function renderPurchasedTable() {
+        const tbody = document.getElementById('purchasedTableTbody');
+        tbody.innerHTML = '';
+        let grandTotal = 0;
+
+        purchasedItems.forEach((item, index) => {
+            grandTotal += item.total_including_tax;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td><strong>${item.item_name}</strong></td>
+            <td>${item.hsn || '-'}</td>
+            <td style="text-align:right;">₹${item.rate.toFixed(2)}</td>
+            <td style="text-align:right; font-weight:700;">${item.qty}</td>
+            <td>${item.main_unit}</td>
+            <td>${item.base_unit}</td>
+            <td style="text-align:right; font-weight:700; color:#2563eb;">${item.tax}%</td>
+            <td style="text-align:right; font-weight:700; color:#1e293b;">₹${item.total_including_tax.toFixed(2)}</td>
+            <td style="text-align:center;">
+                <button type="button" class="action-btn delete" onclick="removePurchasedItem(${index})" style="background:#fef2f2; color:#ef4444; border:none; padding:4px 8px; border-radius:6px; cursor:pointer;"><i class="ph ph-trash"></i></button>
+            </td>
+        `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('displayGrandTotal').textContent = '₹' + grandTotal.toFixed(2);
+        calculatePaymentTotals();
+    }
+
+    function removePurchasedItem(index) {
+        purchasedItems.splice(index, 1);
+        renderPurchasedTable();
+    }
+
+    function calculatePaymentTotals() {
+        let grandTotal = 0;
+        purchasedItems.forEach(item => grandTotal += item.total_including_tax);
+        const paid = parseFloat(document.getElementById('amount_paid').value) || 0;
+        let balance = grandTotal - paid;
+        if (balance < 0) balance = 0;
+        document.getElementById('displayBalance').value = '₹' + balance.toFixed(2);
+    }
+
+    function setPaymentMode(mode) {
+        document.getElementById('payment_mode').value = mode;
+        document.getElementById('btn_cash').classList.toggle('active', mode === 'CASH');
+        document.getElementById('btn_digital').classList.toggle('active', mode === 'DIGITAL');
+        document.getElementById('btn_cheque').classList.toggle('active', mode === 'CHEQUE');
+        document.getElementById('chequeSidePanel').style.display = (mode === 'CHEQUE') ? 'block' : 'none';
+    }
+
+    function submitPurchaseInvoice() {
+        if (purchasedItems.length === 0) {
+            alert("Please add at least one item to the Purchased Item List.");
+            return;
+        }
+        const supplier = document.getElementById('supplier_select').value;
+        if (!supplier) {
+            alert("Please select a Supplier.");
+            return;
+        }
+        document.getElementById('items_json').value = JSON.stringify(purchasedItems);
+        document.getElementById('purchaseForm').submit();
+    }
+</script>
+{% endblock %}

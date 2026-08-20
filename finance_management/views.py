@@ -237,7 +237,7 @@ def api_list_invoices(request):
             'company_logo': request.build_absolute_uri(inv.branch.company.logo_color.url) if inv.branch and inv.branch.company and inv.branch.company.logo_color else '',
             'services': [
                 {'name': item.service_name, 'rate': str(item.rate)}
-                for item in inv.items.all()
+                for item in inv.items.all() if not item.is_operational
             ],
         })
 
@@ -1796,6 +1796,9 @@ def generate_invoice_pdf_file(invoice, base_url):
     html.write_pdf(target=pdf_path)
     
     # Return the absolute public URL
+    if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+        base_url = 'http://68.183.94.11:78'
+
     if not base_url.endswith('/'):
         base_url += '/'
     return f"{base_url}media/invoices/{pdf_filename}"
@@ -1831,6 +1834,9 @@ def generate_quotation_pdf_file(quotation, base_url):
     html = HTML(string=html_string, base_url=base_url)
     html.write_pdf(target=pdf_path)
     
+    if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+        base_url = 'http://68.183.94.11:78'
+
     if not base_url.endswith('/'):
         base_url += '/'
     return f"{base_url}media/quotations/{pdf_filename}"

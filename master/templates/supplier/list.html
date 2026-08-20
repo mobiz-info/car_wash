@@ -30,6 +30,8 @@
                     <th>Phone</th>
                     <th>GST No.</th>
                     <th>Address</th>
+                    <th style="text-align:right;">Credit Days</th>
+                    <th style="text-align:right;">Outstanding Payables</th>
                     <th>Status</th>
                     <th style="text-align:right;">Action</th>
                 </tr>
@@ -51,8 +53,16 @@
                         {{ obj.gst_no|default:"—" }}
                     </td>
 
-                    <td style="max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ obj.address }}">
+                    <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ obj.address }}">
                         {{ obj.address }}
+                    </td>
+
+                    <td style="text-align:right; font-weight:600;">
+                        {{ obj.credit_days }} days
+                    </td>
+
+                    <td style="text-align:right; font-weight:700; color:{% if obj.payables > 0 %}#dc2626{% else %}#059669{% endif %};">
+                        ₹{{ obj.payables }}
                     </td>
 
                     <td>

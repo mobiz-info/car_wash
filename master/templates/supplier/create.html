@@ -47,6 +47,40 @@
             {{ form.address.errors }}
         </div>
 
+        <div class="form-group">
+            <label>Supplier Type</label>
+            {{ form.supplier_type }}
+            {{ form.supplier_type.errors }}
+        </div>
+
+        <div id="credit_fields_container" style="{% if form.supplier_type.value == 'credit' %}display:block;{% else %}display:none;{% endif %} background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
+            <div style="font-weight:700; color:#1e293b; margin-bottom:12px;">Credit Details</div>
+            
+            <div class="form-group">
+                <label>Credit Limit (₹)</label>
+                {{ form.credit_limit }}
+                {{ form.credit_limit.errors }}
+            </div>
+
+            <div class="form-group">
+                <label>Credit Days</label>
+                {{ form.credit_days }}
+                {{ form.credit_days.errors }}
+            </div>
+
+            <div class="form-group">
+                <label>Max Credit Invoices</label>
+                {{ form.no_of_invoices }}
+                {{ form.no_of_invoices.errors }}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Opening Payables (₹)</label>
+            {{ form.payables }}
+            {{ form.payables.errors }}
+        </div>
+
         <div class="form-group" style="display:flex; align-items:center; gap:8px;">
             {{ form.is_active }}
             <label for="id_is_active" style="margin-bottom:0; cursor:pointer;">Is Active</label>
@@ -61,5 +95,25 @@
         </div>
     </form>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const typeSelect = document.getElementById("id_supplier_type");
+        const creditContainer = document.getElementById("credit_fields_container");
+
+        function toggleCreditFields() {
+            if (typeSelect && typeSelect.value === "credit") {
+                creditContainer.style.display = "block";
+            } else {
+                creditContainer.style.display = "none";
+            }
+        }
+
+        if (typeSelect) {
+            typeSelect.addEventListener("change", toggleCreditFields);
+            toggleCreditFields();
+        }
+    });
+</script>
 
 {% endblock %}

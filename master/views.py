@@ -1,3 +1,5 @@
+import json
+from decimal import Decimal
 from django.views.generic import TemplateView
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -8,6 +10,8 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from django.db.models import Q
+from django.db import IntegrityError
+from decimal import Decimal
 
 from .models import *
 from .forms import *
@@ -303,8 +307,31 @@ def area_delete(request, id):
 
 @login_required
 def vehicle_type_list(request):
-    data = VehicleType.objects.filter(is_deleted=False)
-    return render(request, 'vehicle_type/list.html', {'data': data})
+    search = request.GET.get('search', '')
+    role_name = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role_name.name if role_name else None
+
+    if role_name == "SUPER_ADMIN" or request.user.is_superuser:
+        data = VehicleType.objects.filter(company__isnull=True, is_deleted=False)
+    else:
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        data = VehicleType.objects.filter(
+            Q(company=company) | Q(company__isnull=True),
+            is_deleted=False
+        )
+
+    if search:
+        data = data.filter(name__icontains=search)
+
+    data = data.order_by('name')
+    paginator = Paginator(data, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'vehicle_type/list.html', {
+        'data': page_obj,
+        'page_obj': page_obj,
+        'search': search
+    })
 
 @login_required
 def vehicle_type_create(request):
@@ -314,6 +341,16 @@ def vehicle_type_create(request):
         if form.is_valid():
             instance = form.save(commit=False)
             instance.auto_id = get_auto_id(VehicleType)
+
+            role_name = getattr(getattr(request.user, 'profile', None), 'role', None)
+            role_name = role_name.name if role_name else None
+
+            if role_name == "SUPER_ADMIN" or request.user.is_superuser:
+                company = None
+            else:
+                company = getattr(getattr(request.user, 'profile', None), 'company', None)
+
+            instance.company = company
             instance.save()
             messages.success(request, "Vehicle Type created successfully")
             return redirect('vehicle_type_list')
@@ -326,7 +363,17 @@ def vehicle_type_create(request):
     
 @login_required
 def vehicle_type_edit(request, id):
-    instance = get_object_or_404(VehicleType, id=id, is_deleted=False)
+    role_name = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role_name.name if role_name else None
+
+    if role_name == "SUPER_ADMIN" or request.user.is_superuser:
+        instance = get_object_or_404(VehicleType, id=id, is_deleted=False)
+    else:
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        instance = VehicleType.objects.filter(id=id, is_deleted=False).first()
+        if not instance or instance.company != company:
+            messages.error(request, "Superadmin created vehicle types cannot be edited.")
+            return redirect('vehicle_type_list')
 
     form = VehicleTypeForm(request.POST or None, instance=instance)
 
@@ -346,19 +393,48 @@ def vehicle_type_edit(request, id):
     
 @login_required
 def vehicle_type_delete(request, id):
-    instance = get_object_or_404(VehicleType, id=id)
-    instance.is_deleted = True
-    instance.save()
-    messages.success(request, "Vehicle Type deleted successfully")
+    role_name = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role_name.name if role_name else None
+
+    if role_name == "SUPER_ADMIN" or request.user.is_superuser:
+        instance = get_object_or_404(VehicleType, id=id)
+        instance.is_deleted = True
+        instance.save()
+        VehicleTypeModel.objects.filter(vehicle_type=instance).update(is_deleted=True)
+        messages.success(request, "Vehicle Type deleted successfully")
+    else:
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        instance = VehicleType.objects.filter(id=id, is_deleted=False).first()
+        if instance and instance.company == company:
+            instance.is_deleted = True
+            instance.save()
+            VehicleTypeModel.objects.filter(vehicle_type=instance).update(is_deleted=True)
+            messages.success(request, "Vehicle Type deleted successfully")
+        else:
+            messages.error(request, "Superadmin created vehicle types cannot be deleted.")
+
     return redirect('vehicle_type_list')
+
 
 @login_required
 def vehicle_type_model_list(request):
     search = request.GET.get('search', '')
+    role_name = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role_name.name if role_name else None
 
-    data = VehicleTypeModel.objects.filter(
-        is_deleted=False
-    ).select_related('vehicle_type')
+    if role_name == "SUPER_ADMIN" or request.user.is_superuser:
+        data = VehicleTypeModel.objects.filter(company__isnull=True, is_deleted=False, vehicle_type__is_deleted=False)
+    else:
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        data = VehicleTypeModel.objects.filter(
+            Q(company=company) | Q(company__isnull=True),
+            is_deleted=False,
+            vehicle_type__is_deleted=False
+        )
+        if company:
+            data = data.exclude(disabled_companies=company)
+
+    data = data.select_related('vehicle_type', 'company', 'emission_standard')
 
     if search:
         data = data.filter(
@@ -368,7 +444,7 @@ def vehicle_type_model_list(request):
 
     data = data.order_by('vehicle_type__name', 'name')
 
-    paginator = Paginator(data, 20)
+    paginator = Paginator(data, 30)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -383,16 +459,133 @@ def vehicle_type_model_list(request):
     )
 
 @login_required
+def emission_standard_list(request):
+    search = request.GET.get('search', '')
+    data = EmissionStandard.objects.filter(is_deleted=False)
+    if search:
+        data = data.filter(Q(name__icontains=search) | Q(fuel_type__icontains=search))
+    data = data.order_by('validity_months', 'name')
+    paginator = Paginator(data, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'emission_standard/list.html', {
+        'data': page_obj,
+        'page_obj': page_obj,
+        'search': search,
+        'title': 'Emission Standards Master'
+    })
+
+@login_required
+def emission_standard_create(request):
+    form = EmissionStandardForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(EmissionStandard)
+            instance.creator = request.user
+            instance.save()
+            messages.success(request, "Emission Standard created successfully.")
+            return redirect('emission_standard_list')
+    return render(request, 'emission_standard/create.html', {
+        'form': form,
+        'title': 'Create Emission Standard'
+    })
+
+@login_required
+def emission_standard_edit(request, id):
+    instance = get_object_or_404(EmissionStandard, id=id, is_deleted=False)
+    form = EmissionStandardForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Emission Standard updated successfully.")
+            return redirect('emission_standard_list')
+    return render(request, 'emission_standard/create.html', {
+        'form': form,
+        'title': 'Edit Emission Standard'
+    })
+
+@login_required
+def emission_standard_delete(request, id):
+    instance = get_object_or_404(EmissionStandard, id=id, is_deleted=False)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Emission Standard deleted successfully.")
+    return redirect('emission_standard_list')
+
+@login_required
+def vehicle_type_model_toggle_enable(request, id):
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    if not company:
+        messages.error(request, "Company profile not found.")
+        return redirect('vehicle_type_model_list')
+
+    instance = get_object_or_404(VehicleTypeModel, id=id, company__isnull=True, is_deleted=False)
+
+    if instance.disabled_companies.filter(id=company.id).exists():
+        instance.disabled_companies.remove(company)
+        messages.success(request, f"Global segment '{instance.name}' has been ENABLED for your company.")
+    else:
+        instance.disabled_companies.add(company)
+        messages.success(request, f"Global segment '{instance.name}' has been DISABLED for your company.")
+
+    return redirect('vehicle_type_model_list')
+
+@login_required
 def vehicle_type_model_create(request):
-    form = VehicleTypeModelForm(request.POST or None)
+    role_name = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role_name.name if role_name else None
+
+    if role_name == "SUPER_ADMIN" or request.user.is_superuser:
+        company = None
+    else:
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+
+    form = VehicleTypeModelForm(request.POST or None, company=company)
 
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)
             instance.auto_id = get_auto_id(VehicleTypeModel)
-            instance.save()
-            messages.success(request, "Vehicle Segment created successfully")
-            return redirect('vehicle_type_model_list')
+            instance.creator = request.user
+            instance.company = company
+            name = instance.name.strip() if instance.name else ''
+
+            existing = VehicleTypeModel.objects.filter(
+                company=company,
+                vehicle_type=instance.vehicle_type,
+                name__iexact=name
+            ).first()
+
+            if existing:
+                if existing.is_deleted:
+                    existing.is_deleted = False
+                    existing.emission_standard = instance.emission_standard
+                    existing.is_active = instance.is_active
+                    existing.updater = request.user
+                    existing.save()
+                    if company:
+                        from client_management.models import Branch
+                        for b in Branch.objects.filter(company=company, is_deleted=False):
+                            if b.enabled_vehicle_segments.exists():
+                                b.enabled_vehicle_segments.add(existing)
+                    messages.success(request, f"Vehicle Segment '{existing.name}' restored and updated successfully.")
+                    return redirect('vehicle_type_model_list')
+                else:
+                    form.add_error('name', f"A vehicle segment named '{name}' already exists for this vehicle type.")
+            else:
+                try:
+                    instance.save()
+                    if company:
+                        from client_management.models import Branch
+                        for b in Branch.objects.filter(company=company, is_deleted=False):
+                            if b.enabled_vehicle_segments.exists():
+                                b.enabled_vehicle_segments.add(instance)
+                    messages.success(request, "Vehicle Segment created successfully")
+                    return redirect('vehicle_type_model_list')
+                except IntegrityError:
+                    form.add_error('name', f"A vehicle segment named '{name}' already exists for this vehicle type.")
 
     return render(request, 'vehicle_type_model/create.html', {
         'form': form,
@@ -402,17 +595,57 @@ def vehicle_type_model_create(request):
 
 @login_required
 def vehicle_type_model_edit(request, id):
-    instance = get_object_or_404(VehicleTypeModel, id=id, is_deleted=False)
+    role_name = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role_name.name if role_name else None
 
-    form = VehicleTypeModelForm(request.POST or None, instance=instance)
+    if role_name == "SUPER_ADMIN" or request.user.is_superuser:
+        instance = get_object_or_404(VehicleTypeModel, id=id, is_deleted=False)
+        company = None
+    else:
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        instance = VehicleTypeModel.objects.filter(id=id, is_deleted=False).first()
+        if not instance or instance.company != company:
+            messages.error(request, "Superadmin created segments cannot be edited.")
+            return redirect('vehicle_type_model_list')
+
+    form = VehicleTypeModelForm(request.POST or None, instance=instance, company=company)
 
     if request.method == 'POST':
         if form.is_valid():
-            instance = form.save(commit=False)
-            instance.updater = request.user
-            instance.save()
-            messages.success(request, "Vehicle Segment updated successfully")
-            return redirect('vehicle_type_model_list')
+            obj = form.save(commit=False)
+            obj.updater = request.user
+            if role_name != "SUPER_ADMIN" and not request.user.is_superuser:
+                company = getattr(getattr(request.user, 'profile', None), 'company', None)
+            else:
+                company = obj.company
+
+            obj.company = company
+            name = obj.name.strip() if obj.name else ''
+
+            existing = VehicleTypeModel.objects.filter(
+                company=company,
+                vehicle_type=obj.vehicle_type,
+                name__iexact=name
+            ).exclude(id=instance.id).first()
+
+            if existing:
+                if existing.is_deleted:
+                    existing.delete()
+                    try:
+                        obj.save()
+                        messages.success(request, "Vehicle Segment updated successfully")
+                        return redirect('vehicle_type_model_list')
+                    except IntegrityError:
+                        form.add_error('name', f"A vehicle segment named '{name}' already exists for this vehicle type.")
+                else:
+                    form.add_error('name', f"A vehicle segment named '{name}' already exists for this vehicle type.")
+            else:
+                try:
+                    obj.save()
+                    messages.success(request, "Vehicle Segment updated successfully")
+                    return redirect('vehicle_type_model_list')
+                except IntegrityError:
+                    form.add_error('name', f"A vehicle segment named '{name}' already exists for this vehicle type.")
 
     return render(request, 'vehicle_type_model/create.html', {
         'form': form,
@@ -422,11 +655,26 @@ def vehicle_type_model_edit(request, id):
 
 @login_required
 def vehicle_type_model_delete(request, id):
-    instance = get_object_or_404(VehicleTypeModel, id=id)
-    instance.is_deleted = True
-    instance.save()
-    messages.success(request, "Vehicle Segment deleted successfully")
+    role_name = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role_name.name if role_name else None
+
+    if role_name == "SUPER_ADMIN" or request.user.is_superuser:
+        instance = get_object_or_404(VehicleTypeModel, id=id, is_deleted=False)
+        instance.is_deleted = True
+        instance.save()
+        messages.success(request, "Vehicle Segment deleted successfully")
+    else:
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        instance = VehicleTypeModel.objects.filter(id=id, is_deleted=False).first()
+        if instance and instance.company == company:
+            instance.is_deleted = True
+            instance.save()
+            messages.success(request, "Vehicle Segment deleted successfully")
+        else:
+            messages.error(request, "Superadmin created segments cannot be deleted.")
+
     return redirect('vehicle_type_model_list')
+
 
 
 # ==========================================
@@ -2263,3 +2511,360 @@ def battery_delete(request, id):
     instance.save()
     messages.success(request, "Battery deleted successfully")
     return redirect('battery_list')
+
+
+# ==========================================
+# STOCK GROUP & SUB-GROUP CRUD
+# ==========================================
+
+from master.models import StockGroup, StockSubGroup, PurchaseInvoice, PurchaseInvoiceItem, SupplierPayment
+from master.services import process_purchase_invoice_save, update_supplier_payables
+
+@login_required
+def stock_group_list(request):
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    groups = StockGroup.objects.filter(is_deleted=False)
+    if company:
+        groups = groups.filter(Q(company=company) | Q(company__isnull=True))
+    return render(request, 'stock_group/list.html', {'groups': groups, 'title': 'Stock Groups'})
+
+@login_required
+def stock_group_create(request):
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if name:
+            StockGroup.objects.create(
+                auto_id=get_auto_id(StockGroup),
+                creator=request.user,
+                company=company,
+                name=name
+            )
+            messages.success(request, f"Stock Group '{name}' created successfully")
+            return redirect('stock_group_list')
+        messages.error(request, "Group Name is required")
+    return render(request, 'stock_group/create.html', {'title': 'Add Stock Group'})
+
+@login_required
+def stock_group_edit(request, id):
+    group = get_object_or_404(StockGroup, id=id, is_deleted=False)
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    if not request.user.is_superuser:
+        if group.company is None or group.company != company:
+            messages.error(request, "Superadmin Global Stock Groups cannot be edited by companies.")
+            return redirect('stock_group_list')
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if name:
+            group.name = name
+            group.updater = request.user
+            group.save()
+            messages.success(request, "Stock Group updated successfully")
+            return redirect('stock_group_list')
+        messages.error(request, "Group Name is required")
+    return render(request, 'stock_group/create.html', {'group': group, 'title': 'Edit Stock Group'})
+
+@login_required
+def stock_group_delete(request, id):
+    group = get_object_or_404(StockGroup, id=id)
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    if not request.user.is_superuser:
+        if group.company is None or group.company != company:
+            messages.error(request, "Superadmin Global Stock Groups cannot be deleted by companies.")
+            return redirect('stock_group_list')
+    group.is_deleted = True
+    group.save()
+    messages.success(request, "Stock Group deleted successfully")
+    return redirect('stock_group_list')
+
+
+@login_required
+def stock_subgroup_list(request):
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    subgroups = StockSubGroup.objects.filter(is_deleted=False).select_related('group')
+    if company:
+        subgroups = subgroups.filter(Q(company=company) | Q(company__isnull=True))
+    return render(request, 'stock_subgroup/list.html', {'subgroups': subgroups, 'title': 'Stock Sub-Groups'})
+
+@login_required
+def stock_subgroup_create(request):
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    groups = StockGroup.objects.filter(is_deleted=False)
+    if company:
+        groups = groups.filter(Q(company=company) | Q(company__isnull=True))
+
+    if request.method == 'POST':
+        group_id = request.POST.get('group')
+        name = request.POST.get('name', '').strip()
+        if group_id and name:
+            grp = get_object_or_404(StockGroup, id=group_id)
+            StockSubGroup.objects.create(
+                auto_id=get_auto_id(StockSubGroup),
+                creator=request.user,
+                company=company,
+                group=grp,
+                name=name
+            )
+            messages.success(request, f"Sub-Group '{name}' created successfully under '{grp.name}'")
+            return redirect('stock_subgroup_list')
+        messages.error(request, "Group and Sub-Group Name are required")
+    return render(request, 'stock_subgroup/create.html', {'groups': groups, 'title': 'Add Stock Sub-Group'})
+
+@login_required
+def stock_subgroup_edit(request, id):
+    subgroup = get_object_or_404(StockSubGroup, id=id, is_deleted=False)
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    if not request.user.is_superuser:
+        if subgroup.company is None or subgroup.company != company:
+            messages.error(request, "Superadmin Global Stock Sub-Groups cannot be edited by companies.")
+            return redirect('stock_subgroup_list')
+    groups = StockGroup.objects.filter(is_deleted=False)
+    if company:
+        groups = groups.filter(Q(company=company) | Q(company__isnull=True))
+
+    if request.method == 'POST':
+        group_id = request.POST.get('group')
+        name = request.POST.get('name', '').strip()
+        if group_id and name:
+            grp = get_object_or_404(StockGroup, id=group_id)
+            subgroup.group = grp
+            subgroup.name = name
+            subgroup.updater = request.user
+            subgroup.save()
+            messages.success(request, "Stock Sub-Group updated successfully")
+            return redirect('stock_subgroup_list')
+    return render(request, 'stock_subgroup/create.html', {'subgroup': subgroup, 'groups': groups, 'title': 'Edit Stock Sub-Group'})
+
+@login_required
+def stock_subgroup_delete(request, id):
+    subgroup = get_object_or_404(StockSubGroup, id=id)
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    if not request.user.is_superuser:
+        if subgroup.company is None or subgroup.company != company:
+            messages.error(request, "Superadmin Global Stock Sub-Groups cannot be deleted by companies.")
+            return redirect('stock_subgroup_list')
+    subgroup.is_deleted = True
+    subgroup.save()
+    messages.success(request, "Stock Sub-Group deleted successfully")
+    return redirect('stock_subgroup_list')
+
+
+# ==========================================
+# SENIOR ERP PURCHASE INVOICE SYSTEM
+# ==========================================
+
+@login_required
+def purchase_invoice_list(request):
+    role_name = getattr(getattr(getattr(request.user, 'profile', None), 'role', None), 'name', None)
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        invoices = PurchaseInvoice.objects.filter(company=company, is_deleted=False)
+    else:
+        branch = getattr(request.user, 'managed_branch', None)
+        invoices = PurchaseInvoice.objects.filter(branch=branch, is_deleted=False)
+
+    invoices = invoices.select_related('supplier', 'branch').order_by('-invoice_date', '-date_added')
+    return render(request, 'purchase_invoice/list.html', {'invoices': invoices, 'title': 'Purchase Invoices'})
+
+
+@login_required
+def purchase_invoice_create(request):
+    role_name = getattr(getattr(getattr(request.user, 'profile', None), 'role', None), 'name', None)
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    branch = getattr(request.user, 'managed_branch', None)
+    if not branch and company:
+        branch = Branch.objects.filter(company=company, is_deleted=False).first()
+
+    if not company and branch:
+        company = branch.company
+
+    from client_management.models import Stock
+    from master.models import Supplier
+
+    if request.method == 'POST':
+        supplier_id = request.POST.get('supplier')
+        inv_no = request.POST.get('purchase_inv_number', '').strip()
+        inv_date = request.POST.get('invoice_date')
+        purchase_type = request.POST.get('purchase_type', 'CASH')
+        payment_mode = request.POST.get('payment_mode', 'CASH')
+        amount_paid = Decimal(str(request.POST.get('amount_paid', 0) or 0))
+
+        bank_name = request.POST.get('bank_name', '').strip()
+        cheque_number = request.POST.get('cheque_number', '').strip()
+        cheque_date = request.POST.get('cheque_date') or None
+
+        supplier = get_object_or_404(Supplier, id=supplier_id)
+
+        # Parse item rows from dynamic form
+        items_data = json.loads(request.POST.get('items_json', '[]'))
+        if not items_data:
+            messages.error(request, "At least one purchase item is required.")
+            return redirect('purchase_invoice_create')
+
+        subtotal = Decimal('0.00')
+        tax_total = Decimal('0.00')
+        grand_total = Decimal('0.00')
+
+        parsed_items = []
+        for row in items_data:
+            stk_id = row.get('stock_id')
+            stk = get_object_or_404(Stock, id=stk_id) if stk_id else None
+            rate = Decimal(str(row.get('rate', 0)))
+            qty = Decimal(str(row.get('qty', 1)))
+            tax_pct = Decimal(str(row.get('tax', 0)))
+            conv = Decimal(str(row.get('conversion_count', 1)))
+
+            line_sub = rate * qty
+            line_tax = line_sub * (tax_pct / Decimal('100'))
+            line_total = line_sub + line_tax
+
+            subtotal += line_sub
+            tax_total += line_tax
+            grand_total += line_total
+
+            parsed_items.append({
+                'stock_item': stk,
+                'hsn_code': row.get('hsn', getattr(stk, 'hsn_code', '')),
+                'rate': rate,
+                'quantity': qty,
+                'main_unit': row.get('main_unit', getattr(stk, 'main_unit', '')),
+                'base_unit': row.get('base_unit', getattr(stk, 'base_unit', '')),
+                'conversion_count': conv,
+                'tax_percent': tax_pct,
+                'tax_amount': line_tax,
+                'total_including_tax': line_total,
+            })
+
+        balance_to_pay = grand_total - amount_paid
+        if balance_to_pay < Decimal('0.00'):
+            balance_to_pay = Decimal('0.00')
+
+        invoice = PurchaseInvoice.objects.create(
+            auto_id=get_auto_id(PurchaseInvoice),
+            creator=request.user,
+            company=company,
+            branch=branch,
+            supplier=supplier,
+            purchase_inv_number=inv_no,
+            invoice_date=inv_date,
+            purchase_type=purchase_type,
+            subtotal=subtotal,
+            tax_total=tax_total,
+            grand_total=grand_total,
+            amount_paid=amount_paid,
+            balance_to_pay=balance_to_pay,
+            payment_mode=payment_mode,
+            bank_name=bank_name if payment_mode == 'CHEQUE' else '',
+            cheque_number=cheque_number if payment_mode == 'CHEQUE' else '',
+            cheque_date=cheque_date if payment_mode == 'CHEQUE' else None,
+            remarks=request.POST.get('remarks', '')
+        )
+
+        for p_item in parsed_items:
+            PurchaseInvoiceItem.objects.create(
+                auto_id=get_auto_id(PurchaseInvoiceItem),
+                creator=request.user,
+                purchase_invoice=invoice,
+                **p_item
+            )
+
+        # Trigger Senior's 4-Way Auto System Sync!
+        process_purchase_invoice_save(invoice, creator_user=request.user)
+
+        messages.success(request, f"Purchase Invoice #{inv_no} created & synchronized across Stock, Expense, & Payables!")
+        return redirect('purchase_invoice_list')
+
+    from master.models import StockGroup
+    if request.user.is_superuser or not company:
+        groups = StockGroup.objects.filter(is_deleted=False).order_by('name')
+        suppliers = Supplier.objects.filter(is_deleted=False, is_active=True).order_by('name')
+        stocks = Stock.objects.filter(is_deleted=False).select_related('group', 'sub_group').order_by('item_name')
+    else:
+        groups = StockGroup.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
+        suppliers = Supplier.objects.filter(company=company, is_deleted=False, is_active=True).order_by('name')
+        stocks = Stock.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).select_related('group', 'sub_group').order_by('item_name')
+
+    return render(request, 'purchase_invoice/create.html', {
+        'suppliers': suppliers,
+        'stocks': stocks,
+        'groups': groups,
+        'title': 'New Purchase Entry'
+    })
+
+
+@login_required
+def purchase_invoice_detail(request, id):
+    invoice = get_object_or_404(PurchaseInvoice, id=id, is_deleted=False)
+    return render(request, 'purchase_invoice/detail.html', {'invoice': invoice, 'title': f"Purchase Inv #{invoice.purchase_inv_number}"})
+
+
+# ==========================================
+# SUPPLIER PAYABLES & SETTLEMENT
+# ==========================================
+
+@login_required
+def supplier_payables_list(request):
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    from master.models import Supplier
+    suppliers = Supplier.objects.filter(company=company, is_deleted=False).order_by('name')
+
+    # Recalculate payables for accuracy
+    for s in suppliers:
+        update_supplier_payables(s)
+
+    return render(request, 'supplier_payables/list.html', {'suppliers': suppliers, 'title': 'Supplier Payables'})
+
+
+@login_required
+def supplier_payment_create(request, supplier_id):
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    branch = getattr(request.user, 'managed_branch', None)
+    if not branch and company:
+        branch = Branch.objects.filter(company=company, is_deleted=False).first()
+
+    supplier = get_object_or_404(Supplier, id=supplier_id, is_deleted=False)
+
+    if request.method == 'POST':
+        amt = Decimal(str(request.POST.get('amount_paid', 0)))
+        pay_date = request.POST.get('payment_date')
+        pay_mode = request.POST.get('payment_mode', 'CASH')
+        bank_name = request.POST.get('bank_name', '').strip()
+        cheque_no = request.POST.get('cheque_number', '').strip()
+        cheque_date = request.POST.get('cheque_date') or None
+
+        SupplierPayment.objects.create(
+            auto_id=get_auto_id(SupplierPayment),
+            creator=request.user,
+            supplier=supplier,
+            company=company,
+            branch=branch,
+            amount_paid=amt,
+            payment_date=pay_date,
+            payment_mode=pay_mode,
+            bank_name=bank_name if pay_mode == 'CHEQUE' else '',
+            cheque_number=cheque_no if pay_mode == 'CHEQUE' else '',
+            cheque_date=cheque_date if pay_mode == 'CHEQUE' else None,
+            remarks=request.POST.get('remarks', '')
+        )
+
+        # Deduct payment from pending invoices or payables
+        pending_invoices = PurchaseInvoice.objects.filter(supplier=supplier, balance_to_pay__gt=0, is_deleted=False).order_by('invoice_date')
+        remaining_payment = amt
+        for inv in pending_invoices:
+            if remaining_payment <= 0:
+                break
+            if inv.balance_to_pay <= remaining_payment:
+                remaining_payment -= inv.balance_to_pay
+                inv.amount_paid += inv.balance_to_pay
+                inv.balance_to_pay = Decimal('0.00')
+            else:
+                inv.balance_to_pay -= remaining_payment
+                inv.amount_paid += remaining_payment
+                remaining_payment = Decimal('0.00')
+            inv.save()
+
+        update_supplier_payables(supplier)
+        messages.success(request, f"Payment of ₹{amt} recorded for Supplier '{supplier.name}' successfully!")
+        return redirect('supplier_payables_list')
+
+    return render(request, 'supplier_payables/pay.html', {'supplier': supplier, 'title': f"Record Payment - {supplier.name}"})

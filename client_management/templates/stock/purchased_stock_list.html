@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}Purchased Stock - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Purchased Stock{% endblock %}
+{% block breadcrumb_active %}Purchased Stock{% endblock %}
+
+{% block content %}
+<style>
+    .scope-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .type-badge {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .type-trading {
+        background: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+    .type-operational {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+    .type-both {
+        background: #f3e8ff;
+        color: #6b21a8;
+        border: 1px solid #e9d5ff;
+    }
+</style>
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search purchased stock item..." class="search-input">
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Stock Item</th>
+                    <th>Item Type</th>
+                    <th>Group / Sub-Group</th>
+                    <th>Unit</th>
+                    <th style="text-align:right;">Total Purchased Qty</th>
+                    <th style="text-align:right;">Current Available Stock</th>
+                    <th style="text-align:right;">Total Purchased Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in page_obj %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;color:#2563eb;">
+                                <i class="ph-fill ph-package"></i>
+                            </div>
+                            <div>
+                                <strong>{{ item.stock.item_name }}</strong>
+                                {% if item.stock.brand %}
+                                    <div style="font-size:0.75rem; color:#64748b;">{{ item.stock.brand }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+
+                    <td>
+                        {% if item.stock.is_trading and item.stock.is_operational %}
+                            <span class="type-badge type-both" title="Trading & Internal Operational Consumable">
+                                <i class="ph-bold ph-swap"></i> Trading & Operational
+                            </span>
+                        {% elif item.stock.is_trading %}
+                            <span class="type-badge type-trading" title="Trading Item (Billed to customer)">
+                                <i class="ph-bold ph-shopping-cart"></i> Trading
+                            </span>
+                        {% elif item.stock.is_operational %}
+                            <span class="type-badge type-operational" title="Operational Consumable (Internal use, ₹0 billing)">
+                                <i class="ph-bold ph-wrench"></i> Operational
+                            </span>
+                        {% else %}
+                            <span style="font-weight:400; color:#94a3b8; font-style:italic;">None</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if item.stock.group %}
+                            <span class="scope-badge" style="background:#f1f5f9; color:#334155;">
+                                <i class="ph ph-folders"></i> {{ item.stock.group.name }}{% if item.stock.sub_group %} › {{ item.stock.sub_group.name }}{% endif %}
+                            </span>
+                        {% else %}
+                            <span style="color:#94a3b8; font-style:italic;">General</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <span style="font-weight:500; color:#475569;">{{ item.stock.get_unit_display }}</span>
+                    </td>
+
+                    <td style="text-align:right; font-weight:700; color:#2563eb;">
+                        {{ item.total_purchased_qty }}
+                    </td>
+
+                    <td style="text-align:right; font-weight:700; color:{% if item.current_stock_qty <= 2 %}#dc2626{% else %}#059669{% endif %};">
+                        {{ item.current_stock_qty }}
+                    </td>
+
+                    <td style="text-align:right; font-weight:800; color:#0f172a;">
+                        ₹{{ item.total_purchased_val }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; padding: 30px; color:#94a3b8;">
+                        No purchased stock entries found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="page-link">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Stock Group{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container { max-width: 600px; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-folders" style="color:#3b82f6;font-size:1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="id_name">Group Name <span style="color:red">*</span></label>
+                <input type="text" id="id_name" name="name" class="form-control" value="{{ group.name|default:'' }}" required placeholder="e.g. Lubricants, Spare Parts, Tyres">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'stock_group_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i>
+                {% if group %}Save Changes{% else %}Create Stock Group{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock Groups - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Stock Groups{% endblock %}
+{% block breadcrumb_active %}Stock Groups{% endblock %}
+
+{% block content %}
+<style>
+    .scope-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .scope-company {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+</style>
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{% if search %}{{ search }}{% endif %}" placeholder="Search stock group..." class="search-input">
+        </form>
+        <a href="{% url 'stock_group_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Stock Group
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Group Name</th>
+                    <th>Scope</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in groups %}
+                <tr>
+                    <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#2563eb;">
+                                <i class="ph-fill ph-folders"></i>
+                            </div>
+                            <strong>{{ g.name }}</strong>
+                        </div>
+                    </td>
+
+                    <td>
+                        {% if not g.company %}
+                            <span class="scope-badge" style="background:#f0fdf4; color:#166534;">
+                                <i class="ph ph-globe"></i> Global (Superadmin)
+                            </span>
+                        {% else %}
+                            <span class="scope-badge scope-company">
+                                <i class="ph ph-buildings"></i> {{ g.company.company_name }}
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            {% if request.user.is_superuser or g.company %}
+                                <a href="{% url 'stock_group_edit' g.id %}" class="action-btn edit" title="Edit Group">
+                                    <i class="ph ph-pencil-simple"></i>
+                                </a>
+                                <a href="{% url 'stock_group_delete' g.id %}" onclick="return confirm('Delete this stock group?')" class="action-btn delete" title="Delete Group">
+                                    <i class="ph ph-trash"></i>
+                                </a>
+                            {% else %}
+                                <span class="action-btn disabled" style="opacity:0.4; cursor:not-allowed;" title="Global stock groups cannot be edited or deleted by companies">
+                                    <i class="ph ph-lock-key"></i>
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align:center; padding: 30px; color:#94a3b8;">
+                        No stock groups found. Click "Add Stock Group" to create one.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

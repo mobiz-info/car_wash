@@ -2670,8 +2670,11 @@ def api_whatsapp_webhook(request):
                 }
 
             # 4. Send reply via wawy.org/Webgenie API
-            with open('/tmp/wa_debug.log', 'a') as f:
-                f.write(f"BEFORE SEND: state='{getattr(session, 'state', 'NONE')}' choice='{choice}' reply='{reply_text}' loc={bool(location_pin)} menu={bool(interactive_menu)}\n")
+            try:
+                with open('/tmp/wa_debug.log', 'a') as f:
+                    f.write(f"BEFORE SEND: state='{getattr(session, 'state', 'NONE')}' choice='{choice}' reply='{reply_text}' loc={bool(location_pin)} menu={bool(interactive_menu)}\n")
+            except Exception:
+                pass
             response_text = send_whatsapp_simple(
                 from_phone, 
                 reply_text, 
@@ -3586,7 +3589,7 @@ def api_send_thanks_msg_generic(request):
 
 @csrf_exempt
 def api_reminder_list(request):
-    """List scheduled reminder plans that are due."""
+    """List scheduled reminder plans that are due or all active scheduled plans."""
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
 
@@ -3598,27 +3601,41 @@ def api_reminder_list(request):
     from django.utils import timezone
     from datetime import datetime
 
-    # Get active date (defaults to today)
+    # Get active date or show_all param
     date_str = request.GET.get('date')
-    selected_date = timezone.now().date()
-    if date_str:
+    show_all = request.GET.get('show_all', '').lower() in ['true', '1', 'yes']
+    all_dates = request.GET.get('all', '').lower() in ['true', '1', 'yes'] or date_str == 'all'
+    lte_mode = request.GET.get('lte', '').lower() in ['true', '1', 'yes']
+    
+    selected_date = None
+    if date_str and date_str.lower() not in ['all', 'today']:
         try:
             selected_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
             pass
+    elif date_str and date_str.lower() == 'today':
+        selected_date = timezone.now().date()
+    elif not date_str and not show_all and not all_dates:
+        selected_date = timezone.now().date()
 
-    # Filter due, unsent, and active plans
+    # Filter unsent and active plans
     plans = ReminderPlan.objects.filter(
         is_sent=False,
-        is_deleted=False,
-        scheduled_date__lte=selected_date
+        is_deleted=False
     ).select_related(
         'invoice', 'invoice__customer', 'invoice__vehicle',
         'invoice__vehicle__vehicle_type_model', 'reminder', 'reminder__service', 'branch'
     ).order_by('scheduled_date')
 
+    # If a specific date is provided and show_all is false, filter by selected_date
+    if selected_date and not show_all and not all_dates:
+        if lte_mode:
+            plans = plans.filter(scheduled_date__lte=selected_date)
+        else:
+            plans = plans.filter(scheduled_date=selected_date)
+
     # Filter by user branch/company scope
-    role = user.profile.role.name if user.profile.role else None
+    role = user.profile.role.name if (user.profile and user.profile.role) else None
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         plans = plans.filter(branch=user.managed_branch)
     elif role == 'COMPANY_ADMIN' and user.profile.company:
@@ -3638,8 +3655,23 @@ def api_reminder_list(request):
     for plan in plans:
         customer_name = plan.invoice.customer.name or "Customer"
         vehicle_no = plan.invoice.vehicle.vehicle_number if plan.invoice.vehicle else "your vehicle"
-        service_name = plan.reminder.service.name if (plan.reminder and plan.reminder.service) else ""
-        service_category = plan.reminder.service.category if (plan.reminder and plan.reminder.service) else ""
+
+        first_svc_item = plan.invoice.items.filter(service__isnull=False).first() if plan.invoice else None
+        if plan.reminder and plan.reminder.service:
+            service_name = plan.reminder.service.name
+        elif first_svc_item:
+            service_name = first_svc_item.service_name or (first_svc_item.service.name if first_svc_item.service else '')
+        else:
+            service_name = plan.template_name or "Service Reminder"
+
+        if plan.reminder and plan.reminder.service and plan.reminder.service.service_type:
+            service_category = plan.reminder.service.service_type.slug
+        elif first_svc_item and first_svc_item.service and first_svc_item.service.service_type:
+            service_category = first_svc_item.service.service_type.slug
+        else:
+            service_category = ""
+
+        formatted_date = plan.scheduled_date.strftime("%d-%m-%Y") if plan.scheduled_date else ""
         
         next_oil_change_km = None
         for item in plan.invoice.items.all():
@@ -3652,10 +3684,22 @@ def api_reminder_list(request):
         if service_category == 'oil_change':
             message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_oil_change_km or 'N/A'} km"
         else:
-            msg_template = plan.reminder.reminder_message if plan.reminder else ""
+            msg_template = (plan.reminder.reminder_message if (plan.reminder and plan.reminder.reminder_message) else "").strip()
+            if not msg_template:
+                msg_template = "Dear {customer_name}, your vehicle {vehicle_number} is scheduled for {service_name} reminder on {scheduled_date}."
+            if msg_template.startswith('"') and msg_template.endswith('"'):
+                msg_template = msg_template[1:-1].strip()
+
             message = msg_template.replace('{customer_name}', customer_name) \
                                    .replace('{vehicle_number}', vehicle_no) \
-                                   .replace('{service_name}', service_name)
+                                   .replace('{service_name}', service_name) \
+                                   .replace('{expiry_date}', formatted_date) \
+                                   .replace('{scheduled_date}', formatted_date) \
+                                   .replace('{due_date}', formatted_date) \
+                                   .replace('{next_date}', formatted_date)
+
+            if 'expired on ' in message and service_name and service_name in message:
+                message = message.replace(f"expired on {service_name}", f"expired on {formatted_date}")
 
         plans_data.append({
             'id': str(plan.id),
@@ -3668,13 +3712,14 @@ def api_reminder_list(request):
             'service_category': service_category,
             'next_oil_change_km': next_oil_change_km,
             'scheduled_date': str(plan.scheduled_date),
+            'formatted_date': formatted_date,
             'message': message,
         })
 
     return JsonResponse({
         'success': True,
         'plans': plans_data,
-        'selected_date': str(selected_date),
+        'selected_date': str(selected_date) if selected_date else "",
     })
 
 
@@ -3739,37 +3784,60 @@ def api_send_reminder(request):
 
             customer_name = invoice.customer.name or "Customer"
             vehicle_no = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
+            formatted_date = plan.scheduled_date.strftime("%d-%m-%Y") if plan.scheduled_date else ""
+
+            first_item = invoice.items.filter(service__isnull=False).first() if invoice else None
+            if reminder and reminder.service:
+                service_name = reminder.service.name
+            elif first_item:
+                service_name = first_item.service_name or (first_item.service.name if first_item.service else '')
+            else:
+                service_name = plan.template_name or "Service Reminder"
 
             # Prefilled message (Template text fallback)
-            message = reminder.reminder_message.replace('{customer_name}', customer_name) \
-                                                .replace('{vehicle_number}', vehicle_no) \
-                                                .replace('{service_name}', reminder.service.name)
+            msg_template = (reminder.reminder_message if (reminder and reminder.reminder_message) else "").strip()
+            if not msg_template:
+                msg_template = "Dear {customer_name}, your vehicle {vehicle_number} is scheduled for {service_name} reminder on {scheduled_date}."
+            if msg_template.startswith('"') and msg_template.endswith('"'):
+                msg_template = msg_template[1:-1].strip()
+
+            message = msg_template.replace('{customer_name}', customer_name) \
+                                   .replace('{vehicle_number}', vehicle_no) \
+                                   .replace('{service_name}', service_name) \
+                                   .replace('{expiry_date}', formatted_date) \
+                                   .replace('{scheduled_date}', formatted_date) \
+                                   .replace('{due_date}', formatted_date) \
+                                   .replace('{next_date}', formatted_date)
+
+            if 'expired on ' in message and service_name and service_name in message:
+                message = message.replace(f"expired on {service_name}", f"expired on {formatted_date}")
 
             encoded_message = urllib.parse.quote(message)
             fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
 
-            # Check if API is available
-            if not setting or not setting.username or not setting.password:
-                if len(plan_ids) == 1:
-                    # Return fallback prefill link directly
-                    return JsonResponse({
-                        'success': False,
-                        'use_fallback': True,
-                        'whatsapp_url': fallback_url,
-                        'plan_id': plan.id,
-                        'message': 'WhatsApp API not configured. Use manual sending.'
-                    })
-                else:
-                    return JsonResponse({
-                        'success': False,
-                        'message': 'WhatsApp API is not configured. Send individually to use manual prefill.'
-                    })
-
-            # Check if this is an oil change reminder
+            # Check if this is an oil change, smoke test, or wheel balancing/alignment reminder
             is_oil = False
+            is_smoke = False
+            is_wheel = False
             next_km = ""
-            if reminder and reminder.service and reminder.service.category == 'oil_change':
+
+            s_name_lower = service_name.lower()
+            if 'wheel' in s_name_lower or 'balance' in s_name_lower or 'alignment' in s_name_lower:
+                is_wheel = True
+            elif 'smoke' in s_name_lower or 'pollution' in s_name_lower:
+                is_smoke = True
+            elif 'oil' in s_name_lower:
                 is_oil = True
+
+            if reminder and reminder.service:
+                cat_slug = reminder.service.service_type.slug if reminder.service.service_type else ""
+                if cat_slug == 'oil_change':
+                    is_oil = True
+                elif cat_slug == 'smoke_test':
+                    is_smoke = True
+                elif cat_slug in ['wheel_balancing', 'alignment']:
+                    is_wheel = True
+
             for item in invoice.items.all():
                 if hasattr(item, 'service_detail') and item.service_detail:
                     sd = item.service_detail
@@ -3777,14 +3845,22 @@ def api_send_reminder(request):
                         is_oil = True
                         if sd.next_oil_change_km:
                             next_km = str(sd.next_oil_change_km)
+                    elif sd.service_category in ['alignment', 'wheel_balancing']:
+                        is_wheel = True
 
             if is_oil:
                 tmpl_name = 'oilreminder'
                 tmpl_values = [customer_name, vehicle_no, next_km or "N/A"]
                 message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km"
+            elif is_smoke:
+                tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'smoketest')).strip()
+                tmpl_values = [customer_name, vehicle_no, formatted_date]
+            elif is_wheel:
+                tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'wheelbalancing')).strip()
+                tmpl_values = [customer_name, vehicle_no, service_name]
             else:
-                tmpl_name = 'servicereminder'
-                tmpl_values = [customer_name, vehicle_no, reminder.service.name]
+                tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
+                tmpl_values = [customer_name, vehicle_no, service_name]
 
             encoded_message = urllib.parse.quote(message)
             fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
@@ -3839,10 +3915,11 @@ def api_send_reminder(request):
             plan.save()
 
             # Log sent reminder for reports/compatibility
-            SentServiceReminder.objects.get_or_create(
-                reminder=reminder,
-                invoice=invoice
-            )
+            if reminder:
+                SentServiceReminder.objects.get_or_create(
+                    reminder=reminder,
+                    invoice=invoice
+                )
             sent_count += 1
 
         return JsonResponse({'success': True, 'sent_count': sent_count})

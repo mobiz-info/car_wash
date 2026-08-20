@@ -108,7 +108,7 @@
                                 {{ plan.reminder_no }}
                             </span>
                         </td>
-                        <td>{{ plan.reminder.service.name }}</td>
+                        <td>{{ plan.reminder.service.name|default:plan.template_name|default:"Service Reminder" }}</td>
                         <td>
                             <strong style="color: #0f172a;">{{ plan.scheduled_date|date:"j F Y" }}</strong>
                         </td>

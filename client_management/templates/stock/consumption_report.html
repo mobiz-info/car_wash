@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="page-header page-header-light shadow">
+        <div class="page-header-content header-elements-md-inline">
+            <div class="page-title d-flex">
+                <h4><i class="icon-file-text2 mr-2"></i> <span class="font-weight-semibold">Stock Consumption Report</span></h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body">
+                <form method="GET" action="" class="row align-items-center">
+                    <div class="col-md-3 mb-2">
+                        <label class="font-weight-semibold text-muted small mb-1">Start Date</label>
+                        <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start_date }}">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="font-weight-semibold text-muted small mb-1">End Date</label>
+                        <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="font-weight-semibold text-muted small mb-1">Usage Type</label>
+                        <select name="item_type" class="form-control form-control-sm">
+                            <option value="all" {% if item_type == 'all' or not item_type %}selected{% endif %}>All Items</option>
+                            <option value="trading" {% if item_type == 'trading' %}selected{% endif %}>Trading Only</option>
+                            <option value="operational" {% if item_type == 'operational' %}selected{% endif %}>Operational Only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="font-weight-semibold text-muted small mb-1">Search</label>
+                        <input type="text" name="search" class="form-control form-control-sm" placeholder="Item name / Invoice #" value="{{ search }}">
+                    </div>
+                    <div class="col-md-1 mb-2 mt-auto">
+                        <button type="submit" class="btn btn-primary btn-sm btn-block"><i class="icon-search4"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <div class="card card-body bg-light border-0 shadow-sm text-center">
+                    <h6 class="text-uppercase text-muted font-weight-bold mb-1" style="font-size: 11px;">Total Items Consumed</h6>
+                    <h3 class="font-weight-bold mb-0 text-dark">{{ total_items_consumed }}</h3>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-body bg-light border-0 shadow-sm text-center">
+                    <h6 class="text-uppercase text-warning font-weight-bold mb-1" style="font-size: 11px;">Operational Quantity Consumed</h6>
+                    <h3 class="font-weight-bold mb-0 text-warning">{{ operational_qty }}</h3>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-body bg-light border-0 shadow-sm text-center">
+                    <h6 class="text-uppercase text-success font-weight-bold mb-1" style="font-size: 11px;">Trading Quantity Consumed</h6>
+                    <h3 class="font-weight-bold mb-0 text-success">{{ trading_qty }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Date</th>
+                            <th>Invoice #</th>
+                            <th>Item Name</th>
+                            <th>Category</th>
+                            <th>Usage Type</th>
+                            <th>Qty Consumed</th>
+                            <th>Unit Price</th>
+                            <th>Total Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in page_obj %}
+                        <tr>
+                            <td>{{ forloop.counter0|add:page_obj.start_index }}</td>
+                            <td>{{ row.date }}</td>
+                            <td><span class="font-weight-bold text-primary">{{ row.invoice_number }}</span></td>
+                            <td><span class="font-weight-bold">{{ row.stock_item_name }}</span></td>
+                            <td><span class="badge badge-light border">{{ row.category }}</span></td>
+                            <td>
+                                {% if row.usage_type == 'OPERATIONAL' %}
+                                <span class="badge badge-warning"><i class="icon-wrench mr-1"></i> Operational</span>
+                                {% else %}
+                                <span class="badge badge-success"><i class="icon-cart mr-1"></i> Trading</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="font-weight-bold">{{ row.qty }}</span> {{ row.unit }}</td>
+                            <td>Rs. {{ row.unit_price|floatformat:2 }}</td>
+                            <td><span class="font-weight-bold text-dark">Rs. {{ row.total_amount|floatformat:2 }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">No stock consumption records found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                <span class="text-muted small">Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries</span>
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&item_type={{ item_type }}&search={{ search }}">&laquo;</a></li>
+                    {% endif %}
+                    <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+                    {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&start_date={{ start_date }}&end_date={{ end_date }}&item_type={{ item_type }}&search={{ search }}">&raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Emission Standard{% endblock %}
+
+{% block content %}
+
+<div class="premium-form-container" style="max-width: 600px;">
+    <div class="premium-form-title">
+        <i class="ph ph-shield-check" style="color: #3b82f6; font-size: 1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label>Emission Standard Name *</label>
+            {{ form.name }}
+            <small style="color: #64748b;">e.g. BS-3, BS-4, BS-6, Euro-6, EV</small>
+        </div>
+
+        <div class="form-group">
+            <label>Fuel Engine Type *</label>
+            {{ form.fuel_type }}
+        </div>
+
+        <div class="form-group">
+            <label>Smoke Test Validity Period (Months) *</label>
+            {{ form.validity_months }}
+            <small style="color: #64748b;">Enter 6 for BS-3 and older, 12 for BS-4 and newer</small>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+                <label>1st Reminder (Days Before Expiry)</label>
+                {{ form.reminder_1_days }}
+            </div>
+
+            <div class="form-group">
+                <label>2nd Reminder (Days Before Expiry)</label>
+                {{ form.reminder_2_days }}
+            </div>
+        </div>
+
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 10px;">
+            {{ form.is_active }}
+            <label style="margin: 0; cursor: pointer;">Active Standard</label>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'emission_standard_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Standard
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

@@ -35,6 +35,13 @@ urlpatterns = [
     path('vehicle-type-model/create/', views.vehicle_type_model_create, name='vehicle_type_model_create'),
     path('vehicle-type-model/edit/<uuid:id>/', views.vehicle_type_model_edit, name='vehicle_type_model_edit'),
     path('vehicle-type-model/delete/<uuid:id>/', views.vehicle_type_model_delete, name='vehicle_type_model_delete'),
+    path('vehicle-type-model/toggle-enable/<uuid:id>/', views.vehicle_type_model_toggle_enable, name='vehicle_type_model_toggle_enable'),
+
+    # Emission Standard Master
+    path('emission-standard/', views.emission_standard_list, name='emission_standard_list'),
+    path('emission-standard/create/', views.emission_standard_create, name='emission_standard_create'),
+    path('emission-standard/edit/<uuid:id>/', views.emission_standard_edit, name='emission_standard_edit'),
+    path('emission-standard/delete/<uuid:id>/', views.emission_standard_delete, name='emission_standard_delete'),
 
     # Scheme Type
     path('scheme-type/', views.scheme_type_list, name='scheme_type_list'),
@@ -155,5 +162,25 @@ urlpatterns = [
     path('battery/create/', views.battery_create, name='battery_create'),
     path('battery/edit/<uuid:id>/', views.battery_edit, name='battery_edit'),
     path('battery/delete/<uuid:id>/', views.battery_delete, name='battery_delete'),
+
+    # Stock Group & Sub-Group CRUD
+    path('stock-group/', views.stock_group_list, name='stock_group_list'),
+    path('stock-group/create/', views.stock_group_create, name='stock_group_create'),
+    path('stock-group/edit/<uuid:id>/', views.stock_group_edit, name='stock_group_edit'),
+    path('stock-group/delete/<uuid:id>/', views.stock_group_delete, name='stock_group_delete'),
+
+    path('stock-subgroup/', views.stock_subgroup_list, name='stock_subgroup_list'),
+    path('stock-subgroup/create/', views.stock_subgroup_create, name='stock_subgroup_create'),
+    path('stock-subgroup/edit/<uuid:id>/', views.stock_subgroup_edit, name='stock_subgroup_edit'),
+    path('stock-subgroup/delete/<uuid:id>/', views.stock_subgroup_delete, name='stock_subgroup_delete'),
+
+    # Purchase Invoice CRUD & ERP Purchase System
+    path('purchase-invoice/', views.purchase_invoice_list, name='purchase_invoice_list'),
+    path('purchase-invoice/create/', views.purchase_invoice_create, name='purchase_invoice_create'),
+    path('purchase-invoice/detail/<uuid:id>/', views.purchase_invoice_detail, name='purchase_invoice_detail'),
+
+    # Supplier Payables & Payments
+    path('supplier-payables/', views.supplier_payables_list, name='supplier_payables_list'),
+    path('supplier-payables/pay/<uuid:supplier_id>/', views.supplier_payment_create, name='supplier_payment_create'),
 ]
 

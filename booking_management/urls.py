@@ -57,5 +57,6 @@ urlpatterns = [
     path('branch/reminder-planner/', views.reminder_planner, name='reminder_planner'),
     path('branch/reminder-list/', views.reminder_list, name='reminder_list'),
     path('branch/smoke-test-reminders/', views.smoke_test_reminder_list, name='smoke_test_reminder_list'),
+    path('branch/smoke-test-reminders/send/', views.send_smoke_test_reminder_ajax, name='send_smoke_test_reminder_ajax'),
     path('branch/reminder-planner/send/', views.send_reminder_ajax, name='send_reminder_ajax'),
 ]

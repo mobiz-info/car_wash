@@ -265,10 +265,7 @@ def user_edit(request, pk):
     form = UserEditForm(request.POST or None, instance=user_obj)
     if request.method == 'POST':
         if form.is_valid():
-            role = form.save(commit=False)
-            role.auto_id = get_auto_id(User)
-            role.creator = request.user
-            role.save()
+            form.save()
             messages.success(request, f"User '{user_obj.username}' updated successfully.")
             return redirect('user_list')
     return render(request, 'user/edit.html', {

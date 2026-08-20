@@ -115,6 +115,7 @@ class Branch(BaseModel):
 
     scheme_types = models.ManyToManyField('master.SchemeType', blank=True)
     enabled_vehicle_types = models.ManyToManyField('master.VehicleType', related_name='enabled_branches', blank=True)
+    enabled_vehicle_segments = models.ManyToManyField('master.VehicleTypeModel', related_name='enabled_branches', blank=True)
     invoice_prefix = models.CharField(
         max_length=5, blank=True, null=True,
         help_text="Letter prefix for invoices (e.g. A → INV-A-1). Leave blank to auto-assign."
@@ -210,6 +211,13 @@ class Customer(BaseModel):
         return f"{self.name} ({self.phone})"
 
 class CustomerVehicle(BaseModel):
+    WHEEL_TYPE_ALLOY = 'alloy_wheel'
+    WHEEL_TYPE_NORMAL = 'normal_wheel'
+    WHEEL_TYPE_CHOICES = (
+        (WHEEL_TYPE_ALLOY, 'Alloy Wheel'),
+        (WHEEL_TYPE_NORMAL, 'Normal Wheel'),
+    )
+
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='vehicles')
     vehicle_type = models.ForeignKey('master.VehicleType', on_delete=models.CASCADE, blank=True, null=True)
     vehicle_type_model = models.ForeignKey('master.VehicleTypeModel', on_delete=models.CASCADE)
@@ -217,6 +225,7 @@ class CustomerVehicle(BaseModel):
     color = models.ForeignKey('master.VehicleColor', on_delete=models.SET_NULL, blank=True, null=True)
     make = models.ForeignKey('master.VehicleMake', on_delete=models.SET_NULL, blank=True, null=True)
     brand_model = models.ForeignKey('master.VehicleBrandModel', on_delete=models.SET_NULL, blank=True, null=True)
+    wheel_type = models.CharField(max_length=20, choices=WHEEL_TYPE_CHOICES, default=WHEEL_TYPE_NORMAL)
 
     # ── Service tracking (denormalized, updated when invoice saved) ───────────
     current_odometer_km = models.PositiveIntegerField(
@@ -228,11 +237,17 @@ class CustomerVehicle(BaseModel):
     next_tyre_change_km = models.PositiveIntegerField(
         null=True, blank=True, help_text="Next recommended tyre change at this km"
     )
+    next_alignment_km = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Next recommended wheel alignment at this km"
+    )
     last_oil_change_date = models.DateField(
         null=True, blank=True, help_text="Date of last oil change"
     )
     last_tyre_change_date = models.DateField(
         null=True, blank=True, help_text="Date of last tyre change"
+    )
+    last_alignment_date = models.DateField(
+        null=True, blank=True, help_text="Date of last wheel alignment"
     )
     last_smoke_test_date = models.DateField(
         null=True, blank=True, help_text="Date of last smoke test"
@@ -383,9 +398,24 @@ class Stock(BaseModel):
     )
 
     company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='stocks', null=True, blank=True)
+    group = models.ForeignKey('master.StockGroup', on_delete=models.SET_NULL, null=True, blank=True, related_name='stocks')
+    sub_group = models.ForeignKey('master.StockSubGroup', on_delete=models.SET_NULL, null=True, blank=True, related_name='stocks')
     item_name = models.CharField(max_length=200)
+    brand = models.CharField(max_length=150, blank=True, null=True)
+    hsn_code = models.CharField(max_length=50, blank=True, null=True)
+    barcode = models.CharField(max_length=100, blank=True, null=True)
+    is_trading = models.BooleanField(default=True)
+    is_operational = models.BooleanField(default=False)
     unit = models.CharField(max_length=50, choices=UNIT_CHOICES)
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Current stock quantity")
+    base_unit = models.CharField(max_length=50, blank=True, null=True)
+    main_unit = models.CharField(max_length=50, blank=True, null=True)
+    conversion_count = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    cgst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    sgst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    igst_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    profit_margin_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    critical_level = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Low stock alert level")
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Current stock quantity in base unit")
     expense_head = models.ForeignKey('master.ExpenseHead', on_delete=models.SET_NULL, null=True, blank=True, related_name='stock_items')
 
     def __str__(self):

@@ -540,13 +540,19 @@
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
-                    <i class="ph ph-package"></i>
-                    Stock Management
+                    <i class="ph ph-shopping-cart-simple"></i>
+                    Purchase Management
                 </div>
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                <a href="{% url 'stock_list' %}">Stocks</a>
+                <a href="{% url 'stock_list' %}">Stock Item</a>
+                <a href="{% url 'purchased_stock_list' %}">Stocks</a>
+                <a href="{% url 'supplier_list' %}">Suppliers</a>
+                <a href="{% url 'stock_group_list' %}">Stock Groups</a>
+                <a href="{% url 'stock_subgroup_list' %}">Stock Sub-Groups</a>
+                <a href="{% url 'purchase_invoice_list' %}">Purchase Entry</a>
+                <a href="{% url 'supplier_payables_list' %}">Supplier Payables</a>
                 <a href="{% url 'purchase_request_list' %}">Purchase Requests</a>
             </div>
 
@@ -590,7 +596,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'enable_categories' %}" class="nav-item submenu-item">Enable Categories</a>
                 <a href="{% url 'branch_service_list' %}" class="nav-item submenu-item">Enable Services</a>
-                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories</a>
+                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories & Segments</a>
                 <a href="{% url 'service_vehicle_price_redirect' %}" class="nav-item submenu-item">Service Pricing</a>
                 <a href="{% url 'extras_list' %}" class="nav-item submenu-item">Extras Master</a>
             </div>
@@ -784,7 +790,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'enable_categories' %}" class="nav-item submenu-item">Enable Categories</a>
                 <a href="{% url 'branch_service_list' %}" class="nav-item submenu-item">Services Enable</a>
-                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories</a>
+                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories & Segments</a>
                 <a href="{% url 'service_vehicle_price_redirect' %}" class="nav-item submenu-item">Service Pricing</a>
 
             </div>
@@ -831,7 +837,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'customer_vehicle_list' %}" class="nav-item submenu-item">Vehicle List</a>
                 <a href="{% url 'customer_vehicle_create' %}" class="nav-item submenu-item">Add Vehicle</a>
-                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Types</a>
+                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories & Segments</a>
             </div>
 
             {% if request.user.managed_branch and request.user.managed_branch.scheme_types.exists %}
@@ -960,7 +966,7 @@
                 <a href="{% url 'state_list' %}">State/ Province/ Emirate</a>
                 <a href="{% url 'district_list' %}">District</a>
                 <a href="{% url 'area_list' %}">Area</a>
-                <!-- <a href="#">Branch</a> -->
+                <a href="{% url 'emission_standard_list' %}">Emission Standards</a>
             </div>
 
             <!-- Service Management -->
@@ -1032,13 +1038,19 @@
 
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
-                    <i class="ph ph-package"></i>
-                    Stock Management
+                    <i class="ph ph-shopping-cart-simple"></i>
+                    Purchase Management
                 </div>
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                <a href="{% url 'stock_list' %}" class="nav-item submenu-item">Stocks</a>
+                <a href="{% url 'stock_list' %}" class="nav-item submenu-item">Stock Item</a>
+                <a href="{% url 'purchased_stock_list' %}" class="nav-item submenu-item">Stocks</a>
+                <a href="{% url 'supplier_list' %}" class="nav-item submenu-item">Suppliers</a>
+                <a href="{% url 'stock_group_list' %}" class="nav-item submenu-item">Stock Groups</a>
+                <a href="{% url 'stock_subgroup_list' %}" class="nav-item submenu-item">Stock Sub-Groups</a>
+                <a href="{% url 'purchase_invoice_list' %}" class="nav-item submenu-item">Purchase Entry</a>
+                <a href="{% url 'supplier_payables_list' %}" class="nav-item submenu-item">Supplier Payables</a>
                 <a href="{% url 'purchase_request_list' %}" class="nav-item submenu-item">Purchase Requests</a>
             </div>
 

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}Stock Sub-Group{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container { max-width: 600px; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-folder" style="color:#3b82f6;font-size:1.5rem;"></i>
+        {{ title }}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="id_group">Stock Item Group <span style="color:red">*</span></label>
+                <select id="id_group" name="group" class="form-control" required>
+                    <option value="">Select Main Group</option>
+                    {% for g in groups %}
+                    <option value="{{ g.id }}" {% if subgroup and subgroup.group.id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="id_name">Sub-Group Name <span style="color:red">*</span></label>
+                <input type="text" id="id_name" name="name" class="form-control" value="{{ subgroup.name|default:'' }}" required placeholder="e.g. Synthetic Oil, Tubeless Tyre">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'stock_subgroup_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i>
+                {% if subgroup %}Save Changes{% else %}Create Sub-Group{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

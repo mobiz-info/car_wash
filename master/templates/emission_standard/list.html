@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Emission Standards - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Emission Standards Master{% endblock %}
+{% block breadcrumb_active %}Master Settings{% endblock %}
+
+{% block content %}
+
+<div class="list-container">
+
+    <!-- Header -->
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{search}}" placeholder="Search Emission Standard..." class="search-input">
+        </form>
+
+        <a href="{% url 'emission_standard_create' %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> Add Emission Standard
+        </a>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Standard Name</th>
+                    <th>Fuel Engine</th>
+                    <th>Validity Period</th>
+                    <th>1st Reminder</th>
+                    <th>2nd Reminder</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in data %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ obj.name }}</strong></td>
+                    <td><span class="badge bg-light text-dark" style="padding: 4px 8px; border-radius: 6px; font-weight: 600;">{{ obj.get_fuel_type_display }}</span></td>
+                    <td>
+                        {% if obj.validity_months == 6 %}
+                            <span class="badge bg-warning text-dark" style="padding: 4px 8px; border-radius: 6px; font-weight: 600;">6 Months</span>
+                        {% else %}
+                            <span class="badge bg-success" style="padding: 4px 8px; border-radius: 6px; font-weight: 600;">1 Year (12 Months)</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ obj.reminder_1_days }} Days Before</td>
+                    <td>{{ obj.reminder_2_days }} Days Before</td>
+                    <td>
+                        {% if obj.is_active %}
+                            <span style="color: #10b981; font-weight: 600;">Active</span>
+                        {% else %}
+                            <span style="color: #ef4444; font-weight: 600;">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            <a href="{% url 'emission_standard_edit' obj.pk %}" class="action-btn edit" title="Edit">
+                                <i class="ph ph-pencil-simple"></i>
+                            </a>
+                            <a href="{% url 'emission_standard_delete' obj.pk %}" onclick="return confirm('Delete this standard?')" class="action-btn delete" title="Delete">
+                                <i class="ph ph-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: #94a3b8; padding: 40px;">No emission standards created yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{search}}" class="page-link">Previous</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{search}}" class="page-link">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

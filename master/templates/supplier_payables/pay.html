@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+    .premium-form-container { max-width: 600px; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-hand-coins" style="color:#3b82f6;font-size:1.5rem;"></i>
+        Record Supplier Payment
+    </div>
+
+    <div style="background:#fef2f2; border:1px solid #fecaca; padding:12px; border-radius:8px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:14px; color:#991b1b; font-weight:600;">Supplier: {{ supplier.name }}</span>
+        <span style="font-size:15px; font-weight:800; color:#dc2626;">Payables: ₹{{ supplier.payables }}</span>
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="payment_date">Payment Date <span style="color:red">*</span></label>
+                <input type="date" name="payment_date" id="pay_date" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label>Mode of Payment <span style="color:red">*</span></label>
+                <div style="display:flex; gap:20px; margin-top:6px;">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
+                        <input type="radio" name="payment_mode" value="CASH" checked onchange="togglePayMode()"> Cash
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
+                        <input type="radio" name="payment_mode" value="DIGITAL" onchange="togglePayMode()"> Digital
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:500;">
+                        <input type="radio" name="payment_mode" value="CHEQUE" onchange="togglePayMode()"> Cheque
+                    </label>
+                </div>
+            </div>
+
+            <!-- Cheque Popup Fields -->
+            <div id="cheque_box" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; padding:14px; border-radius:8px;">
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:13px; font-weight:600;">Select Bank</label>
+                    <input type="text" name="bank_name" class="form-control" placeholder="e.g. HDFC Bank, ICICI Bank">
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1;">
+                        <label style="font-size:13px; font-weight:600;">Cheque No</label>
+                        <input type="text" name="cheque_number" class="form-control" placeholder="6-digit cheque number">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:13px; font-weight:600;">Cheque Date</label>
+                        <input type="date" name="cheque_date" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="amount_paid">Amount Paid (₹) <span style="color:red">*</span></label>
+                <input type="number" step="0.01" name="amount_paid" id="amount_paid" class="form-control" value="{{ supplier.payables }}" required style="font-size:16px; font-weight:700; color:#2563eb;">
+            </div>
+
+            <div class="form-group">
+                <label for="remarks">Remarks</label>
+                <textarea name="remarks" id="remarks" rows="2" class="form-control" placeholder="Optional payment remarks"></textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'supplier_payables_list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <i class="ph ph-check-circle"></i> Save Payment
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('pay_date').value = new Date().toISOString().split('T')[0];
+});
+
+function togglePayMode() {
+    const mode = document.querySelector('input[name="payment_mode"]:checked').value;
+    document.getElementById('cheque_box').style.display = (mode === 'CHEQUE') ? 'block' : 'none';
+}
+</script>
+{% endblock %}
