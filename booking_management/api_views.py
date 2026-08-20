@@ -3857,9 +3857,17 @@ def api_send_reminder(request):
                 tmpl_values = [customer_name, vehicle_no, formatted_date]
             elif is_wheel:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'wheelbalancing')).strip()
-                # wheelbalancing Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=km (N/A), {{4}}=branch_name
+                # wheelbalancing Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=next_alignment_km, {{4}}=branch_name
                 branch_name = plan.branch.name if plan.branch else 'Mobiz Auto Care'
-                tmpl_values = [customer_name, vehicle_no, 'N/A', branch_name]
+                # Resolve next alignment KM from invoice service_detail or vehicle
+                next_alignment_km = 'N/A'
+                for _item in invoice.items.all():
+                    if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.next_alignment_km:
+                        next_alignment_km = str(_item.service_detail.next_alignment_km)
+                        break
+                if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
+                    next_alignment_km = str(invoice.vehicle.next_alignment_km)
+                tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
             else:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
                 tmpl_values = [customer_name, vehicle_no, service_name]

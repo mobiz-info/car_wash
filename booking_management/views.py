@@ -1100,9 +1100,16 @@ def send_reminder_ajax(request):
                         # {{1}} = customer_name, {{2}} = service_name
                         tmpl_values = [customer_name, service_name]
                     elif tmpl_name.lower() == 'wheelbalancing':
-                        # Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=km (N/A), {{4}}=branch_name
+                        # Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=next_alignment_km, {{4}}=branch_name
                         branch_name = plan.branch.name if plan.branch else 'Mobiz Auto Care'
-                        tmpl_values = [customer_name, vehicle_no, 'N/A', branch_name]
+                        next_alignment_km = 'N/A'
+                        for _item in invoice.items.all():
+                            if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.next_alignment_km:
+                                next_alignment_km = str(_item.service_detail.next_alignment_km)
+                                break
+                        if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
+                            next_alignment_km = str(invoice.vehicle.next_alignment_km)
+                        tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
                     elif tmpl_name.lower() == 'smoketest':
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = scheduled_date
                         tmpl_values = [customer_name, vehicle_no, formatted_date]
