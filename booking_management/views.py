@@ -1095,11 +1095,18 @@ def send_reminder_ajax(request):
                     # Resolve official template name
                     tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
                     
-                    # Format template parameter values
+                    # Format template parameter values based on template name
                     if tmpl_name.lower() == 'batteryservice':
                         # {{1}} = customer_name, {{2}} = service_name
                         tmpl_values = [customer_name, service_name]
+                    elif tmpl_name.lower() == 'wheelbalancing':
+                        # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = service_name, {{4}} = scheduled_date
+                        tmpl_values = [customer_name, vehicle_no, service_name, formatted_date]
+                    elif tmpl_name.lower() == 'smoketest':
+                        # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = scheduled_date
+                        tmpl_values = [customer_name, vehicle_no, formatted_date]
                     else:
+                        # Default: {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = service_name
                         tmpl_values = [customer_name, vehicle_no, service_name]
 
                     send_whatsapp_template(
