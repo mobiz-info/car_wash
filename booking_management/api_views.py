@@ -3857,8 +3857,9 @@ def api_send_reminder(request):
                 tmpl_values = [customer_name, vehicle_no, formatted_date]
             elif is_wheel:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'wheelbalancing')).strip()
-                # wheelbalancing template has 4 params: customer_name, vehicle_no, service_name, scheduled_date
-                tmpl_values = [customer_name, vehicle_no, service_name, formatted_date]
+                # wheelbalancing Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=km (N/A), {{4}}=branch_name
+                branch_name = plan.branch.name if plan.branch else 'Mobiz Auto Care'
+                tmpl_values = [customer_name, vehicle_no, 'N/A', branch_name]
             else:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
                 tmpl_values = [customer_name, vehicle_no, service_name]
