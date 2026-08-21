@@ -1958,49 +1958,6 @@ def api_whatsapp_templates(request):
             for t in templates
         ]
 
-        # Add preset Festival Greeting templates if not present
-        default_preset_greetings = [
-            {
-                'id': 'festivalgreeting',
-                'name': 'Festival Greeting (All Festivals)',
-                'content': 'Hello Dear {{1}}, Wishing you and your family a very Happy {{2}}! Warm wishes from {{3}} Team.',
-                'type': 'Festival Greeting',
-            },
-            {
-                'id': 'preset_onam',
-                'name': 'Onam Greeting',
-                'content': 'Dear {{1}}, Wishing you and your family a joyous, happy, and prosperous Onam! Warm wishes from {{2}}.',
-                'type': 'Festival Greeting',
-            },
-            {
-                'id': 'preset_christmas',
-                'name': 'Christmas Greeting',
-                'content': 'Dear {{1}}, May your holidays be filled with joy, peace, and happiness. Merry Christmas from all of us at {{2}}!',
-                'type': 'Festival Greeting',
-            },
-            {
-                'id': 'preset_newyear',
-                'name': 'New Year Greeting',
-                'content': 'Dear {{1}}, Wishing you a Happy New Year filled with health, prosperity, and success! Best regards from {{2}}.',
-                'type': 'Festival Greeting',
-            },
-            {
-                'id': 'preset_eid',
-                'name': 'Eid Greeting',
-                'content': 'Dear {{1}}, Wishing you and your loved ones a blessed and joyful Eid! Warm wishes from {{2}}.',
-                'type': 'Festival Greeting',
-            },
-            {
-                'id': 'preset_festival_offer',
-                'name': 'Festival Special Offer',
-                'content': 'Dear {{1}}, Celebrate this festival season with a special discount on your vehicle services at {{2}}! Book your appointment today.',
-                'type': 'Festival Offer',
-            },
-        ]
-
-        for preset in default_preset_greetings:
-            if not any(t['name'].lower() == preset['name'].lower() for t in templates_data):
-                templates_data.append(preset)
 
         return JsonResponse({
             'success': True,
