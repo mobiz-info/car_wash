@@ -1962,6 +1962,12 @@ def api_whatsapp_templates(request):
         # Add preset Festival Greeting templates if not present
         default_preset_greetings = [
             {
+                'id': 'festivalgreeting',
+                'name': 'Festival Greeting (All Festivals)',
+                'content': 'Dear {{1}}, Wishing you and your family a very Happy {{2}}! Warm wishes from {{3}}.',
+                'type': 'Festival Greeting',
+            },
+            {
                 'id': 'preset_onam',
                 'name': 'Onam Greeting',
                 'content': 'Dear {{1}}, Wishing you and your family a joyous, happy, and prosperous Onam! Warm wishes from {{2}}.',
@@ -2104,6 +2110,8 @@ def api_whatsapp_broadcast(request):
                 phone = '91' + phone
             return phone
 
+        template_name = (data.get('template_name') or data.get('template_id') or '').strip()
+
         sent = 0
         failed = 0
         errors = []
@@ -2122,7 +2130,20 @@ def api_whatsapp_broadcast(request):
             final_msg = fill_message(customer)
 
             try:
-                result = send_whatsapp_simple(phone, final_msg, setting=wa_setting)
+                if wa_setting and wa_setting.is_official_api and template_name:
+                    from booking_management.api_views import send_whatsapp_template
+                    name = customer.name or 'Customer'
+                    company_name = company.company_name if company else ''
+                    branch_name = customer.branch.name if customer.branch else company_name
+
+                    if template_name.lower() in ['festivalgreeting', 'preset_festival_greeting']:
+                        fest_val = var_2 if var_2 else 'Festival'
+                        tmpl_vals = [name, fest_val, branch_name or company_name]
+                        result = send_whatsapp_template(phone, 'festivalgreeting', tmpl_vals, setting=wa_setting)
+                    else:
+                        result = send_whatsapp_simple(phone, final_msg, setting=wa_setting)
+                else:
+                    result = send_whatsapp_simple(phone, final_msg, setting=wa_setting)
 
                 # Log to WhatsAppMessage
                 try:
