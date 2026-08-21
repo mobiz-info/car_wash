@@ -85,7 +85,13 @@ def service_type_delete(request, id):
 @login_required
 def service_list(request):
     search = request.GET.get('search', '')
-    queryset = Service.objects.filter(is_deleted=False).select_related( 'service_type').order_by('-date_added')
+    category_id = request.GET.get('category', '')
+    queryset = Service.objects.filter(is_deleted=False).select_related('service_type').order_by('-date_added')
+
+    categories = ServiceType.objects.filter(is_deleted=False).order_by('name')
+
+    if category_id:
+        queryset = queryset.filter(service_type_id=category_id)
 
     if search:
         queryset = queryset.filter(name__icontains=search)
@@ -95,6 +101,8 @@ def service_list(request):
 
     return render(request, 'service/list.html', {
         'page_obj': page_obj,
+        'categories': categories,
+        'selected_category_id': category_id,
         'search': search,
         'title': 'Services'
     })

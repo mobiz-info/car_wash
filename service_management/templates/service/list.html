@@ -137,9 +137,21 @@
 <div class="list-container">
     <!-- Header -->
     <div class="list-header">
-        <form method="GET" class="search-wrapper">
-            <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search by name..." class="search-input">
+        <form method="GET" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <!-- Category Filter Dropdown -->
+            <select name="category" class="search-input" style="width: 220px; padding-left: 14px;" onchange="this.form.submit()">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if selected_category_id == cat.id|stringformat:"s" %}selected{% endif %}>
+                    {{ cat.name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <div class="search-wrapper">
+                <i class="ph ph-magnifying-glass search-icon"></i>
+                <input type="text" name="search" value="{{search}}" placeholder="Search by name..." class="search-input">
+            </div>
             <button type="submit" style="display: none;"></button>
         </form>
 
@@ -213,13 +225,13 @@
     {% if page_obj.paginator.num_pages > 1 %}
     <div class="pagination">
         {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}" class="page-link">Previous</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if selected_category_id %}&category={{ selected_category_id }}{% endif %}{% if search %}&search={{ search }}{% endif %}" class="page-link">Previous</a>
         {% endif %}
 
         <span style="font-weight: 500;">Page <span style="color: #1e293b;">{{ page_obj.number }}</span> of {{ page_obj.paginator.num_pages }}</span>
 
         {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}" class="page-link">Next</a>
+            <a href="?page={{ page_obj.next_page_number }}{% if selected_category_id %}&category={{ selected_category_id }}{% endif %}{% if search %}&search={{ search }}{% endif %}" class="page-link">Next</a>
         {% endif %}
     </div>
     {% endif %}
