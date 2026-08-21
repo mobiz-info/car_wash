@@ -224,12 +224,24 @@ def api_dashboard_stats(request):
     today = timezone.now().date()
     role = user.profile.role.name if user.profile.role else None
 
+    # Optional branch filter (only respected for COMPANY_ADMIN)
+    branch_id = request.GET.get('branch_id', '').strip()
+    selected_branch = None
+    if role == 'COMPANY_ADMIN' and branch_id and user.profile.company:
+        from .models import Branch
+        selected_branch = Branch.objects.filter(
+            id=branch_id, company=user.profile.company, is_deleted=False
+        ).first()
+
     # Base queryset scoped to user's branch/company
     all_invoices = Invoice.objects.filter(is_deleted=False)
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         all_invoices = all_invoices.filter(branch=user.managed_branch)
     elif role == 'COMPANY_ADMIN' and user.profile.company:
-        all_invoices = all_invoices.filter(branch__company=user.profile.company)
+        if selected_branch:
+            all_invoices = all_invoices.filter(branch=selected_branch)
+        else:
+            all_invoices = all_invoices.filter(branch__company=user.profile.company)
 
     today_invoices = all_invoices.filter(date=today)
 
@@ -244,7 +256,10 @@ def api_dashboard_stats(request):
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         today_expenses_qs = today_expenses_qs.filter(branch=user.managed_branch)
     elif role == 'COMPANY_ADMIN' and user.profile.company:
-        today_expenses_qs = today_expenses_qs.filter(company=user.profile.company)
+        if selected_branch:
+            today_expenses_qs = today_expenses_qs.filter(branch=selected_branch)
+        else:
+            today_expenses_qs = today_expenses_qs.filter(company=user.profile.company)
     
     today_expense = today_expenses_qs.aggregate(e=Sum('amount'))['e'] or Decimal('0')
     today_net_profit = today_revenue - today_expense
@@ -262,7 +277,10 @@ def api_dashboard_stats(request):
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         customers_qs = customers_qs.filter(branch=user.managed_branch)
     elif role == 'COMPANY_ADMIN' and user.profile.company:
-        customers_qs = customers_qs.filter(company=user.profile.company)
+        if selected_branch:
+            customers_qs = customers_qs.filter(branch=selected_branch)
+        else:
+            customers_qs = customers_qs.filter(company=user.profile.company)
 
     # Recent 3 invoices today
     recent = []
