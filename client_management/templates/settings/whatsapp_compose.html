@@ -276,14 +276,6 @@
             </table>
         </div>
 
-        <!-- WhatsApp Type Selection -->
-        <div class="form-group">
-            <label for="{{ form.whatsapp_type.id_for_label }}">Template Type</label>
-            {{ form.whatsapp_type }}
-            {% for error in form.whatsapp_type.errors %}
-            <span class="error-text">{{ error }}</span>
-            {% endfor %}
-        </div>
 
         <!-- Template Selection -->
         <div class="form-group">
@@ -433,7 +425,7 @@
     const templateSelect = document.getElementById('template-select');
     const templatePreview = document.getElementById('template-preview');
     const messageTextarea = document.querySelector('textarea[name="message"]');
-    const typeSelect = document.querySelector('select[name="whatsapp_type"]');
+    const typeSelect = null;
     const varSection = document.getElementById('variable-inputs-section');
 
     const VAR_ROWS = {

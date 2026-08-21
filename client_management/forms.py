@@ -743,9 +743,8 @@ class WhatsAppTypeForm(forms.ModelForm):
 class WhatsAppTemplateForm(forms.ModelForm):
     class Meta:
         model = WhatsAppTemplate
-        fields = ['whatsapp_type', 'template_name', 'content']
+        fields = ['template_name', 'content']
         widgets = {
-            'whatsapp_type': forms.Select(attrs={'class': 'form-control'}),
             'template_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter template name'}),
             'content': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter template content', 'rows': 4}),
         }
@@ -753,13 +752,6 @@ class WhatsAppTemplateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
-        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
-            company = self.request.user.profile.company
-            self.fields['whatsapp_type'].queryset = WhatsAppType.objects.filter(company=company)
-        else:
-            self.fields['whatsapp_type'].queryset = WhatsAppType.objects.none()
-        self.fields['whatsapp_type'].required = False
-        self.fields['whatsapp_type'].empty_label = "--------- Optional ---------"
         for field_name, field in self.fields.items():
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'
@@ -768,9 +760,8 @@ class WhatsAppTemplateForm(forms.ModelForm):
 class WhatsAppComposeForm(forms.ModelForm):
     class Meta:
         model = WhatsAppMessage
-        fields = ['whatsapp_type', 'message', 'attachment']
+        fields = ['message', 'attachment']
         widgets = {
-            'whatsapp_type': forms.Select(attrs={'class': 'form-control'}),
             'message': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter message content', 'rows': 4}),
             'attachment': forms.FileInput(attrs={'class': 'form-control'}),
         }
@@ -778,11 +769,6 @@ class WhatsAppComposeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
-        if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
-            company = self.request.user.profile.company
-            self.fields['whatsapp_type'].queryset = WhatsAppType.objects.filter(company=company)
-        else:
-            self.fields['whatsapp_type'].queryset = WhatsAppType.objects.none()
         for field_name, field in self.fields.items():
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'

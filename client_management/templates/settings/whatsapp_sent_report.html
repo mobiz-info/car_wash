@@ -33,13 +33,7 @@
                 <td style="font-weight: 500;">
                     <i class="ph ph-whatsapp-logo" style="color: #25d366;"></i> {{ item.recipient_number }}
                 </td>
-                <td>
-                    {% if item.whatsapp_type %}
-                        <span style="background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">{{ item.whatsapp_type.name }}</span>
-                    {% else %}
-                        <span style="color: #94a3b8; font-size: 0.75rem;">Uncategorized</span>
-                    {% endif %}
-                </td>
+                <td>—</td>
                 <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ item.message }}">{{ item.message }}</td>
                 <td>
                     <span style="background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">

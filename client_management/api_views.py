@@ -1939,7 +1939,7 @@ def api_whatsapp_templates(request):
 
         templates = WhatsAppTemplate.objects.filter(
             company=company, is_deleted=False
-        ).select_related('whatsapp_type').order_by('template_name')
+        ).order_by('template_name')
 
         # Get booking WhatsApp number
         wa_number = ''
@@ -1954,7 +1954,6 @@ def api_whatsapp_templates(request):
                 'id': str(t.id),
                 'name': t.template_name,
                 'content': t.content,
-                'type': t.whatsapp_type.name if t.whatsapp_type else '',
             }
             for t in templates
         ]
