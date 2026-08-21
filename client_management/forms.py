@@ -758,6 +758,8 @@ class WhatsAppTemplateForm(forms.ModelForm):
             self.fields['whatsapp_type'].queryset = WhatsAppType.objects.filter(company=company)
         else:
             self.fields['whatsapp_type'].queryset = WhatsAppType.objects.none()
+        self.fields['whatsapp_type'].required = False
+        self.fields['whatsapp_type'].empty_label = "--------- Optional ---------"
         for field_name, field in self.fields.items():
             if 'class' not in field.widget.attrs:
                 field.widget.attrs['class'] = 'form-control'
