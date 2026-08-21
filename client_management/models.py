@@ -365,6 +365,8 @@ class WhatsAppTemplate(BaseModel):
     whatsapp_type = models.ForeignKey(WhatsAppType, on_delete=models.SET_NULL, null=True, blank=True, related_name='templates')
     template_name = models.CharField(max_length=200)
     content = models.TextField()
+    wawy_template_name = models.CharField(max_length=100, blank=True, default='',
+        help_text='Wawy API template name (e.g. festivalgreeting). Leave blank for plain text sending.')
 
     def __str__(self):
         return f"{self.template_name} - {self.company.company_name}"

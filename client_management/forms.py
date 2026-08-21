@@ -743,9 +743,10 @@ class WhatsAppTypeForm(forms.ModelForm):
 class WhatsAppTemplateForm(forms.ModelForm):
     class Meta:
         model = WhatsAppTemplate
-        fields = ['template_name', 'content']
+        fields = ['template_name', 'wawy_template_name', 'content']
         widgets = {
             'template_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter template name'}),
+            'wawy_template_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. festivalgreeting (leave blank for plain text)'}),
             'content': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Enter template content', 'rows': 4}),
         }
 

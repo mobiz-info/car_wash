@@ -1954,6 +1954,7 @@ def api_whatsapp_templates(request):
                 'id': str(t.id),
                 'name': t.template_name,
                 'content': t.content,
+                'wawy_template_name': t.wawy_template_name or '',
             }
             for t in templates
         ]
@@ -2092,7 +2093,8 @@ def api_whatsapp_broadcast(request):
                     company_name = company.company_name if company else ''
                     branch_name = customer.branch.name if customer.branch else company_name
 
-                    if template_name.lower() in ['festivalgreeting', 'preset_festival_greeting']:
+                    if template_name.lower() == 'festivalgreeting':
+                        # Official Wawy festival greeting: value1=name, value2=festival, value3=branch
                         fest_val = var_2 if var_2 else 'Festival'
                         tmpl_vals = [name, fest_val, branch_name or company_name]
                         result = send_whatsapp_template(phone, 'festivalgreeting', tmpl_vals, setting=wa_setting)
