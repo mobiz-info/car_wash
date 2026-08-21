@@ -1964,7 +1964,7 @@ def api_whatsapp_templates(request):
             {
                 'id': 'festivalgreeting',
                 'name': 'Festival Greeting (All Festivals)',
-                'content': 'Dear {{1}}, Wishing you and your family a very Happy {{2}}! Warm wishes from {{3}}.',
+                'content': 'Hello Dear {{1}}, Wishing you and your family a very Happy {{2}}! Warm wishes from {{3}} Team.',
                 'type': 'Festival Greeting',
             },
             {
