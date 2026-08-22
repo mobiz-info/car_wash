@@ -812,7 +812,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             return
             
         # 5. Dispatch
-        if setting.is_official_api:
+        if setting and setting.username and setting.password:
             from booking_management.api_views import send_whatsapp_template
             values = [
                 customer.name,

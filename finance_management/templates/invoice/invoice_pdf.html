@@ -369,10 +369,9 @@
                                     {% if item.service_detail.tyres_changed_count %} | <strong>Qty:</strong> {{ item.service_detail.tyres_changed_count }} pcs{% endif %}
                                     {% if item.service_detail.next_tyre_change_km %} | <strong style="color: #1e3a8a;">Next Change:</strong> {{ item.service_detail.next_tyre_change_km }} km{% endif %}
                                 {% elif item.service_detail.service_category == 'wheel_alignment' %}
-                                    <strong>Tasks:</strong> 
-                                    {% if item.service_detail.alignment_done %}Wheel Alignment{% endif %}
-                                    {% if item.service_detail.balancing_done %}{% if item.service_detail.alignment_done %} & {% endif %}Wheel Balancing{% endif %}
-                                    {% if item.service_detail.alignment_notes %} | <strong>Notes:</strong> {{ item.service_detail.alignment_notes }}{% endif %}
+                                    {% if item.service_detail.odometer_at_service %}<strong>Odometer:</strong> {{ item.service_detail.odometer_at_service }} km{% endif %}
+                                    {% if item.service_detail.next_alignment_km %}{% if item.service_detail.odometer_at_service %} | {% endif %}<strong style="color: #1e3a8a;">Next Alignment:</strong> {{ item.service_detail.next_alignment_km }} km{% endif %}
+                                    {% if item.service_detail.alignment_notes %}{% if item.service_detail.odometer_at_service or item.service_detail.next_alignment_km %} | {% endif %}<strong>Notes:</strong> {{ item.service_detail.alignment_notes }}{% endif %}
                                 {% elif item.service_detail.service_category == 'car_detailing' or item.service_detail.service_category == 'detailing' %}
                                     {% if item.service_detail.warranty_value %}
                                         <strong>Warranty:</strong> {{ item.service_detail.warranty_value }} {{ item.service_detail.warranty_unit|title }}{% if item.service_detail.warranty_value > 1 %}s{% endif %}
