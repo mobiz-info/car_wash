@@ -3857,8 +3857,7 @@ def api_send_reminder(request):
                 tmpl_values = [customer_name, vehicle_no, formatted_date]
             elif is_wheel:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'wheelbalancing')).strip()
-                # wheelbalancing Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=next_alignment_km, {{4}}=branch_name
-                branch_name = plan.branch.name if plan.branch else 'Mobiz Auto Care'
+                # wheelbalancing Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=service_name, {{4}}=next_alignment_km
                 # Resolve next alignment KM from invoice service_detail or vehicle
                 next_alignment_km = 'N/A'
                 for _item in invoice.items.all():
@@ -3867,7 +3866,7 @@ def api_send_reminder(request):
                         break
                 if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
                     next_alignment_km = str(invoice.vehicle.next_alignment_km)
-                tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
+                tmpl_values = [customer_name, vehicle_no, service_name, next_alignment_km]
             else:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
                 tmpl_values = [customer_name, vehicle_no, service_name]
@@ -3893,8 +3892,10 @@ def api_send_reminder(request):
                     })
 
             # Send via API
+            # Always use template API for wheel/oil/smoke reminders (require Wawy template)
+            use_template = setting.is_official_api or is_wheel or is_oil or is_smoke
             try:
-                if setting.is_official_api:
+                if use_template:
                     send_whatsapp_template(
                         to_number=cleaned_phone,
                         template_name=tmpl_name,
