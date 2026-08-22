@@ -90,19 +90,18 @@ class Command(BaseCommand):
                         tmpl_name = (reminder.template_name or '').strip()
                         if not tmpl_name:
                             if 'alignment' in service_name.lower() or 'balancing' in service_name.lower():
-                                tmpl_name = 'wheelbalancing'
+                                tmpl_name = 'wheelalignment'
                             elif 'battery' in service_name.lower():
                                 tmpl_name = 'batteryservice'
                             else:
                                 tmpl_name = 'reminder'
 
-                        branch_name = reminder.branch.name if reminder.branch else (company.company_name if company else '')
                         next_km = invoice.vehicle.next_alignment_km if (invoice.vehicle and invoice.vehicle.next_alignment_km) else ''
-                        next_km_str = f"{next_km} KM" if next_km else service_name
+                        next_km_str = str(next_km) if next_km else 'N/A'
 
-                        if tmpl_name.lower() == 'wheelbalancing':
-                            # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = next_alignment_km, {{4}} = branch_name
-                            tmpl_values = [customer_name, vehicle_no, next_km_str, branch_name]
+                        if tmpl_name.lower() in ['wheelbalancing', 'wheelalignment']:
+                            # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = service_name, {{4}} = next_alignment_km
+                            tmpl_values = [customer_name, vehicle_no, service_name, next_km_str]
                         elif tmpl_name.lower() == 'batteryservice':
                             # {{1}} = customer_name, {{2}} = service_name
                             tmpl_values = [customer_name, service_name]

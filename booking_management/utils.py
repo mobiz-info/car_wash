@@ -88,7 +88,7 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
             cat_slug = item.service.service_type.slug if (item.service and item.service.service_type) else ''
             if not default_tmpl:
                 if 'wheel' in s_name or 'balance' in s_name or 'alignment' in s_name or 'wheel' in cat_slug or 'alignment' in cat_slug:
-                    default_tmpl = 'wheelbalancing'
+                    default_tmpl = 'wheelalignment'
                 elif 'smoke' in s_name or 'pollution' in s_name or 'smoke' in cat_slug:
                     default_tmpl = 'smoketest'
                 elif 'battery' in s_name or 'battery' in cat_slug:
@@ -211,7 +211,7 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
             cat_slug = item.service.service_type.slug if (item.service and item.service.service_type) else ''
             if not default_tmpl:
                 if 'wheel' in s_name or 'balance' in s_name or 'alignment' in s_name or 'wheel' in cat_slug or 'alignment' in cat_slug:
-                    default_tmpl = 'wheelbalancing'
+                    default_tmpl = 'wheelalignment'
                 elif 'smoke' in s_name or 'pollution' in s_name or 'smoke' in cat_slug:
                     default_tmpl = 'smoketest'
                 elif 'battery' in s_name or 'battery' in cat_slug:
