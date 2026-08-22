@@ -439,6 +439,23 @@ def send_whatsapp_template(to_number, template_name, values, doc_url=None, setti
         
         with urlopen(url, timeout=15) as resp:
             result = resp.read().decode('utf-8')
+
+        # Fallback between wheelalignment and wheelbalancing if template not found on Wawy portal
+        if "Template or Sender Not Found" in result:
+            alt_name = None
+            if template_name.lower() == 'wheelalignment':
+                alt_name = 'wheelbalancing'
+            elif template_name.lower() == 'wheelbalancing':
+                alt_name = 'wheelalignment'
+
+            if alt_name:
+                alt_params = dict(params)
+                alt_params["name"] = alt_name
+                alt_url = f"{base_url}?{urlencode(alt_params)}"
+                with open('/tmp/wa_debug.log', 'a') as f:
+                    f.write(f"SEND_TEMPLATE FALLBACK RETRY: template={alt_name}, url={alt_url}\n")
+                with urlopen(alt_url, timeout=15) as resp:
+                    result = resp.read().decode('utf-8')
             
         with open('/tmp/wa_debug.log', 'a') as f:
             f.write(f"SEND_TEMPLATE RESPONSE: {result}\n")
