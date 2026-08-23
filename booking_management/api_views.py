@@ -3876,7 +3876,8 @@ def api_send_reminder(request):
                 # Always force 'wheelalignment' template for wheel alignment/balancing services.
                 # DB stores 'servicereminder' as default — never use that for wheel services.
                 tmpl_name = 'wheelalignment'
-                # wheelalignment Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=service_name, {{4}}=next_alignment_km
+                # wheelalignment Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=next_alignment_km, {{4}}=branch_name
+                branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
                 # Resolve next alignment KM from invoice service_detail or vehicle
                 next_alignment_km = 'N/A'
                 for _item in invoice.items.all():
@@ -3885,7 +3886,7 @@ def api_send_reminder(request):
                         break
                 if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
                     next_alignment_km = str(invoice.vehicle.next_alignment_km)
-                tmpl_values = [customer_name, vehicle_no, service_name, next_alignment_km]
+                tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
             else:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
                 tmpl_values = [customer_name, vehicle_no, service_name]
