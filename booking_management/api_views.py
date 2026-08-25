@@ -440,13 +440,17 @@ def send_whatsapp_template(to_number, template_name, values, doc_url=None, setti
         with urlopen(url, timeout=15) as resp:
             result = resp.read().decode('utf-8')
 
-        # Fallback between wheelalignment and wheelbalancing if template not found on Wawy portal
+        # Fallback between wheelalignment/wheelbalancing and reminderservice/servicereminder if template not found on Wawy portal
         if "Template or Sender Not Found" in result:
             alt_name = None
             if template_name.lower() == 'wheelalignment':
                 alt_name = 'wheelbalancing'
             elif template_name.lower() == 'wheelbalancing':
                 alt_name = 'wheelalignment'
+            elif template_name.lower() == 'reminderservice':
+                alt_name = 'servicereminder'
+            elif template_name.lower() == 'servicereminder':
+                alt_name = 'reminderservice'
 
             if alt_name:
                 alt_params = dict(params)
@@ -3888,7 +3892,9 @@ def api_send_reminder(request):
                     next_alignment_km = str(invoice.vehicle.next_alignment_km)
                 tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
             else:
-                tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
+                tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'reminderservice')).strip()
+                if tmpl_name.lower() == 'servicereminder':
+                    tmpl_name = 'reminderservice'
                 tmpl_values = [customer_name, vehicle_no, service_name]
 
             encoded_message = urllib.parse.quote(message)
@@ -3912,8 +3918,8 @@ def api_send_reminder(request):
                     })
 
             # Send via API
-            # Always use template API for wheel/oil/smoke reminders (require Wawy template)
-            use_template = setting.is_official_api or is_wheel or is_oil or is_smoke
+            # Always use template API for official templates (wheel, oil, smoke, reminderservice)
+            use_template = True
             try:
                 if use_template:
                     send_whatsapp_template(

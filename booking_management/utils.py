@@ -105,7 +105,7 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
             if days <= 0:
                 continue
 
-            tmpl = (rem.get('template_name') or default_tmpl or 'servicereminder').strip()
+            tmpl = (rem.get('template_name') or default_tmpl or 'reminderservice').strip()
             scheduled_date = invoice.date + timedelta(days=days)
 
             ReminderPlan.objects.create(
@@ -228,7 +228,7 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
             if days <= 0:
                 continue
 
-            tmpl = (rem.get('template_name') or default_tmpl or 'servicereminder').strip()
+            tmpl = (rem.get('template_name') or default_tmpl or 'reminderservice').strip()
             scheduled_date = invoice.date + timedelta(days=days)
 
             ReminderPlan.objects.create(
@@ -285,7 +285,7 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
                     branch=branch,
                     invoice=invoice,
                     reminder=rule,
-                    template_name=rule.template_name or 'servicereminder',
+                    template_name=rule.template_name or 'reminderservice',
                     reminder_no=idx,
                     scheduled_date=scheduled_date,
                     auto_id=get_auto_id(ReminderPlan)

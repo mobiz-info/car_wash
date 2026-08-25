@@ -94,7 +94,7 @@ class Command(BaseCommand):
                             elif 'battery' in service_name.lower():
                                 tmpl_name = 'batteryservice'
                             else:
-                                tmpl_name = 'reminder'
+                                tmpl_name = 'reminderservice'
 
                         next_km = invoice.vehicle.next_alignment_km if (invoice.vehicle and invoice.vehicle.next_alignment_km) else ''
                         next_km_str = str(next_km) if next_km else 'N/A'
@@ -107,7 +107,10 @@ class Command(BaseCommand):
                             # {{1}} = customer_name, {{2}} = service_name
                             tmpl_values = [customer_name, service_name]
                         else:
-                            tmpl_values = [customer_name, vehicle_no]
+                            if tmpl_name.lower() == 'servicereminder':
+                                tmpl_name = 'reminderservice'
+                            # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = service_name (reminderservice template)
+                            tmpl_values = [customer_name, vehicle_no, service_name]
 
                         send_whatsapp_template(
                             to_number=cleaned_phone,
