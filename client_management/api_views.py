@@ -6078,8 +6078,23 @@ def api_vehicle_service_history(request, vehicle_id):
             vehicle=vehicle, is_deleted=False
         ).order_by('-date').prefetch_related('items')
 
+        from booking_management.models import ReminderPlan
+        from datetime import timedelta
+
         history = []
         for inv in invoices:
+            # Fetch all reminder plans for this invoice
+            plans = ReminderPlan.objects.filter(invoice=inv, is_deleted=False).order_by('scheduled_date')
+            inv_reminders = [
+                {
+                    'reminder_no': p.reminder_no,
+                    'scheduled_date': str(p.scheduled_date) if p.scheduled_date else None,
+                    'template_name': p.template_name or '',
+                    'is_sent': p.is_sent,
+                }
+                for p in plans
+            ]
+
             for item in inv.items.all():
                 entry = {
                     'invoice_number': inv.invoice_number,
@@ -6087,6 +6102,7 @@ def api_vehicle_service_history(request, vehicle_id):
                     'service_name': item.service_name,
                     'category': 'washing',
                     'rate': float(item.rate),
+                    'reminders': inv_reminders,
                 }
                 sd = None
                 try:
@@ -6115,6 +6131,22 @@ def api_vehicle_service_history(request, vehicle_id):
                         entry['balancing_done'] = sd.balancing_done
                         entry['alignment_notes'] = sd.alignment_notes or ''
                         entry['odometer'] = sd.odometer_at_service
+                        entry['next_alignment_km'] = sd.next_alignment_km
+                    elif sd.service_category in ['smoke_test', 'pollution_test']:
+                        if sd.next_smoke_test_date:
+                            entry['next_smoke_test_date'] = str(sd.next_smoke_test_date)
+                            entry['reminder_1_date'] = str(sd.next_smoke_test_date - timedelta(days=15))
+                            entry['reminder_2_date'] = str(sd.next_smoke_test_date - timedelta(days=3))
+
+                # Check for smoke test in service_name if category not explicitly set
+                s_name_lower = (item.service_name or '').lower()
+                if (not sd or sd.service_category not in ['smoke_test', 'pollution_test']) and ('smoke' in s_name_lower or 'pollution' in s_name_lower):
+                    entry['category'] = 'smoke_test'
+                    next_date = vehicle.next_smoke_test_date
+                    if next_date:
+                        entry['next_smoke_test_date'] = str(next_date)
+                        entry['reminder_1_date'] = str(next_date - timedelta(days=15))
+                        entry['reminder_2_date'] = str(next_date - timedelta(days=3))
 
                 history.append(entry)
 
