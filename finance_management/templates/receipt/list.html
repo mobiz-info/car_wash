@@ -84,55 +84,6 @@
 
     </div>
 
-    <!-- Messages -->
-    {% comment %} {% if messages %}
-    <div style="padding:16px 24px;">
-
-        {% for message in messages %}
-
-        <div style="margin-bottom:8px;
-                    padding:12px 16px;
-                    border-radius:8px;
-                    display:flex;
-                    align-items:center;
-                    gap:8px;
-
-            {% if message.tags == 'success' %}
-                background:#d1fae5;
-                color:#065f46;
-                border:1px solid #a7f3d0;
-
-            {% elif message.tags == 'error' %}
-                background:#fee2e2;
-                color:#991b1b;
-                border:1px solid #fecaca;
-
-            {% else %}
-                background:#e0f2fe;
-                color:#0369a1;
-                border:1px solid #bae6fd;
-            {% endif %}
-        ">
-
-            <i class="ph-bold
-                {% if message.tags == 'success' %}
-                    ph-check-circle
-                {% elif message.tags == 'error' %}
-                    ph-warning-circle
-                {% else %}
-                    ph-info
-                {% endif %}
-            "></i>
-
-            {{ message }}
-
-        </div>
-
-        {% endfor %}
-
-    </div>
-    {% endif %} {% endcomment %}
-
     <!-- Table -->
     <div style="overflow-x:auto;">
 
@@ -160,7 +111,7 @@
 
                 {% for receipt in receipts %}
 
-                <tr>
+                <tr id="receipt-row-{{ receipt.id }}">
 
                     <td style="color:#94a3b8;">
                         {{ forloop.counter }}
@@ -289,27 +240,19 @@
 
                             </a>
 
-                            <a href="#"
-                               style="background:#fef3c7;
-                                      color:#92400e;
-                                      padding:7px 10px;
-                                      border-radius:7px;
-                                      text-decoration:none;">
-
-                                <i class="ph ph-pencil-simple"></i>
-
-                            </a>
-
-                            <a href="#"
+                            <button
+                               onclick="deleteReceipt('{{ receipt.id }}', '{{ receipt.receipt_number }}', {{ receipt.amount }})"
                                style="background:#fee2e2;
                                       color:#b91c1c;
                                       padding:7px 10px;
                                       border-radius:7px;
-                                      text-decoration:none;">
+                                      border:none;
+                                      cursor:pointer;"
+                               title="Delete Receipt">
 
                                 <i class="ph ph-trash"></i>
 
-                            </a>
+                            </button>
 
                         </div>
 
@@ -361,5 +304,51 @@
     </div>
 
 </div>
+
+<script>
+function deleteReceipt(receiptId, receiptNumber, amount) {
+    if (!confirm('Delete receipt ' + receiptNumber + '?\n\nAmount ₹' + amount + ' will be restored to the invoice outstanding balance.\n\nThis action cannot be undone.')) return;
+
+    fetch('/api/receipt/delete/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+        body: JSON.stringify({receipt_id: receiptId})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById('receipt-row-' + receiptId);
+            if (row) row.remove();
+            showToast('Receipt ' + receiptNumber + ' deleted. Amount restored to outstanding.', 'success');
+        } else {
+            showToast('Error: ' + (data.message || 'Failed to delete receipt'), 'error');
+        }
+    })
+    .catch(() => showToast('Network error. Please try again.', 'error'));
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:14px 20px;border-radius:10px;font-weight:600;z-index:9999;color:white;background:' + (type === 'success' ? '#16a34a' : '#dc2626') + ';box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:opacity 0.3s;';
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+</script>
 
 {% endblock %}

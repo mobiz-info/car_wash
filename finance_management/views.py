@@ -690,9 +690,118 @@ def api_receipt_list(request):
         'count': len(results),
     })
 
+
+@csrf_exempt
+def api_delete_invoice(request):
+    """
+    Mobile + Web API: Soft-delete an invoice.
+    - Marks invoice as is_deleted=True
+    - Soft-deletes all associated Receipts
+    - Resets invoice.amount_collected to 0
+    """
+    import json
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        invoice_id = data.get('invoice_id') or data.get('id')
+        if not invoice_id:
+            return JsonResponse({'success': False, 'message': 'invoice_id is required'}, status=400)
+
+        invoice = Invoice.objects.get(id=invoice_id, is_deleted=False)
+
+        # Scope check
+        role = user.profile.role.name if user.profile.role else None
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            if invoice.branch != user.managed_branch:
+                return JsonResponse({'success': False, 'message': 'Access denied'}, status=403)
+        elif role == 'COMPANY_ADMIN' and user.profile.company:
+            if invoice.branch.company != user.profile.company:
+                return JsonResponse({'success': False, 'message': 'Access denied'}, status=403)
+
+        # Soft-delete all receipts linked to this invoice
+        Receipt.objects.filter(invoice=invoice, is_deleted=False).update(is_deleted=True)
+
+        # Reset collected amount and soft-delete invoice
+        invoice.amount_collected = Decimal('0.00')
+        invoice.is_deleted = True
+        invoice.updater = user
+        invoice.save()
+
+        return JsonResponse({'success': True, 'message': 'Invoice deleted successfully'})
+
+    except Invoice.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Invoice not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_delete_receipt(request):
+    """
+    Mobile + Web API: Soft-delete a receipt and restore outstanding balance.
+    - Marks receipt as is_deleted=True
+    - Decrements invoice.amount_collected by the receipt amount
+    """
+    import json
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        receipt_id = data.get('receipt_id') or data.get('id')
+        if not receipt_id:
+            return JsonResponse({'success': False, 'message': 'receipt_id is required'}, status=400)
+
+        receipt = Receipt.objects.select_related('invoice').get(id=receipt_id, is_deleted=False)
+        invoice = receipt.invoice
+
+        # Scope check
+        role = user.profile.role.name if user.profile.role else None
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            if invoice.branch != user.managed_branch:
+                return JsonResponse({'success': False, 'message': 'Access denied'}, status=403)
+        elif role == 'COMPANY_ADMIN' and user.profile.company:
+            if invoice.branch.company != user.profile.company:
+                return JsonResponse({'success': False, 'message': 'Access denied'}, status=403)
+
+        receipt_amount = receipt.amount
+
+        # Soft-delete receipt
+        receipt.is_deleted = True
+        receipt.save()
+
+        # Restore the outstanding balance by decrementing amount_collected
+        invoice.amount_collected = max(Decimal('0.00'), invoice.amount_collected - receipt_amount)
+        invoice.save()
+
+        new_outstanding = invoice.total - invoice.amount_collected
+        return JsonResponse({
+            'success': True,
+            'message': 'Receipt deleted. Amount restored to outstanding.',
+            'new_outstanding': str(new_outstanding),
+            'new_amount_collected': str(invoice.amount_collected),
+        })
+
+    except Receipt.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Receipt not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
 @csrf_exempt
 def api_customer_outstanding_list(request):
     """Mobile API: list all customers who have outstanding invoices."""
+
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
 

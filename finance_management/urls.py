@@ -19,6 +19,8 @@ urlpatterns = [
     path('api/outstanding/customer-list/', views.api_customer_outstanding_list, name='api_customer_outstanding_list'),
     path('api/outstanding/customer-collect/', views.api_collect_customer_outstanding, name='api_collect_customer_outstanding'),
     path('api/receipt/list/', views.api_receipt_list, name='api_receipt_list'),
+    path('api/invoice/delete/', views.api_delete_invoice, name='api_delete_invoice'),
+    path('api/receipt/delete/', views.api_delete_receipt, name='api_delete_receipt'),
     
     path('reports/job-report/',views.job_report,name='job_report'),
     path('booking-report/', views.booking_report, name='booking_report'),
