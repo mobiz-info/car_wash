@@ -1093,7 +1093,9 @@ def send_reminder_ajax(request):
                     from booking_management.api_views import send_whatsapp_template
                     
                     # Resolve official template name
-                    tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicereminder')).strip()
+                    tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicesreminder')).strip()
+                    if tmpl_name.lower() in ['servicereminder', 'reminderservice']:
+                        tmpl_name = 'servicesreminder'
                     
                     # Format template parameter values based on template name
                     if tmpl_name.lower() == 'batteryservice':

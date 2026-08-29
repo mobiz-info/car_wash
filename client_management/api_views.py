@@ -1609,7 +1609,7 @@ def api_get_form_data(request):
     if company:
         templates_qs = templates_qs.filter(company=company)
     whatsapp_templates = [{'id': str(t.id), 'name': t.template_name} for t in templates_qs.order_by('template_name')]
-    default_template_names = ['servicereminder', 'batteryservice', 'wheelbalancing', 'smoketest', 'oilservice', 'tyreservice']
+    default_template_names = ['servicesreminder', 'reminderservice', 'servicereminder', 'batteryservice', 'wheelbalancing', 'smoketest', 'oilservice', 'tyreservice']
     for dt in default_template_names:
         if not any(t['name'] == dt for t in whatsapp_templates):
             whatsapp_templates.append({'id': dt, 'name': dt})

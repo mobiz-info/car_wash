@@ -440,26 +440,27 @@ def send_whatsapp_template(to_number, template_name, values, doc_url=None, setti
         with urlopen(url, timeout=15) as resp:
             result = resp.read().decode('utf-8')
 
-        # Fallback between wheelalignment/wheelbalancing and reminderservice/servicereminder if template not found on Wawy portal
+        # Fallback between wheelalignment/wheelbalancing and servicesreminder/reminderservice/servicereminder if template not found on Wawy portal
         if "Template or Sender Not Found" in result:
-            alt_name = None
+            alt_names = []
             if template_name.lower() == 'wheelalignment':
-                alt_name = 'wheelbalancing'
+                alt_names = ['wheelbalancing']
             elif template_name.lower() == 'wheelbalancing':
-                alt_name = 'wheelalignment'
-            elif template_name.lower() == 'reminderservice':
-                alt_name = 'servicereminder'
-            elif template_name.lower() == 'servicereminder':
-                alt_name = 'reminderservice'
+                alt_names = ['wheelalignment']
+            elif template_name.lower() in ['servicesreminder', 'reminderservice', 'servicereminder']:
+                alt_names = [name for name in ['servicesreminder', 'reminderservice', 'servicereminder'] if name != template_name.lower()]
 
-            if alt_name:
+            for alt_name in alt_names:
                 alt_params = dict(params)
                 alt_params["name"] = alt_name
                 alt_url = f"{base_url}?{urlencode(alt_params)}"
                 with open('/tmp/wa_debug.log', 'a') as f:
                     f.write(f"SEND_TEMPLATE FALLBACK RETRY: template={alt_name}, url={alt_url}\n")
                 with urlopen(alt_url, timeout=15) as resp:
-                    result = resp.read().decode('utf-8')
+                    res_alt = resp.read().decode('utf-8')
+                    if "Template or Sender Not Found" not in res_alt:
+                        result = res_alt
+                        break
             
         with open('/tmp/wa_debug.log', 'a') as f:
             f.write(f"SEND_TEMPLATE RESPONSE: {result}\n")
@@ -3892,9 +3893,9 @@ def api_send_reminder(request):
                     next_alignment_km = str(invoice.vehicle.next_alignment_km)
                 tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
             else:
-                tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'reminderservice')).strip()
-                if tmpl_name.lower() == 'servicereminder':
-                    tmpl_name = 'reminderservice'
+                tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicesreminder')).strip()
+                if tmpl_name.lower() in ['servicereminder', 'reminderservice']:
+                    tmpl_name = 'servicesreminder'
                 tmpl_values = [customer_name, vehicle_no, service_name]
 
             encoded_message = urllib.parse.quote(message)
