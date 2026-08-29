@@ -205,7 +205,7 @@ def clean_whatsapp_number(number):
     Cleans a phone number for WhatsApp sending.
     - Strips spaces, dashes, +, parentheses and other non-digit characters
     - Removes a single leading 0 (local dialing format)
-    - Automatically prepends country code 91 if a 10-digit number is provided
+    - Preserves existing international dial codes (Qatar 974, UAE 971, Saudi 966, Ghana 233, Ivory Coast 225, Benin 229, India 91, etc.)
     - Returns the cleaned digit string or None if too short to be valid
     """
     if not number:
@@ -215,11 +215,39 @@ def clean_whatsapp_number(number):
     if not digits:
         return None
     # Strip a single leading 0 (local dialing prefix used in some countries)
-    if digits.startswith('0'):
+    if digits.startswith('0') and len(digits) > 7:
         digits = digits[1:]
-    # If 10 digits and starts with 6,7,8,9 (Indian mobile), prepend country code 91
-    if len(digits) == 10 and digits[0] in ('6', '7', '8', '9'):
+
+    # Check if number already starts with known international dial codes
+    known_dial_codes = [
+        '974', # Qatar
+        '971', # UAE
+        '966', # Saudi Arabia
+        '965', # Kuwait
+        '968', # Oman
+        '973', # Bahrain
+        '233', # Ghana
+        '229', # Benin
+        '225', # Ivory Coast
+        '84',  # Vietnam
+        '66',  # Thailand
+        '7',   # Russia
+        '86',  # China
+        '1',   # USA / UK
+        '44',  # UK
+        '91',  # India
+    ]
+
+    has_country_code = False
+    for code in known_dial_codes:
+        if digits.startswith(code) and len(digits) > len(code) + 4:
+            has_country_code = True
+            break
+
+    # Only default to 91 if no international country code is detected and it's a 10-digit number
+    if not has_country_code and len(digits) == 10 and digits[0] in ('6', '7', '8', '9'):
         digits = '91' + digits
+
     # Reject obviously invalid numbers (anything shorter than 7 digits is not a real phone)
     if len(digits) < 7:
         return None
