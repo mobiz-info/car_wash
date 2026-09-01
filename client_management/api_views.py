@@ -833,40 +833,42 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             return
             
         # 5. Dispatch
-        if setting and setting.username and setting.password:
-            from booking_management.api_views import send_whatsapp_template
-            summary_extra = ""
-            if subtotal_val > total_val or discount_val > 0:
-                summary_extra += f"\nSubtotal: {currency}{subtotal_val:.2f}\nDiscount: -{currency}{discount_val:.2f}"
-            if tax_val > 0:
-                summary_extra += f"\nTax: {currency}{tax_val:.2f}"
+        res = send_whatsapp_simple(
+            to_number=cleaned_num,
+            message=message_text,
+            setting=setting,
+            media_url=pdf_url
+        )
+        
+        # If simple send did not succeed, fallback to template API
+        if isinstance(res, str) and ("error" in res.lower() or "fail" in res.lower() or "aborted" in res.lower()):
+            if setting and setting.username and setting.password:
+                from booking_management.api_views import send_whatsapp_template
+                summary_extra = ""
+                if subtotal_val > total_val or discount_val > 0:
+                    summary_extra += f"\nSubtotal: {currency}{subtotal_val:.2f}\nDiscount: -{currency}{discount_val:.2f}"
+                if tax_val > 0:
+                    summary_extra += f"\nTax: {currency}{tax_val:.2f}"
 
-            formatted_services_template = services_str + summary_extra
+                formatted_services_template = services_str + summary_extra
 
-            values = [
-                customer.name,
-                invoice.invoice_number,
-                company_name,
-                invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
-                formatted_services_template,
-                f"{currency}{total_val:.2f}",
-                f"{currency}{paid_val:.2f}",
-                f"{currency}{balance_val:.2f}"
-            ]
-            res = send_whatsapp_template(
-                to_number=cleaned_num,
-                template_name='invoice',
-                values=values,
-                doc_url=pdf_url,
-                setting=setting
-            )
-        else:
-            res = send_whatsapp_simple(
-                to_number=cleaned_num,
-                message=message_text,
-                setting=setting,
-                media_url=pdf_url
-            )
+                values = [
+                    customer.name,
+                    invoice.invoice_number,
+                    company_name,
+                    invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
+                    formatted_services_template,
+                    f"{currency}{total_val:.2f}",
+                    f"{currency}{paid_val:.2f}",
+                    f"{currency}{balance_val:.2f}"
+                ]
+                res = send_whatsapp_template(
+                    to_number=cleaned_num,
+                    template_name='invoice',
+                    values=values,
+                    doc_url=pdf_url,
+                    setting=setting
+                )
             
         with open('/tmp/whatsapp_invoice.log', 'a') as f:
             f.write(f"[{datetime.now()}] Invoice {invoice_id} WhatsApp sent to {cleaned_num}: {res}\n")
