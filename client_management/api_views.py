@@ -770,13 +770,16 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             
         # Services summary
         services_list = []
+        services_single_line_list = []
         for item in invoice.items.all():
             qty = float(item.qty) if item.qty else 1.0
             qty_text = f" (x{int(qty) if qty % 1 == 0 else qty})" if qty > 1 else ""
             item_price = float(item.net_taxable_amount) if (item.net_taxable_amount is not None and item.net_taxable_amount > 0) else (float(item.rate or 0) * qty)
             price_text = f": {currency}{item_price:.2f}" if item_price > 0 else ""
             services_list.append(f"- {item.service_name}{qty_text}{price_text}")
+            services_single_line_list.append(f"{item.service_name}{qty_text}")
         services_str = "\n".join(services_list)
+        services_single_line = ", ".join(services_single_line_list)
         
         progress_msg = get_invoice_scheme_progress_message(invoice)
         progress_suffix = f"\n{progress_msg}\n" if progress_msg else ""
@@ -837,7 +840,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 invoice.invoice_number,
                 company_name,
                 invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
-                services_str,
+                services_single_line,
                 f"{currency}{total_val:.2f}",
                 f"{currency}{paid_val:.2f}",
                 f"{currency}{balance_val:.2f}"
