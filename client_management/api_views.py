@@ -835,12 +835,20 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         # 5. Dispatch
         if setting and setting.username and setting.password:
             from booking_management.api_views import send_whatsapp_template
+            summary_extra = ""
+            if subtotal_val > total_val or discount_val > 0:
+                summary_extra += f"\nSubtotal: {currency}{subtotal_val:.2f}\nDiscount: -{currency}{discount_val:.2f}"
+            if tax_val > 0:
+                summary_extra += f"\nTax: {currency}{tax_val:.2f}"
+
+            formatted_services_template = services_str + summary_extra
+
             values = [
                 customer.name,
                 invoice.invoice_number,
                 company_name,
                 invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
-                services_single_line,
+                formatted_services_template,
                 f"{currency}{total_val:.2f}",
                 f"{currency}{paid_val:.2f}",
                 f"{currency}{balance_val:.2f}"
