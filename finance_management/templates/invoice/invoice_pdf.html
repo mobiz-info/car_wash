@@ -343,13 +343,16 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 8%;" class="align-center">#</th>
-                <th style="width: 67%;">Service Description</th>
-                <th style="width: 25%;" class="align-right">Rate</th>
+                <th style="width: 6%;" class="align-center">#</th>
+                <th style="width: 48%;">Service / Item Description</th>
+                <th style="width: 12%;" class="align-center">Qty</th>
+                <th style="width: 17%;" class="align-right">Rate</th>
+                <th style="width: 17%;" class="align-right">Amount</th>
             </tr>
         </thead>
         <tbody>
             {% for item in invoice.items.all %}
+                {% if not item.is_operational %}
                 <tr>
                     <td class="align-center">{{ forloop.counter }}</td>
                     <td>
@@ -380,12 +383,14 @@
                             </div>
                         {% endif %}
                     </td>
-
+                    <td class="align-center">{% if item.qty %}{{ item.qty|floatformat:"-2" }}{% else %}1{% endif %}</td>
                     <td class="align-right">{{ currency }}{{ item.rate }}</td>
+                    <td class="align-right">{{ currency }}{{ item.net_taxable_amount|default:item.rate }}</td>
                 </tr>
+                {% endif %}
             {% empty %}
                 <tr>
-                    <td colspan="3" class="align-center" style="color: #64748b;">No services listed.</td>
+                    <td colspan="5" class="align-center" style="color: #64748b;">No items listed.</td>
                 </tr>
             {% endfor %}
         </tbody>

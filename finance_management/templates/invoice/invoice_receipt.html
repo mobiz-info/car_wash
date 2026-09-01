@@ -331,8 +331,10 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Service</th>
+                        <th>Service / Item</th>
+                        <th style="text-align:center;">Qty</th>
                         <th style="text-align:right;">Rate</th>
+                        <th style="text-align:right;">Amount</th>
                     </tr>
                 </thead>
 
@@ -346,8 +348,14 @@
 
                         <td>{{ item.service_name }}</td>
 
+                        <td style="text-align:center;">{% if item.qty %}{{ item.qty|floatformat:"-2" }}{% else %}1{% endif %}</td>
+
                         <td style="text-align:right;">
                             {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.rate }}
+                        </td>
+
+                        <td style="text-align:right;">
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.net_taxable_amount|default:item.rate }}
                         </td>
 
                     </tr>

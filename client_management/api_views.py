@@ -771,7 +771,11 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         # Services summary
         services_list = []
         for item in invoice.items.all():
-            services_list.append(f"- {item.service_name}")
+            qty = float(item.qty) if item.qty else 1.0
+            qty_text = f" (x{int(qty) if qty % 1 == 0 else qty})" if qty > 1 else ""
+            item_price = float(item.net_taxable_amount) if (item.net_taxable_amount is not None and item.net_taxable_amount > 0) else (float(item.rate or 0) * qty)
+            price_text = f": {currency}{item_price:.2f}" if item_price > 0 else ""
+            services_list.append(f"- {item.service_name}{qty_text}{price_text}")
         services_str = "\n".join(services_list)
         
         progress_msg = get_invoice_scheme_progress_message(invoice)
@@ -783,15 +787,29 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             logo_url = base_url + invoice.branch.company.logo_color.url.lstrip('/')
         logo_suffix = f"\n\nCompany Logo: {logo_url}" if logo_url else ""
 
+        subtotal_val = float(invoice.subtotal) if invoice.subtotal is not None else float(invoice.total or 0.0)
+        discount_val = float(invoice.discount) if invoice.discount is not None else 0.0
+        tax_val = float(invoice.tax_amount) if invoice.tax_amount is not None else 0.0
+        total_val = float(invoice.total) if invoice.total is not None else 0.0
+        paid_val = float(invoice.amount_collected) if invoice.amount_collected is not None else 0.0
+        balance_val = total_val - paid_val
+
+        subtotal_line = f"Subtotal: {currency}{subtotal_val:.2f}\n"
+        discount_line = f"Discount: -{currency}{discount_val:.2f}\n" if discount_val > 0 else ""
+        tax_line = f"Tax: {currency}{tax_val:.2f}\n" if tax_val > 0 else ""
+
         message_text = (
             f"Dear {customer.name},\n\n"
             f"Your invoice *{invoice.invoice_number}* has been generated successfully at {company_name}.\n\n"
             f"*Invoice Details:*\n"
             f"Vehicle: {invoice.vehicle.vehicle_number if invoice.vehicle else ''}\n"
             f"Services:\n{services_str}\n"
-            f"Total: {currency}{invoice.total}\n"
-            f"Paid: {currency}{invoice.amount_collected}\n"
-            f"Balance: {currency}{invoice.total - invoice.amount_collected}\n\n"
+            f"{subtotal_line}"
+            f"{discount_line}"
+            f"{tax_line}"
+            f"Total: {currency}{total_val:.2f}\n"
+            f"Paid: {currency}{paid_val:.2f}\n"
+            f"Balance: {currency}{balance_val:.2f}\n\n"
             f"Please find the attached PDF invoice for your reference:\n"
             f"{pdf_url}\n"
             f"{progress_suffix}\n"
@@ -820,9 +838,9 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 company_name,
                 invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
                 services_str,
-                f"{currency}{invoice.total}",
-                f"{currency}{invoice.amount_collected}",
-                f"{currency}{invoice.total - invoice.amount_collected}"
+                f"{currency}{total_val:.2f}",
+                f"{currency}{paid_val:.2f}",
+                f"{currency}{balance_val:.2f}"
             ]
             res = send_whatsapp_template(
                 to_number=cleaned_num,
@@ -1162,12 +1180,20 @@ def api_create_invoice(request):
                 except Exception:
                     service_obj = None
                 
+            svc_name = svc.get('name', 'Unknown Item')
+            qty_val = Decimal(str(svc.get('qty', 1)))
+            rate_val = Decimal(str(svc.get('rate', 0)))
+            disc_val = Decimal(str(svc.get('discount', 0)))
+            net_val = (rate_val * qty_val) - disc_val
+
             item = InvoiceItem.objects.create(
                 invoice=invoice,
                 service=service_obj,
-                service_name=svc.get('name', 'Unknown Item'),
-                rate=svc.get('rate', 0),
-                discount=svc.get('discount', 0),  # per-item scheme/manual discount
+                service_name=svc_name,
+                qty=qty_val,
+                rate=rate_val,
+                discount=disc_val,  # per-item scheme/manual discount
+                net_taxable_amount=net_val,
                 creator=user,
                 auto_id=get_auto_id(InvoiceItem)
             )
