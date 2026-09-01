@@ -236,7 +236,12 @@ def api_list_invoices(request):
             'branch_logo': request.build_absolute_uri(inv.branch.logo.url) if inv.branch and inv.branch.logo else '',
             'company_logo': request.build_absolute_uri(inv.branch.company.logo_color.url) if inv.branch and inv.branch.company and inv.branch.company.logo_color else '',
             'services': [
-                {'name': item.service_name, 'rate': str(item.rate)}
+                {
+                    'name': item.service_name,
+                    'rate': str(item.rate),
+                    'qty': float(item.qty) if item.qty else 1.0,
+                    'net_taxable_amount': str(item.net_taxable_amount) if item.net_taxable_amount else str(item.rate)
+                }
                 for item in inv.items.all() if not item.is_operational
             ],
         })
