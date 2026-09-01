@@ -768,10 +768,10 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         if invoice.branch and invoice.branch.company and invoice.branch.company.country:
             currency = getattr(invoice.branch.company.country, 'currency_symbol', '₹') or '₹'
             
-        # Services summary
+        # Services summary (skip operational/zero-rate stock items)
         services_list = []
         services_single_line_list = []
-        for item in invoice.items.all():
+        for item in invoice.items.filter(is_operational=False):
             qty = float(item.qty) if item.qty else 1.0
             qty_text = f" (x{int(qty) if qty % 1 == 0 else qty})" if qty > 1 else ""
             item_price = float(item.net_taxable_amount) if (item.net_taxable_amount is not None and item.net_taxable_amount > 0) else (float(item.rate or 0) * qty)
@@ -787,7 +787,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         branch_name = invoice.branch.name if invoice.branch else "our service"
         logo_url = ""
         if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color:
-            logo_url = base_url + invoice.branch.company.logo_color.url.lstrip('/')
+            logo_url = base_url.rstrip('/') + '/' + invoice.branch.company.logo_color.url.lstrip('/')
         logo_suffix = f"\n\nCompany Logo: {logo_url}" if logo_url else ""
 
         subtotal_val = float(invoice.subtotal) if invoice.subtotal is not None else float(invoice.total or 0.0)
@@ -832,43 +832,46 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 f.write(f"[{datetime.now()}] Invoice {invoice_id}: Missing/incomplete WhatsAppSetting for company {company}\n")
             return
             
-        # 5. Dispatch
-        res = send_whatsapp_simple(
-            to_number=cleaned_num,
-            message=message_text,
-            setting=setting,
-            media_url=pdf_url
-        )
-        
-        # If simple send did not succeed, fallback to template API
+        # 5. Dispatch via Push Notification Template API (pushwhatsapp.php) first
+        disc_text = f" (Discount: -{currency}{discount_val:.2f})" if discount_val > 0 else ""
+        services_clean_with_disc = services_single_line + disc_text
+
+        values = [
+            customer.name,
+            invoice.invoice_number,
+            company_name,
+            invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
+            services_clean_with_disc,
+            f"{currency}{total_val:.2f}",
+            f"{currency}{paid_val:.2f}",
+            f"{currency}{balance_val:.2f}"
+        ]
+
+        if setting and setting.username and setting.password:
+            from booking_management.api_views import send_whatsapp_template
+            res = send_whatsapp_template(
+                to_number=cleaned_num,
+                template_name='invoice',
+                values=values,
+                doc_url=pdf_url,
+                setting=setting
+            )
+        else:
+            res = send_whatsapp_simple(
+                to_number=cleaned_num,
+                message=message_text,
+                setting=setting,
+                media_url=pdf_url
+            )
+
+        # If push template failed, fall back to conversation API (conv_wa.php)
         if isinstance(res, str) and ("error" in res.lower() or "fail" in res.lower() or "aborted" in res.lower()):
-            if setting and setting.username and setting.password:
-                from booking_management.api_views import send_whatsapp_template
-                summary_extra = ""
-                if subtotal_val > total_val or discount_val > 0:
-                    summary_extra += f"\nSubtotal: {currency}{subtotal_val:.2f}\nDiscount: -{currency}{discount_val:.2f}"
-                if tax_val > 0:
-                    summary_extra += f"\nTax: {currency}{tax_val:.2f}"
-
-                formatted_services_template = services_str + summary_extra
-
-                values = [
-                    customer.name,
-                    invoice.invoice_number,
-                    company_name,
-                    invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
-                    formatted_services_template,
-                    f"{currency}{total_val:.2f}",
-                    f"{currency}{paid_val:.2f}",
-                    f"{currency}{balance_val:.2f}"
-                ]
-                res = send_whatsapp_template(
-                    to_number=cleaned_num,
-                    template_name='invoice',
-                    values=values,
-                    doc_url=pdf_url,
-                    setting=setting
-                )
+            res = send_whatsapp_simple(
+                to_number=cleaned_num,
+                message=message_text,
+                setting=setting,
+                media_url=pdf_url
+            )
             
         with open('/tmp/whatsapp_invoice.log', 'a') as f:
             f.write(f"[{datetime.now()}] Invoice {invoice_id} WhatsApp sent to {cleaned_num}: {res}\n")
@@ -1284,14 +1287,15 @@ def api_create_invoice(request):
             except Booking.DoesNotExist:
                 pass
             
-        # Trigger async WhatsApp send
+        # Trigger async WhatsApp send (non-daemon so thread survives Gunicorn worker recycling)
         import threading
         base_url = request.build_absolute_uri('/')
-        threading.Thread(
+        _wa_thread = threading.Thread(
             target=send_invoice_whatsapp_background,
             args=(invoice.id, base_url),
-            daemon=True
-        ).start()
+            daemon=False
+        )
+        _wa_thread.start()
             
         company_logo = request.build_absolute_uri(invoice.branch.company.logo_color.url) if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color else ''
         branch_logo = request.build_absolute_uri(invoice.branch.logo.url) if invoice.branch and invoice.branch.logo else ''
