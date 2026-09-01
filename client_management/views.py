@@ -2018,8 +2018,8 @@ def whatsapp_settings(request):
             return redirect('whatsapp_settings')
     else:
         initial_data = {}
-        if not setting.pk or not setting.url:
-            initial_data['url'] = 'http://wawy.org/conv_wa.php'
+        if not setting.pk or not setting.url or 'conv_wa' in setting.url:
+            initial_data['url'] = 'http://wawy.org/pushwhatsapp.php'
         form = WhatsAppSettingForm(instance=setting, initial=initial_data)
 
     # Build the webhook URL for this company so admin can copy-paste it into wawy.org
