@@ -875,6 +875,53 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             
         with open('/tmp/whatsapp_invoice.log', 'a') as f:
             f.write(f"[{datetime.now()}] Invoice {invoice_id} WhatsApp sent to {cleaned_num}: {res}\n")
+
+        # 6. If invoice includes wheel alignment / balancing, also dispatch wheelalignment reminder template
+        is_wheel_alignment = False
+        next_align_km = None
+
+        for item in invoice.items.all():
+            sname = (item.service_name or "").lower()
+            if 'align' in sname or 'wheel' in sname or 'balance' in sname:
+                is_wheel_alignment = True
+            if hasattr(item, 'service_detail') and item.service_detail:
+                sd = item.service_detail
+                if getattr(sd, 'service_category', None) in ['alignment', 'wheel_balancing']:
+                    is_wheel_alignment = True
+                if getattr(sd, 'next_alignment_km', None):
+                    next_align_km = str(sd.next_alignment_km)
+
+        if not is_wheel_alignment and invoice.vehicle:
+            if getattr(invoice.vehicle, 'next_alignment_km', None):
+                is_wheel_alignment = True
+
+        if is_wheel_alignment and setting and setting.username and setting.password:
+            if not next_align_km and invoice.vehicle and getattr(invoice.vehicle, 'next_alignment_km', None):
+                next_align_km = str(invoice.vehicle.next_alignment_km)
+            if not next_align_km and invoice.vehicle and getattr(invoice.vehicle, 'current_odometer_km', None):
+                try:
+                    next_align_km = str(int(invoice.vehicle.current_odometer_km) + 5000)
+                except Exception:
+                    next_align_km = "5000 KM"
+            if not next_align_km:
+                next_align_km = "5000 KM"
+
+            from booking_management.api_views import send_whatsapp_template
+            veh_num = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
+            wheel_values = [
+                customer.name,
+                veh_num,
+                next_align_km,
+                branch_name
+            ]
+            wheel_res = send_whatsapp_template(
+                to_number=cleaned_num,
+                template_name='wheelalignment',
+                values=wheel_values,
+                setting=setting
+            )
+            with open('/tmp/whatsapp_invoice.log', 'a') as f:
+                f.write(f"[{datetime.now()}] Invoice {invoice_id} Wheel Alignment Reminder sent to {cleaned_num}: {wheel_res}\n")
         
     except Exception as e:
         import traceback
