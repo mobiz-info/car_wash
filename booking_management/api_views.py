@@ -264,7 +264,10 @@ def send_whatsapp_simple(to_number, message, setting=None, interactive_data=None
             f.write(f"SEND_WA_SIMPLE ABORTED: no valid WhatsAppSetting provided\n")
         return "ABORTED: no WA setting"
 
-    base_url = setting.url or "http://wawy.org/conv_wa.php"
+    # Simple conversational text, interactive menus, location pins must ALWAYS use conv_wa.php
+    base_url = "http://wawy.org/conv_wa.php"
+    if setting and setting.url and 'conv_wa.php' in setting.url:
+        base_url = setting.url
     username = setting.username
     api_password = setting.password
     sender = setting.sender_id or ""
