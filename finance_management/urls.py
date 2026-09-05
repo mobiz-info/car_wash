@@ -3,6 +3,8 @@ from . import views
 
 urlpatterns = [
     path('invoices/', views.invoice_list, name='invoice_list'),
+    path('invoices/create/', views.invoice_create, name='invoice_create'),
+    path('ajax/customer-vehicles/<uuid:customer_id>/', views.ajax_get_customer_vehicles, name='ajax_get_customer_vehicles'),
     path('outstanding/', views.outstanding_list, name='outstanding_list'),
     path('outstanding/collect/<uuid:invoice_id>/', views.collect_payment, name='collect_payment'),
     path('api/invoice/list/', views.api_list_invoices, name='api_list_invoices'),

@@ -1,0 +1,1017 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Invoice - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Create Invoice{% endblock %}
+{% block breadcrumb_active %}Create Invoice{% endblock %}
+
+{% block content %}
+<style>
+    .inv-card {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+    .inv-card-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 12px;
+    }
+    .inv-card-title i {
+        color: #000080;
+        font-size: 1.3rem;
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .form-group label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #475569;
+    }
+    .form-control {
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        color: #1e293b;
+        outline: none;
+        transition: all 0.2s;
+        width: 100%;
+    }
+    .form-control:focus {
+        border-color: #000080;
+        box-shadow: 0 0 0 3px rgba(0, 0, 128, 0.1);
+    }
+    .item-row {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 12px;
+        position: relative;
+    }
+    .item-row-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .btn-remove-row {
+        background: #fee2e2;
+        color: #ef4444;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .category-detail-box {
+        background: #ffffff;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 14px;
+        margin-top: 12px;
+    }
+    .category-detail-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #000080;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .summary-card {
+        background: #0f172a;
+        color: #ffffff;
+        border-radius: 12px;
+        padding: 24px;
+    }
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.95rem;
+    }
+    .summary-row.total-row {
+        border-bottom: none;
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #38bdf8;
+        padding-top: 14px;
+    }
+    .badge-info {
+        background: #eff6ff;
+        color: #1d4ed8;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .btn-action {
+        background: #000080;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        width: 100%;
+        transition: background 0.2s;
+    }
+    .btn-action:hover {
+        background: #1e1b4b;
+    }
+    .toggle-section-btn {
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+    }
+</style>
+
+<form id="invoiceForm" onsubmit="submitInvoice(event)">
+    {% csrf_token %}
+    
+    <!-- Section 1: Customer & Vehicle Information -->
+    <div class="inv-card">
+        <div class="inv-card-title">
+            <i class="ph ph-user-circle"></i> Customer & Vehicle Details
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Select Customer *</label>
+                <select id="customer_select" class="form-control" onchange="onCustomerChange()" required>
+                    <option value="">-- Choose Customer --</option>
+                    {% for c in customers %}
+                        <option value="{{ c.id }}" data-phone="{{ c.phone }}">{{ c.name }} ({{ c.phone }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Select Vehicle *</label>
+                <select id="vehicle_select" class="form-control" onchange="onVehicleChange()" required disabled>
+                    <option value="">-- Choose Vehicle --</option>
+                </select>
+            </div>
+            <div class="form-group" id="vehicle_info_box" style="display:none;">
+                <label>Vehicle Info</label>
+                <div style="padding:10px; background:#f8fafc; border-radius:8px; font-size:0.85rem;">
+                    <div>Model: <strong id="v_model_text">-</strong></div>
+                    <div>Odometer: <strong id="v_odometer_text">0</strong> km</div>
+                    <div>Wheel Type: <strong id="v_wheel_type_text">Normal</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: Services Section -->
+    <div class="inv-card">
+        <div class="inv-card-title" style="justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="ph ph-wrench"></i> Services & Service Details
+            </div>
+            <button type="button" class="toggle-section-btn" onclick="addServiceRow()">
+                <i class="ph ph-plus-circle"></i> Add Service
+            </button>
+        </div>
+        
+        <div id="service_rows_container">
+            <!-- Dynamic Service Rows will be appended here -->
+        </div>
+    </div>
+
+    <!-- Section 3: Trading Items / Inventory Stock -->
+    <div class="inv-card">
+        <div class="inv-card-title" style="justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="ph ph-package"></i> Trading / Inventory Items
+            </div>
+            <button type="button" class="toggle-section-btn" onclick="addTradingRow()">
+                <i class="ph ph-plus-circle"></i> Add Stock Item
+            </button>
+        </div>
+        <div id="trading_rows_container">
+            <!-- Dynamic Trading Stock rows -->
+        </div>
+    </div>
+
+    <!-- Section 4: Extras / Additional Charges -->
+    <div class="inv-card">
+        <div class="inv-card-title" style="justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="ph ph-tag"></i> Extras & Additional Charges
+            </div>
+            <button type="button" class="toggle-section-btn" onclick="addExtraRow()">
+                <i class="ph ph-plus-circle"></i> Add Extra
+            </button>
+        </div>
+        <div id="extra_rows_container">
+            <!-- Dynamic Extra rows -->
+        </div>
+    </div>
+
+    <!-- Section 5: Remarks & Reminders -->
+    <div class="inv-card">
+        <div class="inv-card-title">
+            <i class="ph ph-notebook"></i> Remarks & WhatsApp Reminders
+        </div>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Remarks / Special Notes</label>
+                <textarea id="remarks_input" class="form-control" rows="2" placeholder="Enter remarks or recommendations for customer..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Automated WhatsApp Reminders</label>
+                <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+                    <input type="checkbox" id="reminders_enabled_chk" checked style="width:18px; height:18px;">
+                    <span style="font-size:0.9rem; color:#334155; font-weight:500;">Enable WhatsApp Reminders</span>
+                </div>
+                <div style="margin-top:10px; font-size:0.8rem; color:#64748b;">
+                    Default service reminders will be scheduled automatically for oil/alignment/smoke test.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 6: Payment, Tax & Final Summary -->
+    <div class="form-grid" style="grid-template-columns: 1fr 1fr; align-items:start;">
+        <div class="inv-card">
+            <div class="inv-card-title">
+                <i class="ph ph-credit-card"></i> Payment & Tax Settings
+            </div>
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <div class="form-group">
+                    <label>Additional Discount</label>
+                    <div style="display:flex; gap:10px;">
+                        <input type="number" step="0.01" id="additional_discount_input" value="0" class="form-control" oninput="calculateTotals()">
+                        <select id="discount_type_select" class="form-control" style="width:120px;" onchange="calculateTotals()">
+                            <option value="amount">Amount (₹)</option>
+                            <option value="percent">Percent (%)</option>
+                        </select>
+                    </div>
+                </div>
+
+                {% if company_taxes %}
+                <div class="form-group">
+                    <label>Apply GST / Taxes</label>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        {% for tax in company_taxes %}
+                            <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
+                                <input type="checkbox" class="tax-checkbox" value="{{ tax.id }}" data-percent="{{ tax.percent }}" onchange="calculateTotals()">
+                                {{ tax.name }} ({{ tax.percent }}%)
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="form-group">
+                    <label>Sales Type *</label>
+                    <select id="sales_type_select" class="form-control" onchange="onSalesTypeChange()">
+                        <option value="cash">Cash Invoice</option>
+                        <option value="credit">Credit Invoice</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="payment_mode_group">
+                    <label>Payment Mode</label>
+                    <select id="payment_mode_select" class="form-control">
+                        <option value="digital_payments">Digital Payments (UPI/GPay/PhonePe)</option>
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Amount Collected Now (₹)</label>
+                    <input type="number" step="0.01" id="amount_collected_input" value="0" class="form-control" oninput="calculateTotals()">
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div style="font-size:1.1rem; font-weight:700; margin-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:12px;">
+                Invoice Summary
+            </div>
+            <div class="summary-row">
+                <span>Subtotal Services</span>
+                <span id="summary_services">₹0.00</span>
+            </div>
+            <div class="summary-row">
+                <span>Subtotal Trading Items</span>
+                <span id="summary_trading">₹0.00</span>
+            </div>
+            <div class="summary-row">
+                <span>Subtotal Extras</span>
+                <span id="summary_extras">₹0.00</span>
+            </div>
+            <div class="summary-row" style="color:#ef4444;">
+                <span>Total Discount</span>
+                <span id="summary_discount">-₹0.00</span>
+            </div>
+            <div class="summary-row" style="color:#94a3b8;">
+                <span>Tax Amount</span>
+                <span id="summary_tax">₹0.00</span>
+            </div>
+            <div class="summary-row total-row">
+                <span>Grand Total</span>
+                <span id="summary_total">₹0.00</span>
+            </div>
+            <div class="summary-row" style="color:#10b981; font-weight:600; margin-top:8px;">
+                <span>Amount Collected</span>
+                <span id="summary_collected">₹0.00</span>
+            </div>
+
+            <div style="margin-top:24px;">
+                <button type="submit" id="submit_btn" class="btn-action">
+                    <i class="ph ph-check-circle" style="vertical-align:middle; font-size:1.2rem;"></i> Save & Create Invoice
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Services Data JSON -->
+<script id="services_data" type="application/json">
+[
+    {% for s in services %}
+        {
+            "id": "{{ s.id }}",
+            "name": "{{ s.name|escapejs }}",
+            "rate": {{ s.rate|default:0 }},
+            "category": "{{ s.category.name|default:''|escapejs }}",
+            "service_type": "{{ s.service_type.name|default:''|escapejs }}"
+        }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+]
+</script>
+
+<script id="stock_data" type="application/json">
+[
+    {% for st in stock_items %}
+        {
+            "id": "{{ st.id }}",
+            "item_name": "{{ st.item_name|escapejs }}",
+            "rate": {{ st.sales_price|default:0 }}
+        }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+]
+</script>
+
+<script id="extras_data" type="application/json">
+[
+    {% for ex in extras %}
+        {
+            "id": "{{ ex.id }}",
+            "name": "{{ ex.name|escapejs }}",
+            "rate": {{ ex.price|default:0 }}
+        }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+]
+</script>
+
+<script>
+let servicesList = JSON.parse(document.getElementById('services_data').textContent || '[]');
+let stockList = JSON.parse(document.getElementById('stock_data').textContent || '[]');
+let extrasList = JSON.parse(document.getElementById('extras_data').textContent || '[]');
+
+let serviceRowCount = 0;
+let tradingRowCount = 0;
+let extraRowCount = 0;
+
+function onCustomerChange() {
+    const custId = document.getElementById('customer_select').value;
+    const vehSelect = document.getElementById('vehicle_select');
+    vehSelect.innerHTML = '<option value="">-- Loading Vehicles... --</option>';
+    vehSelect.disabled = true;
+    document.getElementById('vehicle_info_box').style.display = 'none';
+
+    if (!custId) {
+        vehSelect.innerHTML = '<option value="">-- Choose Vehicle --</option>';
+        return;
+    }
+
+    fetch(`/ajax/customer-vehicles/${custId}/`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.vehicles) {
+                vehSelect.innerHTML = '<option value="">-- Choose Vehicle --</option>';
+                data.vehicles.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v.id;
+                    opt.textContent = `${v.vehicle_number} (${v.model_name || 'Vehicle'})`;
+                    opt.dataset.model = v.model_name || '';
+                    opt.dataset.odometer = v.current_odometer_km || 0;
+                    opt.dataset.wheelType = v.wheel_type || 'normal_wheel';
+                    vehSelect.appendChild(opt);
+                });
+                vehSelect.disabled = false;
+            }
+        });
+}
+
+function onVehicleChange() {
+    const vehSelect = document.getElementById('vehicle_select');
+    const selectedOpt = vehSelect.options[vehSelect.selectedIndex];
+    const infoBox = document.getElementById('vehicle_info_box');
+    if (selectedOpt && selectedOpt.value) {
+        document.getElementById('v_model_text').textContent = selectedOpt.dataset.model || 'Unknown';
+        document.getElementById('v_odometer_text').textContent = selectedOpt.dataset.odometer || '0';
+        document.getElementById('v_wheel_type_text').textContent = selectedOpt.dataset.wheelType === 'alloy_wheel' ? 'Alloy Wheel' : 'Normal Wheel';
+        infoBox.style.display = 'block';
+    } else {
+        infoBox.style.display = 'none';
+    }
+}
+
+function onSalesTypeChange() {
+    const salesType = document.getElementById('sales_type_select').value;
+    const modeGroup = document.getElementById('payment_mode_group');
+    if (salesType === 'credit') {
+        modeGroup.style.display = 'none';
+        document.getElementById('amount_collected_input').value = '0';
+    } else {
+        modeGroup.style.display = 'flex';
+    }
+    calculateTotals();
+}
+
+function addServiceRow() {
+    serviceRowCount++;
+    const container = document.getElementById('service_rows_container');
+    const rowId = `svc_row_${serviceRowCount}`;
+    
+    let serviceOptionsHtml = '<option value="">-- Select Service --</option>';
+    servicesList.forEach(s => {
+        serviceOptionsHtml += `<option value="${s.id}" data-rate="${s.rate}" data-name="${s.name}">${s.name} (₹${s.rate})</option>`;
+    });
+
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    div.id = rowId;
+    div.innerHTML = `
+        <div class="item-row-header">
+            <span style="font-weight:700; font-size:0.9rem; color:#0f172a;">Service #${serviceRowCount}</span>
+            <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')"><i class="ph ph-trash"></i> Remove</button>
+        </div>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Service *</label>
+                <select class="form-control svc-select" onchange="onServiceSelect('${rowId}')">
+                    ${serviceOptionsHtml}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Rate / Price (₹)</label>
+                <input type="number" step="0.01" class="form-control svc-rate" value="0" oninput="calculateTotals()">
+            </div>
+            <div class="form-group">
+                <label>Discount (₹)</label>
+                <input type="number" step="0.01" class="form-control svc-discount" value="0" oninput="calculateTotals()">
+            </div>
+            <div class="form-group">
+                <label>Category Details</label>
+                <select class="form-control svc-category-type" onchange="toggleCategoryDetails('${rowId}')">
+                    <option value="none">Standard Service (No Extra Details)</option>
+                    <option value="oil_change">Oil Change</option>
+                    <option value="tyre_change">Tyre Change</option>
+                    <option value="wheel_alignment">Wheel Alignment & Balancing</option>
+                    <option value="smoke_test">Smoke / Pollution Test</option>
+                    <option value="car_detailing">Car Detailing</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Dynamic Category Details Box -->
+        <div class="category-detail-box" id="${rowId}_cat_box" style="display:none;"></div>
+    `;
+    container.appendChild(div);
+}
+
+function removeRow(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+    calculateTotals();
+}
+
+function onServiceSelect(rowId) {
+    const row = document.getElementById(rowId);
+    const select = row.querySelector('.svc-select');
+    const selectedOpt = select.options[select.selectedIndex];
+    if (selectedOpt && selectedOpt.value) {
+        row.querySelector('.svc-rate').value = selectedOpt.dataset.rate || 0;
+        const sName = (selectedOpt.dataset.name || '').toLowerCase();
+        const catSelect = row.querySelector('.svc-category-type');
+        if (sName.includes('oil')) {
+            catSelect.value = 'oil_change';
+        } else if (sName.includes('tyre') || sName.includes('tire')) {
+            catSelect.value = 'tyre_change';
+        } else if (sName.includes('alignment') || sName.includes('balancing')) {
+            catSelect.value = 'wheel_alignment';
+        } else if (sName.includes('smoke') || sName.includes('pollution')) {
+            catSelect.value = 'smoke_test';
+        } else if (sName.includes('detailing') || sName.includes('coating') || sName.includes('ppf')) {
+            catSelect.value = 'car_detailing';
+        }
+        toggleCategoryDetails(rowId);
+    }
+    calculateTotals();
+}
+
+function toggleCategoryDetails(rowId) {
+    const row = document.getElementById(rowId);
+    const catType = row.querySelector('.svc-category-type').value;
+    const catBox = document.getElementById(`${rowId}_cat_box`);
+
+    if (catType === 'none') {
+        catBox.style.display = 'none';
+        catBox.innerHTML = '';
+        return;
+    }
+
+    catBox.style.display = 'block';
+    if (catType === 'oil_change') {
+        catBox.innerHTML = `
+            <div class="category-detail-title"><i class="ph ph-drop"></i> Oil Change Metadata</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Oil Product</label>
+                    <select class="form-control oil-product-select">
+                        <option value="">-- Select Oil Product --</option>
+                        {% for op in oil_products %}
+                            <option value="{{ op.id }}">{{ op.name }} ({{ op.grade.name|default:'' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Litres Used</label>
+                    <input type="number" step="0.1" class="form-control oil-litres" value="3.5">
+                </div>
+                <div class="form-group">
+                    <label>Oil Filter Changed</label>
+                    <select class="form-control oil-filter-select">
+                        <option value="">No Filter Change</option>
+                        {% for of in oil_filters %}
+                            <option value="{{ of.id }}" data-price="{{ of.price|default:0 }}">{{ of.name }} (₹{{ of.price|default:0 }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Odometer at Service (KM)</label>
+                    <input type="number" class="form-control oil-odometer" placeholder="e.g. 45000">
+                </div>
+                <div class="form-group">
+                    <label>Next Oil Change (KM)</label>
+                    <input type="number" class="form-control oil-next-km" placeholder="e.g. 55000">
+                </div>
+            </div>
+        `;
+    } else if (catType === 'tyre_change') {
+        catBox.innerHTML = `
+            <div class="category-detail-title"><i class="ph ph-circle-notch"></i> Tyre Replacement Metadata</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Tyre Brand</label>
+                    <select class="form-control tyre-brand-select">
+                        <option value="">-- Select Brand --</option>
+                        {% for tb in tyre_brands %}
+                            <option value="{{ tb.id }}">{{ tb.brand }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tyre Size</label>
+                    <input type="text" class="form-control tyre-size-input" placeholder="e.g. 195/65 R15">
+                </div>
+                <div class="form-group">
+                    <label>Tyres Replaced Count</label>
+                    <input type="number" class="form-control tyre-count-input" value="1" min="1" max="4">
+                </div>
+                <div class="form-group">
+                    <label>Next Tyre Change (KM)</label>
+                    <input type="number" class="form-control tyre-next-km" placeholder="e.g. 90000">
+                </div>
+            </div>
+        `;
+    } else if (catType === 'wheel_alignment') {
+        catBox.innerHTML = `
+            <div class="category-detail-title"><i class="ph ph-gear-fine"></i> Wheel Alignment & Balancing Metadata</div>
+            <div class="form-grid">
+                <div class="form-group" style="flex-direction:row; align-items:center; gap:10px; margin-top:20px;">
+                    <label style="margin:0;"><input type="checkbox" class="align-done-chk" checked> Alignment Done</label>
+                    <label style="margin:0;"><input type="checkbox" class="balance-done-chk" checked> Balancing Done</label>
+                </div>
+                <div class="form-group">
+                    <label>Wheel Type</label>
+                    <select class="form-control align-wheel-type">
+                        <option value="normal_wheel">Normal Wheel</option>
+                        <option value="alloy_wheel">Alloy Wheel (Alignment Vehicle)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Next Alignment (KM)</label>
+                    <input type="number" class="form-control align-next-km" placeholder="e.g. 50000">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Alignment Notes</label>
+                    <input type="text" class="form-control align-notes" placeholder="Camber/Caster adjustments...">
+                </div>
+            </div>
+        `;
+    } else if (catType === 'smoke_test') {
+        catBox.innerHTML = `
+            <div class="category-detail-title"><i class="ph ph-wind"></i> Smoke / Emission Test Metadata</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Test Validity Period</label>
+                    <select class="form-control smoke-period-select">
+                        <option value="12">12 Months (1 Year)</option>
+                        <option value="6">6 Months</option>
+                    </select>
+                </div>
+            </div>
+        `;
+    } else if (catType === 'car_detailing') {
+        catBox.innerHTML = `
+            <div class="category-detail-title"><i class="ph ph-sparkle"></i> Car Detailing Warranty Metadata</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Warranty Duration</label>
+                    <input type="number" class="form-control warranty-val-input" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Warranty Unit</label>
+                    <select class="form-control warranty-unit-select">
+                        <option value="year">Year(s)</option>
+                        <option value="month">Month(s)</option>
+                    </select>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function addTradingRow() {
+    tradingRowCount++;
+    const container = document.getElementById('trading_rows_container');
+    const rowId = `trade_row_${tradingRowCount}`;
+    let stockOpts = '<option value="">-- Select Item --</option>';
+    stockList.forEach(st => {
+        stockOpts += `<option value="${st.id}" data-rate="${st.rate}">${st.item_name} (₹${st.rate})</option>`;
+    });
+
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    div.id = rowId;
+    div.innerHTML = `
+        <div class="item-row-header">
+            <span style="font-weight:700; font-size:0.85rem;">Stock Item #${tradingRowCount}</span>
+            <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')"><i class="ph ph-trash"></i> Remove</button>
+        </div>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Stock Item</label>
+                <select class="form-control trade-select" onchange="onTradingSelect('${rowId}')">${stockOpts}</select>
+            </div>
+            <div class="form-group">
+                <label>Qty</label>
+                <input type="number" step="0.1" class="form-control trade-qty" value="1" oninput="calculateTotals()">
+            </div>
+            <div class="form-group">
+                <label>Rate (₹)</label>
+                <input type="number" step="0.01" class="form-control trade-rate" value="0" oninput="calculateTotals()">
+            </div>
+            <div class="form-group">
+                <label>Discount (₹)</label>
+                <input type="number" step="0.01" class="form-control trade-discount" value="0" oninput="calculateTotals()">
+            </div>
+            <div class="form-group" style="flex-direction:row; align-items:center; gap:8px; margin-top:20px;">
+                <label style="margin:0;"><input type="checkbox" class="trade-op-chk" onchange="calculateTotals()"> Operational Use (₹0 Charge)</label>
+            </div>
+        </div>
+    `;
+    container.appendChild(div);
+}
+
+function onTradingSelect(rowId) {
+    const row = document.getElementById(rowId);
+    const select = row.querySelector('.trade-select');
+    const selectedOpt = select.options[select.selectedIndex];
+    if (selectedOpt && selectedOpt.value) {
+        row.querySelector('.trade-rate').value = selectedOpt.dataset.rate || 0;
+    }
+    calculateTotals();
+}
+
+function addExtraRow() {
+    extraRowCount++;
+    const container = document.getElementById('extra_rows_container');
+    const rowId = `extra_row_${extraRowCount}`;
+    let extraOpts = '<option value="">-- Select Extra --</option>';
+    extrasList.forEach(ex => {
+        extraOpts += `<option value="${ex.id}" data-rate="${ex.rate}">${ex.name} (₹${ex.rate})</option>`;
+    });
+
+    const div = document.createElement('div');
+    div.className = 'item-row';
+    div.id = rowId;
+    div.innerHTML = `
+        <div class="item-row-header">
+            <span style="font-weight:700; font-size:0.85rem;">Extra Charge #${extraRowCount}</span>
+            <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')"><i class="ph ph-trash"></i> Remove</button>
+        </div>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Extra</label>
+                <select class="form-control extra-select" onchange="onExtraSelect('${rowId}')">${extraOpts}</select>
+            </div>
+            <div class="form-group">
+                <label>Qty</label>
+                <input type="number" step="0.1" class="form-control extra-qty" value="1" oninput="calculateTotals()">
+            </div>
+            <div class="form-group">
+                <label>Rate (₹)</label>
+                <input type="number" step="0.01" class="form-control extra-rate" value="0" oninput="calculateTotals()">
+            </div>
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Remark / Note</label>
+                <input type="text" class="form-control extra-remark" placeholder="Optional remark...">
+            </div>
+        </div>
+    `;
+    container.appendChild(div);
+}
+
+function onExtraSelect(rowId) {
+    const row = document.getElementById(rowId);
+    const select = row.querySelector('.extra-select');
+    const selectedOpt = select.options[select.selectedIndex];
+    if (selectedOpt && selectedOpt.value) {
+        row.querySelector('.extra-rate').value = selectedOpt.dataset.rate || 0;
+    }
+    calculateTotals();
+}
+
+function calculateTotals() {
+    let subtotalServices = 0;
+    document.querySelectorAll('#service_rows_container .item-row').forEach(row => {
+        const rate = parseFloat(row.querySelector('.svc-rate')?.value || 0);
+        const disc = parseFloat(row.querySelector('.svc-discount')?.value || 0);
+        subtotalServices += Math.max(0, rate - disc);
+    });
+
+    let subtotalTrading = 0;
+    document.querySelectorAll('#trading_rows_container .item-row').forEach(row => {
+        const isOp = row.querySelector('.trade-op-chk')?.checked;
+        if (!isOp) {
+            const qty = parseFloat(row.querySelector('.trade-qty')?.value || 1);
+            const rate = parseFloat(row.querySelector('.trade-rate')?.value || 0);
+            const disc = parseFloat(row.querySelector('.trade-discount')?.value || 0);
+            subtotalTrading += Math.max(0, (qty * rate) - disc);
+        }
+    });
+
+    let subtotalExtras = 0;
+    document.querySelectorAll('#extra_rows_container .item-row').forEach(row => {
+        const qty = parseFloat(row.querySelector('.extra-qty')?.value || 1);
+        const rate = parseFloat(row.querySelector('.extra-rate')?.value || 0);
+        subtotalExtras += (qty * rate);
+    });
+
+    const subtotal = subtotalServices + subtotalTrading + subtotalExtras;
+
+    const addDiscVal = parseFloat(document.getElementById('additional_discount_input').value || 0);
+    const addDiscType = document.getElementById('discount_type_select').value;
+    let addDiscAmount = addDiscVal;
+    if (addDiscType === 'percent') {
+        addDiscAmount = subtotal * (addDiscVal / 100);
+    }
+
+    const taxable = Math.max(0, subtotal - addDiscAmount);
+
+    let taxAmount = 0;
+    document.querySelectorAll('.tax-checkbox:checked').forEach(chk => {
+        const pct = parseFloat(chk.dataset.percent || 0);
+        taxAmount += taxable * (pct / 100);
+    });
+
+    const grandTotal = Math.max(0, taxable + taxAmount);
+
+    document.getElementById('summary_services').textContent = `₹${subtotalServices.toFixed(2)}`;
+    document.getElementById('summary_trading').textContent = `₹${subtotalTrading.toFixed(2)}`;
+    document.getElementById('summary_extras').textContent = `₹${subtotalExtras.toFixed(2)}`;
+    document.getElementById('summary_discount').textContent = `-₹${addDiscAmount.toFixed(2)}`;
+    document.getElementById('summary_tax').textContent = `₹${taxAmount.toFixed(2)}`;
+    document.getElementById('summary_total').textContent = `₹${grandTotal.toFixed(2)}`;
+
+    const salesType = document.getElementById('sales_type_select').value;
+    if (salesType === 'cash' && parseFloat(document.getElementById('amount_collected_input').value || 0) === 0) {
+        document.getElementById('amount_collected_input').value = grandTotal.toFixed(2);
+    }
+    const collected = parseFloat(document.getElementById('amount_collected_input').value || 0);
+    document.getElementById('summary_collected').textContent = `₹${collected.toFixed(2)}`;
+}
+
+function submitInvoice(e) {
+    e.preventDefault();
+    const custId = document.getElementById('customer_select').value;
+    const vehId = document.getElementById('vehicle_select').value;
+
+    if (!custId || !vehId) {
+        alert('Please select both Customer and Vehicle.');
+        return;
+    }
+
+    const services = [];
+    document.querySelectorAll('#service_rows_container .item-row').forEach(row => {
+        const select = row.querySelector('.svc-select');
+        const svcId = select.value;
+        const svcName = select.options[select.selectedIndex]?.dataset?.name || 'Service';
+        const rate = parseFloat(row.querySelector('.svc-rate')?.value || 0);
+        const disc = parseFloat(row.querySelector('.svc-discount')?.value || 0);
+        const catType = row.querySelector('.svc-category-type').value;
+
+        let detail = null;
+        if (catType !== 'none') {
+            const catBox = row.querySelector('.category-detail-box');
+            if (catType === 'oil_change') {
+                detail = {
+                    service_category: 'oil_change',
+                    oil_product_id: catBox.querySelector('.oil-product-select')?.value || null,
+                    oil_litres_used: parseFloat(catBox.querySelector('.oil-litres')?.value || 0),
+                    oil_filter_id: catBox.querySelector('.oil-filter-select')?.value || null,
+                    oil_filter_changed: !!catBox.querySelector('.oil-filter-select')?.value,
+                    odometer_at_service: parseInt(catBox.querySelector('.oil-odometer')?.value || 0) || null,
+                    next_oil_change_km: parseInt(catBox.querySelector('.oil-next-km')?.value || 0) || null,
+                };
+            } else if (catType === 'tyre_change') {
+                detail = {
+                    service_category: 'tyre_change',
+                    tyre_brand_id: catBox.querySelector('.tyre-brand-select')?.value || null,
+                    tyre_size: catBox.querySelector('.tyre-size-input')?.value || '',
+                    tyres_changed_count: parseInt(catBox.querySelector('.tyre-count-input')?.value || 1),
+                    next_tyre_change_km: parseInt(catBox.querySelector('.tyre-next-km')?.value || 0) || null,
+                };
+            } else if (catType === 'wheel_alignment') {
+                detail = {
+                    service_category: 'wheel_alignment',
+                    alignment_done: catBox.querySelector('.align-done-chk')?.checked || false,
+                    balancing_done: catBox.querySelector('.balance-done-chk')?.checked || false,
+                    wheel_type: catBox.querySelector('.align-wheel-type')?.value || 'normal_wheel',
+                    alignment_notes: catBox.querySelector('.align-notes')?.value || '',
+                    next_alignment_km: parseInt(catBox.querySelector('.align-next-km')?.value || 0) || null,
+                };
+            } else if (catType === 'smoke_test') {
+                detail = {
+                    service_category: 'smoke_test',
+                    smoke_test_period_months: parseInt(catBox.querySelector('.smoke-period-select')?.value || 12),
+                };
+            } else if (catType === 'car_detailing') {
+                detail = {
+                    service_category: 'car_detailing',
+                    warranty_value: parseInt(catBox.querySelector('.warranty-val-input')?.value || 1),
+                    warranty_unit: catBox.querySelector('.warranty-unit-select')?.value || 'year',
+                };
+            }
+        }
+
+        services.push({
+            id: svcId,
+            name: svcName,
+            rate: rate,
+            discount: disc,
+            qty: 1,
+            if (detail) service_detail: detail,
+        });
+    });
+
+    const tradingItems = [];
+    document.querySelectorAll('#trading_rows_container .item-row').forEach(row => {
+        const select = row.querySelector('.trade-select');
+        const stId = select.value;
+        if (stId) {
+            tradingItems.push({
+                id: stId,
+                item_name: select.options[select.selectedIndex]?.text || 'Stock Item',
+                qty: parseFloat(row.querySelector('.trade-qty')?.value || 1),
+                rate: parseFloat(row.querySelector('.trade-rate')?.value || 0),
+                discount: parseFloat(row.querySelector('.trade-discount')?.value || 0),
+                is_operational: row.querySelector('.trade-op-chk')?.checked || false,
+            });
+        }
+    });
+
+    const extras = [];
+    document.querySelectorAll('#extra_rows_container .item-row').forEach(row => {
+        const select = row.querySelector('.extra-select');
+        const exId = select.value;
+        if (exId) {
+            extras.push({
+                id: exId,
+                name: select.options[select.selectedIndex]?.text || 'Extra',
+                qty: parseFloat(row.querySelector('.extra-qty')?.value || 1),
+                rate: parseFloat(row.querySelector('.extra-rate')?.value || 0),
+                remark: row.querySelector('.extra-remark')?.value || '',
+            });
+        }
+    });
+
+    if (services.length === 0 && tradingItems.length === 0 && extras.length === 0) {
+        alert('Please add at least one service, stock item, or extra charge.');
+        return;
+    }
+
+    const subtotalText = document.getElementById('summary_services').textContent;
+    const subtotalVal = parseFloat(document.getElementById('summary_services').textContent.replace('₹','')) +
+                        parseFloat(document.getElementById('summary_trading').textContent.replace('₹','')) +
+                        parseFloat(document.getElementById('summary_extras').textContent.replace('₹',''));
+    
+    const totalVal = parseFloat(document.getElementById('summary_total').textContent.replace('₹',''));
+    const discountVal = parseFloat(document.getElementById('summary_discount').textContent.replace('-₹',''));
+    const taxVal = parseFloat(document.getElementById('summary_tax').textContent.replace('₹',''));
+    const collectedVal = parseFloat(document.getElementById('amount_collected_input').value || 0);
+
+    const payload = {
+        customer_id: custId,
+        vehicle_id: vehId,
+        subtotal: subtotalVal,
+        discount: discountVal,
+        tax_amount: taxVal,
+        total: totalVal,
+        amount_collected: collectedVal,
+        sales_type: document.getElementById('sales_type_select').value,
+        payment_mode: document.getElementById('payment_mode_select').value,
+        remarks: document.getElementById('remarks_input').value,
+        reminders_enabled: document.getElementById('reminders_enabled_chk').checked,
+        services: services,
+        trading_items: tradingItems,
+        extras: extras,
+    };
+
+    const submitBtn = document.getElementById('submit_btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving Invoice...';
+
+    fetch('/invoices/create/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Invoice Created Successfully!');
+            if (data.invoice_id) {
+                window.location.href = `/invoice-receipt/${data.invoice_id}/`;
+            } else {
+                window.location.href = '/invoices/';
+            }
+        } else {
+            alert('Error creating invoice: ' + (data.message || 'Unknown error'));
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save & Create Invoice';
+        }
+    })
+    .catch(err => {
+        alert('Network error while saving invoice: ' + err);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save & Create Invoice';
+    });
+}
+
+// Add 1 default service row on load
+document.addEventListener('DOMContentLoaded', () => {
+    addServiceRow();
+});
+</script>
+{% endblock %}

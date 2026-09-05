@@ -1074,6 +1074,10 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
             update_fields.append('current_odometer_km')
         vehicle.last_alignment_date = timezone.now().date()
         update_fields.append('last_alignment_date')
+        w_type = detail_data.get('wheel_type')
+        if w_type in ['alloy_wheel', 'normal_wheel']:
+            vehicle.wheel_type = w_type
+            update_fields.append('wheel_type')
         if update_fields:
             vehicle.save(update_fields=update_fields)
 
@@ -1179,10 +1183,21 @@ def api_create_invoice(request):
             inv_number = f"{prefix_base}{next_sequence}"
         
         scheme_id = data.get('scheme_id')
+        voucher_id = data.get('voucher_id')
         scheme_obj = None
         if scheme_id:
             from client_management.models import Scheme
             scheme_obj = Scheme.objects.filter(id=scheme_id).first()
+        elif voucher_id:
+            from client_management.models import SchemeVoucher
+            v_obj = SchemeVoucher.objects.filter(id=voucher_id).first()
+            if v_obj:
+                scheme_obj = v_obj.scheme
+
+        wheel_type_val = data.get('wheel_type')
+        if wheel_type_val in ['alloy_wheel', 'normal_wheel']:
+            vehicle.wheel_type = wheel_type_val
+            vehicle.save(update_fields=['wheel_type'])
             
         from decimal import Decimal
         total_val = Decimal(str(data.get('total', 0)))

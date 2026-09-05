@@ -2030,3 +2030,96 @@ def payment_type_report(request):
     return render(request, 'reports/payment_type_report.html', context)
 
 
+@login_required
+def ajax_get_customer_vehicles(request, customer_id):
+    from client_management.models import CustomerVehicle
+    vehicles = CustomerVehicle.objects.filter(customer_id=customer_id, is_deleted=False).select_related('vehicle_type_model')
+    data = []
+    for v in vehicles:
+        data.append({
+            'id': str(v.id),
+            'vehicle_number': v.vehicle_number,
+            'model_name': v.vehicle_type_model.name if v.vehicle_type_model else '',
+            'wheel_type': v.wheel_type or 'normal_wheel',
+            'current_odometer_km': v.current_odometer_km or 0,
+        })
+    return JsonResponse({'success': True, 'vehicles': data})
+
+
+@login_required
+def invoice_create(request):
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    if request.method == 'POST':
+        import json
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+        else:
+            payload_str = request.POST.get('payload')
+            if payload_str:
+                data = json.loads(payload_str)
+            else:
+                data = request.POST.dict()
+
+        customer_id = data.get('customer_id')
+        vehicle_id = data.get('vehicle_id')
+        
+        if not customer_id or not vehicle_id:
+            return JsonResponse({'success': False, 'message': 'Customer and Vehicle are required'}, status=400)
+
+        from client_management.api_views import api_create_invoice
+        request._body = json.dumps(data).encode('utf-8')
+        response = api_create_invoice(request)
+        return response
+
+    from client_management.models import Customer, Stock, Scheme, CompanyTax, Extras
+    from service_management.models import Service
+    from master.models import OilProduct, OilFilter, TyreBrand, Tyre
+
+    customer_qs = Customer.objects.filter(is_deleted=False).order_by('name')
+    service_qs = Service.objects.filter(is_deleted=False).order_by('name')
+    stock_qs = Stock.objects.filter(is_deleted=False).order_by('item_name')
+    extras_qs = Extras.objects.filter(is_deleted=False).order_by('name')
+    scheme_qs = Scheme.objects.filter(is_deleted=False).order_by('name')
+    
+    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        customer_qs = customer_qs.filter(company=user.profile.company)
+        service_qs = service_qs.filter(company=user.profile.company)
+        stock_qs = stock_qs.filter(company=user.profile.company)
+        extras_qs = extras_qs.filter(company=user.profile.company)
+        scheme_qs = scheme_qs.filter(company=user.profile.company)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        customer_qs = customer_qs.filter(branch=user.managed_branch)
+        service_qs = service_qs.filter(company=user.managed_branch.company)
+        stock_qs = stock_qs.filter(company=user.managed_branch.company)
+        extras_qs = extras_qs.filter(company=user.managed_branch.company)
+        scheme_qs = scheme_qs.filter(company=user.managed_branch.company)
+
+    oil_products = OilProduct.objects.filter(is_deleted=False).order_by('name')
+    oil_filters = OilFilter.objects.filter(is_deleted=False).order_by('name')
+    tyre_brands = TyreBrand.objects.filter(is_deleted=False).order_by('brand')
+    tyres = Tyre.objects.filter(is_deleted=False).select_related('brand').order_by('name')
+    
+    company_taxes = []
+    if hasattr(user.profile, 'company') and user.profile.company:
+        company_taxes = CompanyTax.objects.filter(company=user.profile.company, is_deleted=False)
+
+    context = {
+        'customers': customer_qs,
+        'services': service_qs,
+        'stock_items': stock_qs,
+        'extras': extras_qs,
+        'schemes': scheme_qs,
+        'oil_products': oil_products,
+        'oil_filters': oil_filters,
+        'tyre_brands': tyre_brands,
+        'tyres': tyres,
+        'company_taxes': company_taxes,
+        'title': 'Create Invoice',
+    }
+
+    return render(request, 'invoice/create.html', context)
+
+
+
