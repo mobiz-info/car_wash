@@ -1886,12 +1886,7 @@ def api_add_customer(request):
                     if cleaned_num.startswith('0'):
                         cleaned_num = cleaned_num[1:]
                     
-                    b_name = branch.name if branch else ""
-                    c_name = company.company_name if company else ""
-                    if b_name and c_name and b_name.strip().lower() != c_name.strip().lower():
-                        company_branch_str = f"{c_name} ({b_name})"
-                    else:
-                        company_branch_str = c_name or b_name or "our center"
+                    branch_name = branch.name if branch else "our branch"
                     
                     # Fetch first vehicle number if available
                     vehicle_no = ""
@@ -1900,7 +1895,7 @@ def api_add_customer(request):
                         vehicle_no = first_vehicle.vehicle_number
                     
                     if setting.is_official_api:
-                        values = [customer.name, company_branch_str, vehicle_no]
+                        values = [customer.name, branch_name, vehicle_no]
                         send_whatsapp_template(
                             to_number=cleaned_num,
                             template_name='welcoming',
@@ -1908,7 +1903,7 @@ def api_add_customer(request):
                             setting=setting
                         )
                     else:
-                        message_text = f"Dear {customer.name}, Thank you for choosing {company_branch_str}."
+                        message_text = f"Dear {customer.name}, Thank you for choosing {branch_name}."
                         schemes_msg = get_customer_available_schemes_message(customer)
                         if schemes_msg:
                             message_text += schemes_msg
