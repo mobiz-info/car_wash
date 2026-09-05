@@ -3463,12 +3463,16 @@ def api_send_welcome_msg_generic(request):
 
         branch_name = branch.name if branch else company.company_name
         company_name = company.company_name
+        branch_display = f"{company_name} ({branch_name})" if (branch and branch_name.strip().lower() != company_name.strip().lower()) else company_name
 
         # Resolve custom message for this branch
         from booking_management.models import BookingSettings
         bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
-        default_msg = f"Hello {{customer_name}}, thank you for choosing {{company_name}}. Welcome to our service! We are delighted to have you and your vehicle ({{vehicle_number}}) with us."
+        default_msg = f"Hello {{customer_name}}, thank you for choosing {branch_display}. Welcome to our service! We are delighted to have you and your vehicle ({{vehicle_number}}) with us."
         raw_template = (bs.whatsapp_welcome_message if bs and bs.whatsapp_welcome_message else default_msg)
+        if branch and branch_name.strip().lower() == company_name.strip().lower():
+            raw_template = raw_template.replace('{company_name} ({branch_name})', company_name)
+            
         message = raw_template.replace('{customer_name}', customer_name) \
                                .replace('{vehicle_number}', vehicle_number) \
                                .replace('{branch_name}', branch_name) \
@@ -3510,7 +3514,7 @@ def api_send_welcome_msg_generic(request):
                 # Official Meta template: 'welcoming'
                 threading.Thread(
                     target=send_whatsapp_template,
-                    args=(cleaned_phone, 'welcoming', [customer_name, branch_name, vehicle_number]),
+                    args=(cleaned_phone, 'welcoming', [customer_name, branch_display, vehicle_number]),
                     kwargs={'setting': setting},
                     daemon=True
                 ).start()
@@ -3583,12 +3587,16 @@ def api_send_thanks_msg_generic(request):
 
         branch_name = branch.name if branch else company.company_name
         company_name = company.company_name
+        branch_display = f"{company_name} ({branch_name})" if (branch and branch_name.strip().lower() != company_name.strip().lower()) else company_name
 
         # Resolve custom message for this branch
         from booking_management.models import BookingSettings
         bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
-        default_msg = "Hello {customer_name}, thank you for choosing our service! We look forward to serving you again. Have a great day!"
+        default_msg = f"Hello {{customer_name}}, thank you for choosing {branch_display}! We look forward to serving you again. Have a great day!"
         raw_template = (bs.whatsapp_thanks_message if bs and bs.whatsapp_thanks_message else default_msg)
+        if branch and branch_name.strip().lower() == company_name.strip().lower():
+            raw_template = raw_template.replace('{company_name} ({branch_name})', company_name)
+
         message = raw_template.replace('{customer_name}', customer_name) \
                                .replace('{vehicle_number}', vehicle_number) \
                                .replace('{branch_name}', branch_name) \
@@ -3607,10 +3615,10 @@ def api_send_thanks_msg_generic(request):
             if setting.is_official_api:
                 from booking_management.api_views import send_whatsapp_template
                 # Official Meta template: 'thanks'
-                # Places: {{1}} = Customer Name, {{2}} = Vehicle Number, {{3}} = Branch Name
+                # Places: {{1}} = Customer Name, {{2}} = Vehicle Number, {{3}} = Branch/Company Name
                 threading.Thread(
                     target=send_whatsapp_template,
-                    args=(cleaned_phone, 'thanks', [customer_name, vehicle_number, branch_name]),
+                    args=(cleaned_phone, 'thanks', [customer_name, vehicle_number, branch_display]),
                     kwargs={'setting': setting},
                     daemon=True
                 ).start()

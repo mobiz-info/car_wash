@@ -2073,7 +2073,8 @@ def invoice_create(request):
         response = api_create_invoice(request)
         return response
 
-    from client_management.models import Customer, Stock, Scheme, CompanyTax, Extras
+    from client_management.models import Customer, Stock, Scheme, Extras
+    from tax_management.models import CompanyTax
     from service_management.models import Service
     from master.models import OilProduct, OilFilter, TyreBrand, Tyre
 
