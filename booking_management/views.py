@@ -1116,6 +1116,18 @@ def send_reminder_ajax(request):
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = branch_name
                         branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
                         tmpl_values = [customer_name, vehicle_no, branch_name]
+                    elif tmpl_name.lower() in ['detailinginvoicemsg', 'detailinginvoice', 'detailing']:
+                        # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = warranty_str/total, {{4}} = branch_name
+                        branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
+                        warranty_str = 'N/A'
+                        if invoice:
+                            for _item in invoice.items.all():
+                                if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.warranty_value:
+                                    unit = getattr(_item.service_detail, 'warranty_unit', 'month') or 'month'
+                                    val = _item.service_detail.warranty_value
+                                    warranty_str = f"{val} {unit}{'s' if val > 1 else ''}"
+                                    break
+                        tmpl_values = [customer_name, vehicle_no, warranty_str, branch_name]
                     elif tmpl_name.lower() == 'smoketest':
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = scheduled_date
                         tmpl_values = [customer_name, vehicle_no, formatted_date]

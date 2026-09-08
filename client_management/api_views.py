@@ -957,6 +957,47 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             with open('/tmp/whatsapp_invoice.log', 'a') as f:
                 f.write(f"[{datetime.now()}] Invoice {invoice_id} Wash Invoice Message sent to {cleaned_num}: {wash_res}\n")
         
+        # 8. If invoice includes car detailing service, also dispatch detailinginvoicemsg template
+        is_detailing = False
+        warranty_str = None
+        for item in invoice.items.all():
+            sname = (item.service_name or "").lower()
+            if 'detail' in sname or 'ceramic' in sname or 'coating' in sname or 'ppf' in sname or 'polish' in sname:
+                is_detailing = True
+            if item.service and item.service.service_type:
+                st_slug = (item.service.service_type.slug or "").lower()
+                st_name = (item.service.service_type.name or "").lower()
+                if st_slug in ['car_detailing', 'detailing', 'polish'] or 'detail' in st_slug or 'detail' in st_name:
+                    is_detailing = True
+            if hasattr(item, 'service_detail') and item.service_detail:
+                sd = item.service_detail
+                if getattr(sd, 'service_category', None) in ['car_detailing', 'detailing']:
+                    is_detailing = True
+                if getattr(sd, 'warranty_value', None):
+                    unit = getattr(sd, 'warranty_unit', 'month') or 'month'
+                    val = sd.warranty_value
+                    warranty_str = f"{val} {unit}{'s' if val > 1 else ''}"
+
+        if is_detailing and setting and setting.username and setting.password:
+            from booking_management.api_views import send_whatsapp_template
+            veh_num = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
+            if not warranty_str:
+                warranty_str = f"{currency}{total_val:.2f}"
+            detailing_values = [
+                customer.name,
+                veh_num,
+                warranty_str,
+                branch_name
+            ]
+            detailing_res = send_whatsapp_template(
+                to_number=cleaned_num,
+                template_name='detailinginvoicemsg',
+                values=detailing_values,
+                setting=setting
+            )
+            with open('/tmp/whatsapp_invoice.log', 'a') as f:
+                f.write(f"[{datetime.now()}] Invoice {invoice_id} Detailing Invoice Message sent to {cleaned_num}: {detailing_res}\n")
+        
     except Exception as e:
         import traceback
         try:
