@@ -1122,17 +1122,31 @@ def send_reminder_ajax(request):
                         branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
                         tmpl_values = [customer_name, vehicle_no, branch_name]
                     elif tmpl_name.lower() in ['detailinginvoicemsg', 'detailinginvoice', 'detailing']:
-                        # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = warranty_str/total, {{4}} = branch_name
+                        # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = reminder_date, {{4}} = branch_name
                         branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
-                        warranty_str = 'N/A'
+                        from dateutil.relativedelta import relativedelta
+                        inv_date = invoice.date.date() if (invoice and hasattr(invoice.date, 'date')) else (invoice.date if invoice else timezone.now().date())
+                        if not inv_date:
+                            inv_date = timezone.now().date()
+
+                        warranty_val = None
+                        warranty_u = 'month'
                         if invoice:
                             for _item in invoice.items.all():
                                 if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.warranty_value:
-                                    unit = getattr(_item.service_detail, 'warranty_unit', 'month') or 'month'
-                                    val = _item.service_detail.warranty_value
-                                    warranty_str = f"{val} {unit}{'s' if val > 1 else ''}"
+                                    warranty_val = _item.service_detail.warranty_value
+                                    warranty_u = getattr(_item.service_detail, 'warranty_unit', 'month') or 'month'
                                     break
-                        tmpl_values = [customer_name, vehicle_no, warranty_str, branch_name]
+                        if warranty_val:
+                            if warranty_u == 'year':
+                                rem_date = inv_date + relativedelta(years=warranty_val)
+                            else:
+                                rem_date = inv_date + relativedelta(months=warranty_val)
+                        else:
+                            rem_date = inv_date + relativedelta(months=6)
+
+                        reminder_date_str = rem_date.strftime("%d-%m-%Y")
+                        tmpl_values = [customer_name, vehicle_no, reminder_date_str, branch_name]
                     elif tmpl_name.lower() == 'smoketest':
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = scheduled_date
                         tmpl_values = [customer_name, vehicle_no, formatted_date]
