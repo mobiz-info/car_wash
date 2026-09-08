@@ -474,10 +474,8 @@ def send_whatsapp_template(to_number, template_name, values, doc_url=None, setti
         # Fallback between wheelalignment/wheelbalancing and servicesreminder/reminderservice/servicereminder if template not found on Wawy portal
         if "Template or Sender Not Found" in result:
             alt_names = []
-            if template_name.lower() == 'wheelalignment':
-                alt_names = ['wheelbalancing']
-            elif template_name.lower() == 'wheelbalancing':
-                alt_names = ['wheelalignment']
+            if template_name.lower() in ['alignmentinvoicemsg', 'wheelalignment', 'wheelbalancing']:
+                alt_names = [n for n in ['alignmentinvoicemsg', 'wheelalignment', 'wheelbalancing'] if n != template_name.lower()]
             elif template_name.lower() in ['servicesreminder', 'reminderservice', 'servicereminder']:
                 alt_names = [name for name in ['servicesreminder', 'reminderservice', 'servicereminder'] if name != template_name.lower()]
 

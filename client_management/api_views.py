@@ -912,16 +912,17 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 customer.name,
                 veh_num,
                 next_align_km,
+                f"{currency}{total_val:.2f}",
                 branch_name
             ]
             wheel_res = send_whatsapp_template(
                 to_number=cleaned_num,
-                template_name='wheelalignment',
+                template_name='alignmentinvoicemsg',
                 values=wheel_values,
                 setting=setting
             )
             with open('/tmp/whatsapp_invoice.log', 'a') as f:
-                f.write(f"[{datetime.now()}] Invoice {invoice_id} Wheel Alignment Reminder sent to {cleaned_num}: {wheel_res}\n")
+                f.write(f"[{datetime.now()}] Invoice {invoice_id} Alignment Invoice Message sent to {cleaned_num}: {wheel_res}\n")
         
         # 7. If invoice includes car wash service, also dispatch washinvoicemessage template
         is_carwash = False
