@@ -1112,6 +1112,10 @@ def send_reminder_ajax(request):
                         if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
                             next_alignment_km = str(invoice.vehicle.next_alignment_km)
                         tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
+                    elif tmpl_name.lower() in ['washinvoicemessage', 'washinvoice']:
+                        # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = branch_name
+                        branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
+                        tmpl_values = [customer_name, vehicle_no, branch_name]
                     elif tmpl_name.lower() == 'smoketest':
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = scheduled_date
                         tmpl_values = [customer_name, vehicle_no, formatted_date]

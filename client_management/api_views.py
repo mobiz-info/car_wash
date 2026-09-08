@@ -923,6 +923,39 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             with open('/tmp/whatsapp_invoice.log', 'a') as f:
                 f.write(f"[{datetime.now()}] Invoice {invoice_id} Wheel Alignment Reminder sent to {cleaned_num}: {wheel_res}\n")
         
+        # 7. If invoice includes car wash service, also dispatch washinvoicemessage template
+        is_carwash = False
+        for item in invoice.items.all():
+            sname = (item.service_name or "").lower()
+            if 'wash' in sname:
+                is_carwash = True
+            if item.service and item.service.service_type:
+                st_slug = (item.service.service_type.slug or "").lower()
+                st_name = (item.service.service_type.name or "").lower()
+                if st_slug in ['washing', 'car_wash', 'carwash', 'wash'] or 'wash' in st_slug or 'wash' in st_name:
+                    is_carwash = True
+            if hasattr(item, 'service_detail') and item.service_detail:
+                sd = item.service_detail
+                if getattr(sd, 'service_category', None) in ['washing', 'car_wash', 'carwash', 'wash']:
+                    is_carwash = True
+
+        if is_carwash and setting and setting.username and setting.password:
+            from booking_management.api_views import send_whatsapp_template
+            veh_num = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
+            wash_values = [
+                customer.name,
+                veh_num,
+                branch_name
+            ]
+            wash_res = send_whatsapp_template(
+                to_number=cleaned_num,
+                template_name='washinvoicemessage',
+                values=wash_values,
+                setting=setting
+            )
+            with open('/tmp/whatsapp_invoice.log', 'a') as f:
+                f.write(f"[{datetime.now()}] Invoice {invoice_id} Wash Invoice Message sent to {cleaned_num}: {wash_res}\n")
+        
     except Exception as e:
         import traceback
         try:
