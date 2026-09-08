@@ -871,24 +871,31 @@ def reminder_list(request):
             pass
 
     search_query = request.GET.get('search', '').strip()
+    status_filter = request.GET.get('status', 'all').strip().lower()
 
     plans = []
     if selected_branch:
         # Fetch reminders that are scheduled on or before selected_date
-        plans = ReminderPlan.objects.filter(
+        plans_qs = ReminderPlan.objects.filter(
             branch=selected_branch,
-            is_sent=False,
             is_deleted=False,
             scheduled_date__lte=selected_date
-        ).select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'reminder', 'reminder__service').order_by('scheduled_date')
+        )
+
+        if status_filter == 'pending':
+            plans_qs = plans_qs.filter(is_sent=False)
+        elif status_filter == 'sent':
+            plans_qs = plans_qs.filter(is_sent=True)
 
         if search_query:
-            plans = plans.filter(
+            plans_qs = plans_qs.filter(
                 Q(invoice__customer__name__icontains=search_query) |
                 Q(invoice__customer__phone__icontains=search_query) |
                 Q(invoice__customer__whatsapp_number__icontains=search_query) |
                 Q(invoice__vehicle__vehicle_number__icontains=search_query)
             )
+
+        plans = plans_qs.select_related('invoice', 'invoice__customer', 'invoice__vehicle', 'reminder', 'reminder__service').order_by('scheduled_date')
 
     context = {
         'branches': branches,
@@ -897,6 +904,7 @@ def reminder_list(request):
         'plans': plans,
         'role_name': role_name,
         'search': search_query,
+        'status_filter': status_filter,
     }
     return render(request, 'booking/reminder_list.html', context)
 
@@ -909,74 +917,71 @@ def smoke_test_reminder_list(request):
 
     from client_management.models import Branch, CustomerVehicle
     from django.utils import timezone
+    from datetime import datetime
 
     if role_name == 'COMPANY_ADMIN':
         company = getattr(request.user.profile, 'company', None)
         branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
-        vehicles = CustomerVehicle.objects.filter(
-            customer__company=company,
-            customer__is_deleted=False,
-            is_deleted=False,
-            next_smoke_test_date__isnull=False
-        ).select_related('customer', 'customer__branch', 'vehicle_type_model', 'vehicle_type').order_by('next_smoke_test_date')
     else:
         managed = getattr(request.user, 'managed_branch', None)
         branches = Branch.objects.filter(id=managed.id, is_deleted=False) if managed else Branch.objects.none()
-        vehicles = CustomerVehicle.objects.filter(
-            customer__branch=managed,
-            customer__is_deleted=False,
-            is_deleted=False,
-            next_smoke_test_date__isnull=False
-        ).select_related('customer', 'customer__branch', 'vehicle_type_model', 'vehicle_type').order_by('next_smoke_test_date') if managed else CustomerVehicle.objects.none()
 
-    selected_branch_id = request.GET.get('branch_id')
+    selected_branch_id = request.GET.get('branch_id') or request.POST.get('branch_id')
     selected_branch = None
     if selected_branch_id:
         selected_branch = branches.filter(id=selected_branch_id).first()
-        if selected_branch:
-            vehicles = vehicles.filter(customer__branch=selected_branch)
+    if not selected_branch:
+        selected_branch = branches.first()
 
     search_query = request.GET.get('search', '').strip()
-    if search_query:
-        vehicles = vehicles.filter(
-            Q(customer__name__icontains=search_query) |
-            Q(customer__phone__icontains=search_query) |
-            Q(customer__whatsapp_number__icontains=search_query) |
-            Q(vehicle_number__icontains=search_query)
-        )
-
     today = timezone.now().date()
-    vehicle_list = list(vehicles)
-    for v in vehicle_list:
-        if v.next_smoke_test_date:
+
+    vehicles = []
+    if selected_branch:
+        v_qs = CustomerVehicle.objects.filter(
+            customer__branch=selected_branch,
+            is_deleted=False,
+            next_smoke_test_date__isnull=False
+        ).select_related('customer', 'vehicle_type', 'vehicle_type_model', 'vehicle_type_model__emission_standard').order_by('next_smoke_test_date')
+
+        if search_query:
+            v_qs = v_qs.filter(
+                Q(customer__name__icontains=search_query) |
+                Q(customer__phone__icontains=search_query) |
+                Q(customer__whatsapp_number__icontains=search_query) |
+                Q(vehicle_number__icontains=search_query)
+            )
+
+        vehicles = list(v_qs)
+        for v in vehicles:
             days_until = (v.next_smoke_test_date - today).days
-            v.days_until_due = days_until
-            r1 = 15
-            r2 = 3
+            v.days_until = days_until
+
+            r1, r2 = 30, 7
             if v.vehicle_type_model and v.vehicle_type_model.emission_standard:
                 r1 = v.vehicle_type_model.emission_standard.reminder_1_days
                 r2 = v.vehicle_type_model.emission_standard.reminder_2_days
-            
+
             if days_until < 0:
                 v.reminder_stage = 'Overdue'
                 v.reminder_badge_class = 'bg-danger'
             elif days_until <= r2:
                 v.reminder_stage = f'2nd Reminder ({days_until} days left)'
-                v.reminder_badge_class = 'bg-danger'
+                v.reminder_badge_class = 'bg-warning'
             elif days_until <= r1:
                 v.reminder_stage = f'1st Reminder ({days_until} days left)'
-                v.reminder_badge_class = 'bg-warning text-dark'
-            else:
-                v.reminder_stage = f'Upcoming ({days_until} days)'
                 v.reminder_badge_class = 'bg-info'
+            else:
+                v.reminder_stage = f'Upcoming ({days_until} days left)'
+                v.reminder_badge_class = 'bg-secondary'
 
     context = {
         'branches': branches,
         'selected_branch': selected_branch,
-        'vehicles': vehicle_list,
-        'today': today,
+        'vehicles': vehicles,
         'role_name': role_name,
         'search': search_query,
+        'today': today.strftime("%Y-%m-%d"),
     }
     return render(request, 'booking/smoke_test_reminder_list.html', context)
 
@@ -987,10 +992,10 @@ from django.http import JsonResponse
 @csrf_exempt
 @login_required
 def send_reminder_ajax(request):
-    """AJAX endpoint to trigger reminder sending for a list of ReminderPlan IDs."""
+    """AJAX handler to trigger WhatsApp template reminders for one or more ReminderPlan IDs."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
-        
+
     try:
         import json
         data = json.loads(request.body)
@@ -1007,7 +1012,7 @@ def send_reminder_ajax(request):
         if action == 'mark_sent':
             for p_id in plan_ids:
                 try:
-                    plan = ReminderPlan.objects.get(id=p_id, is_deleted=False, is_sent=False)
+                    plan = ReminderPlan.objects.get(id=p_id, is_deleted=False)
                     plan.is_sent = True
                     plan.save()
                     SentServiceReminder.objects.get_or_create(
@@ -1022,7 +1027,7 @@ def send_reminder_ajax(request):
         
         for p_id in plan_ids:
             try:
-                plan = ReminderPlan.objects.get(id=p_id, is_deleted=False, is_sent=False)
+                plan = ReminderPlan.objects.get(id=p_id, is_deleted=False)
             except ReminderPlan.DoesNotExist:
                 continue
                 

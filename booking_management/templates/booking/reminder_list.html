@@ -77,8 +77,17 @@
             </div>
 
             <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Status:</span>
+                <select class="form-control" style="width: 140px;" onchange="updateFilters('status', this.value)">
+                    <option value="all" {% if status_filter == 'all' or not status_filter %}selected{% endif %}>All</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="sent" {% if status_filter == 'sent' %}selected{% endif %}>Sent</option>
+                </select>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: .8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Search:</span>
-                <input type="text" class="form-control" style="width: 260px;" placeholder="Name, Phone or Vehicle..." value="{{ search|default:'' }}"
+                <input type="text" class="form-control" style="width: 240px;" placeholder="Name, Phone or Vehicle..." value="{{ search|default:'' }}"
                     onkeypress="if(event.key === 'Enter') updateFilters('search', this.value)">
             </div>
         </div>
@@ -118,6 +127,7 @@
                         <th>Reminder No</th>
                         <th>Service Name</th>
                         <th>WhatsApp No</th>
+                        <th>Status</th>
                         <th style="text-align: right;">Action</th>
                     </tr>
                 </thead>
@@ -148,11 +158,26 @@
                         <td>{{ plan.reminder.service.name|default:plan.template_name|default:"Service Reminder" }}</td>
                         <td>{{ plan.invoice.customer.whatsapp_number|default:plan.invoice.customer.phone|default:'' }}
                         </td>
+                        <td id="status-cell-{{ plan.id }}">
+                            {% if plan.is_sent %}
+                            <span style="background: #dcfce7; color: #15803d; font-size: .8rem; font-weight: 600; padding: 3px 10px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="ph ph-check-circle"></i> Sent
+                            </span>
+                            {% else %}
+                            <span style="background: #fef3c7; color: #b45309; font-size: .8rem; font-weight: 600; padding: 3px 10px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="ph ph-clock"></i> Pending
+                            </span>
+                            {% endif %}
+                        </td>
                         <td style="text-align: right;">
                             <button type="button" class="btn-create"
                                 style="padding: 6px 12px; font-size: .8rem; display: inline-flex;"
                                 onclick="sendSingleReminder('{{ plan.id }}')">
+                                {% if plan.is_sent %}
+                                <i class="ph ph-arrow-clockwise"></i> Resend
+                                {% else %}
                                 <i class="ph ph-paper-plane-tilt"></i> Send
+                                {% endif %}
                             </button>
                         </td>
                     </tr>
@@ -219,11 +244,26 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    function markRowAsSent(planId) {
+        var row = document.getElementById('row-' + planId);
+        if (!row) return;
+
+        var statusCell = document.getElementById('status-cell-' + planId);
+        if (statusCell) {
+            statusCell.innerHTML = `<span style="background: #dcfce7; color: #15803d; font-size: .8rem; font-weight: 600; padding: 3px 10px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;"><i class="ph ph-check-circle"></i> Sent</span>`;
+        }
+
+        var btn = row.querySelector('button');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ph ph-arrow-clockwise"></i> Resend';
+        }
+    }
+
     // Send single reminder row
     function sendSingleReminder(planId) {
         var row = document.getElementById('row-' + planId);
         var btn = row.querySelector('button');
-        var originalHtml = btn.innerHTML;
 
         btn.disabled = true;
         btn.innerHTML = '<i class="ph ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Sending...';
@@ -241,15 +281,8 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.sent_count > 0) {
-                    row.style.transition = 'opacity 0.4s';
-                    row.style.opacity = '0';
-                    setTimeout(() => {
-                        row.remove();
-                        showAlert("Reminder sent successfully!", "success");
-                        if (document.querySelectorAll('#planner-table tbody tr').length === 0) {
-                            location.reload();
-                        }
-                    }, 400);
+                    markRowAsSent(planId);
+                    showAlert("Reminder sent successfully!", "success");
                 } else if (data.use_fallback && data.whatsapp_url) {
                     // Open the prefill link in a new tab
                     window.open(data.whatsapp_url, '_blank');
@@ -266,25 +299,18 @@
                             action: 'mark_sent'
                         })
                     }).then(() => {
-                        row.style.transition = 'opacity 0.4s';
-                        row.style.opacity = '0';
-                        setTimeout(() => {
-                            row.remove();
-                            showAlert("Opened prefilled WhatsApp chat window.", "success");
-                            if (document.querySelectorAll('#planner-table tbody tr').length === 0) {
-                                location.reload();
-                            }
-                        }, 400);
+                        markRowAsSent(planId);
+                        showAlert("Opened prefilled WhatsApp chat window.", "success");
                     });
                 } else {
                     btn.disabled = false;
-                    btn.innerHTML = originalHtml;
+                    btn.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Send';
                     showAlert(data.message || "Failed to send reminder. Check WhatsApp API configuration.", "error");
                 }
             })
             .catch(err => {
                 btn.disabled = false;
-                btn.innerHTML = originalHtml;
+                btn.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Send';
                 showAlert("Connection error. Could not reach server.", "error");
             });
     }
@@ -324,12 +350,8 @@
                     showAlert(`Successfully sent ${data.sent_count} reminders!`, "success");
                     checked.forEach(cb => {
                         var pId = cb.getAttribute('data-plan-id');
-                        var row = document.getElementById('row-' + pId);
-                        if (row) row.remove();
+                        markRowAsSent(pId);
                     });
-                    if (document.querySelectorAll('#planner-table tbody tr').length === 0) {
-                        location.reload();
-                    }
                 } else {
                     showAlert(data.message || "Failed to send selected reminders.", "error");
                 }
