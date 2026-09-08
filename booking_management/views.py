@@ -1106,17 +1106,25 @@ def send_reminder_ajax(request):
                     if tmpl_name.lower() == 'batteryservice':
                         # {{1}} = customer_name, {{2}} = service_name
                         tmpl_values = [customer_name, service_name]
-                    elif tmpl_name.lower() in ['wheelbalancing', 'wheelalignment']:
-                        # Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=next_alignment_km, {{4}}=branch_name
+                    elif tmpl_name.lower() in ['alignmentinvoicemsg', 'wheelbalancing', 'wheelalignment']:
+                        # Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=next_alignment_km, {{4}}=service_name, {{5}}=branch_name
                         branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
                         next_alignment_km = 'N/A'
-                        for _item in invoice.items.all():
-                            if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.next_alignment_km:
-                                next_alignment_km = str(_item.service_detail.next_alignment_km)
-                                break
-                        if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
-                            next_alignment_km = str(invoice.vehicle.next_alignment_km)
-                        tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
+                        wheel_service_name = service_name or 'Wheel Alignment'
+                        if invoice:
+                            for _item in invoice.items.all():
+                                sname = _item.service_name or ""
+                                if 'align' in sname.lower() or 'wheel' in sname.lower() or 'balance' in sname.lower():
+                                    wheel_service_name = sname
+                                if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.next_alignment_km:
+                                    next_alignment_km = str(_item.service_detail.next_alignment_km)
+                                    break
+                            if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
+                                next_alignment_km = str(invoice.vehicle.next_alignment_km)
+                        if tmpl_name.lower() == 'alignmentinvoicemsg':
+                            tmpl_values = [customer_name, vehicle_no, next_alignment_km, wheel_service_name, branch_name]
+                        else:
+                            tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
                     elif tmpl_name.lower() in ['washinvoicemessage', 'washinvoice']:
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = branch_name
                         branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
@@ -1125,24 +1133,11 @@ def send_reminder_ajax(request):
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = reminder_date, {{4}} = branch_name
                         branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
                         from dateutil.relativedelta import relativedelta
-                        inv_date = invoice.date.date() if (invoice and hasattr(invoice.date, 'date')) else (invoice.date if invoice else timezone.now().date())
-                        if not inv_date:
-                            inv_date = timezone.now().date()
-
-                        warranty_val = None
-                        warranty_u = 'month'
-                        if invoice:
-                            for _item in invoice.items.all():
-                                if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.warranty_value:
-                                    warranty_val = _item.service_detail.warranty_value
-                                    warranty_u = getattr(_item.service_detail, 'warranty_unit', 'month') or 'month'
-                                    break
-                        if warranty_val:
-                            if warranty_u == 'year':
-                                rem_date = inv_date + relativedelta(years=warranty_val)
-                            else:
-                                rem_date = inv_date + relativedelta(months=warranty_val)
-                        else:
+                        rem_date = plan.scheduled_date if (plan and plan.scheduled_date) else None
+                        if not rem_date:
+                            inv_date = invoice.date.date() if (invoice and hasattr(invoice.date, 'date')) else (invoice.date if invoice else timezone.now().date())
+                            if not inv_date:
+                                inv_date = timezone.now().date()
                             rem_date = inv_date + relativedelta(months=6)
 
                         reminder_date_str = rem_date.strftime("%d-%m-%Y")

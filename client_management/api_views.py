@@ -908,11 +908,18 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
 
             from booking_management.api_views import send_whatsapp_template
             veh_num = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
+            wheel_service_name = "Wheel Alignment"
+            for item in invoice.items.all():
+                sname = item.service_name or ""
+                if 'align' in sname.lower() or 'wheel' in sname.lower() or 'balance' in sname.lower():
+                    wheel_service_name = sname
+                    break
+
             wheel_values = [
                 customer.name,
                 veh_num,
                 next_align_km,
-                f"{currency}{total_val:.2f}",
+                wheel_service_name,
                 branch_name
             ]
             wheel_res = send_whatsapp_template(
@@ -959,8 +966,6 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         
         # 8. If invoice includes car detailing service, also dispatch detailinginvoicemsg template
         is_detailing = False
-        warranty_val = None
-        warranty_u = 'month'
         for item in invoice.items.all():
             sname = (item.service_name or "").lower()
             if 'detail' in sname or 'ceramic' in sname or 'coating' in sname or 'ppf' in sname or 'polish' in sname:
@@ -974,9 +979,6 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 sd = item.service_detail
                 if getattr(sd, 'service_category', None) in ['car_detailing', 'detailing']:
                     is_detailing = True
-                if getattr(sd, 'warranty_value', None) and not warranty_val:
-                    warranty_val = sd.warranty_value
-                    warranty_u = getattr(sd, 'warranty_unit', 'month') or 'month'
 
         if is_detailing and setting and setting.username and setting.password:
             from booking_management.api_views import send_whatsapp_template
@@ -987,14 +989,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 from django.utils import timezone
                 inv_date = timezone.now().date()
 
-            if warranty_val:
-                if warranty_u == 'year':
-                    rem_date = inv_date + relativedelta(years=warranty_val)
-                else:
-                    rem_date = inv_date + relativedelta(months=warranty_val)
-            else:
-                rem_date = inv_date + relativedelta(months=6)
-
+            rem_date = inv_date + relativedelta(months=6)
             reminder_date_str = rem_date.strftime("%d-%m-%Y")
             veh_num = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
             detailing_values = [
