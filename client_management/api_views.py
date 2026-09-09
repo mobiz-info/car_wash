@@ -828,6 +828,12 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
             
         if not setting or not setting.username or not setting.password:
+            setting = WhatsAppSetting.objects.filter(is_deleted=False, sender_id='919496007007').first()
+
+        if not setting or not setting.username or not setting.password:
+            setting = WhatsAppSetting.objects.filter(is_deleted=False, username__isnull=False, password__isnull=False).exclude(username='').exclude(password='').first()
+
+        if not setting or not setting.username or not setting.password:
             with open('/tmp/whatsapp_invoice.log', 'a') as f:
                 f.write(f"[{datetime.now()}] Invoice {invoice_id}: Missing/incomplete WhatsAppSetting for company {company}\n")
             return
@@ -932,13 +938,22 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 f.write(f"[{datetime.now()}] Invoice {invoice_id} Wash Invoice Message sent to {cleaned_num}: {res}\n")
 
         elif is_detailing and setting and setting.username and setting.password:
-            from dateutil.relativedelta import relativedelta
             inv_date = invoice.date.date() if hasattr(invoice.date, 'date') else invoice.date
             if not inv_date:
                 from django.utils import timezone
                 inv_date = timezone.now().date()
 
-            rem_date = inv_date + relativedelta(months=6)
+            try:
+                from dateutil.relativedelta import relativedelta
+                rem_date = inv_date + relativedelta(months=6)
+            except Exception:
+                import calendar, datetime as dt
+                m = inv_date.month - 1 + 6
+                y = inv_date.year + m // 12
+                m = m % 12 + 1
+                d = min(inv_date.day, calendar.monthrange(y, m)[1])
+                rem_date = dt.date(y, m, d)
+
             reminder_date_str = rem_date.strftime("%d-%m-%Y")
             veh_num = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
             detailing_values = [
@@ -1480,6 +1495,12 @@ def api_send_invoice_whatsapp(request):
         setting = None
         if company:
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+
+        if not setting or not setting.username or not setting.password:
+            setting = WhatsAppSetting.objects.filter(is_deleted=False, sender_id='919496007007').first()
+
+        if not setting or not setting.username or not setting.password:
+            setting = WhatsAppSetting.objects.filter(is_deleted=False, username__isnull=False, password__isnull=False).exclude(username='').exclude(password='').first()
 
         has_api = bool(setting and setting.username and setting.password)
 

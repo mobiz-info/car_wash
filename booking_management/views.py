@@ -1132,13 +1132,21 @@ def send_reminder_ajax(request):
                     elif tmpl_name.lower() in ['detailinginvoicemsg', 'detailinginvoice', 'detailing']:
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = reminder_date, {{4}} = branch_name
                         branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
-                        from dateutil.relativedelta import relativedelta
                         rem_date = plan.scheduled_date if (plan and plan.scheduled_date) else None
                         if not rem_date:
                             inv_date = invoice.date.date() if (invoice and hasattr(invoice.date, 'date')) else (invoice.date if invoice else timezone.now().date())
                             if not inv_date:
                                 inv_date = timezone.now().date()
-                            rem_date = inv_date + relativedelta(months=6)
+                            try:
+                                from dateutil.relativedelta import relativedelta
+                                rem_date = inv_date + relativedelta(months=6)
+                            except Exception:
+                                import calendar, datetime as dt
+                                m = inv_date.month - 1 + 6
+                                y = inv_date.year + m // 12
+                                m = m % 12 + 1
+                                d = min(inv_date.day, calendar.monthrange(y, m)[1])
+                                rem_date = dt.date(y, m, d)
 
                         reminder_date_str = rem_date.strftime("%d-%m-%Y")
                         tmpl_values = [customer_name, vehicle_no, reminder_date_str, branch_name]
