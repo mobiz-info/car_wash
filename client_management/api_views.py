@@ -1013,6 +1013,17 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 
             with open('/tmp/whatsapp_invoice.log', 'a') as f:
                 f.write(f"[{datetime.now()}] Invoice {invoice_id} Standard Invoice sent to {cleaned_num}: {res}\n")
+
+        # ALWAYS ALSO dispatch direct conversational WhatsApp message with PDF attachment via conv_wa.php
+        # Guarantees that the PDF document & full invoice breakdown are always delivered directly to WhatsApp
+        simple_res = send_whatsapp_simple(
+            to_number=cleaned_num,
+            message=message_text,
+            setting=setting,
+            media_url=pdf_url
+        )
+        with open('/tmp/whatsapp_invoice.log', 'a') as f:
+            f.write(f"[{datetime.now()}] Invoice {invoice_id} Conversational Invoice PDF sent to {cleaned_num}: {simple_res}\n")
         
     except Exception as e:
         import traceback
