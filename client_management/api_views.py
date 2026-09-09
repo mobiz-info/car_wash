@@ -733,20 +733,38 @@ def get_invoice_scheme_progress_message(invoice):
 
 
 def send_invoice_whatsapp_background(invoice_id, base_url):
+    import traceback as _tb
+    # Immediate log — written before any DB/PDF call so we know the thread started
+    _log_path = '/tmp/whatsapp_invoice.log'
+    def _log(msg):
+        try:
+            from datetime import datetime as _dt
+            with open(_log_path, 'a') as _f:
+                _f.write(f"[{_dt.now()}] {msg}\n")
+        except Exception:
+            pass
+
+    _log(f"BG START: invoice_id={invoice_id}, base_url={base_url}")
     try:
         from datetime import datetime
         from finance_management.models import Invoice
         from finance_management.views import generate_invoice_pdf_file
-        from booking_management.api_views import send_whatsapp_simple, clean_whatsapp_number
+        from booking_management.api_views import send_whatsapp_template, clean_whatsapp_number
         from client_management.models import WhatsAppSetting
-        
+
         if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
             base_url = 'http://68.183.94.11:78'
 
         invoice = Invoice.objects.get(id=invoice_id)
-        
-        # 1. Generate the PDF
-        pdf_url = generate_invoice_pdf_file(invoice, base_url)
+        _log(f"Invoice found: {invoice.invoice_number}")
+
+        # 1. Generate the PDF (non-fatal — WhatsApp still sent if PDF fails)
+        pdf_url = ""
+        try:
+            pdf_url = generate_invoice_pdf_file(invoice, base_url)
+            _log(f"PDF URL: {pdf_url}")
+        except Exception as pdf_err:
+            _log(f"PDF generation failed (continuing without PDF): {pdf_err}")
         
         # 2. Get customer details
         customer = invoice.customer
@@ -834,10 +852,11 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             setting = WhatsAppSetting.objects.filter(is_deleted=False, username__isnull=False, password__isnull=False).exclude(username='').exclude(password='').first()
 
         if not setting or not setting.username or not setting.password:
-            with open('/tmp/whatsapp_invoice.log', 'a') as f:
-                f.write(f"[{datetime.now()}] Invoice {invoice_id}: Missing/incomplete WhatsAppSetting for company {company}\n")
+            _log(f"Invoice {invoice_id}: Missing/incomplete WhatsAppSetting for company {company}")
             return
-            
+
+        _log(f"Setting found: company={company}, username={setting.username}, is_official_api={setting.is_official_api}")
+
         # 5. Determine category for WhatsApp template dispatch
         is_wheel_alignment = False
         is_carwash = False
@@ -883,10 +902,40 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 if getattr(sd, 'service_category', None) in ['car_detailing', 'detailing']:
                     is_detailing = True
 
-        from booking_management.api_views import send_whatsapp_template
+        _log(f"Categories: is_wheel_alignment={is_wheel_alignment}, is_carwash={is_carwash}, is_detailing={is_detailing}")
+        _log(f"cleaned_num={cleaned_num}, pdf_url={pdf_url}, is_official_api={setting.is_official_api}")
 
-        # Dispatch template based on primary category
-        if is_wheel_alignment and setting and setting.username and setting.password:
+        # Only send push templates for Official API accounts
+        if not setting.is_official_api:
+            _log(f"Invoice {invoice_id}: is_official_api=False — No WhatsApp push templates sent. Enable Official API in settings.")
+            return
+
+        disc_text = f" (Discount: -{currency}{discount_val:.2f})" if discount_val > 0 else ""
+        services_clean_with_disc = services_single_line + disc_text
+
+        invoice_values = [
+            customer.name,
+            invoice.invoice_number,
+            company_name,
+            invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
+            services_clean_with_disc,
+            f"{currency}{total_val:.2f}",
+            f"{currency}{paid_val:.2f}",
+            f"{currency}{balance_val:.2f}"
+        ]
+
+        # 1. ALWAYS dispatch official 'invoice' template with PDF
+        res_inv = send_whatsapp_template(
+            to_number=cleaned_num,
+            template_name='invoice',
+            values=invoice_values,
+            doc_url=pdf_url,
+            setting=setting
+        )
+        _log(f"Invoice {invoice_id} Main Invoice Template sent to {cleaned_num}: {res_inv}")
+
+        # 2. ALSO dispatch category-specific template if applicable
+        if is_wheel_alignment:
             if not next_align_km and invoice.vehicle and getattr(invoice.vehicle, 'next_alignment_km', None):
                 next_align_km = str(invoice.vehicle.next_alignment_km)
             if not next_align_km and invoice.vehicle and getattr(invoice.vehicle, 'current_odometer_km', None):
@@ -905,39 +954,29 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                     wheel_service_name = sname
                     break
 
-            wheel_values = [
-                customer.name,
-                veh_num,
-                next_align_km,
-                wheel_service_name,
-                branch_name
-            ]
-            res = send_whatsapp_template(
+            wheel_values = [customer.name, veh_num, next_align_km, wheel_service_name, branch_name]
+            res_cat = send_whatsapp_template(
                 to_number=cleaned_num,
                 template_name='alignmentinvoicemsg',
                 values=wheel_values,
+                doc_url=pdf_url,
                 setting=setting
             )
-            with open('/tmp/whatsapp_invoice.log', 'a') as f:
-                f.write(f"[{datetime.now()}] Invoice {invoice_id} Alignment Invoice Message sent to {cleaned_num}: {res}\n")
+            _log(f"Invoice {invoice_id} Alignment Invoice Message sent to {cleaned_num}: {res_cat}")
 
-        elif is_carwash and setting and setting.username and setting.password:
+        elif is_carwash:
             veh_num = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
-            wash_values = [
-                customer.name,
-                veh_num,
-                branch_name
-            ]
-            res = send_whatsapp_template(
+            wash_values = [customer.name, veh_num, branch_name]
+            res_cat = send_whatsapp_template(
                 to_number=cleaned_num,
                 template_name='washinvoicemessage',
                 values=wash_values,
+                doc_url=pdf_url,
                 setting=setting
             )
-            with open('/tmp/whatsapp_invoice.log', 'a') as f:
-                f.write(f"[{datetime.now()}] Invoice {invoice_id} Wash Invoice Message sent to {cleaned_num}: {res}\n")
+            _log(f"Invoice {invoice_id} Wash Invoice Message sent to {cleaned_num}: {res_cat}")
 
-        elif is_detailing and setting and setting.username and setting.password:
+        elif is_detailing:
             inv_date = invoice.date.date() if hasattr(invoice.date, 'date') else invoice.date
             if not inv_date:
                 from django.utils import timezone
@@ -956,89 +995,22 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
 
             reminder_date_str = rem_date.strftime("%d-%m-%Y")
             veh_num = invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle"
-            detailing_values = [
-                customer.name,
-                veh_num,
-                reminder_date_str,
-                branch_name
-            ]
-            res = send_whatsapp_template(
+            detailing_values = [customer.name, veh_num, reminder_date_str, branch_name]
+            res_cat = send_whatsapp_template(
                 to_number=cleaned_num,
                 template_name='detailinginvoicemsg',
                 values=detailing_values,
+                doc_url=pdf_url,
                 setting=setting
             )
-            with open('/tmp/whatsapp_invoice.log', 'a') as f:
-                f.write(f"[{datetime.now()}] Invoice {invoice_id} Detailing Invoice Message sent to {cleaned_num}: {res}\n")
+            _log(f"Invoice {invoice_id} Detailing Invoice Message sent to {cleaned_num}: {res_cat}")
 
-        else:
-            disc_text = f" (Discount: -{currency}{discount_val:.2f})" if discount_val > 0 else ""
-            services_clean_with_disc = services_single_line + disc_text
+        _log(f"BG DONE: invoice_id={invoice_id}")
 
-            values = [
-                customer.name,
-                invoice.invoice_number,
-                company_name,
-                invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
-                services_clean_with_disc,
-                f"{currency}{total_val:.2f}",
-                f"{currency}{paid_val:.2f}",
-                f"{currency}{balance_val:.2f}"
-            ]
-
-            if setting and setting.username and setting.password:
-                res = send_whatsapp_template(
-                    to_number=cleaned_num,
-                    template_name='invoice',
-                    values=values,
-                    doc_url=pdf_url,
-                    setting=setting
-                )
-            else:
-                res = send_whatsapp_simple(
-                    to_number=cleaned_num,
-                    message=message_text,
-                    setting=setting,
-                    media_url=pdf_url
-                )
-
-            # If push template failed, fall back to conversation API (conv_wa.php)
-            if isinstance(res, str) and ("error" in res.lower() or "fail" in res.lower() or "aborted" in res.lower()):
-                res = send_whatsapp_simple(
-                    to_number=cleaned_num,
-                    message=message_text,
-                    setting=setting,
-                    media_url=pdf_url
-                )
-                
-            with open('/tmp/whatsapp_invoice.log', 'a') as f:
-                f.write(f"[{datetime.now()}] Invoice {invoice_id} Standard Invoice sent to {cleaned_num}: {res}\n")
-
-        # ALWAYS ALSO dispatch direct conversational WhatsApp message with PDF attachment via conv_wa.php
-        # Guarantees that the PDF document & full invoice breakdown are always delivered directly to WhatsApp
-        simple_res = send_whatsapp_simple(
-            to_number=cleaned_num,
-            message=message_text,
-            setting=setting,
-            media_url=pdf_url
-        )
-        with open('/tmp/whatsapp_invoice.log', 'a') as f:
-            f.write(f"[{datetime.now()}] Invoice {invoice_id} Conversational Invoice PDF sent to {cleaned_num}: {simple_res}\n")
-        
     except Exception as e:
         import traceback
-        try:
-            with open('/tmp/whatsapp_invoice.log', 'a') as f:
-                from datetime import datetime
-                f.write(f"[{datetime.now()}] ERROR for invoice {invoice_id}: {str(e)}\n{traceback.format_exc()}\n")
-        except Exception:
-            pass
-        try:
-            with open('/tmp/whatsapp_webhook.log', 'a') as f:
-                from datetime import datetime
-                f.write(f"[{datetime.now()}] BG ERROR for invoice {invoice_id}: {str(e)}\n{traceback.format_exc()}\n")
-        except Exception:
-            pass
+        _log(f"ERROR for invoice {invoice_id}: {str(e)}\n{traceback.format_exc()}")
+
 
 
 def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):

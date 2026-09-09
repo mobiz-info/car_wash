@@ -14,6 +14,8 @@ urlpatterns = [
     path('api/whatsapp/webhook', api_views.api_whatsapp_webhook),
     path('api/whatsapp/debug/', api_views.api_whatsapp_debug, name='api_whatsapp_debug'),
     path('api/whatsapp/debug', api_views.api_whatsapp_debug),
+    path('api/whatsapp/invoice-log/', api_views.api_invoice_wa_debug, name='api_invoice_wa_debug'),
+    path('api/whatsapp/invoice-log', api_views.api_invoice_wa_debug),
 
     # Booking Settings API
     path('api/booking/settings/', api_views.api_get_booking_settings, name='api_get_booking_settings'),

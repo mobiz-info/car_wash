@@ -565,6 +565,54 @@ def api_whatsapp_debug(request):
     }, json_dumps_params={'indent': 2})
 
 
+@csrf_exempt
+def api_invoice_wa_debug(request):
+    """
+    Read the invoice WhatsApp log and optionally test-send for a given invoice_id.
+    GET  /api/whatsapp/invoice-log/            → show last 200 lines of log
+    GET  /api/whatsapp/invoice-log/?invoice_id=<id>  → also trigger synchronous send
+    """
+    invoice_log = ''
+    try:
+        with open('/tmp/whatsapp_invoice.log', 'r') as f:
+            lines = f.readlines()
+            invoice_log = ''.join(lines[-200:])
+    except Exception as e:
+        invoice_log = f'Log not found or empty: {e}'
+
+    wa_log = ''
+    try:
+        with open('/tmp/wa_debug.log', 'r') as f:
+            lines = f.readlines()
+            wa_log = ''.join(lines[-100:])
+    except Exception as e:
+        wa_log = f'wa_debug.log not found: {e}'
+
+    result = {'invoice_log': invoice_log, 'wa_debug_log': wa_log}
+
+    invoice_id = request.GET.get('invoice_id', '').strip()
+    if invoice_id:
+        try:
+            from client_management.api_views import send_invoice_whatsapp_background
+            base_url = request.build_absolute_uri('/')
+            # Run SYNCHRONOUSLY (not in thread) for debugging
+            send_invoice_whatsapp_background(invoice_id, base_url)
+            # Re-read log after run
+            try:
+                with open('/tmp/whatsapp_invoice.log', 'r') as f:
+                    lines = f.readlines()
+                    result['invoice_log_after_test'] = ''.join(lines[-200:])
+            except Exception as e:
+                result['invoice_log_after_test'] = f'Could not re-read log: {e}'
+            result['test_invoice_id'] = invoice_id
+            result['test_status'] = 'send_invoice_whatsapp_background called synchronously'
+        except Exception as e:
+            import traceback
+            result['test_error'] = f'{e}\n{traceback.format_exc()}'
+
+    return JsonResponse(result, json_dumps_params={'indent': 2})
+
+
 def get_local_date():
     from zoneinfo import ZoneInfo
     from django.utils import timezone
