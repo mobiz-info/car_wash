@@ -959,7 +959,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 to_number=cleaned_num,
                 template_name='alignmentinvoicemsg',
                 values=wheel_values,
-                doc_url=pdf_url,
+                doc_url='',
                 setting=setting
             )
             _log(f"Invoice {invoice_id} Alignment Invoice Message sent to {cleaned_num}: {res_cat}")
@@ -971,7 +971,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 to_number=cleaned_num,
                 template_name='washinvoicemessage',
                 values=wash_values,
-                doc_url=pdf_url,
+                doc_url='',
                 setting=setting
             )
             _log(f"Invoice {invoice_id} Wash Invoice Message sent to {cleaned_num}: {res_cat}")
@@ -1000,7 +1000,7 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
                 to_number=cleaned_num,
                 template_name='detailinginvoicemsg',
                 values=detailing_values,
-                doc_url=pdf_url,
+                doc_url='',
                 setting=setting
             )
             _log(f"Invoice {invoice_id} Detailing Invoice Message sent to {cleaned_num}: {res_cat}")
