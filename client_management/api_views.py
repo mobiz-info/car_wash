@@ -234,7 +234,8 @@ def api_dashboard_stats(request):
         ).first()
 
     # Base queryset scoped to user's branch/company
-    all_invoices = Invoice.objects.filter(is_deleted=False)
+    all_invoices = Invoice.objects.filter(is_deleted=False, customer__is_deleted=False)
+
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         all_invoices = all_invoices.filter(branch=user.managed_branch)
     elif role == 'COMPANY_ADMIN' and user.profile.company:
