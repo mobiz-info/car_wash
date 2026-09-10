@@ -11,6 +11,7 @@ class Invoice(BaseModel):
     vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.CASCADE, related_name='invoices')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='invoices')
     scheme = models.ForeignKey('client_management.Scheme', on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices')
+    assigned_staffs = models.ManyToManyField('client_management.Staff', blank=True, related_name='assigned_invoices')
     
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     discount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)

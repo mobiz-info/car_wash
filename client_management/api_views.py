@@ -1289,6 +1289,15 @@ def api_create_invoice(request):
             creator=user,
             auto_id=get_auto_id(Invoice)
         )
+
+        # Link assigned staff members
+        staff_ids = data.get('staff_ids') or data.get('staffs') or []
+        if staff_ids and isinstance(staff_ids, list):
+            from client_management.models import Staff
+            clean_ids = [s.get('id') if isinstance(s, dict) else str(s) for s in staff_ids if s]
+            if clean_ids:
+                staff_objs = Staff.objects.filter(id__in=clean_ids, is_deleted=False)
+                invoice.assigned_staffs.set(staff_objs)
         
         # Create Receipt if amount_collected > 0
         from finance_management.models import Receipt
