@@ -5417,7 +5417,7 @@ def api_report_staff_income(request):
                 'invoice_number': inv.invoice_number,
                 'date': str(inv.date),
                 'customer_name': inv.customer.name if inv.customer else 'N/A',
-                'vehicle_number': inv.vehicle.reg_number if inv.vehicle else 'N/A',
+                'vehicle_number': inv.vehicle.vehicle_number if inv.vehicle else 'N/A',
                 'total': str(round(inv_total, 2)),
                 'assigned_staff_count': staff_count,
                 'share_amount': str(round(split_share, 2)),

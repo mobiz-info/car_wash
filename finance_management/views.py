@@ -2144,7 +2144,7 @@ def staff_income_report(request):
                 'invoice_number': inv.invoice_number,
                 'date': inv.date,
                 'customer_name': inv.customer.name if inv.customer else 'N/A',
-                'vehicle_number': inv.vehicle.reg_number if inv.vehicle else 'N/A',
+                'vehicle_number': inv.vehicle.vehicle_number if inv.vehicle else 'N/A',
                 'total': inv_total,
                 'assigned_staff_count': staff_count,
                 'share_amount': split_share,
