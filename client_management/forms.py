@@ -1,6 +1,6 @@
 from django import forms
 from .models import *
-from master.models import State, Area, SchemeType, VehicleType
+from master.models import State, District, Area, SchemeType, VehicleType
 from service_management.models import Service
 
 class ClientForm(forms.ModelForm):
@@ -31,19 +31,24 @@ class ClientForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Initially show empty querysets for state/area (populated via JS)
-        if not self.data.get('country'):
+        # Populate state, district, and area querysets (for POST submission or edit instance)
+        country_id = self.data.get('country') or (self.instance.country_id if self.instance.pk else None)
+        if country_id:
+            self.fields['state'].queryset = State.objects.filter(country_id=country_id, is_deleted=False)
+        else:
             self.fields['state'].queryset = State.objects.none()
+
+        state_id = self.data.get('state') or (self.instance.state_id if self.instance.pk else None)
+        if state_id:
+            self.fields['district'].queryset = District.objects.filter(state_id=state_id, is_deleted=False)
         else:
-            self.fields['state'].queryset = State.objects.filter(
-                country_id=self.data.get('country'), is_deleted=False
-            )
-        if not self.data.get('state'):
+            self.fields['district'].queryset = District.objects.none()
+
+        district_id = self.data.get('district') or (self.instance.district_id if self.instance.pk else None)
+        if district_id:
+            self.fields['area'].queryset = Area.objects.filter(district_id=district_id, is_deleted=False)
+        else:
             self.fields['area'].queryset = Area.objects.none()
-        else:
-            self.fields['area'].queryset = Area.objects.filter(
-                district__state_id=self.data.get('state'), is_deleted=False
-            )
         for field_name, field in self.fields.items():
             if field_name == 'status':
                 field.widget.attrs['class'] = 'form-check-input'

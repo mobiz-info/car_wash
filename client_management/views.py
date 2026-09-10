@@ -115,9 +115,19 @@ def client_create(request):
                 messages.warning(request, f"Client created, but failed to auto-activate subscription: {str(e)}")
                 
             return redirect('client_list')
+
+    selected_country_id = request.POST.get('country', '') if request.method == 'POST' else ''
+    selected_state_id = request.POST.get('state', '') if request.method == 'POST' else ''
+    selected_district_id = request.POST.get('district', '') if request.method == 'POST' else ''
+    selected_area_id = request.POST.get('area', '') if request.method == 'POST' else ''
+
     return render(request, 'client/create.html', {
         'form': form,
-        'title': 'Create Client'
+        'title': 'Create Client',
+        'selected_country_id': selected_country_id,
+        'selected_state_id': selected_state_id,
+        'selected_district_id': selected_district_id,
+        'selected_area_id': selected_area_id,
     })
 
 
@@ -133,12 +143,19 @@ def client_edit(request, id):
             form.save_m2m()
             messages.success(request, "Client updated successfully")
             return redirect('client_list')
+
+    selected_country_id = request.POST.get('country') if request.method == 'POST' else (str(instance.country_id) if instance.country_id else '')
+    selected_state_id = request.POST.get('state') if request.method == 'POST' else (str(instance.state_id) if instance.state_id else '')
+    selected_district_id = request.POST.get('district') if request.method == 'POST' else (str(instance.district_id) if instance.district_id else '')
+    selected_area_id = request.POST.get('area') if request.method == 'POST' else (str(instance.area_id) if instance.area_id else '')
+
     return render(request, 'client/create.html', {
         'form': form,
         'title': 'Edit Client',
-        'selected_country_id': str(instance.country_id) if instance.country_id else '',
-        'selected_state_id': str(instance.state_id) if instance.state_id else '',
-        'selected_area_id': str(instance.area_id) if instance.area_id else '',
+        'selected_country_id': selected_country_id,
+        'selected_state_id': selected_state_id,
+        'selected_district_id': selected_district_id,
+        'selected_area_id': selected_area_id,
     })
 
 
