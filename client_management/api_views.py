@@ -844,12 +844,6 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         setting = None
         if company:
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
-            
-        if not setting or not setting.username or not setting.password:
-            setting = WhatsAppSetting.objects.filter(is_deleted=False, sender_id='919496007007').first()
-
-        if not setting or not setting.username or not setting.password:
-            setting = WhatsAppSetting.objects.filter(is_deleted=False, username__isnull=False, password__isnull=False).exclude(username='').exclude(password='').first()
 
         if not setting or not setting.username or not setting.password:
             _log(f"Invoice {invoice_id}: Missing/incomplete WhatsAppSetting for company {company}")
@@ -1478,12 +1472,6 @@ def api_send_invoice_whatsapp(request):
         setting = None
         if company:
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
-
-        if not setting or not setting.username or not setting.password:
-            setting = WhatsAppSetting.objects.filter(is_deleted=False, sender_id='919496007007').first()
-
-        if not setting or not setting.username or not setting.password:
-            setting = WhatsAppSetting.objects.filter(is_deleted=False, username__isnull=False, password__isnull=False).exclude(username='').exclude(password='').first()
 
         has_api = bool(setting and setting.username and setting.password)
 
@@ -6660,10 +6648,10 @@ def send_quotation_whatsapp_background(quotation_id, base_url):
         setting = None
         if company:
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
+
         if not setting or not setting.username or not setting.password:
-            setting = WhatsAppSetting.objects.filter(is_deleted=False, sender_id='919496007007').first()
-        if not setting or not setting.username or not setting.password:
-            setting = WhatsAppSetting.objects.filter(is_deleted=False, username__isnull=False, password__isnull=False).exclude(username='').exclude(password='').first()
+            _log_quotation_wa(f"Quotation {quotation_id}: Missing/incomplete WhatsAppSetting for company {company}")
+            return
 
         message_text = (
             f"Dear {customer.name}\n"
