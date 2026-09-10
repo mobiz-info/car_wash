@@ -2031,6 +2031,149 @@ def payment_type_report(request):
 
 
 @login_required
+def staff_income_report(request):
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    from client_management.models import Branch, Staff
+    from finance_management.models import Invoice
+    from datetime import datetime, date
+
+    from_date_str = request.GET.get('from_date', '')
+    to_date_str = request.GET.get('to_date', '')
+    branch_id = request.GET.get('branch_id', '')
+    staff_id = request.GET.get('staff_id', '')
+
+    today = date.today()
+    def parse_d(d_str, default):
+        if not d_str:
+            return default
+        try:
+            return datetime.strptime(d_str, '%Y-%m-%d').date()
+        except ValueError:
+            try:
+                return datetime.strptime(d_str, '%d-%m-%Y').date()
+            except ValueError:
+                return default
+
+    from_date = parse_d(from_date_str, today.replace(day=1))
+    to_date = parse_d(to_date_str, today)
+
+    invoices = Invoice.objects.filter(
+        is_deleted=False,
+        date__gte=from_date,
+        date__lte=to_date,
+        assigned_staffs__isnull=False
+    ).prefetch_related('assigned_staffs', 'customer', 'vehicle', 'branch').distinct()
+
+    staff_qs = Staff.objects.filter(is_deleted=False)
+    branches = None
+
+    if role == 'COMPANY_ADMIN':
+        if hasattr(user.profile, 'company') and user.profile.company:
+            company = user.profile.company
+            invoices = invoices.filter(branch__company=company)
+            staff_qs = staff_qs.filter(company=company)
+            branches = Branch.objects.filter(company=company, is_deleted=False)
+        else:
+            branches = Branch.objects.filter(is_deleted=False)
+    elif role == 'BRANCH_ADMIN':
+        if hasattr(user, 'managed_branch') and user.managed_branch:
+            invoices = invoices.filter(branch=user.managed_branch)
+            staff_qs = staff_qs.filter(branch=user.managed_branch)
+        branches = None
+
+    if branch_id:
+        invoices = invoices.filter(branch_id=branch_id)
+        staff_qs = staff_qs.filter(branch_id=branch_id)
+
+    if staff_id:
+        invoices = invoices.filter(assigned_staffs__id=staff_id)
+        staff_qs = staff_qs.filter(id=staff_id)
+
+    staff_map = {}
+    for st in staff_qs:
+        desig = st.get_designation_display() if hasattr(st, 'get_designation_display') else (st.designation or '')
+        staff_map[str(st.id)] = {
+            'id': str(st.id),
+            'name': st.name,
+            'employee_id': st.employee_id or '',
+            'designation': desig,
+            'branch_name': st.branch.name if st.branch else '',
+            'invoice_count': 0,
+            'total_income': 0.0,
+            'split_income': 0.0,
+            'invoices': [],
+        }
+
+    total_invoices_set = set()
+
+    for inv in invoices.order_by('-date', '-auto_id'):
+        assigned = list(inv.assigned_staffs.all())
+        if not assigned:
+            continue
+
+        total_invoices_set.add(inv.id)
+        staff_count = len(assigned)
+        inv_total = float(inv.total or 0.0)
+        split_share = inv_total / staff_count if staff_count > 0 else 0.0
+
+        for st in assigned:
+            st_id = str(st.id)
+            if st_id not in staff_map:
+                desig = st.get_designation_display() if hasattr(st, 'get_designation_display') else (st.designation or '')
+                staff_map[st_id] = {
+                    'id': st_id,
+                    'name': st.name,
+                    'employee_id': st.employee_id or '',
+                    'designation': desig,
+                    'branch_name': st.branch.name if st.branch else '',
+                    'invoice_count': 0,
+                    'total_income': 0.0,
+                    'split_income': 0.0,
+                    'invoices': [],
+                }
+
+            sdata = staff_map[st_id]
+            sdata['invoice_count'] += 1
+            sdata['total_income'] += inv_total
+            sdata['split_income'] += split_share
+            sdata['invoices'].append({
+                'id': str(inv.id),
+                'invoice_number': inv.invoice_number,
+                'date': inv.date,
+                'customer_name': inv.customer.name if inv.customer else 'N/A',
+                'vehicle_number': inv.vehicle.reg_number if inv.vehicle else 'N/A',
+                'total': inv_total,
+                'assigned_staff_count': staff_count,
+                'share_amount': split_share,
+            })
+
+    staff_rows = sorted(list(staff_map.values()), key=lambda x: x['total_income'], reverse=True)
+
+    grand_total_income = sum(r['total_income'] for r in staff_rows)
+    grand_split_income = sum(r['split_income'] for r in staff_rows)
+
+    context = {
+        'from_date': from_date.strftime('%Y-%m-%d'),
+        'to_date': to_date.strftime('%Y-%m-%d'),
+        'branch_id': branch_id,
+        'staff_id': staff_id,
+        'branches': branches,
+        'all_staffs': staff_qs,
+        'staff_rows': staff_rows,
+        'total_staffs': len(staff_rows),
+        'total_invoices': len(total_invoices_set),
+        'grand_total_income': grand_total_income,
+        'grand_split_income': grand_split_income,
+        'title': 'Staff Income Report',
+    }
+
+    return render(request, 'reports/staff_income_report.html', context)
+
+
+@login_required
+
 def ajax_get_customer_vehicles(request, customer_id):
     from client_management.models import CustomerVehicle
     vehicles = CustomerVehicle.objects.filter(customer_id=customer_id, is_deleted=False).select_related('vehicle_type_model')

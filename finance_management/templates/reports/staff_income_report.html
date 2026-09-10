@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+
+{% block title %}Staff Income Report - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Staff Income Report{% endblock %}
+{% block breadcrumb_active %}Staff Income Report{% endblock %}
+
+{% block content %}
+
+<style>
+.report-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.report-header {
+    background: linear-gradient(135deg, #000080, #1e1e9c);
+    border-radius: 22px;
+    padding: 30px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,128,0.18);
+}
+
+.report-header::after {
+    content: '';
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+    right: -80px;
+    top: -80px;
+}
+
+.report-title {
+    position: relative;
+    z-index: 2;
+}
+
+.report-title h2 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.report-title p {
+    margin-top: 8px;
+    color: rgba(255,255,255,0.85);
+    font-size: 0.95rem;
+}
+
+.filter-card {
+    background: white;
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 4px 18px rgba(15,23,42,0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+
+.date-input,
+.select-input {
+    height: 46px;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    padding: 0 14px;
+    font-size: 0.9rem;
+    min-width: 170px;
+}
+
+.date-input:focus,
+.select-input:focus {
+    outline: none;
+    border-color: #000080;
+    background: white;
+}
+
+.filter-btn {
+    height: 46px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #000080, #1e1e9c);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.filter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,128,0.2);
+}
+
+.reset-btn {
+    height: 46px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 12px;
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 600;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    transition: 0.3s;
+}
+
+.reset-btn:hover {
+    background: #e2e8f0;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 20px;
+}
+
+.summary-card {
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 18px rgba(15,23,42,0.05);
+}
+
+.summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 100%;
+}
+
+.summary-card.staff::before { background: #000080; }
+.summary-card.invoices::before { background: #10b981; }
+.summary-card.income::before { background: #3b82f6; }
+.summary-card.split::before { background: #8b5cf6; }
+
+.summary-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-label {
+    color: #64748b;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.summary-value {
+    margin-top: 14px;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.table-card {
+    background: white;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 6px 24px rgba(15,23,42,0.05);
+}
+
+.table-header {
+    padding: 22px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #0f172a;
+}
+
+.premium-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.premium-table thead {
+    background: #f8fafc;
+}
+
+.premium-table th {
+    padding: 16px;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #64748b;
+    font-weight: 700;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.premium-table td {
+    padding: 18px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.premium-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.badge-id {
+    background: #e2e8f0;
+    color: #1e293b;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge-branch {
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: #94a3b8;
+}
+
+.staff-details-row {
+    background: #f8fafc !important;
+}
+
+.sub-table {
+    width: 100%;
+    margin: 10px 0;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.sub-table th {
+    background: #edf2f7;
+    font-size: 0.75rem;
+    padding: 10px;
+}
+
+.sub-table td {
+    font-size: 0.82rem;
+    padding: 10px;
+}
+</style>
+
+<div class="report-wrapper">
+    <div class="report-header">
+        <div class="report-title">
+            <h2>Staff Revenue & Performance Report</h2>
+            <p>Track income generated per staff member across all invoices.</p>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-card">
+        <form method="GET" class="filter-form">
+            <div class="filter-group">
+                <label style="font-size:0.8rem; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">From Date</label>
+                <input type="date" name="from_date" value="{{ from_date }}" class="date-input">
+            </div>
+
+            <div class="filter-group">
+                <label style="font-size:0.8rem; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">To Date</label>
+                <input type="date" name="to_date" value="{{ to_date }}" class="date-input">
+            </div>
+
+            {% if request.user.profile.role.name != 'BRANCH_ADMIN' and branches %}
+            <div class="filter-group">
+                <label style="font-size:0.8rem; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Branch</label>
+                <select name="branch_id" class="select-input">
+                    <option value="">All Branches</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if branch_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="filter-group">
+                <label style="font-size:0.8rem; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">Staff</label>
+                <select name="staff_id" class="select-input">
+                    <option value="">All Staffs</option>
+                    {% for st in all_staffs %}
+                    <option value="{{ st.id }}" {% if staff_id == st.id|stringformat:"s" %}selected{% endif %}>{{ st.name }}{% if st.employee_id %} ({{ st.employee_id }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="align-self:flex-end;">
+                <button type="submit" class="filter-btn">Filter Report</button>
+            </div>
+            <div style="align-self:flex-end;">
+                <a href="{% url 'staff_income_report' %}" class="reset-btn">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- KPI Summary Grid -->
+    <div class="summary-grid">
+        <div class="summary-card staff">
+            <div class="summary-top">
+                <div class="summary-label">Active Staffs Included</div>
+            </div>
+            <div class="summary-value">{{ total_staffs }}</div>
+        </div>
+
+        <div class="summary-card invoices">
+            <div class="summary-top">
+                <div class="summary-label">Invoices Handled</div>
+            </div>
+            <div class="summary-value">{{ total_invoices }}</div>
+        </div>
+
+        <div class="summary-card income">
+            <div class="summary-top">
+                <div class="summary-label">Total Invoice Revenue</div>
+            </div>
+            <div class="summary-value" style="color:#000080;">₹{{ grand_total_income|floatformat:2 }}</div>
+        </div>
+
+        <div class="summary-card split">
+            <div class="summary-top">
+                <div class="summary-label">Attributed Revenue (Equal Share)</div>
+            </div>
+            <div class="summary-value" style="color:#6d28d9;">₹{{ grand_split_income|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Staff Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <h3>Staff Breakdown</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Staff Name</th>
+                        <th>Employee ID</th>
+                        <th>Designation</th>
+                        <th>Branch</th>
+                        <th>Invoices Count</th>
+                        <th>Attributed Revenue (Share)</th>
+                        <th>Total Invoices Value</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in staff_rows %}
+                    <tr>
+                        <td style="color:#94a3b8;">{{ forloop.counter }}</td>
+                        <td><strong>{{ row.name }}</strong></td>
+                        <td>{% if row.employee_id %}<span class="badge-id">{{ row.employee_id }}</span>{% else %}-{% endif %}</td>
+                        <td>{{ row.designation }}</td>
+                        <td><span class="badge-branch">{{ row.branch_name }}</span></td>
+                        <td><strong>{{ row.invoice_count }}</strong></td>
+                        <td><strong style="color:#059669;">₹{{ row.split_income|floatformat:2 }}</strong></td>
+                        <td><strong style="color:#000080;">₹{{ row.total_income|floatformat:2 }}</strong></td>
+                        <td>
+                            {% if row.invoices %}
+                            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#staff-inv-{{ forloop.counter }}">
+                                View Invoices ({{ row.invoices|length }})
+                            </button>
+                            {% else %}
+                            <span style="color:#94a3b8; font-size:0.8rem;">No invoices</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if row.invoices %}
+                    <tr class="collapse staff-details-row" id="staff-inv-{{ forloop.counter }}">
+                        <td colspan="9">
+                            <div style="padding:10px;">
+                                <h5 style="font-size:0.9rem; font-weight:700; color:#1e293b; margin-bottom:8px;">Invoices assigned to {{ row.name }}</h5>
+                                <table class="sub-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Invoice #</th>
+                                            <th>Date</th>
+                                            <th>Customer</th>
+                                            <th>Vehicle</th>
+                                            <th>Total Amount</th>
+                                            <th>Assigned Staff Count</th>
+                                            <th>Staff Share Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for inv in row.invoices %}
+                                        <tr>
+                                            <td><strong>{{ inv.invoice_number }}</strong></td>
+                                            <td>{{ inv.date }}</td>
+                                            <td>{{ inv.customer_name }}</td>
+                                            <td>{{ inv.vehicle_number }}</td>
+                                            <td>₹{{ inv.total|floatformat:2 }}</td>
+                                            <td>{{ inv.assigned_staff_count }} staff(s)</td>
+                                            <td><strong style="color:#059669;">₹{{ inv.share_amount|floatformat:2 }}</strong></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <h4>No Staff Revenue Data Found</h4>
+                                <p>Try adjusting date range or filters.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

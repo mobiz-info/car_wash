@@ -34,5 +34,6 @@ urlpatterns = [
     path('expense-head-report/',views.expense_head_report,name='expense_head_report'),
     path('expense-head-detail/<uuid:pk>/',views.expense_head_detail_report,name='expense_head_detail_report'),
     path('reports/payment-type/', views.payment_type_report, name='payment_type_report'),
-    
+    path('reports/staff-income-report/', views.staff_income_report, name='staff_income_report'),
 ]
+

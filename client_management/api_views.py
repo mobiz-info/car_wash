@@ -5311,6 +5311,127 @@ def api_report_leave(request):
 
 
 @csrf_exempt
+def api_report_staff_income(request):
+    """Staff Income Report: Income generated per staff member from assigned invoices in date range."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from finance_management.models import Invoice
+    from client_management.models import Staff
+
+    from_date, to_date = _parse_dates(request)
+    company, scope = _report_scope(user, request.GET.get('branch_id'))
+
+    staff_id = request.GET.get('staff_id')
+
+    invoices = Invoice.objects.filter(
+        is_deleted=False,
+        date__gte=from_date,
+        date__lte=to_date,
+        assigned_staffs__isnull=False,
+        **scope
+    ).prefetch_related('assigned_staffs', 'customer', 'vehicle', 'branch').distinct().order_by('-date', '-auto_id')
+
+    if staff_id:
+        invoices = invoices.filter(assigned_staffs__id=staff_id)
+
+    # Fetch active staff members to include
+    staff_qs = Staff.objects.filter(is_deleted=False)
+    if 'branch' in scope:
+        staff_qs = staff_qs.filter(branch=scope['branch'])
+    elif 'branch__company' in scope:
+        staff_qs = staff_qs.filter(company=scope['branch__company'])
+
+    if staff_id:
+        staff_qs = staff_qs.filter(id=staff_id)
+
+    staff_map = {}
+    for st in staff_qs:
+        desig = st.get_designation_display() if hasattr(st, 'get_designation_display') else (st.designation or '')
+        staff_map[str(st.id)] = {
+            'id': str(st.id),
+            'name': st.name,
+            'employee_id': st.employee_id or '',
+            'designation': desig,
+            'branch_name': st.branch.name if st.branch else '',
+            'invoice_count': 0,
+            'total_income': 0.0,
+            'split_income': 0.0,
+            'invoices': [],
+        }
+
+    total_invoices_set = set()
+
+    for inv in invoices:
+        assigned = list(inv.assigned_staffs.all())
+        if not assigned:
+            continue
+
+        total_invoices_set.add(inv.id)
+        staff_count = len(assigned)
+        inv_total = float(inv.total or 0.0)
+        split_share = inv_total / staff_count if staff_count > 0 else 0.0
+
+        for st in assigned:
+            st_id = str(st.id)
+            if st_id not in staff_map:
+                desig = st.get_designation_display() if hasattr(st, 'get_designation_display') else (st.designation or '')
+                staff_map[st_id] = {
+                    'id': st_id,
+                    'name': st.name,
+                    'employee_id': st.employee_id or '',
+                    'designation': desig,
+                    'branch_name': st.branch.name if st.branch else '',
+                    'invoice_count': 0,
+                    'total_income': 0.0,
+                    'split_income': 0.0,
+                    'invoices': [],
+                }
+
+            sdata = staff_map[st_id]
+            sdata['invoice_count'] += 1
+            sdata['total_income'] += inv_total
+            sdata['split_income'] += split_share
+            sdata['invoices'].append({
+                'id': str(inv.id),
+                'invoice_number': inv.invoice_number,
+                'date': str(inv.date),
+                'customer_name': inv.customer.name if inv.customer else 'N/A',
+                'vehicle_number': inv.vehicle.reg_number if inv.vehicle else 'N/A',
+                'total': str(round(inv_total, 2)),
+                'assigned_staff_count': staff_count,
+                'share_amount': str(round(split_share, 2)),
+            })
+
+    staff_rows = sorted(list(staff_map.values()), key=lambda x: x['total_income'], reverse=True)
+
+    grand_total_income = 0.0
+    grand_split_income = 0.0
+    for r in staff_rows:
+        grand_total_income += r['total_income']
+        grand_split_income += r['split_income']
+        r['total_income_str'] = str(round(r['total_income'], 2))
+        r['split_income_str'] = str(round(r['split_income'], 2))
+
+    return JsonResponse({
+        'success': True,
+        'from_date': str(from_date),
+        'to_date': str(to_date),
+        'summary': {
+            'total_staffs': len(staff_rows),
+            'total_invoices': len(total_invoices_set),
+            'grand_total_income': str(round(grand_total_income, 2)),
+            'grand_split_income': str(round(grand_split_income, 2)),
+        },
+        'staffs': staff_rows,
+    })
+
+
+
+@csrf_exempt
 @csrf_exempt
 def api_get_extras_list(request):
     if request.method != 'GET':

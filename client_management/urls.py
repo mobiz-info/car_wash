@@ -149,6 +149,7 @@ urlpatterns = [
     path('api/reports/profit-loss/', api_views.api_report_profit_loss, name='api_report_profit_loss'),
     path('api/reports/daywise/', api_views.api_report_daywise_consolidated, name='api_report_daywise_consolidated'),
     path('api/reports/stock-consumption/', api_views.api_report_stock_consumption, name='api_report_stock_consumption'),
+    path('api/reports/staff-income/', api_views.api_report_staff_income, name='api_report_staff_income'),
 
 
 
