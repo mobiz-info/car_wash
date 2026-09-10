@@ -2056,8 +2056,9 @@ def staff_income_report(request):
             except ValueError:
                 return default
 
-    from_date = parse_d(from_date_str, today.replace(day=1))
+    from_date = parse_d(from_date_str, today)
     to_date = parse_d(to_date_str, today)
+
 
     invoices = Invoice.objects.filter(
         is_deleted=False,

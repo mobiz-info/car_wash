@@ -5322,7 +5322,24 @@ def api_report_staff_income(request):
     from finance_management.models import Invoice
     from client_management.models import Staff
 
-    from_date, to_date = _parse_dates(request)
+    from datetime import date, datetime
+    today = date.today()
+    from_date_str = request.GET.get('from_date')
+    to_date_str = request.GET.get('to_date')
+    def parse_d(d_str, default):
+        if not d_str:
+            return default
+        try:
+            return datetime.strptime(d_str, '%d-%m-%Y').date()
+        except ValueError:
+            try:
+                return date.fromisoformat(d_str)
+            except ValueError:
+                return default
+
+    from_date = parse_d(from_date_str, today)
+    to_date = parse_d(to_date_str, today)
+
     company, scope = _report_scope(user, request.GET.get('branch_id'))
 
     staff_id = request.GET.get('staff_id')
