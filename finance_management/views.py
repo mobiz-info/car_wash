@@ -2152,7 +2152,7 @@ def staff_income_report(request):
 
     staff_rows = sorted(list(staff_map.values()), key=lambda x: x['total_income'], reverse=True)
 
-    grand_total_income = sum(r['total_income'] for r in staff_rows)
+    grand_total_income = sum(float(inv.total or 0.0) for inv in invoices)
     grand_split_income = sum(r['split_income'] for r in staff_rows)
 
     context = {

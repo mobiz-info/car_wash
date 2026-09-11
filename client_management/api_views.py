@@ -5481,10 +5481,9 @@ def api_report_staff_income(request):
 
     staff_rows = sorted(list(staff_map.values()), key=lambda x: x['total_income'], reverse=True)
 
-    grand_total_income = 0.0
+    grand_total_income = sum(float(inv.total or 0.0) for inv in invoices)
     grand_split_income = 0.0
     for r in staff_rows:
-        grand_total_income += r['total_income']
         grand_split_income += r['split_income']
         r['total_income_str'] = str(round(r['total_income'], 2))
         r['split_income_str'] = str(round(r['split_income'], 2))
