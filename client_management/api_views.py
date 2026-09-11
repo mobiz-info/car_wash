@@ -5351,7 +5351,7 @@ def api_report_staff_income(request):
         date__lte=to_date,
         assigned_staffs__isnull=False,
         **scope
-    ).prefetch_related('assigned_staffs', 'customer', 'vehicle', 'branch').distinct().order_by('-date', '-auto_id')
+    ).prefetch_related('assigned_staffs', 'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch', 'branch__company', 'items').distinct().order_by('-date', '-auto_id')
 
     if staff_id:
         invoices = invoices.filter(assigned_staffs__id=staff_id)
@@ -5393,6 +5393,69 @@ def api_report_staff_income(request):
         inv_total = float(inv.total or 0.0)
         split_share = inv_total / staff_count if staff_count > 0 else 0.0
 
+        items_list = list(inv.items.all())
+        services_data = [
+            {
+                'id': str(item.id),
+                'name': item.service_name,
+                'rate': float(item.rate or 0),
+                'qty': float(item.qty or 1),
+                'discount': float(item.discount or 0),
+                'net_taxable_amount': str(item.net_taxable_amount or item.rate or 0),
+            }
+            for item in items_list if not item.is_operational
+        ]
+        trading_data = [
+            {
+                'id': str(item.id),
+                'item_name': item.service_name,
+                'rate': float(item.rate or 0),
+                'qty': float(item.qty or 1),
+                'discount': float(item.discount or 0),
+                'net_taxable': float(item.net_taxable_amount or item.rate or 0),
+                'is_operational': item.is_operational,
+            }
+            for item in items_list if item.is_operational
+        ]
+
+        branch_logo_url = ''
+        if inv.branch and hasattr(inv.branch, 'logo') and inv.branch.logo:
+            try:
+                branch_logo_url = request.build_absolute_uri(inv.branch.logo.url)
+            except Exception:
+                pass
+
+        company_logo_url = ''
+        if inv.branch and hasattr(inv.branch, 'company') and inv.branch.company and hasattr(inv.branch.company, 'logo_color') and inv.branch.company.logo_color:
+            try:
+                company_logo_url = request.build_absolute_uri(inv.branch.company.logo_color.url)
+            except Exception:
+                pass
+
+        inv_dict = {
+            'id': str(inv.id),
+            'invoice_number': inv.invoice_number,
+            'date': str(inv.date),
+            'subtotal': str(round(float(inv.subtotal or 0.0), 2)),
+            'discount': str(round(float(inv.discount or 0.0), 2)),
+            'tax_amount': str(round(float(inv.tax_amount or 0.0), 2)),
+            'total': str(round(inv_total, 2)),
+            'amount_collected': str(round(float(inv.amount_collected or 0.0), 2)),
+            'invoice_type': inv.invoice_type or 'cashinvoice',
+            'customer_name': inv.customer.name if inv.customer else 'N/A',
+            'customer_phone': inv.customer.phone if inv.customer else '',
+            'vehicle_number': inv.vehicle.vehicle_number if inv.vehicle else 'N/A',
+            'vehicle_type': inv.vehicle.vehicle_type_model.name if inv.vehicle and hasattr(inv.vehicle, 'vehicle_type_model') and inv.vehicle.vehicle_type_model else '',
+            'branch': inv.branch.name if inv.branch else '',
+            'branch_logo': branch_logo_url,
+            'company_logo': company_logo_url,
+            'services': services_data,
+            'trading_items': trading_data,
+            'taxes': [],
+            'assigned_staff_count': staff_count,
+            'share_amount': str(round(split_share, 2)),
+        }
+
         for st in assigned:
             st_id = str(st.id)
             if st_id not in staff_map:
@@ -5413,16 +5476,8 @@ def api_report_staff_income(request):
             sdata['invoice_count'] += 1
             sdata['total_income'] += inv_total
             sdata['split_income'] += split_share
-            sdata['invoices'].append({
-                'id': str(inv.id),
-                'invoice_number': inv.invoice_number,
-                'date': str(inv.date),
-                'customer_name': inv.customer.name if inv.customer else 'N/A',
-                'vehicle_number': inv.vehicle.vehicle_number if inv.vehicle else 'N/A',
-                'total': str(round(inv_total, 2)),
-                'assigned_staff_count': staff_count,
-                'share_amount': str(round(split_share, 2)),
-            })
+            sdata['invoices'].append(inv_dict)
+
 
     staff_rows = sorted(list(staff_map.values()), key=lambda x: x['total_income'], reverse=True)
 
