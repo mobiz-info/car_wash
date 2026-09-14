@@ -877,7 +877,7 @@ class PurchaseRequestForm(forms.ModelForm):
         if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
             company = self.request.user.profile.company
             stock_qs = Stock.objects.filter(
-                Q(company=company) | Q(company__isnull=True),
+                company=company,
                 is_deleted=False
             )
             self.fields['material'].queryset = stock_qs.order_by('item_name')

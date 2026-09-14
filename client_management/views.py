@@ -2151,14 +2151,14 @@ def stock_list(request):
     item_type = request.GET.get('type', '')
     
     if request.user.is_superuser:
-        stocks = Stock.objects.filter(is_deleted=False).order_by('-date_added')
+        stocks = Stock.objects.filter(is_deleted=False).select_related('group', 'sub_group', 'expense_head', 'company').order_by('-date_added')
     else:
         company = getattr(getattr(request.user, 'profile', None), 'company', None)
         if company:
             stocks = Stock.objects.filter(
                 company=company,
                 is_deleted=False
-            ).order_by('-date_added')
+            ).select_related('group', 'sub_group', 'expense_head', 'company').order_by('-date_added')
         else:
             stocks = Stock.objects.none()
 

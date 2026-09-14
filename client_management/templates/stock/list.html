@@ -93,6 +93,8 @@
                     <th>#</th>
                     <th>Item Name</th>
                     <th>Item Type</th>
+                    <th>Group</th>
+                    <th>Sub Group</th>
                     <th>Unit</th>
                     <th>Expense Head</th>
                     <th>Scope</th>
@@ -131,6 +133,22 @@
                             <span class="type-badge type-operational" title="Operational Consumable (Internal use, ₹0 billing)">
                                 <i class="ph-bold ph-wrench"></i> Operational
                             </span>
+                        {% else %}
+                            <span style="font-weight:400; color:#94a3b8; font-style:italic;">None</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if stock.group %}
+                            <span style="font-weight:600; color:#1e293b;">{{ stock.group.name }}</span>
+                        {% else %}
+                            <span style="font-weight:400; color:#94a3b8; font-style:italic;">None</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if stock.sub_group %}
+                            <span style="font-weight:500; color:#475569;">{{ stock.sub_group.name }}</span>
                         {% else %}
                             <span style="font-weight:400; color:#94a3b8; font-style:italic;">None</span>
                         {% endif %}
@@ -182,7 +200,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" style="text-align:center; padding: 30px; color:#94a3b8;">
+                    <td colspan="9" style="text-align:center; padding: 30px; color:#94a3b8;">
                         No stock items found.
                     </td>
                 </tr>

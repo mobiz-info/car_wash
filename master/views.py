@@ -1188,7 +1188,7 @@ def expense_create(request):
     from master.models import Supplier
     from django.db.models import Q
     stocks = Stock.objects.filter(
-        Q(company=company) | Q(company__isnull=True),
+        company=company,
         is_deleted=False
     ).select_related('expense_head')
 
@@ -1357,7 +1357,7 @@ def expense_edit(request, pk):
     from client_management.models import Stock, Staff
     from django.db.models import Q
     stocks = Stock.objects.filter(
-        Q(company=company) | Q(company__isnull=True),
+        company=company,
         is_deleted=False
     ).select_related('expense_head')
 
