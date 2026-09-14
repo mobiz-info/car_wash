@@ -1749,9 +1749,9 @@ def api_get_form_data(request):
 
     stock_items_qs = Stock.objects.filter(is_deleted=False)
     if company:
-        stock_items_qs = stock_items_qs.filter(Q(company=company) | Q(company__isnull=True))
+        stock_items_qs = stock_items_qs.filter(company=company)
     else:
-        stock_items_qs = stock_items_qs.filter(company__isnull=True)
+        stock_items_qs = stock_items_qs.none()
 
     stock_items_data = []
     for s in stock_items_qs.select_related('group', 'sub_group').order_by('item_name'):
@@ -4038,7 +4038,9 @@ def api_get_expense_items_by_head(request):
             is_deleted=False
         )
         if company:
-            stock_qs = stock_qs.filter(Q(company=company) | Q(company__isnull=True))
+            stock_qs = stock_qs.filter(company=company)
+        else:
+            stock_qs = stock_qs.none()
         for s in stock_qs:
             if s.item_name and s.item_name.strip():
                 items_set.add(s.item_name.strip())
@@ -4515,13 +4517,11 @@ def api_get_stock_list(request):
         company = getattr(getattr(user, 'profile', None), 'company', None)
         if company:
             stocks = Stock.objects.filter(
-                Q(company=company) | Q(company__isnull=True),
+                company=company,
                 is_deleted=False
             ).select_related('expense_head', 'group', 'sub_group').order_by('item_name')
         else:
-            stocks = Stock.objects.filter(
-                is_deleted=False
-            ).select_related('expense_head', 'group', 'sub_group').order_by('item_name')
+            stocks = Stock.objects.none()
         
         stock_list = [{
             'id': str(s.id),

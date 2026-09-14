@@ -2782,7 +2782,7 @@ def purchase_invoice_create(request):
     else:
         groups = StockGroup.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
         suppliers = Supplier.objects.filter(company=company, is_deleted=False, is_active=True).order_by('name')
-        stocks = Stock.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).select_related('group', 'sub_group').order_by('item_name')
+        stocks = Stock.objects.filter(company=company, is_deleted=False).select_related('group', 'sub_group').order_by('item_name')
 
     return render(request, 'purchase_invoice/create.html', {
         'suppliers': suppliers,

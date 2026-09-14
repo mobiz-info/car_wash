@@ -2153,11 +2153,14 @@ def stock_list(request):
     if request.user.is_superuser:
         stocks = Stock.objects.filter(is_deleted=False).order_by('-date_added')
     else:
-        company = request.user.profile.company
-        stocks = Stock.objects.filter(
-            Q(company=company) | Q(company__isnull=True),
-            is_deleted=False
-        ).order_by('-date_added')
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        if company:
+            stocks = Stock.objects.filter(
+                company=company,
+                is_deleted=False
+            ).order_by('-date_added')
+        else:
+            stocks = Stock.objects.none()
 
     if search:
         stocks = stocks.filter(Q(item_name__icontains=search) | Q(brand__icontains=search))
@@ -2194,11 +2197,11 @@ def purchased_stock_list(request):
         stocks = Stock.objects.filter(is_deleted=False).select_related('group', 'sub_group', 'company').order_by('item_name')
     elif company:
         stocks = Stock.objects.filter(
-            Q(company=company) | Q(company__isnull=True),
+            company=company,
             is_deleted=False
         ).select_related('group', 'sub_group', 'company').order_by('item_name')
     else:
-        stocks = Stock.objects.filter(is_deleted=False).select_related('group', 'sub_group', 'company').order_by('item_name')
+        stocks = Stock.objects.none()
 
     if search:
         stocks = stocks.filter(item_name__icontains=search)
