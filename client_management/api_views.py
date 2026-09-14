@@ -7333,11 +7333,24 @@ def api_create_purchase_invoice(request):
             return JsonResponse({'success': False, 'message': 'supplier_id, purchase_inv_number, invoice_date, and items are required'}, status=400)
 
         company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company:
+            branch_temp = getattr(user, 'managed_branch', None)
+            if branch_temp:
+                company = branch_temp.company
+
+        if not company:
+            return JsonResponse({'success': False, 'message': 'User profile is not linked to any company'}, status=400)
+
         branch = getattr(user, 'managed_branch', None)
         if not branch and company:
             branch = Branch.objects.filter(company=company, is_deleted=False).first()
 
-        supplier = Supplier.objects.get(id=supplier_id, is_deleted=False)
+        if not branch:
+            return JsonResponse({'success': False, 'message': 'No active branch found for company'}, status=400)
+
+        supplier = Supplier.objects.filter(id=supplier_id).first()
+        if not supplier:
+            return JsonResponse({'success': False, 'message': 'Selected supplier not found'}, status=400)
 
         subtotal = Decimal('0.00')
         tax_total = Decimal('0.00')
@@ -7346,7 +7359,7 @@ def api_create_purchase_invoice(request):
         parsed_items = []
         for row in items_data:
             stk_id = row.get('stock_id')
-            stk = Stock.objects.get(id=stk_id) if stk_id else None
+            stk = Stock.objects.filter(id=stk_id).first() if stk_id else None
             rate = Decimal(str(row.get('rate', 0)))
             qty = Decimal(str(row.get('qty', 1)))
             tax_pct = Decimal(str(row.get('tax_percent', 0)))
@@ -7362,11 +7375,11 @@ def api_create_purchase_invoice(request):
 
             parsed_items.append({
                 'stock_item': stk,
-                'hsn_code': row.get('hsn_code', getattr(stk, 'hsn_code', '')),
+                'hsn_code': row.get('hsn_code', getattr(stk, 'hsn_code', '') if stk else ''),
                 'rate': rate,
                 'quantity': qty,
-                'main_unit': row.get('main_unit', getattr(stk, 'main_unit', '')),
-                'base_unit': row.get('base_unit', getattr(stk, 'base_unit', '')),
+                'main_unit': row.get('main_unit', getattr(stk, 'main_unit', '') if stk else ''),
+                'base_unit': row.get('base_unit', getattr(stk, 'base_unit', '') if stk else ''),
                 'conversion_count': conv,
                 'tax_percent': tax_pct,
                 'tax_amount': line_tax,
@@ -7415,6 +7428,8 @@ def api_create_purchase_invoice(request):
             'purchase_invoice_id': str(invoice.id)
         })
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 

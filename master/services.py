@@ -25,22 +25,28 @@ def process_purchase_invoice_save(purchase_invoice, creator_user=None):
 
     # 2. Sync Expense Entry
     company = purchase_invoice.company
-    head, _ = ExpenseHead.objects.get_or_create(
-        company=company,
-        name='Purchase',
-        defaults={'auto_id': get_auto_id(ExpenseHead), 'creator': creator_user}
-    )
-    if head.is_deleted:
+    head = ExpenseHead.objects.filter(company=company, name__iexact='Purchase').first()
+    if not head:
+        head = ExpenseHead.objects.create(
+            company=company,
+            name='Purchase',
+            auto_id=get_auto_id(ExpenseHead),
+            creator=creator_user
+        )
+    elif head.is_deleted:
         head.is_deleted = False
         head.save()
 
     exp_name = f"Purchase Inv #{purchase_invoice.purchase_inv_number}"
-    expense, _ = Expense.objects.get_or_create(
-        expense_head=head,
-        name=exp_name,
-        defaults={'auto_id': get_auto_id(Expense), 'creator': creator_user}
-    )
-    if expense.is_deleted:
+    expense = Expense.objects.filter(expense_head=head, name=exp_name).first()
+    if not expense:
+        expense = Expense.objects.create(
+            expense_head=head,
+            name=exp_name,
+            auto_id=get_auto_id(Expense),
+            creator=creator_user
+        )
+    elif expense.is_deleted:
         expense.is_deleted = False
         expense.save()
 
