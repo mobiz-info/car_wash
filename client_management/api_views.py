@@ -1655,6 +1655,7 @@ def api_vehicle_search(request):
             'number': vehicle.vehicle_number,
             'model': vehicle.vehicle_type_model.name if vehicle.vehicle_type_model else 'Unknown',
             'vehicle_type': vehicle.vehicle_type_model.vehicle_type.name if vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type else '',
+            'emission_standard': (vehicle.emission_standard.name if vehicle.emission_standard else (vehicle.vehicle_type_model.emission_standard.name if vehicle.vehicle_type_model and vehicle.vehicle_type_model.emission_standard else '')),
             'current_odometer_km': vehicle.current_odometer_km,
             'next_oil_change_km': vehicle.next_oil_change_km,
             'next_tyre_change_km': vehicle.next_tyre_change_km,
