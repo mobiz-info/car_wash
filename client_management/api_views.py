@@ -498,15 +498,17 @@ def api_customer_search(request):
                 paid_visits = scheme.paid_visits or 0
                 free_visits = scheme.free_visits or 0
                 
-                if paid_visits > 0 and visits_count >= paid_visits:
-                    is_eligible = True
-                
+        eff_es = v.emission_standard or (v.vehicle_type_model.emission_standard if (v.vehicle_type_model and v.vehicle_type_model.emission_standard) else None)
+        std_name = eff_es.name if eff_es else ''
         vehicles_data.append({
             'id': str(v.id),
             'no': v.vehicle_number,
             'type': v.vehicle_type_model.name if v.vehicle_type_model else 'Unknown',
             'vehicle_type': v.vehicle_type_model.vehicle_type.name if (v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
             'wheel_type': v.wheel_type or 'normal_wheel',
+            'emission_standard_id': str(eff_es.id) if eff_es else None,
+            'emission_standard_name': std_name,
+            'emission_standard': std_name,
             'scheme_name': scheme_name,
             'paid_visits': paid_visits,
             'free_visits': free_visits,
@@ -2410,6 +2412,8 @@ def api_get_customer(request):
 
         vehicles_data = []
         for v in customer.vehicles.filter(is_deleted=False):
+            eff_es = v.emission_standard or (v.vehicle_type_model.emission_standard if (v.vehicle_type_model and v.vehicle_type_model.emission_standard) else None)
+            std_name = eff_es.name if eff_es else ''
             vehicles_data.append({
                 'id': str(v.id),
                 'vehicle_number': v.vehicle_number,
@@ -2422,8 +2426,9 @@ def api_get_customer(request):
                 'color_id': str(v.color.id) if v.color else None,
                 'color_name': v.color.name if v.color else '',
                 'wheel_type': v.wheel_type or 'normal_wheel',
-                'emission_standard_id': str(v.emission_standard.id) if v.emission_standard else None,
-                'emission_standard_name': v.emission_standard.name if v.emission_standard else '',
+                'emission_standard_id': str(eff_es.id) if eff_es else None,
+                'emission_standard_name': std_name,
+                'emission_standard': std_name,
             })
 
         return JsonResponse({
