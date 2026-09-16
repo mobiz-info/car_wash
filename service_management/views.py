@@ -222,11 +222,12 @@ def company_service_manage(request):
         messages.error(request, "No company assigned.")
         return redirect('dashboard')
 
-    all_services = Service.objects.filter(is_deleted=False).order_by('name')
+    all_services = Service.objects.filter(is_deleted=False).select_related('service_type').order_by('service_type__name', 'name')
     existing_ids = set(
         CompanyService.objects.filter(company=company, is_enabled=True)
         .values_list('service_id', flat=True)
     )
+    categories = ServiceType.objects.filter(is_active=True, is_deleted=False).order_by('name')
 
     if request.method == 'POST':
         selected = request.POST.getlist('services')
@@ -285,6 +286,7 @@ def company_service_manage(request):
     return render(request, 'branch/company_service_manage.html', {
         'company': company,
         'services': all_services,
+        'categories': categories,
         'existing_ids': existing_ids,
         'title': 'Manage Company Services',
     })
