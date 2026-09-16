@@ -227,7 +227,7 @@ def company_service_manage(request):
         CompanyService.objects.filter(company=company, is_enabled=True)
         .values_list('service_id', flat=True)
     )
-    categories = ServiceType.objects.filter(is_active=True, is_deleted=False).order_by('name')
+    categories = ServiceType.objects.filter(is_deleted=False).order_by('name')
 
     if request.method == 'POST':
         selected = request.POST.getlist('services')
