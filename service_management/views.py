@@ -726,12 +726,26 @@ def smoke_test_price_manage(request, branch_id=None):
                     except Exception:
                         price_val = Decimal('0.00')
 
-                    SmokeTestPrice.objects.update_or_create(
+                    stp = SmokeTestPrice.objects.filter(
                         branch=branch,
                         vehicle_model=seg,
-                        emission_standard=es,
-                        defaults={'price': price_val, 'is_active': True, 'is_deleted': False}
-                    )
+                        emission_standard=es
+                    ).first()
+                    if stp:
+                        stp.price = price_val
+                        stp.is_active = True
+                        stp.is_deleted = False
+                        stp.save()
+                    else:
+                        SmokeTestPrice.objects.create(
+                            branch=branch,
+                            vehicle_model=seg,
+                            emission_standard=es,
+                            price=price_val,
+                            is_active=True,
+                            is_deleted=False,
+                            auto_id=get_auto_id(SmokeTestPrice)
+                        )
         messages.success(request, f"Smoke test pricing updated successfully for {branch.name}.")
         return redirect('smoke_test_price_manage', branch_id=branch.id)
 
