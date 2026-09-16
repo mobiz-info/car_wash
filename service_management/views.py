@@ -9,8 +9,8 @@ from django.contrib.auth.models import User
 from decimal import Decimal
 from django.db.models import Q
 
-from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice, CompanyService
-from master.models import VehicleType, VehicleTypeModel
+from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice, CompanyService, SmokeTestPrice
+from master.models import VehicleType, VehicleTypeModel, EmissionStandard
 from client_management.models import Branch
 from .forms import ServiceTypeForm, ServiceForm
 from core.functions import get_auto_id
@@ -675,3 +675,95 @@ def service_vehicle_price_redirect(request):
             messages.error(request, "No branch assigned.")
             return redirect('dashboard')
         return redirect('service_vehicle_price_manage', branch_id=branch.id)
+
+
+@login_required
+def smoke_test_price_manage(request, branch_id=None):
+    """Manage Smoke Test pricing matrix per Branch (Vehicle Segment x Emission Standard)."""
+    user_profile = getattr(request.user, 'profile', None)
+    if not user_profile or not user_profile.company:
+        messages.error(request, "Permission denied.")
+        return redirect('dashboard')
+
+    company = user_profile.company
+    role = getattr(user_profile, 'role', None)
+    role_name = role.name if role else ''
+
+    branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+
+    if role_name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        branch = request.user.managed_branch
+    elif branch_id:
+        branch = get_object_or_404(Branch, id=branch_id, company=company, is_deleted=False)
+    else:
+        branch = branches.first()
+
+    if not branch:
+        messages.error(request, "No branch found.")
+        return redirect('dashboard')
+
+    # Get Vehicle Segments enabled for branch / company
+    segments = VehicleTypeModel.objects.filter(
+        is_active=True, is_deleted=False, vehicle_type__is_deleted=False
+    ).filter(
+        Q(company=company) | Q(company__isnull=True)
+    ).exclude(disabled_companies=company).select_related('vehicle_type').order_by('vehicle_type__name', 'name')
+
+    if branch.enabled_vehicle_segments.exists():
+        segments = segments.filter(id__in=branch.enabled_vehicle_segments.values_list('id', flat=True))
+
+    # Get Emission Standards
+    emission_standards = EmissionStandard.objects.filter(is_active=True, is_deleted=False).order_by('validity_months', 'name')
+
+    if request.method == 'POST':
+        for seg in segments:
+            for es in emission_standards:
+                field_name = f'price_{seg.id}_{es.id}'
+                raw_val = request.POST.get(field_name, '').strip()
+                if raw_val != '':
+                    try:
+                        price_val = Decimal(raw_val)
+                    except Exception:
+                        price_val = Decimal('0.00')
+
+                    SmokeTestPrice.objects.update_or_create(
+                        branch=branch,
+                        vehicle_model=seg,
+                        emission_standard=es,
+                        defaults={'price': price_val, 'is_active': True, 'is_deleted': False}
+                    )
+        messages.success(request, f"Smoke test pricing updated successfully for {branch.name}.")
+        return redirect('smoke_test_price_manage', branch_id=branch.id)
+
+    # Build existing price map
+    existing_prices = SmokeTestPrice.objects.filter(branch=branch, is_deleted=False)
+    price_map = {
+        f"{obj.vehicle_model_id}__{obj.emission_standard_id}": float(obj.price)
+        for obj in existing_prices
+    }
+
+    context = {
+        'title': f"Smoke Test Pricing — {branch.name}",
+        'branch': branch,
+        'branches': branches,
+        'segments': segments,
+        'emission_standards': emission_standards,
+        'price_map': price_map,
+        'role_name': role_name,
+    }
+    return render(request, 'service/smoke_test_price.html', context)
+
+
+@login_required
+def smoke_test_price_redirect(request):
+    """Redirect helper for Smoke Test Pricing."""
+    user_profile = getattr(request.user, 'profile', None)
+    if user_profile and user_profile.role and user_profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+        return redirect('smoke_test_price_manage', branch_id=request.user.managed_branch.id)
+    if user_profile and user_profile.company:
+        first_branch = Branch.objects.filter(company=user_profile.company, is_deleted=False).first()
+        if first_branch:
+            return redirect('smoke_test_price_manage', branch_id=first_branch.id)
+    messages.error(request, "No branch available.")
+    return redirect('dashboard')
+

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,13 +10,17 @@
     <style>
         :root {
             /* Colors matching the reference image */
-            --bg-sidebar: #1e293b; /* Dark Slate */
-            --bg-body: #f3f4f6; /* Light gray */
-            --bg-banner: #7c3aed; /* Vibrant purple-blue */
+            --bg-sidebar: #1e293b;
+            /* Dark Slate */
+            --bg-body: #f3f4f6;
+            /* Light gray */
+            --bg-banner: #7c3aed;
+            /* Vibrant purple-blue */
             --text-sidebar: #cbd5e1;
             --text-sidebar-hover: #ffffff;
             --sidebar-border: #334155;
-            --badge-bg: #d97706; /* Yellow/Orange badge */
+            --badge-bg: #d97706;
+            /* Yellow/Orange badge */
             --badge-text: #ffffff;
             --sidebar-width: 260px;
         }
@@ -34,7 +39,7 @@
             display: flex;
             min-height: 100vh;
             overflow-x: hidden;
-            
+
         }
 
         /* Sidebar Styles */
@@ -50,8 +55,14 @@
         }
 
         /* Custom Scrollbar for sidebar */
-        .sidebar::-webkit-scrollbar { width: 4px; }
-        .sidebar::-webkit-scrollbar-thumb { background-color: var(--sidebar-border); border-radius: 4px; }
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background-color: var(--sidebar-border);
+            border-radius: 4px;
+        }
 
         .sidebar-header {
             padding: 16px;
@@ -62,7 +73,8 @@
             gap: 12px;
             color: white;
             border-bottom: 1px solid var(--sidebar-border);
-            height: 60px; /* Aligns with top navbar */
+            height: 60px;
+            /* Aligns with top navbar */
         }
 
         .sidebar-content {
@@ -91,7 +103,8 @@
             transition: color 0.2s, background-color 0.2s;
         }
 
-        .nav-item:hover, .nav-item.active {
+        .nav-item:hover,
+        .nav-item.active {
             color: var(--text-sidebar-hover);
             background-color: rgba(255, 255, 255, 0.05);
         }
@@ -120,20 +133,21 @@
             font-size: 0.8rem;
             transition: transform 0.2s;
         }
-        
+
         .nav-item.open .nav-right-icon {
             transform: rotate(90deg);
         }
 
         .nav-submenu {
-            background-color: rgba(0,0,0,0.1);
+            background-color: rgba(0, 0, 0, 0.1);
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
         }
 
         .nav-submenu.open {
-            max-height: 500px; /* Arbitrary large number for expansion */
+            max-height: 500px;
+            /* Arbitrary large number for expansion */
         }
 
         .nav-submenu a {
@@ -189,7 +203,7 @@
             align-items: center;
             gap: 20px;
         }
-        
+
         .navbar-right span {
             font-size: 0.85rem;
             font-weight: 500;
@@ -224,7 +238,8 @@
         /* Content Area inside Main Wrapper */
         .content-area {
             padding: 0 24px 24px 24px;
-            margin-top: -24px; /* Pull content up over the purple banner slightly */
+            margin-top: -24px;
+            /* Pull content up over the purple banner slightly */
             flex: 1;
         }
 
@@ -233,247 +248,281 @@
             display: flex;
             align-items: center;
         }
-         .premium-form-container {
-        max-width: 600px;
-        background: white;
-        padding: 32px;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        margin: 0 auto;
-    }
-    .premium-form-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1e293b;
-        margin-bottom: 24px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid #f1f5f9;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .form-group {
-        margin-bottom: 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .form-group label {
-        font-weight: 500;
-        font-size: 0.9rem;
-        color: #475569;
-    }
-    .form-group input[type="text"],
-    .form-group input[type="email"],
-    .form-group input[type="number"],
-    .form-group input[type="date"],
-    .form-group select,
-    .form-group textarea {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        color: #1e293b;
-        transition: all 0.2s;
-        outline: none;
-        font-family: 'Inter', sans-serif;
-    }
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    .form-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-        margin-top: 32px;
-        padding-top: 24px;
-        border-top: 1px solid #f1f5f9;
-    }
-    .btn-secondary {
-        background: white;
-        color: #475569;
-        padding: 10px 20px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 0.9rem;
-        border: 1px solid #cbd5e1;
-        transition: all 0.2s;
-    }
-    .btn-secondary:hover {
-        background: #f8fafc;
-        color: #1e293b;
-    }
-    .btn-primary {
-        background: #3b82f6;
-        color: white;
-        padding: 10px 24px;
-        border: none;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .btn-primary:hover {
-        background: #2563eb;
-    }
-    .error-text {
-        color: #ef4444;
-        font-size: 0.8rem;
-        margin-top: 4px;
-    }
 
-    .list-container {
-        background: white;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        overflow: hidden;
-    }
-    .list-header {
-        padding: 20px 24px;
-        border-bottom: 1px solid #e2e8f0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .search-input {
-        padding: 10px 16px;
-        padding-left: 36px;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        outline: none;
-        width: 300px;
-        transition: all 0.2s;
-        font-family: 'Inter', sans-serif;
-    }
-    .search-input:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    .search-wrapper {
-        position: relative;
-        display: flex;
-        align-items: center;
-    }
-    .search-icon {
-        position: absolute;
-        left: 12px;
-        color: #94a3b8;
-        font-size: 1.1rem;
-    }
-    .btn-create {
-        background: #10b981;
-        color: white;
-        padding: 10px 20px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-size: 0.9rem;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        transition: background 0.2s;
-        border: none;
-        cursor: pointer;
-    }
-    .btn-create:hover {
-        background: #059669;
-    }
-    .premium-table {
-        width: 100%;
-        border-collapse: collapse;
-        text-align: left;
-    }
-    .premium-table th {
-        background-color: #f8fafc;
-        color: #64748b;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 14px 24px;
-        font-weight: 600;
-    }
-    .premium-table td {
-        padding: 16px 24px;
-        font-size: 0.9rem;
-        color: #334155;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
-    .premium-table tr:hover {
-        background-color: #f8fafc;
-    }
-    .action-btn {
-        padding: 6px;
-        border-radius: 6px;
-        color: #64748b;
-        transition: all 0.2s;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .action-btn.edit:hover { background-color: #eff6ff; color: #3b82f6; }
-    .action-btn.delete:hover { background-color: #fef2f2; color: #ef4444; }
-    
-    .pagination {
-        padding: 16px 24px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 16px;
-        border-top: 1px solid #e2e8f0;
-        font-size: 0.85rem;
-        color: #64748b;
-    }
-    .page-link {
-        padding: 6px 12px;
-        border: 1px solid #cbd5e1;
-        border-radius: 6px;
-        text-decoration: none;
-        color: #475569;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-    .page-link:hover {
-        background-color: #f1f5f9;
-    }
-    
+        .premium-form-container {
+            max-width: 600px;
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            margin: 0 auto;
+        }
+
+        .premium-form-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #475569;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="number"],
+        .form-group input[type="date"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #1e293b;
+            transition: all 0.2s;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #475569;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            border: 1px solid #cbd5e1;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #f8fafc;
+            color: #1e293b;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .error-text {
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 4px;
+        }
+
+        .list-container {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+
+        .list-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .search-input {
+            padding: 10px 16px;
+            padding-left: 36px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            width: 300px;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+
+        .btn-create {
+            background: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-create:hover {
+            background: #059669;
+        }
+
+        .premium-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .premium-table th {
+            background-color: #f8fafc;
+            color: #64748b;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 14px 24px;
+            font-weight: 600;
+        }
+
+        .premium-table td {
+            padding: 16px 24px;
+            font-size: 0.9rem;
+            color: #334155;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .premium-table tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .action-btn {
+            padding: 6px;
+            border-radius: 6px;
+            color: #64748b;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn.edit:hover {
+            background-color: #eff6ff;
+            color: #3b82f6;
+        }
+
+        .action-btn.delete:hover {
+            background-color: #fef2f2;
+            color: #ef4444;
+        }
+
+        .pagination {
+            padding: 16px 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .page-link {
+            padding: 6px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #475569;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .page-link:hover {
+            background-color: #f1f5f9;
+        }
     </style>
 </head>
+
 <body>
 
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
             {% if request.user.profile.role.name == 'COMPANY_ADMIN' and request.user.profile.company %}
-                <span>{{ request.user.profile.company.company_name }}</span>
+            <span>{{ request.user.profile.company.company_name }}</span>
             {% elif request.user.profile.role.name == 'BRANCH_ADMIN' %}
-                {% with request.user.managed_branch as branch %}
-                    {% if branch %}
-                        <span>{{ branch.name }}</span>
-                    {% else %}
-                        <span>Branch Admin</span>
-                    {% endif %}
-                {% endwith %}
+            {% with request.user.managed_branch as branch %}
+            {% if branch %}
+            <span>{{ branch.name }}</span>
             {% else %}
-                <span>Mobiz Autocare Pro</span>
+            <span>Branch Admin</span>
+            {% endif %}
+            {% endwith %}
+            {% else %}
+            <span>Mobiz Autocare Pro</span>
             {% endif %}
         </div>
         <div class="sidebar-content">
             {% if request.user.profile.role.name == 'COMPANY_ADMIN' %}
-            
+
             <a href="{% url 'dashboard' %}" class="nav-item">
                 <div class="nav-item-left">
                     <i class="ph ph-squares-four"></i>
@@ -568,7 +617,7 @@
                 <a href="{% url 'customer_type_list' %}">Customer Type</a>
                 <a href="{% url 'customer_list' %}">Customers</a>
                 <a href="{% url 'new_customer' %}">New Customers</a>
-                <a href="{% url 'inactive_customer' %}">Inactive Customers</a> 
+                <a href="{% url 'inactive_customer' %}">Inactive Customers</a>
                 <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
             </div>
 
@@ -597,8 +646,10 @@
             <div class="nav-submenu">
                 <a href="{% url 'enable_categories' %}" class="nav-item submenu-item">Enable Categories</a>
                 <a href="{% url 'branch_service_list' %}" class="nav-item submenu-item">Enable Services</a>
-                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories & Segments</a>
+                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories
+                    & Segments</a>
                 <a href="{% url 'service_vehicle_price_redirect' %}" class="nav-item submenu-item">Service Pricing</a>
+                <a href="{% url 'smoke_test_price_redirect' %}" class="nav-item submenu-item">Smoke Test Pricing</a>
                 <a href="{% url 'extras_list' %}" class="nav-item submenu-item">Extras Master</a>
             </div>
 
@@ -631,7 +682,7 @@
                 <a href="{% url 'vehicle_make_list' %}" class="nav-item submenu-item">Vehicle Makes</a>
                 <a href="{% url 'vehicle_color_list' %}" class="nav-item submenu-item">Vehicle Colors</a>
                 <a href="{% url 'vehicle_brand_model_list' %}" class="nav-item submenu-item">Vehicle Brands</a>
-                <a href="{% url 'oil_brand_list' %}" class="nav-item submenu-item">Oil Brands</a>
+                <!-- <a href="{% url 'oil_brand_list' %}" class="nav-item submenu-item">Oil Brands</a>
                 <a href="{% url 'oil_filter_brand_list' %}" class="nav-item submenu-item">Oil Filter Brands</a>
                 <a href="{% url 'oil_filter_list' %}" class="nav-item submenu-item">Oil Filters</a>
                 <a href="{% url 'oil_grade_list' %}" class="nav-item submenu-item">Oil Grades</a>
@@ -641,7 +692,7 @@
                 <a href="{% url 'battery_make_list' %}" class="nav-item submenu-item">Battery Makes</a>
                 <a href="{% url 'battery_ampere_list' %}" class="nav-item submenu-item">Battery Amperes</a>
                 <a href="{% url 'battery_segment_list' %}" class="nav-item submenu-item">Battery Segments</a>
-                <a href="{% url 'battery_list' %}" class="nav-item submenu-item">Batteries</a>
+                <a href="{% url 'battery_list' %}" class="nav-item submenu-item">Batteries</a> -->
             </div>
 
 
@@ -681,7 +732,7 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'firebase_settings' %}">Firebase Notifications</a>
-                
+
                 <div class="nav-item dropdown-toggle" style="padding-left: 45px;">
                     <div class="nav-item-left">
                         <i class="ph ph-whatsapp-logo" style="color: #25d366;"></i>
@@ -763,7 +814,7 @@
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
-                
+
                 <a href="{% url 'customer_create' %}">Add Customer</a>
             </div> {% endcomment %}
             <div class="nav-item dropdown-toggle">
@@ -776,7 +827,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'customer_list' %}">Customer List</a>
                 <a href="{% url 'new_customer' %}">New Customers</a>
-                <a href="{% url 'inactive_customer' %}">Inactive Customers</a> 
+                <a href="{% url 'inactive_customer' %}">Inactive Customers</a>
                 <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
             </div>
             <!-- Service Management -->
@@ -784,15 +835,17 @@
                 <div class="nav-item-left">
                     <i class="ph ph-wrench"></i>
                     Service Management
-                    
+
                 </div>
                 <i class="ph-bold ph-caret-right nav-right-icon"></i>
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'enable_categories' %}" class="nav-item submenu-item">Enable Categories</a>
                 <a href="{% url 'branch_service_list' %}" class="nav-item submenu-item">Services Enable</a>
-                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories & Segments</a>
+                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories
+                    & Segments</a>
                 <a href="{% url 'service_vehicle_price_redirect' %}" class="nav-item submenu-item">Service Pricing</a>
+                <a href="{% url 'smoke_test_price_redirect' %}" class="nav-item submenu-item">Smoke Test Pricing</a>
 
             </div>
 
@@ -838,7 +891,8 @@
             <div class="nav-submenu">
                 <a href="{% url 'customer_vehicle_list' %}" class="nav-item submenu-item">Vehicle List</a>
                 <a href="{% url 'customer_vehicle_create' %}" class="nav-item submenu-item">Add Vehicle</a>
-                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories & Segments</a>
+                <a href="{% url 'branch_vehicle_type_manage' %}" class="nav-item submenu-item">Enable Vehicle Categories
+                    & Segments</a>
             </div>
 
             {% if request.user.managed_branch and request.user.managed_branch.scheme_types.exists %}
@@ -874,7 +928,7 @@
                 <a href="{% url 'expense_head_report' %}">Expense Head Report</a>
                 <a href="{% url 'expense_report' %}">Expense Report</a>
                 <a href="{% url 'profit_report' %}">Profit Report</a>
-                
+
             </div>
 
             <a href="{% url 'complaint_list' %}" class="nav-item">
@@ -900,7 +954,7 @@
 
 
             {% else %}
-            
+
             <a href="{% url 'dashboard' %}" class="nav-item">
                 <div class="nav-item-left">
                     <i class="ph ph-squares-four"></i>
@@ -1129,7 +1183,7 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'firebase_settings' %}">Firebase Notifications</a>
-                
+
                 <div class="nav-item dropdown-toggle" style="padding-left: 45px;">
                     <div class="nav-item-left">
                         <i class="ph ph-whatsapp-logo" style="color: #25d366;"></i>
@@ -1161,7 +1215,7 @@
                 <!-- <a href="#">Tariff</a> -->
                 <a href="{% url 'log_list' %}">Logs</a>
             </div>
-            
+
             {% endif %}
         </div>
     </aside>
@@ -1176,20 +1230,23 @@
                 <div class="navbar-right">
                     <i class="ph ph-moon"></i>
                     <div class="flex-center" style="gap: 8px;">
-                        <span style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">{{ request.user.username|make_list|first|upper|default:"A" }}</span>
+                        <span
+                            style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">{{
+                            request.user.username|make_list|first|upper|default:"A" }}</span>
                         <span>{{ request.user.username|default:"admin" }}</span>
                     </div>
                     {% if request.user.is_authenticated %}
                     <form method="post" action="{% url 'logout' %}" style="margin-left: 12px; display: inline;">
                         {% csrf_token %}
-                        <button type="submit" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s;">
+                        <button type="submit"
+                            style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s;">
                             <i class="ph ph-sign-out"></i> Logout
                         </button>
                     </form>
                     {% endif %}
                 </div>
             </div>
-            
+
             <div class="banner-header">
                 <div class="banner-title">{% block page_title %}Dashboard{% endblock %}</div>
                 <div class="banner-breadcrumbs">
@@ -1204,7 +1261,7 @@
         <div class="content-area">
             {% block content %}{% endblock %}
         </div>
-        
+
         <!-- Footer -->
         <div style="margin-top:auto; padding: 16px; text-align: center; color: #94a3b8; font-size: 0.75rem;">
             Copyright © 2026 Admin. All rights reserved.
@@ -1224,4 +1281,5 @@
         });
     </script>
 </body>
+
 </html>

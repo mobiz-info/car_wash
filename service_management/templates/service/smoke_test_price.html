@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}Smoke Test Pricing — {{ branch.name }}{% endblock %}
+{% block page_title %}Smoke Test Pricing{% endblock %}
+{% block breadcrumb_active %}{{ branch.name }} — Smoke Test Pricing{% endblock %}
+{% load get_item %}
+{% block content %}
+<style>
+    .premium-form-container { max-width: 1400px; }
+
+    .form-section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        margin-bottom: 16px;
+        margin-top: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    input.price-input {
+        width: 100%;
+        min-width: 90px;
+        padding: 8px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        color: #1e293b;
+        font-weight: 600;
+        text-align: right;
+        transition: all 0.2s;
+        outline: none;
+        font-family: 'Inter', sans-serif;
+        background: white;
+        box-sizing: border-box;
+        -webkit-appearance: none;
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+    input.price-input::-webkit-inner-spin-button,
+    input.price-input::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    input.price-input:focus {
+        border-color: #000080;
+        box-shadow: 0 0 0 3px rgba(0,0,128,0.1);
+    }
+    input.price-input::placeholder {
+        color: #cbd5e1;
+        font-weight: 400;
+    }
+
+    .pricing-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: .875rem;
+    }
+    .pricing-table thead tr {
+        background: linear-gradient(135deg, #000080, #1e40af);
+    }
+    .pricing-table thead th {
+        padding: 12px 16px;
+        color: #fff;
+        font-size: .78rem;
+        font-weight: 700;
+        letter-spacing: .4px;
+        text-align: left;
+        border-right: 1px solid rgba(255,255,255,.12);
+        white-space: nowrap;
+    }
+    .pricing-table thead th.es-col { text-align: center; min-width: 130px; }
+    .pricing-table tbody tr {
+        border-bottom: 1px solid #f1f5f9;
+        transition: background .12s;
+    }
+    .pricing-table tbody tr:nth-child(even) { background: #fafbfc; }
+    .pricing-table tbody tr:hover { background: #f0f7ff; }
+    .pricing-table tbody td {
+        padding: 10px 12px;
+        border-right: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .pricing-table tbody td.es-cell { text-align: center; min-width: 110px; }
+    .pricing-table th, .pricing-table td { min-width: 90px; }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+    }
+    .form-control:focus {
+        border-color: #000080;
+        box-shadow: 0 0 0 2px rgba(0,0,128,0.1);
+    }
+</style>
+
+<div class="premium-form-container">
+    <div class="premium-form-title" style="display:flex; align-items:center; gap:10px;">
+        <i class="ph ph-wind" style="color:#000080; font-size:1.5rem;"></i>
+        Smoke Test Pricing — {{ branch.name }}
+    </div>
+
+    {% if role_name == 'COMPANY_ADMIN' and branches %}
+    <div style="margin-bottom:16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; margin:0;">
+            <i class="ph ph-buildings" style="margin-right:4px;"></i> Branch
+        </label>
+        <select
+            class="form-control"
+            style="max-width:280px;"
+            onchange="window.location.href=this.value"
+        >
+            {% for b in branches %}
+            <option
+                value="{% url 'smoke_test_price_manage' b.id %}"
+                {% if b.id == branch.id %}selected{% endif %}
+            >
+                {{ b.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <hr style="border:none; border-top:1px solid #f1f5f9; margin-bottom:16px;">
+    {% endif %}
+
+    <div style="font-size:.85rem; color:#64748b; margin-bottom:20px;">
+        Set specific Smoke Test / Pollution Test prices for each <strong>Vehicle Segment</strong> and <strong>Emission Standard</strong>.
+    </div>
+
+    {% if not segments %}
+    <div style="padding:48px 0; text-align:center; color:#94a3b8;">
+        <i class="ph ph-warning-circle" style="font-size:2.5rem; display:block; margin-bottom:10px; color:#f59e0b;"></i>
+        <div style="font-weight:700; color:#1e293b; font-size:1.1rem;">No Vehicle Segments Enabled</div>
+        <div style="font-size:.875rem; margin-top:6px; color:#64748b;">Please enable vehicle segments in master settings first.</div>
+    </div>
+    {% elif not emission_standards %}
+    <div style="padding:48px 0; text-align:center; color:#94a3b8;">
+        <i class="ph ph-warning-circle" style="font-size:2.5rem; display:block; margin-bottom:10px; color:#f59e0b;"></i>
+        <div style="font-weight:700; color:#1e293b; font-size:1.1rem;">No Emission Standards Found</div>
+        <div style="font-size:.875rem; margin-top:6px; color:#64748b;">Please add emission standards in master data first.</div>
+    </div>
+    {% else %}
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <div style="overflow-x:auto; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:28px; box-shadow:0 1px 4px rgba(0,0,0,.04);">
+            <table class="pricing-table">
+                <thead>
+                    <tr>
+                        <th style="min-width:180px;">Vehicle Segment</th>
+                        <th style="min-width:120px;">Vehicle Type</th>
+                        {% for es in emission_standards %}
+                        <th class="es-col">
+                            <i class="ph ph-leaf" style="display:block; font-size:1rem; margin-bottom:3px;"></i>
+                            {{ es.name }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for seg in segments %}
+                    <tr>
+                        <td>
+                            <span style="font-weight:700; color:#1e293b;">{{ seg.name }}</span>
+                        </td>
+                        <td>
+                            <span style="font-size:.76rem; font-weight:600; color:#64748b; background:#f1f5f9; padding:3px 8px; border-radius:5px;">
+                                {{ seg.vehicle_type.name }}
+                            </span>
+                        </td>
+                        {% for es in emission_standards %}
+                        <td class="es-cell">
+                            {% with key=seg.id|concat:"__"|concat:es.id %}
+                            <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+                                <span style="font-size:.9rem; color:#94a3b8; font-weight:600;">₹</span>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    class="price-input"
+                                    name="price_{{ seg.id }}_{{ es.id }}"
+                                    value="{{ price_map|get_item:key|default:'' }}"
+                                    placeholder="0.00"
+                                >
+                            </div>
+                            {% endwith %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-actions" style="margin-top:20px; display:flex; gap:12px;">
+            <a href="javascript:history.back()" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary" style="background:#000080; border-color:#000080;">
+                <i class="ph ph-floppy-disk"></i> Save Smoke Test Pricing
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

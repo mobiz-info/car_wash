@@ -657,9 +657,9 @@ def branch_messages_manage(request):
         'selected_branch': selected_branch,
         'branch_settings': branch_settings,
         'role_name': role_name,
-        'default_welcome': 'Hello {customer_name}, thank you for choosing {branch_name}. Welcome to our service! We are delighted to have you and your vehicle ({vehicle_number}) with us.',
-        'default_ready': 'Hello {customer_name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service.',
-        'default_thanks': 'Hello {customer_name}, thank you for choosing {branch_name}! We look forward to serving you again. Have a great day!',
+        'default_welcome': 'Hi {customer_name} Welcome to {branch_name}.Your vehicle {vehicle_number} has arrived safely and is in expert hands.We will keep you posted!',
+        'default_ready': 'Hi {customer_name} Great news! Your vehicle {vehicle_number} is ready for pickup. Please collect at your earliest convenience.\n{branch_name} Support team.',
+        'default_thanks': 'Dear {customer_name} 🙏 Thank you for trusting us with your vehicle {vehicle_number}. We hope you had a great experience. Looking forward to seeing you again!\n{branch_name} support team.',
     }
     return render(request, 'booking/branch_messages.html', context)
 

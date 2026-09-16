@@ -145,3 +145,32 @@ class BranchServiceCategory(BaseModel):
     def __str__(self):
         status = 'ON' if self.is_enabled else 'OFF'
         return f"{self.branch.name} — {self.service_type.name} ({status})"
+
+
+class SmokeTestPrice(BaseModel):
+    """Price for Smoke/Pollution Test per Branch for each Vehicle Segment x Emission Standard."""
+    branch = models.ForeignKey(
+        'client_management.Branch',
+        on_delete=models.CASCADE,
+        related_name='smoke_test_prices'
+    )
+    vehicle_model = models.ForeignKey(
+        VehicleTypeModel,
+        on_delete=models.CASCADE,
+        related_name='smoke_test_prices'
+    )
+    emission_standard = models.ForeignKey(
+        'master.EmissionStandard',
+        on_delete=models.CASCADE,
+        related_name='smoke_test_prices'
+    )
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('branch', 'vehicle_model', 'emission_standard')
+        ordering = ['vehicle_model__name', 'emission_standard__name']
+
+    def __str__(self):
+        return f"{self.branch.name} | {self.vehicle_model.name} x {self.emission_standard.name} — Rs.{self.price}"
+

@@ -593,20 +593,47 @@ def api_get_services(request):
             service_type__slug__in=enabled_category_slugs,
         ).select_related('service_type').order_by('service_type__name', 'name')
 
+        from service_management.models import SmokeTestPrice
         services_data = []
         for svc in individual_services:
-            # Look up price: branch + individual service + vehicle model
-            price_obj = ServiceVehicleTypePrice.objects.filter(
-                branch=branch,
-                service=svc,
-                vehicle_model=vehicle.vehicle_type_model,
-                is_active=True,
-                is_deleted=False,
-            ).first()
+            is_smoke = (svc.service_type and svc.service_type.slug == 'smoke_test') or 'smoke' in svc.name.lower() or 'pollution' in svc.name.lower()
+            rate = 0.0
 
-            rate = float(price_obj.price) if price_obj else 0.0
+            if is_smoke:
+                eff_emission = getattr(vehicle, 'emission_standard', None) or (vehicle.vehicle_type_model.emission_standard if vehicle.vehicle_type_model else None)
+                if vehicle.vehicle_type_model and eff_emission:
+                    stp = SmokeTestPrice.objects.filter(
+                        branch=branch,
+                        vehicle_model=vehicle.vehicle_type_model,
+                        emission_standard=eff_emission,
+                        is_active=True,
+                        is_deleted=False,
+                    ).first()
+                    if stp:
+                        rate = float(stp.price)
 
-            if price_obj is not None and rate > 0:
+                if rate == 0.0:
+                    price_obj = ServiceVehicleTypePrice.objects.filter(
+                        branch=branch,
+                        service=svc,
+                        vehicle_model=vehicle.vehicle_type_model,
+                        is_active=True,
+                        is_deleted=False,
+                    ).first()
+                    if price_obj:
+                        rate = float(price_obj.price)
+            else:
+                price_obj = ServiceVehicleTypePrice.objects.filter(
+                    branch=branch,
+                    service=svc,
+                    vehicle_model=vehicle.vehicle_type_model,
+                    is_active=True,
+                    is_deleted=False,
+                ).first()
+                if price_obj:
+                    rate = float(price_obj.price)
+
+            if rate > 0:
                 services_data.append({
                     'id': str(svc.id),
                     'name': svc.name,
@@ -964,12 +991,12 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
             wash_values = [customer.name, veh_num, branch_name]
             res_cat = send_whatsapp_template(
                 to_number=cleaned_num,
-                template_name='washinvoicemessage',
+                template_name='thanks1',
                 values=wash_values,
                 doc_url='',
                 setting=setting
             )
-            _log(f"Invoice {invoice_id} Wash Invoice Message sent to {cleaned_num}: {res_cat}")
+            _log(f"Invoice {invoice_id} Thanks Invoice Message sent to {cleaned_num}: {res_cat}")
 
         elif is_detailing:
             inv_date = invoice.date.date() if hasattr(invoice.date, 'date') else invoice.date
@@ -1797,6 +1824,18 @@ def api_get_form_data(request):
         if not any(t['name'] == dt for t in whatsapp_templates):
             whatsapp_templates.append({'id': dt, 'name': dt})
 
+    from master.models import EmissionStandard
+    emission_standards_qs = EmissionStandard.objects.filter(is_active=True, is_deleted=False).order_by('validity_months', 'name')
+    emission_standards_data = [
+        {
+            'id': str(es.id),
+            'name': es.name,
+            'fuel_type': es.fuel_type,
+            'validity_months': es.validity_months,
+        }
+        for es in emission_standards_qs
+    ]
+
     return JsonResponse({
         'success': True,
         'customer_types': [{'id': str(ct.id), 'name': ct.name} for ct in customer_types],
@@ -1814,6 +1853,7 @@ def api_get_form_data(request):
             for bm in brand_models_qs
         ],
         'colors': [{'id': str(c.id), 'name': c.name} for c in colors_qs],
+        'emission_standards': emission_standards_data,
         # Legacy field (still used by other screens)
         'vehicle_models': legacy_vehicle_models,
         'branches': branches_data,
@@ -1904,8 +1944,8 @@ def api_add_customer(request):
                 if not vm:
                     continue
 
-                # Optional brand model and make
-                from master.models import VehicleBrandModel, VehicleColor, VehicleMake
+                emission_standard_id = v.get('emission_standard_id')
+                from master.models import VehicleBrandModel, VehicleColor, VehicleMake, EmissionStandard
                 brand_model = None
                 if brand_model_id:
                     brand_model = VehicleBrandModel.objects.filter(id=brand_model_id, is_deleted=False).first()
@@ -1919,6 +1959,11 @@ def api_add_customer(request):
                 if color_id:
                     color = VehicleColor.objects.filter(id=color_id, is_deleted=False).first()
 
+                # Optional emission standard
+                emission_standard = None
+                if emission_standard_id:
+                    emission_standard = EmissionStandard.objects.filter(id=emission_standard_id, is_deleted=False).first()
+
                 wheel_type = v.get('wheel_type', 'normal_wheel')
                 if wheel_type not in ['alloy_wheel', 'normal_wheel']:
                     wheel_type = 'normal_wheel'
@@ -1931,10 +1976,12 @@ def api_add_customer(request):
                     make=make,
                     brand_model=brand_model,
                     color=color,
+                    emission_standard=emission_standard,
                     wheel_type=wheel_type,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )
+                eff_es = cv.emission_standard or (vm.emission_standard if vm else None)
                 vehicles_data.append({
                     'id': str(cv.id),
                     'no': cv.vehicle_number,
@@ -1943,6 +1990,8 @@ def api_add_customer(request):
                     'make': make.name if make else '',
                     'brand_model': brand_model.name if brand_model else '',
                     'color': color.name if color else '',
+                    'emission_standard_id': str(cv.emission_standard.id) if cv.emission_standard else (str(vm.emission_standard.id) if vm and vm.emission_standard else None),
+                    'emission_standard_name': cv.emission_standard.name if cv.emission_standard else (vm.emission_standard.name if vm and vm.emission_standard else ''),
                     'wheel_type': cv.wheel_type or 'normal_wheel',
                 })
 
@@ -2372,6 +2421,8 @@ def api_get_customer(request):
                 'color_id': str(v.color.id) if v.color else None,
                 'color_name': v.color.name if v.color else '',
                 'wheel_type': v.wheel_type or 'normal_wheel',
+                'emission_standard_id': str(v.emission_standard.id) if v.emission_standard else None,
+                'emission_standard_name': v.emission_standard.name if v.emission_standard else '',
             })
 
         return JsonResponse({
@@ -2452,6 +2503,7 @@ def api_edit_customer(request):
                 make_id = v.get('make_id')
                 color_id = v.get('color_id')
                 wheel_type = v.get('wheel_type')
+                emission_standard_id = v.get('emission_standard_id')
                 if not vehicle_id or not vehicle_number:
                     continue
                 cv = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer, is_deleted=False).first()
@@ -2467,7 +2519,7 @@ def api_edit_customer(request):
                         cv.vehicle_type_model = vm
                         cv.vehicle_type = vm.vehicle_type
 
-                from master.models import VehicleBrandModel, VehicleColor, VehicleMake
+                from master.models import VehicleBrandModel, VehicleColor, VehicleMake, EmissionStandard
                 if make_id:
                     cv.make = VehicleMake.objects.filter(id=make_id, is_deleted=False).first()
                 else:
@@ -2483,6 +2535,11 @@ def api_edit_customer(request):
                 else:
                     cv.color = None
 
+                if emission_standard_id:
+                    cv.emission_standard = EmissionStandard.objects.filter(id=emission_standard_id, is_deleted=False).first()
+                else:
+                    cv.emission_standard = None
+
                 cv.save()
 
             # Add new vehicles
@@ -2493,6 +2550,7 @@ def api_edit_customer(request):
                 make_id = v.get('make_id')
                 color_id = v.get('color_id')
                 wheel_type = v.get('wheel_type', 'normal_wheel')
+                emission_standard_id = v.get('emission_standard_id')
                 if wheel_type not in ['alloy_wheel', 'normal_wheel']:
                     wheel_type = 'normal_wheel'
 
@@ -2502,7 +2560,7 @@ def api_edit_customer(request):
                 if not vm:
                     continue
 
-                from master.models import VehicleBrandModel, VehicleColor, VehicleMake
+                from master.models import VehicleBrandModel, VehicleColor, VehicleMake, EmissionStandard
                 brand_model = None
                 if brand_model_id:
                     brand_model = VehicleBrandModel.objects.filter(id=brand_model_id, is_deleted=False).first()
@@ -2512,6 +2570,9 @@ def api_edit_customer(request):
                 color = None
                 if color_id:
                     color = VehicleColor.objects.filter(id=color_id, is_deleted=False).first()
+                emission_standard = None
+                if emission_standard_id:
+                    emission_standard = EmissionStandard.objects.filter(id=emission_standard_id, is_deleted=False).first()
 
                 CustomerVehicle.objects.create(
                     customer=customer,
@@ -2522,6 +2583,7 @@ def api_edit_customer(request):
                     brand_model=brand_model,
                     color=color,
                     wheel_type=wheel_type,
+                    emission_standard=emission_standard,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )
@@ -6948,6 +7010,7 @@ def api_create_quotation(request):
                 warranty_years=Decimal(str(it.get('warranty_years', 0))),
                 rate=Decimal(str(it.get('rate', 0))),
                 free_topup=str(it.get('free_topup', '') or ''),
+                quantity=Decimal(str(it.get('quantity', it.get('qty', it.get('stock_qty', 1))) or 1)),
                 auto_id=get_auto_id(QuotationItem),
                 creator=user
             )
@@ -6957,6 +7020,8 @@ def api_create_quotation(request):
                 quotation=quotation,
                 name=ex.get('name', ''),
                 price=Decimal(str(ex.get('price', 0))),
+                quantity=Decimal(str(ex.get('quantity', ex.get('qty', 1)) or 1)),
+                remarks=ex.get('remarks', ex.get('description', '')),
                 auto_id=get_auto_id(QuotationExtra),
                 creator=user
             )
@@ -7071,12 +7136,17 @@ def api_get_quotation_detail(request, quotation_id=None):
             'warranty_years': float(it.warranty_years) if it.warranty_years is not None else 0.0,
             'rate': float(it.rate) if it.rate is not None else 0.0,
             'free_topup': it.free_topup or '',
+            'quantity': float(getattr(it, 'quantity', 1) or 1),
+            'stock_qty': float(getattr(it, 'quantity', 1) or 1),
         } for it in quotation.items.filter(is_deleted=False)]
 
         extras = [{
             'id': str(ex.id),
             'name': ex.name or '',
             'price': float(ex.price) if ex.price is not None else 0.0,
+            'quantity': float(getattr(ex, 'quantity', 1) or 1),
+            'qty': float(getattr(ex, 'quantity', 1) or 1),
+            'remarks': getattr(ex, 'remarks', '') or '',
         } for ex in quotation.extras.filter(is_deleted=False)]
 
         vehicle_model_name = ''
@@ -7176,6 +7246,7 @@ def api_update_quotation(request, quotation_id=None):
                 warranty_years=Decimal(str(it.get('warranty_years', 0))),
                 rate=Decimal(str(it.get('rate', 0))),
                 free_topup=str(it.get('free_topup', '') or ''),
+                quantity=Decimal(str(it.get('quantity', it.get('qty', it.get('stock_qty', 1))) or 1)),
                 auto_id=get_auto_id(QuotationItem),
                 creator=user
             )
@@ -7185,6 +7256,8 @@ def api_update_quotation(request, quotation_id=None):
                 quotation=quotation,
                 name=ex.get('name', ''),
                 price=Decimal(str(ex.get('price', 0))),
+                quantity=Decimal(str(ex.get('quantity', ex.get('qty', 1)) or 1)),
+                remarks=ex.get('remarks', ex.get('description', '')),
                 auto_id=get_auto_id(QuotationExtra),
                 creator=user
             )

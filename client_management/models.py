@@ -225,6 +225,7 @@ class CustomerVehicle(BaseModel):
     color = models.ForeignKey('master.VehicleColor', on_delete=models.SET_NULL, blank=True, null=True)
     make = models.ForeignKey('master.VehicleMake', on_delete=models.SET_NULL, blank=True, null=True)
     brand_model = models.ForeignKey('master.VehicleBrandModel', on_delete=models.SET_NULL, blank=True, null=True)
+    emission_standard = models.ForeignKey('master.EmissionStandard', on_delete=models.SET_NULL, blank=True, null=True, related_name='customer_vehicles')
     wheel_type = models.CharField(max_length=20, choices=WHEEL_TYPE_CHOICES, default=WHEEL_TYPE_NORMAL)
 
     # ── Service tracking (denormalized, updated when invoice saved) ───────────
@@ -566,12 +567,15 @@ class QuotationItem(BaseModel):
     warranty_years = models.DecimalField(max_digits=4, decimal_places=1, default=0)
     rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     free_topup = models.CharField(max_length=100, blank=True, null=True)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
 
 
 class QuotationExtra(BaseModel):
     quotation = models.ForeignKey(Quotation, on_delete=models.CASCADE, related_name='extras')
     name = models.CharField(max_length=200)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    remarks = models.TextField(blank=True, null=True)
 
 
 from django.db.models.signals import post_save

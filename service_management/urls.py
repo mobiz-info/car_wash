@@ -22,4 +22,6 @@ urlpatterns = [
     path('branch/<uuid:branch_id>/service-pricing/', views.service_vehicle_price_manage, name='service_vehicle_price_manage'),
     path('branch/service-pricing/', views.service_vehicle_price_redirect, name='service_vehicle_price_redirect'),
 
+    path('branch/<uuid:branch_id>/smoke-test-pricing/', views.smoke_test_price_manage, name='smoke_test_price_manage'),
+    path('branch/smoke-test-pricing/', views.smoke_test_price_redirect, name='smoke_test_price_redirect'),
 ]

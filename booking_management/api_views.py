@@ -471,13 +471,20 @@ def send_whatsapp_template(to_number, template_name, values, doc_url=None, setti
         with urlopen(url, timeout=15) as resp:
             result = resp.read().decode('utf-8')
 
-        # Fallback between wheelalignment/wheelbalancing and servicesreminder/reminderservice/servicereminder if template not found on Wawy portal
+        # Fallback between wheelalignment/wheelbalancing, welcome1/welcoming, thanks1/washinvoicemessage, and ready1/ready if template not found on Wawy portal
         if "Template or Sender Not Found" in result:
             alt_names = []
-            if template_name.lower() in ['alignmentinvoicemsg', 'wheelalignment', 'wheelbalancing']:
-                alt_names = [n for n in ['alignmentinvoicemsg', 'wheelalignment', 'wheelbalancing'] if n != template_name.lower()]
-            elif template_name.lower() in ['servicesreminder', 'reminderservice', 'servicereminder']:
-                alt_names = [name for name in ['servicesreminder', 'reminderservice', 'servicereminder'] if name != template_name.lower()]
+            tn_lower = template_name.lower()
+            if tn_lower in ['alignmentinvoicemsg', 'wheelalignment', 'wheelbalancing']:
+                alt_names = [n for n in ['alignmentinvoicemsg', 'wheelalignment', 'wheelbalancing'] if n != tn_lower]
+            elif tn_lower in ['servicesreminder', 'reminderservice', 'servicereminder']:
+                alt_names = [name for name in ['servicesreminder', 'reminderservice', 'servicereminder'] if name != tn_lower]
+            elif tn_lower in ['welcome1', 'welcoming', 'welcome']:
+                alt_names = [n for n in ['welcome1', 'welcoming', 'welcome'] if n != tn_lower]
+            elif tn_lower in ['thanks1', 'washinvoicemessage', 'thanks', 'thankyou']:
+                alt_names = [n for n in ['thanks1', 'washinvoicemessage', 'thanks', 'thankyou'] if n != tn_lower]
+            elif tn_lower in ['ready1', 'ready']:
+                alt_names = [n for n in ['ready1', 'ready'] if n != tn_lower]
 
             for alt_name in alt_names:
                 alt_params = dict(params)
@@ -3312,18 +3319,19 @@ def send_booking_ready_alert_background(booking_id):
         name = customer.name or "Customer"
         vehicle_number = booking.vehicle.vehicle_number if booking.vehicle else "your vehicle"
         
+        branch_name = booking.branch.name if booking.branch else "Support"
         # Check if using the official/template API
         if setting.is_official_api:
             from booking_management.api_views import send_whatsapp_template
-            # The 'ready' template expects: {{1}} = Customer Name, {{2}} = Vehicle Number
+            # The 'ready1' template expects: {{1}} = Customer Name, {{2}} = Vehicle Number, {{3}} = Branch Name
             send_whatsapp_template(
                 to_number=phone,
-                template_name='ready',
-                values=[name, vehicle_number],
+                template_name='ready1',
+                values=[name, vehicle_number, branch_name],
                 setting=setting
             )
         else:
-            message = f"Hello {name}, your vehicle ({vehicle_number}) is ready for pickup! Thank you for choosing our service."
+            message = f"Hi {name} Great news! Your vehicle {vehicle_number} is ready for pickup. Please collect at your earliest convenience.\n{branch_name} Support team."
             from booking_management.api_views import send_whatsapp_simple
             send_whatsapp_simple(phone, message, setting=setting)
             
@@ -3414,7 +3422,7 @@ def api_send_ready_alert_generic(request):
         # Resolve custom message for this branch
         from booking_management.models import BookingSettings
         bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
-        default_msg = f"Hello {{customer_name}}, your vehicle ({{vehicle_number}}) is ready for pickup! Thank you for choosing our service."
+        default_msg = f"Hi {{customer_name}} Great news! Your vehicle {{vehicle_number}} is ready for pickup. Please collect at your earliest convenience.\n{{branch_name}} Support team."
         raw_template = (bs.whatsapp_ready_message if bs and bs.whatsapp_ready_message else default_msg)
         message = raw_template.replace('{customer_name}', customer_name) \
                                .replace('{vehicle_number}', vehicle_number) \
@@ -3513,7 +3521,7 @@ def api_send_welcome_msg_generic(request):
         # Resolve custom message for this branch
         from booking_management.models import BookingSettings
         bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
-        default_msg = f"Hello {{customer_name}}, thank you for choosing {{branch_name}}. Welcome to our service! We are delighted to have you and your vehicle ({{vehicle_number}}) with us."
+        default_msg = f"Hi {{customer_name}} Welcome to {{branch_name}}.Your vehicle {{vehicle_number}} has arrived safely and is in expert hands.We will keep you posted!"
         raw_template = (bs.whatsapp_welcome_message if bs and bs.whatsapp_welcome_message else default_msg)
         message = raw_template.replace('{customer_name}', customer_name) \
                                .replace('{vehicle_number}', vehicle_number) \
@@ -3553,10 +3561,10 @@ def api_send_welcome_msg_generic(request):
             import threading
             if setting.is_official_api:
                 from booking_management.api_views import send_whatsapp_template
-                # Official Meta template: 'welcoming'
+                # Official WAWY template 'welcome1': {{1}} = Customer Name, {{2}} = Branch Name, {{3}} = Vehicle Number
                 threading.Thread(
                     target=send_whatsapp_template,
-                    args=(cleaned_phone, 'welcoming', [customer_name, branch_name, vehicle_number]),
+                    args=(cleaned_phone, 'welcome1', [customer_name, branch_name, vehicle_number]),
                     kwargs={'setting': setting},
                     daemon=True
                 ).start()
@@ -3633,7 +3641,7 @@ def api_send_thanks_msg_generic(request):
         # Resolve custom message for this branch
         from booking_management.models import BookingSettings
         bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
-        default_msg = f"Hello {{customer_name}}, thank you for choosing {{branch_name}}! We look forward to serving you again. Have a great day!"
+        default_msg = f"Dear {{customer_name}} 🙏 Thank you for trusting us with your vehicle {{vehicle_number}}. We hope you had a great experience. Looking forward to seeing you again!\n{{branch_name}} support team."
         raw_template = (bs.whatsapp_thanks_message if bs and bs.whatsapp_thanks_message else default_msg)
 
         message = raw_template.replace('{customer_name}', customer_name) \
