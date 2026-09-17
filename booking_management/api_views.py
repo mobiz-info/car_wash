@@ -3521,7 +3521,7 @@ def api_send_welcome_msg_generic(request):
         # Resolve custom message for this branch
         from booking_management.models import BookingSettings
         bs = BookingSettings.objects.filter(branch=branch).first() if branch else None
-        default_msg = f"Hi {{customer_name}} Welcome to {{branch_name}}. Your vehicle {{vehicle_number}} has arrived safely and is in expert hands. We will keep you posted!"
+        default_msg = f"Hi {{customer_name}} Welcome to Our {{branch_name}}.Your vehicle {{vehicle_number}} has arrived safely and is in expert hands.We will keep you posted!"
         raw_template = (bs.whatsapp_welcome_message if bs and bs.whatsapp_welcome_message else default_msg)
         message = raw_template.replace('{customer_name}', customer_name) \
                                .replace('{vehicle_number}', vehicle_number) \
