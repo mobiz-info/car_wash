@@ -178,6 +178,7 @@ urlpatterns = [
     path('purchase-invoice/', views.purchase_invoice_list, name='purchase_invoice_list'),
     path('purchase-invoice/create/', views.purchase_invoice_create, name='purchase_invoice_create'),
     path('purchase-invoice/detail/<uuid:id>/', views.purchase_invoice_detail, name='purchase_invoice_detail'),
+    path('purchase-invoice/delete/<uuid:id>/', views.purchase_invoice_delete, name='purchase_invoice_delete'),
 
     # Supplier Payables & Payments
     path('supplier-payables/', views.supplier_payables_list, name='supplier_payables_list'),

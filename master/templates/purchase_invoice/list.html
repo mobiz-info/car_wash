@@ -84,6 +84,9 @@
                             <a href="{% url 'purchase_invoice_detail' inv.id %}" class="action-btn edit" title="View Invoice">
                                 <i class="ph ph-eye"></i>
                             </a>
+                            <a href="{% url 'purchase_invoice_delete' inv.id %}" class="action-btn delete" title="Delete Invoice" onclick="return confirm('Are you sure you want to delete Purchase Invoice #{{ inv.purchase_inv_number }}? This will revert stock additions and supplier payables.');">
+                                <i class="ph ph-trash"></i>
+                            </a>
                         </div>
                     </td>
                 </tr>

@@ -2798,6 +2798,54 @@ def purchase_invoice_detail(request, id):
     return render(request, 'purchase_invoice/detail.html', {'invoice': invoice, 'title': f"Purchase Inv #{invoice.purchase_inv_number}"})
 
 
+@login_required
+def purchase_invoice_delete(request, id):
+    role_name = getattr(getattr(getattr(request.user, 'profile', None), 'role', None), 'name', None)
+    company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    
+    if role_name == 'COMPANY_ADMIN' and company:
+        invoice = get_object_or_404(PurchaseInvoice, id=id, company=company, is_deleted=False)
+    else:
+        branch = getattr(request.user, 'managed_branch', None)
+        if branch:
+            invoice = get_object_or_404(PurchaseInvoice, id=id, branch=branch, is_deleted=False)
+        else:
+            invoice = get_object_or_404(PurchaseInvoice, id=id, is_deleted=False)
+
+    # Revert stock quantity additions
+    for item in invoice.items.filter(is_deleted=False):
+        if item.stock_item:
+            qty = Decimal(str(item.quantity or 0))
+            conv = Decimal(str(item.conversion_count or 1))
+            added_qty = qty * conv
+            stock = item.stock_item
+            current_qty = stock.quantity or Decimal('0.00')
+            stock.quantity = max(Decimal('0.00'), current_qty - added_qty)
+            stock.save()
+
+    # Soft-delete purchase invoice items
+    invoice.items.filter(is_deleted=False).update(is_deleted=True)
+
+    # Soft-delete auto-created ExpenseEntry
+    from master.models import ExpenseEntry
+    exp_name = f"Purchase Inv #{invoice.purchase_inv_number}"
+    ExpenseEntry.objects.filter(expense__name=exp_name, company=invoice.company, is_deleted=False).update(is_deleted=True)
+
+    supplier = invoice.supplier
+
+    # Mark invoice deleted
+    invoice.is_deleted = True
+    invoice.updater = request.user
+    invoice.save()
+
+    # Update supplier payables
+    if supplier:
+        update_supplier_payables(supplier)
+
+    messages.success(request, f"Purchase Invoice #{invoice.purchase_inv_number} deleted successfully")
+    return redirect('purchase_invoice_list')
+
+
 # ==========================================
 # SUPPLIER PAYABLES & SETTLEMENT
 # ==========================================

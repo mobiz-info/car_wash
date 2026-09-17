@@ -229,6 +229,9 @@
             <button onclick="window.print()" class="btn-print">
                 <i class="ph ph-printer"></i> Print Invoice
             </button>
+            <a href="{% url 'purchase_invoice_delete' invoice.id %}" class="btn-secondary-light" style="background:#fef2f2; color:#dc2626; border-color:#fca5a5;" onclick="return confirm('Are you sure you want to delete Purchase Invoice #{{ invoice.purchase_inv_number }}? This will revert stock additions and supplier payables.');">
+                <i class="ph ph-trash"></i> Delete Invoice
+            </a>
         </div>
     </div>
 
