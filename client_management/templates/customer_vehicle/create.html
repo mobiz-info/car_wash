@@ -133,12 +133,21 @@
                 {% endif %}
             </div>
 
-            <!-- Vehicle Color -->
+            <!-- Emission Standard -->
             <div class="form-group">
-                <label>Vehicle Color</label>
-                {{ form.color }}
-                {% if form.color.errors %}
-                    <div class="error-text">{{ form.color.errors.0 }}</div>
+                <label>Emission Standard</label>
+                {{ form.emission_standard }}
+                {% if form.emission_standard.errors %}
+                    <div class="error-text">{{ form.emission_standard.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Fuel Type -->
+            <div class="form-group">
+                <label>Fuel Type</label>
+                {{ form.fuel_type }}
+                {% if form.fuel_type.errors %}
+                    <div class="error-text">{{ form.fuel_type.errors.0 }}</div>
                 {% endif %}
             </div>
 

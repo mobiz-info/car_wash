@@ -151,6 +151,12 @@
                     {{ vehicle_form.vehicle_number }}
                     {% if vehicle_form.vehicle_number.errors %}<div class="error-text">{{ vehicle_form.vehicle_number.errors.0 }}</div>{% endif %}
                 </div>
+
+                <div class="form-group">
+                    <label for="{{ vehicle_form.fuel_type.id_for_label }}">Fuel Type</label>
+                    {{ vehicle_form.fuel_type }}
+                    {% if vehicle_form.fuel_type.errors %}<div class="error-text">{{ vehicle_form.fuel_type.errors.0 }}</div>{% endif %}
+                </div>
             </div>
         </div>
 

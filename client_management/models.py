@@ -218,6 +218,19 @@ class CustomerVehicle(BaseModel):
         (WHEEL_TYPE_NORMAL, 'Normal Wheel'),
     )
 
+    FUEL_TYPE_PETROL = 'PETROL'
+    FUEL_TYPE_DIESEL = 'DIESEL'
+    FUEL_TYPE_CNG = 'CNG'
+    FUEL_TYPE_LPG = 'LPG'
+    FUEL_TYPE_ELECTRIC = 'ELECTRIC'
+    FUEL_TYPE_CHOICES = (
+        (FUEL_TYPE_PETROL, 'Petrol'),
+        (FUEL_TYPE_DIESEL, 'Diesel'),
+        (FUEL_TYPE_CNG, 'CNG'),
+        (FUEL_TYPE_LPG, 'LPG'),
+        (FUEL_TYPE_ELECTRIC, 'Electric'),
+    )
+
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='vehicles')
     vehicle_type = models.ForeignKey('master.VehicleType', on_delete=models.CASCADE, blank=True, null=True)
     vehicle_type_model = models.ForeignKey('master.VehicleTypeModel', on_delete=models.CASCADE)
@@ -226,6 +239,7 @@ class CustomerVehicle(BaseModel):
     make = models.ForeignKey('master.VehicleMake', on_delete=models.SET_NULL, blank=True, null=True)
     brand_model = models.ForeignKey('master.VehicleBrandModel', on_delete=models.SET_NULL, blank=True, null=True)
     emission_standard = models.ForeignKey('master.EmissionStandard', on_delete=models.SET_NULL, blank=True, null=True, related_name='customer_vehicles')
+    fuel_type = models.CharField(max_length=20, choices=FUEL_TYPE_CHOICES, blank=True, null=True)
     wheel_type = models.CharField(max_length=20, choices=WHEEL_TYPE_CHOICES, default=WHEEL_TYPE_NORMAL)
 
     # ── Service tracking (denormalized, updated when invoice saved) ───────────

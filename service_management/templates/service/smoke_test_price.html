@@ -106,28 +106,48 @@
         Smoke Test Pricing — {{ branch.name }}
     </div>
 
-    {% if role_name == 'COMPANY_ADMIN' and branches %}
-    <div style="margin-bottom:16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-        <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; margin:0;">
-            <i class="ph ph-buildings" style="margin-right:4px;"></i> Branch
-        </label>
-        <select
-            class="form-control"
-            style="max-width:280px;"
-            onchange="window.location.href=this.value"
-        >
-            {% for b in branches %}
-            <option
-                value="{% url 'smoke_test_price_manage' b.id %}"
-                {% if b.id == branch.id %}selected{% endif %}
+    <div style="margin-bottom:16px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+        {% if role_name == 'COMPANY_ADMIN' and branches %}
+        <div style="display:flex; align-items:center; gap:8px;">
+            <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; margin:0;">
+                <i class="ph ph-buildings" style="margin-right:4px;"></i> Branch
+            </label>
+            <select
+                class="form-control"
+                style="max-width:240px;"
+                onchange="window.location.href=this.value"
             >
-                {{ b.name }}
-            </option>
-            {% endfor %}
-        </select>
+                {% for b in branches %}
+                <option
+                    value="{% url 'smoke_test_price_manage' b.id %}{% if selected_fuel_type %}?fuel_type={{ selected_fuel_type }}{% endif %}"
+                    {% if b.id == branch.id %}selected{% endif %}
+                >
+                    {{ b.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; align-items:center; gap:8px;">
+            <label style="font-size:.8rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; margin:0;">
+                <i class="ph ph-gas-pump" style="margin-right:4px;"></i> Fuel Type
+            </label>
+            <select
+                class="form-control"
+                style="max-width:220px;"
+                onchange="window.location.href=this.value"
+            >
+                <option value="{% url 'smoke_test_price_manage' branch.id %}" {% if not selected_fuel_type %}selected{% endif %}>All Fuel Types</option>
+                {% for ft_code, ft_label in fuel_type_choices %}
+                    {% if ft_code != 'ALL' %}
+                    <option value="{% url 'smoke_test_price_manage' branch.id %}?fuel_type={{ ft_code }}" {% if selected_fuel_type == ft_code %}selected{% endif %}>{{ ft_label }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
     </div>
     <hr style="border:none; border-top:1px solid #f1f5f9; margin-bottom:16px;">
-    {% endif %}
 
     <div style="font-size:.85rem; color:#64748b; margin-bottom:20px;">
         Set specific Smoke Test / Pollution Test prices for each <strong>Vehicle Segment</strong> and <strong>Emission Standard</strong>.
@@ -157,9 +177,22 @@
                         <th style="min-width:180px;">Vehicle Segment</th>
                         <th style="min-width:120px;">Vehicle Type</th>
                         {% for es in emission_standards %}
-                        <th class="es-col">
-                            <i class="ph ph-leaf" style="display:block; font-size:1rem; margin-bottom:3px;"></i>
-                            {{ es.name }}
+                        <th class="es-col" style="text-align:center;">
+                            <i class="ph ph-leaf" style="display:block; font-size:1.1rem; margin-bottom:2px;"></i>
+                            <div style="font-weight:700; font-size:0.88rem;">{{ es.name }}</div>
+                            <div style="margin-top:3px;">
+                                {% if es.fuel_type == 'PETROL' %}
+                                    <span style="background:rgba(59,130,246,0.3); color:#eff6ff; font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Petrol</span>
+                                {% elif es.fuel_type == 'DIESEL' %}
+                                    <span style="background:rgba(245,158,11,0.35); color:#fffbeb; font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Diesel</span>
+                                {% elif es.fuel_type == 'CNG' or es.fuel_type == 'LPG' %}
+                                    <span style="background:rgba(16,185,129,0.35); color:#ecfdf5; font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:4px; text-transform:uppercase;">{{ es.get_fuel_type_display }}</span>
+                                {% elif es.fuel_type == 'ELECTRIC' %}
+                                    <span style="background:rgba(168,85,247,0.35); color:#faf5ff; font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:4px; text-transform:uppercase;">EV</span>
+                                {% else %}
+                                    <span style="background:rgba(255,255,255,0.2); color:#e2e8f0; font-size:0.68rem; font-weight:600; padding:2px 6px; border-radius:4px;">All Fuels</span>
+                                {% endif %}
+                            </div>
                         </th>
                         {% endfor %}
                     </tr>

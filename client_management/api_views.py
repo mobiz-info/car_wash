@@ -506,6 +506,8 @@ def api_customer_search(request):
             'type': v.vehicle_type_model.name if v.vehicle_type_model else 'Unknown',
             'vehicle_type': v.vehicle_type_model.vehicle_type.name if (v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
             'wheel_type': v.wheel_type or 'normal_wheel',
+            'fuel_type': v.fuel_type or '',
+            'fuel_type_display': v.get_fuel_type_display() if v.fuel_type else '',
             'emission_standard_id': str(eff_es.id) if eff_es else None,
             'emission_standard_name': std_name,
             'emission_standard': std_name,
@@ -1857,6 +1859,7 @@ def api_get_form_data(request):
         ],
         'colors': [{'id': str(c.id), 'name': c.name} for c in colors_qs],
         'emission_standards': emission_standards_data,
+        'fuel_types': [{'id': code, 'name': label} for code, label in CustomerVehicle.FUEL_TYPE_CHOICES],
         # Legacy field (still used by other screens)
         'vehicle_models': legacy_vehicle_models,
         'branches': branches_data,
@@ -1971,6 +1974,8 @@ def api_add_customer(request):
                 if wheel_type not in ['alloy_wheel', 'normal_wheel']:
                     wheel_type = 'normal_wheel'
 
+                fuel_type = v.get('fuel_type')
+
                 cv = CustomerVehicle.objects.create(
                     customer=customer,
                     vehicle_type_model=vm,
@@ -1980,6 +1985,7 @@ def api_add_customer(request):
                     brand_model=brand_model,
                     color=color,
                     emission_standard=emission_standard,
+                    fuel_type=fuel_type,
                     wheel_type=wheel_type,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
@@ -1993,6 +1999,8 @@ def api_add_customer(request):
                     'make': make.name if make else '',
                     'brand_model': brand_model.name if brand_model else '',
                     'color': color.name if color else '',
+                    'fuel_type': cv.fuel_type or '',
+                    'fuel_type_display': cv.get_fuel_type_display() if cv.fuel_type else '',
                     'emission_standard_id': str(cv.emission_standard.id) if cv.emission_standard else (str(vm.emission_standard.id) if vm and vm.emission_standard else None),
                     'emission_standard_name': cv.emission_standard.name if cv.emission_standard else (vm.emission_standard.name if vm and vm.emission_standard else ''),
                     'wheel_type': cv.wheel_type or 'normal_wheel',
@@ -2426,6 +2434,8 @@ def api_get_customer(request):
                 'color_id': str(v.color.id) if v.color else None,
                 'color_name': v.color.name if v.color else '',
                 'wheel_type': v.wheel_type or 'normal_wheel',
+                'fuel_type': v.fuel_type or '',
+                'fuel_type_display': v.get_fuel_type_display() if v.fuel_type else '',
                 'emission_standard_id': str(eff_es.id) if eff_es else None,
                 'emission_standard_name': std_name,
                 'emission_standard': std_name,
@@ -2546,6 +2556,10 @@ def api_edit_customer(request):
                 else:
                     cv.emission_standard = None
 
+                fuel_type = v.get('fuel_type')
+                if fuel_type:
+                    cv.fuel_type = fuel_type
+
                 cv.save()
 
             # Add new vehicles
@@ -2557,6 +2571,7 @@ def api_edit_customer(request):
                 color_id = v.get('color_id')
                 wheel_type = v.get('wheel_type', 'normal_wheel')
                 emission_standard_id = v.get('emission_standard_id')
+                fuel_type = v.get('fuel_type')
                 if wheel_type not in ['alloy_wheel', 'normal_wheel']:
                     wheel_type = 'normal_wheel'
 
@@ -2590,6 +2605,7 @@ def api_edit_customer(request):
                     color=color,
                     wheel_type=wheel_type,
                     emission_standard=emission_standard,
+                    fuel_type=fuel_type,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )

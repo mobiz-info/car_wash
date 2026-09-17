@@ -714,8 +714,15 @@ def smoke_test_price_manage(request, branch_id=None):
     if branch.enabled_vehicle_segments.exists():
         segments = segments.filter(id__in=branch.enabled_vehicle_segments.values_list('id', flat=True))
 
+    # Fuel Type filter
+    selected_fuel_type = request.GET.get('fuel_type', '').strip()
+
     # Get Emission Standards
-    emission_standards = EmissionStandard.objects.filter(is_active=True, is_deleted=False).order_by('validity_months', 'name')
+    emission_standards_qs = EmissionStandard.objects.filter(is_active=True, is_deleted=False)
+    if selected_fuel_type:
+        emission_standards_qs = emission_standards_qs.filter(Q(fuel_type=selected_fuel_type) | Q(fuel_type='ALL'))
+
+    emission_standards = emission_standards_qs.order_by('fuel_type', 'validity_months', 'name')
 
     if request.method == 'POST':
         for seg in segments:
@@ -749,7 +756,10 @@ def smoke_test_price_manage(request, branch_id=None):
                             auto_id=get_auto_id(SmokeTestPrice)
                         )
         messages.success(request, f"Smoke test pricing updated successfully for {branch.name}.")
-        return redirect('smoke_test_price_manage', branch_id=branch.id)
+        redirect_url = reverse('smoke_test_price_manage', kwargs={'branch_id': branch.id})
+        if selected_fuel_type:
+            redirect_url += f"?fuel_type={selected_fuel_type}"
+        return redirect(redirect_url)
 
     # Build existing price map
     existing_prices = SmokeTestPrice.objects.filter(branch=branch, is_deleted=False)
@@ -764,6 +774,8 @@ def smoke_test_price_manage(request, branch_id=None):
         'branches': branches,
         'segments': segments,
         'emission_standards': emission_standards,
+        'fuel_type_choices': EmissionStandard.FUEL_TYPE_CHOICES,
+        'selected_fuel_type': selected_fuel_type,
         'price_map': price_map,
         'role_name': role_name,
     }
