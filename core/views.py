@@ -211,7 +211,7 @@ def user_list(request):
     search_query = request.GET.get('search', '')
     users = User.objects.exclude(
         profile__role__name='SUPER_ADMIN'
-    ).order_by('-date_joined')
+    ).order_by('-id')
 
     if search_query:
         users = users.filter(username__icontains=search_query) | users.filter(email__icontains=search_query)

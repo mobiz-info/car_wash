@@ -764,13 +764,17 @@ def smoke_test_price_manage(request, branch_id=None):
             redirect_url += f"?fuel_type={selected_fuel_type}"
         return redirect(redirect_url)
 
-    # Build existing price map
-    existing_prices = SmokeTestPrice.objects.filter(branch=branch, is_deleted=False)
-    if selected_fuel_type:
-        existing_prices = existing_prices.filter(Q(fuel_type=selected_fuel_type) | Q(fuel_type='ALL'))
+    # Build existing price map — filter by EXACT fuel_type so prices don't bleed across tabs.
+    # If Petrol is selected → show only Petrol-saved prices (not ALL).
+    # If Diesel is selected → show only Diesel-saved prices (not ALL).
+    # If nothing selected  → show only ALL prices.
+    exact_fuel = selected_fuel_type if selected_fuel_type else 'ALL'
+    existing_prices = SmokeTestPrice.objects.filter(
+        branch=branch, is_deleted=False, fuel_type=exact_fuel
+    )
 
     price_map = {}
-    for obj in existing_prices.order_by('fuel_type'):
+    for obj in existing_prices:
         price_map[f"{obj.vehicle_model_id}__{obj.emission_standard_id}"] = float(obj.price)
 
     context = {

@@ -408,7 +408,7 @@ class SubscriptionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['company'].queryset = Client.objects.filter(is_deleted=False).order_by('company_name')
+        self.fields['company'].queryset = Client.objects.filter(is_deleted=False).order_by('-date_added')
         checkbox_fields = ['whatsapp_integration', 'bulk_sms', 'email_integration',
                            'bluetooth_printing', 'tally_integration']
         for field_name, field in self.fields.items():

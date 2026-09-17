@@ -79,7 +79,7 @@ class UserProfileForm(forms.ModelForm):
 
         self.fields['company'].queryset = Client.objects.filter(
             is_deleted=False
-        )
+        ).order_by('-date_added')
         
 class RoleForm(forms.ModelForm):
     class Meta:
@@ -103,7 +103,7 @@ class UserEditForm(forms.ModelForm):
         required=False
     )
     company = forms.ModelChoiceField(
-        queryset=Client.objects.filter(is_deleted=False),
+        queryset=Client.objects.filter(is_deleted=False).order_by('-date_added'),
         widget=forms.Select(attrs={'class': 'form-control'}),
         required=False
     )

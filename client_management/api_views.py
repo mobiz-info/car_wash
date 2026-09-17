@@ -1336,6 +1336,16 @@ def api_create_invoice(request):
             auto_id=get_auto_id(Invoice)
         )
 
+        inv_date_str = data.get('date') or data.get('invoice_date')
+        if inv_date_str:
+            try:
+                from datetime import datetime as _dt_parse
+                parsed_date = _dt_parse.strptime(str(inv_date_str), '%Y-%m-%d').date()
+                invoice.date = parsed_date
+                invoice.save(update_fields=['date'])
+            except Exception:
+                pass
+
         # Link assigned staff members
         staff_ids = data.get('staff_ids') or data.get('staffs') or []
         if staff_ids and isinstance(staff_ids, list):
