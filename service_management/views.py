@@ -725,6 +725,7 @@ def smoke_test_price_manage(request, branch_id=None):
     emission_standards = emission_standards_qs.order_by('fuel_type', 'validity_months', 'name')
 
     if request.method == 'POST':
+        target_fuel = selected_fuel_type if selected_fuel_type else 'ALL'
         for seg in segments:
             for es in emission_standards:
                 field_name = f'price_{seg.id}_{es.id}'
@@ -738,7 +739,8 @@ def smoke_test_price_manage(request, branch_id=None):
                     stp = SmokeTestPrice.objects.filter(
                         branch=branch,
                         vehicle_model=seg,
-                        emission_standard=es
+                        emission_standard=es,
+                        fuel_type=target_fuel
                     ).first()
                     if stp:
                         stp.price = price_val
@@ -750,6 +752,7 @@ def smoke_test_price_manage(request, branch_id=None):
                             branch=branch,
                             vehicle_model=seg,
                             emission_standard=es,
+                            fuel_type=target_fuel,
                             price=price_val,
                             is_active=True,
                             is_deleted=False,
@@ -763,10 +766,12 @@ def smoke_test_price_manage(request, branch_id=None):
 
     # Build existing price map
     existing_prices = SmokeTestPrice.objects.filter(branch=branch, is_deleted=False)
-    price_map = {
-        f"{obj.vehicle_model_id}__{obj.emission_standard_id}": float(obj.price)
-        for obj in existing_prices
-    }
+    if selected_fuel_type:
+        existing_prices = existing_prices.filter(Q(fuel_type=selected_fuel_type) | Q(fuel_type='ALL'))
+
+    price_map = {}
+    for obj in existing_prices.order_by('fuel_type'):
+        price_map[f"{obj.vehicle_model_id}__{obj.emission_standard_id}"] = float(obj.price)
 
     context = {
         'title': f"Smoke Test Pricing — {branch.name}",

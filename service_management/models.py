@@ -1,6 +1,6 @@
 from django.db import models
 from core.models import BaseModel
-from master.models import VehicleType,VehicleTypeModel
+from master.models import VehicleType, VehicleTypeModel, EmissionStandard
 from client_management.models import Branch
 
 
@@ -148,7 +148,7 @@ class BranchServiceCategory(BaseModel):
 
 
 class SmokeTestPrice(BaseModel):
-    """Price for Smoke/Pollution Test per Branch for each Vehicle Segment x Emission Standard."""
+    """Price for Smoke/Pollution Test per Branch for each Vehicle Segment x Emission Standard x Fuel Type."""
     branch = models.ForeignKey(
         'client_management.Branch',
         on_delete=models.CASCADE,
@@ -164,13 +164,18 @@ class SmokeTestPrice(BaseModel):
         on_delete=models.CASCADE,
         related_name='smoke_test_prices'
     )
+    fuel_type = models.CharField(
+        max_length=20,
+        choices=EmissionStandard.FUEL_TYPE_CHOICES,
+        default='ALL'
+    )
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = ('branch', 'vehicle_model', 'emission_standard')
-        ordering = ['vehicle_model__name', 'emission_standard__name']
+        unique_together = ('branch', 'vehicle_model', 'emission_standard', 'fuel_type')
+        ordering = ['vehicle_model__name', 'emission_standard__name', 'fuel_type']
 
     def __str__(self):
-        return f"{self.branch.name} | {self.vehicle_model.name} x {self.emission_standard.name} — Rs.{self.price}"
+        return f"{self.branch.name} | {self.vehicle_model.name} x {self.emission_standard.name} ({self.fuel_type}) — Rs.{self.price}"
 
