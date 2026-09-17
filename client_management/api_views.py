@@ -605,14 +605,28 @@ def api_get_services(request):
 
             if is_smoke:
                 eff_emission = getattr(vehicle, 'emission_standard', None) or (vehicle.vehicle_type_model.emission_standard if vehicle.vehicle_type_model else None)
-                if vehicle.vehicle_type_model and eff_emission:
-                    stp = SmokeTestPrice.objects.filter(
-                        branch=branch,
-                        vehicle_model=vehicle.vehicle_type_model,
-                        emission_standard=eff_emission,
-                        is_active=True,
-                        is_deleted=False,
-                    ).first()
+                v_fuel = getattr(vehicle, 'fuel_type', None)
+
+                if vehicle.vehicle_type_model:
+                    stp = None
+                    if eff_emission:
+                        stp = SmokeTestPrice.objects.filter(
+                            branch=branch,
+                            vehicle_model=vehicle.vehicle_type_model,
+                            emission_standard=eff_emission,
+                            is_active=True,
+                            is_deleted=False,
+                        ).first()
+
+                    if not stp and v_fuel:
+                        stp = SmokeTestPrice.objects.filter(
+                            branch=branch,
+                            vehicle_model=vehicle.vehicle_type_model,
+                            emission_standard__fuel_type__in=[v_fuel, 'ALL'],
+                            is_active=True,
+                            is_deleted=False,
+                        ).order_by('-price').first()
+
                     if stp:
                         rate = float(stp.price)
 
