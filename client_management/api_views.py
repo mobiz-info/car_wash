@@ -4089,15 +4089,15 @@ def api_get_expense_heads(request):
         from django.db.models import Q
         company = getattr(getattr(user, 'profile', None), 'company', None)
         if not company:
-            heads = ExpenseHead.objects.filter(is_deleted=False).order_by('name')
+            heads = ExpenseHead.objects.filter(is_deleted=False).exclude(name__iexact='Purchase').order_by('name')
         else:
-            heads = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).order_by('name')
+            heads = ExpenseHead.objects.filter(Q(company=company) | Q(company__isnull=True), is_deleted=False).exclude(name__iexact='Purchase').order_by('name')
         
         seen_names = set()
         unique_heads = []
         for h in heads:
             norm_name = (h.name or '').strip().lower()
-            if norm_name and norm_name not in seen_names:
+            if norm_name and norm_name not in seen_names and norm_name != 'purchase':
                 seen_names.add(norm_name)
                 unique_heads.append(h)
 
