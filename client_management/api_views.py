@@ -1968,13 +1968,8 @@ def api_add_customer(request):
                 brand_model_id = v.get('brand_model_id')
                 make_id = v.get('make_id')
                 color_id = v.get('color_id')
-                if not vehicle_number or not vehicle_model_id:
-                    continue
-                vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
-                if not vm:
-                    continue
-
                 emission_standard_id = v.get('emission_standard_id')
+
                 from master.models import VehicleBrandModel, VehicleColor, VehicleMake, EmissionStandard
                 brand_model = None
                 if brand_model_id:
@@ -1983,6 +1978,17 @@ def api_add_customer(request):
                 make = None
                 if make_id:
                     make = VehicleMake.objects.filter(id=make_id, is_deleted=False).first()
+                elif brand_model and brand_model.make:
+                    make = brand_model.make
+
+                vm = None
+                if vehicle_model_id:
+                    vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
+                elif brand_model and brand_model.vehicle_type_model:
+                    vm = brand_model.vehicle_type_model
+
+                if not vehicle_number or not vm:
+                    continue
 
                 # Optional color
                 color = None
@@ -2599,19 +2605,25 @@ def api_edit_customer(request):
                 if wheel_type not in ['alloy_wheel', 'normal_wheel']:
                     wheel_type = 'normal_wheel'
 
-                if not vehicle_number or not vehicle_model_id:
-                    continue
-                vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
-                if not vm:
-                    continue
-
                 from master.models import VehicleBrandModel, VehicleColor, VehicleMake, EmissionStandard
                 brand_model = None
                 if brand_model_id:
                     brand_model = VehicleBrandModel.objects.filter(id=brand_model_id, is_deleted=False).first()
+
                 make = None
                 if make_id:
                     make = VehicleMake.objects.filter(id=make_id, is_deleted=False).first()
+                elif brand_model and brand_model.make:
+                    make = brand_model.make
+
+                vm = None
+                if vehicle_model_id:
+                    vm = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_deleted=False).first()
+                elif brand_model and brand_model.vehicle_type_model:
+                    vm = brand_model.vehicle_type_model
+
+                if not vehicle_number or not vm:
+                    continue
                 color = None
                 if color_id:
                     color = VehicleColor.objects.filter(id=color_id, is_deleted=False).first()
