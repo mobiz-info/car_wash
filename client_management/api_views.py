@@ -1516,6 +1516,207 @@ def api_create_invoice(request):
 
 
 @csrf_exempt
+def api_update_invoice(request):
+    """
+    Mobile + Web API: Update/Edit an existing invoice.
+    """
+    import json
+    from decimal import Decimal
+    from django.db import transaction
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        invoice_id = data.get('invoice_id') or data.get('id')
+        if not invoice_id:
+            return JsonResponse({'success': False, 'message': 'invoice_id is required'}, status=400)
+
+        with transaction.atomic():
+            invoice = Invoice.objects.select_for_update().get(id=invoice_id, is_deleted=False)
+
+            role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+            if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+                if invoice.branch != user.managed_branch:
+                    return JsonResponse({'success': False, 'message': 'Access denied'}, status=403)
+            elif role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+                if invoice.branch.company != user.profile.company:
+                    return JsonResponse({'success': False, 'message': 'Access denied'}, status=403)
+
+            # Restore stock for existing stock items on this invoice
+            for old_item in invoice.items.filter(stock_item__isnull=False):
+                if old_item.stock_item and old_item.qty > 0:
+                    stock_obj = old_item.stock_item
+                    stock_obj.quantity = (stock_obj.quantity or 0) + old_item.qty
+                    stock_obj.save(update_fields=['quantity'])
+
+            # Delete existing items
+            invoice.items.all().delete()
+
+            # Update main invoice fields
+            subtotal_val = Decimal(str(data.get('subtotal', 0)))
+            discount_val = Decimal(str(data.get('discount', 0)))
+            tax_val = Decimal(str(data.get('tax_amount', 0)))
+            total_val = Decimal(str(data.get('total', 0)))
+            amt_collected_val = Decimal(str(data.get('amount_collected', 0)))
+            inv_type = 'cashinvoice' if amt_collected_val >= total_val else 'creditinvoice'
+            remarks_text = (data.get('remarks') or '').strip() or None
+
+            invoice.subtotal = subtotal_val
+            invoice.discount = discount_val
+            invoice.tax_amount = tax_val
+            invoice.total = total_val
+            invoice.amount_collected = amt_collected_val
+            invoice.invoice_type = inv_type
+            invoice.remarks = remarks_text
+            invoice.updater = user
+
+            inv_date_str = data.get('date') or data.get('invoice_date')
+            if inv_date_str:
+                try:
+                    from datetime import datetime as _dt_parse
+                    parsed_date = _dt_parse.strptime(str(inv_date_str), '%Y-%m-%d').date()
+                    invoice.date = parsed_date
+                except Exception:
+                    pass
+
+            invoice.save()
+
+            # Update assigned staff members
+            staff_ids = data.get('staff_ids') or data.get('staffs') or []
+            if isinstance(staff_ids, list):
+                from client_management.models import Staff
+                clean_ids = [s.get('id') if isinstance(s, dict) else str(s) for s in staff_ids if s]
+                if clean_ids:
+                    staff_objs = Staff.objects.filter(id__in=clean_ids, is_deleted=False)
+                    invoice.assigned_staffs.set(staff_objs)
+                else:
+                    invoice.assigned_staffs.clear()
+
+            # Update or Create Receipt
+            from finance_management.models import Receipt
+            if amt_collected_val > 0:
+                receipt = Receipt.objects.filter(invoice=invoice, is_deleted=False).first()
+                if receipt:
+                    receipt.amount = amt_collected_val
+                    receipt.payment_mode = data.get('payment_mode') or receipt.payment_mode or 'cash'
+                    if remarks_text:
+                        receipt.remarks = remarks_text
+                    receipt.save()
+                else:
+                    receipt_auto_id = get_auto_id(Receipt)
+                    receipt_number = f"RCPT-{str(receipt_auto_id).zfill(5)}"
+                    Receipt.objects.create(
+                        auto_id=receipt_auto_id,
+                        creator=user,
+                        receipt_number=receipt_number,
+                        invoice=invoice,
+                        amount=amt_collected_val,
+                        payment_mode=data.get('payment_mode') or 'cash',
+                        remarks=remarks_text or 'Invoice time collection'
+                    )
+
+            # Re-create Services & Items
+            services_list = data.get('services', [])
+            trading_items_list = data.get('trading_items', [])
+            if not services_list and not trading_items_list and (data.get('extras') or data.get('items')):
+                services_list = data.get('extras') or data.get('items')
+
+            for svc in services_list:
+                from service_management.models import Service
+                svc_id = svc.get('id')
+                service_obj = None
+                if svc_id:
+                    try:
+                        service_obj = Service.objects.get(id=svc_id)
+                    except Exception:
+                        service_obj = None
+
+                svc_name = svc.get('name', 'Unknown Item')
+                qty_val = Decimal(str(svc.get('qty', 1)))
+                rate_val = Decimal(str(svc.get('rate', 0)))
+                disc_val = Decimal(str(svc.get('discount', 0)))
+                net_val = (rate_val * qty_val) - disc_val
+
+                item = InvoiceItem.objects.create(
+                    invoice=invoice,
+                    service=service_obj,
+                    service_name=svc_name,
+                    qty=qty_val,
+                    rate=rate_val,
+                    discount=disc_val,
+                    net_taxable_amount=net_val,
+                    creator=user,
+                    auto_id=get_auto_id(InvoiceItem)
+                )
+
+                svc_detail = svc.get('service_detail')
+                if svc_detail:
+                    _save_invoice_service_detail(item, svc_detail, invoice, invoice.vehicle, user)
+
+            # Process Trading / Stock Items
+            from client_management.models import Stock
+            for t in trading_items_list:
+                stock_id = t.get('id')
+                stock_obj = Stock.objects.filter(id=stock_id).first() if stock_id else None
+                is_op = bool(t.get('is_operational', False))
+
+                t_qty = Decimal(str(t.get('qty', 1)))
+                if is_op:
+                    t_rate = Decimal('0.00')
+                    t_disc = Decimal('0.00')
+                    t_net = Decimal('0.00')
+                else:
+                    t_rate = Decimal(str(t.get('rate', 0)))
+                    t_disc = Decimal(str(t.get('discount', 0)))
+                    t_net = (t_rate * t_qty) - t_disc
+
+                item = InvoiceItem.objects.create(
+                    invoice=invoice,
+                    stock_item=stock_obj,
+                    service_name=t.get('item_name') or (stock_obj.item_name if stock_obj else 'Stock Item'),
+                    qty=t_qty,
+                    rate=t_rate,
+                    discount=t_disc,
+                    net_taxable_amount=t_net,
+                    is_operational=is_op,
+                    creator=user,
+                    auto_id=get_auto_id(InvoiceItem)
+                )
+
+                if stock_obj and t_qty > 0:
+                    stock_obj.quantity = max(Decimal('0'), Decimal(str(stock_obj.quantity or 0)) - t_qty)
+                    stock_obj.save(update_fields=['quantity'])
+
+            company_logo = request.build_absolute_uri(invoice.branch.company.logo_color.url) if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color else ''
+            company_seal = request.build_absolute_uri(invoice.branch.company.company_seal.url) if invoice.branch and invoice.branch.company and getattr(invoice.branch.company, 'company_seal', None) else ''
+            branch_logo = request.build_absolute_uri(invoice.branch.logo.url) if invoice.branch and invoice.branch.logo else ''
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Invoice updated successfully',
+                'invoice_id': str(invoice.id),
+                'invoice_number': invoice.invoice_number,
+                'company_logo': company_logo,
+                'company_seal': company_seal,
+                'branch_logo': branch_logo,
+                'branch': invoice.branch.name if invoice.branch else '',
+            })
+
+    except Invoice.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Invoice not found'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_send_invoice_whatsapp(request):
     """Trigger WhatsApp invoice message manually for a given invoice_id."""
     if request.method != 'POST':
