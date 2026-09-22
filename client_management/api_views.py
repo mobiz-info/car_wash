@@ -3073,16 +3073,39 @@ def api_report_jobs(request):
     ).select_related('customer', 'vehicle', 'branch').prefetch_related('items', 'items__service', 'items__service__service_type', 'items__service_detail').order_by('-date', '-auto_id')
 
     # Fetch Enabled Categories for current branch / scope
-    disabled_slugs = set()
-    if branch_id:
-        disabled_slugs = set(BranchServiceCategory.objects.filter(branch_id=branch_id, is_enabled=False, is_deleted=False).values_list('service_type__slug', flat=True))
-    elif hasattr(user, 'managed_branch') and user.managed_branch:
-        disabled_slugs = set(BranchServiceCategory.objects.filter(branch=user.managed_branch, is_enabled=False, is_deleted=False).values_list('service_type__slug', flat=True))
-
     all_types = ServiceType.objects.filter(is_deleted=False).order_by('name')
+
+    target_branch_id = branch_id
+    if not target_branch_id and hasattr(user, 'managed_branch') and user.managed_branch:
+        target_branch_id = user.managed_branch.id
+
+    if target_branch_id:
+        bsc_qs = BranchServiceCategory.objects.filter(branch_id=target_branch_id, is_deleted=False)
+        if bsc_qs.filter(is_enabled=True).exists():
+            enabled_slugs = set(bsc_qs.filter(is_enabled=True).values_list('service_type__slug', flat=True))
+            categories_list = [st for st in all_types if st.slug and st.slug in enabled_slugs]
+        else:
+            disabled_slugs = set(bsc_qs.filter(is_enabled=False).values_list('service_type__slug', flat=True))
+            categories_list = [st for st in all_types if not (st.slug and st.slug in disabled_slugs)]
+    elif company:
+        bsc_qs = BranchServiceCategory.objects.filter(branch__company=company, is_deleted=False)
+        if bsc_qs.filter(is_enabled=True).exists():
+            enabled_slugs = set(bsc_qs.filter(is_enabled=True).values_list('service_type__slug', flat=True))
+            categories_list = [st for st in all_types if st.slug and st.slug in enabled_slugs]
+        else:
+            disabled_slugs = set(bsc_qs.filter(is_enabled=False).values_list('service_type__slug', flat=True))
+            categories_list = [st for st in all_types if not (st.slug and st.slug in disabled_slugs)]
+    else:
+        bsc_qs = BranchServiceCategory.objects.filter(is_deleted=False)
+        if bsc_qs.filter(is_enabled=True).exists():
+            enabled_slugs = set(bsc_qs.filter(is_enabled=True).values_list('service_type__slug', flat=True))
+            categories_list = [st for st in all_types if st.slug and st.slug in enabled_slugs]
+        else:
+            categories_list = list(all_types)
+
     enabled_categories = [
         {'id': str(st.id), 'name': st.name, 'slug': st.slug or ''}
-        for st in all_types if not (st.slug and st.slug in disabled_slugs)
+        for st in categories_list
     ]
 
     category_param = request.GET.get('category') or request.GET.get('category_id') or request.GET.get('category_slug')
