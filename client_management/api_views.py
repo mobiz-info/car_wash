@@ -7768,7 +7768,9 @@ def api_get_purchase_invoices(request):
             'items_count': inv.items.filter(is_deleted=False).count(),
         } for inv in invoices]
 
-
+        return JsonResponse({'success': True, 'purchase_invoices': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
