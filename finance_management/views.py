@@ -1080,11 +1080,20 @@ def job_report(request):
 
     # CATEGORY FILTER
     if category_param:
-        invoices = invoices.filter(
-            Q(items__service__service_type__slug=category_param) |
-            Q(items__service__service_type__id=category_param) |
-            Q(items__service_detail__service_category=category_param)
-        ).distinct()
+        is_uuid = False
+        try:
+            import uuid
+            uuid.UUID(str(category_param))
+            is_uuid = True
+        except (ValueError, AttributeError, TypeError):
+            is_uuid = False
+
+        if is_uuid:
+            cat_q = Q(items__service__service_type__id=category_param) | Q(items__service__service_type__slug=category_param)
+        else:
+            cat_q = Q(items__service__service_type__slug=category_param) | Q(items__service_detail__service_category=category_param)
+
+        invoices = invoices.filter(cat_q).distinct()
 
     invoices = invoices.order_by(
         '-date',

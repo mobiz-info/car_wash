@@ -3109,21 +3109,29 @@ def api_report_jobs(request):
     ]
 
     category_param = request.GET.get('category') or request.GET.get('category_id') or request.GET.get('category_slug')
+    item_q = None
     if category_param:
-        qs = qs.filter(
-            Q(items__service__service_type__slug=category_param) |
-            Q(items__service__service_type__id=category_param) |
-            Q(items__service_detail__service_category=category_param)
-        ).distinct()
+        is_uuid = False
+        try:
+            import uuid
+            uuid.UUID(str(category_param))
+            is_uuid = True
+        except (ValueError, AttributeError, TypeError):
+            is_uuid = False
+
+        if is_uuid:
+            cat_q = Q(items__service__service_type__id=category_param) | Q(items__service__service_type__slug=category_param)
+            item_q = Q(service__service_type__id=category_param) | Q(service__service_type__slug=category_param)
+        else:
+            cat_q = Q(items__service__service_type__slug=category_param) | Q(items__service_detail__service_category=category_param)
+            item_q = Q(service__service_type__slug=category_param) | Q(service_detail__service_category=category_param)
+
+        qs = qs.filter(cat_q).distinct()
 
     rows = []
     for inv in qs:
-        if category_param:
-            matching_items = inv.items.filter(
-                Q(service__service_type__slug=category_param) |
-                Q(service__service_type__id=category_param) |
-                Q(service_detail__service_category=category_param)
-            )
+        if category_param and item_q:
+            matching_items = inv.items.filter(item_q)
             services = ', '.join(matching_items.values_list('service_name', flat=True))
         else:
             services = ', '.join(inv.items.values_list('service_name', flat=True))
