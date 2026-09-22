@@ -251,6 +251,10 @@ urlpatterns = [
     path('api/erp/purchase-invoices/list/', api_views.api_get_purchase_invoices, name='api_get_purchase_invoices'),
     path('api/erp/suppliers-payables/', api_views.api_get_suppliers_payables, name='api_get_suppliers_payables'),
     path('api/erp/supplier-payment/create/', api_views.api_create_supplier_payment, name='api_create_supplier_payment'),
+
+    # Tally Integration APIs
+    path('api/tally/invoices/', api_views.api_tally_invoices, name='api_tally_invoices'),
+    path('api/tally/receipts/', api_views.api_tally_receipts, name='api_tally_receipts'),
 ]
 
 
