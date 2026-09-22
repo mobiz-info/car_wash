@@ -223,26 +223,47 @@ def api_list_invoices(request):
             'total': str(inv.total),
             'amount_collected': str(inv.amount_collected),
             'invoice_type': inv.invoice_type,
+            'remarks': inv.remarks or '',
             'customer': {
-                'name': inv.customer.name,
-                'phone': inv.customer.phone,
+                'id': str(inv.customer.id) if inv.customer else '',
+                'name': inv.customer.name if inv.customer else '',
+                'phone': inv.customer.phone if inv.customer else '',
             },
             'vehicle': {
-                'number': inv.vehicle.vehicle_number,
-                'model': inv.vehicle.vehicle_type_model.name if inv.vehicle.vehicle_type_model else '',
-                'type': inv.vehicle.vehicle_type_model.vehicle_type.name if inv.vehicle.vehicle_type_model and inv.vehicle.vehicle_type_model.vehicle_type else '',
+                'id': str(inv.vehicle.id) if inv.vehicle else '',
+                'number': inv.vehicle.vehicle_number if inv.vehicle else '',
+                'model': inv.vehicle.vehicle_type_model.name if inv.vehicle and inv.vehicle.vehicle_type_model else '',
+                'type': inv.vehicle.vehicle_type_model.vehicle_type.name if inv.vehicle and inv.vehicle.vehicle_type_model and inv.vehicle.vehicle_type_model.vehicle_type else '',
             },
             'branch': inv.branch.name if inv.branch else '',
             'branch_logo': request.build_absolute_uri(inv.branch.logo.url) if inv.branch and inv.branch.logo else '',
             'company_logo': request.build_absolute_uri(inv.branch.company.logo_color.url) if inv.branch and inv.branch.company and inv.branch.company.logo_color else '',
+            'company_seal': request.build_absolute_uri(inv.branch.company.company_seal.url) if inv.branch and inv.branch.company and getattr(inv.branch.company, 'company_seal', None) else '',
             'services': [
                 {
+                    'id': str(item.service.id) if item.service else str(item.id),
+                    'service_id': str(item.service.id) if item.service else None,
                     'name': item.service_name,
                     'rate': str(item.rate),
+                    'discount': str(item.discount),
                     'qty': float(item.qty) if item.qty else 1.0,
                     'net_taxable_amount': str(item.net_taxable_amount) if item.net_taxable_amount else str(item.rate)
                 }
-                for item in inv.items.all() if not item.is_operational
+                for item in inv.items.all() if not item.stock_item
+            ],
+            'trading_items': [
+                {
+                    'id': str(item.stock_item.id),
+                    'item_name': item.service_name,
+                    'qty': float(item.qty) if item.qty else 1.0,
+                    'rate': str(item.rate),
+                    'discount': str(item.discount),
+                    'is_operational': item.is_operational,
+                }
+                for item in inv.items.all() if item.stock_item
+            ],
+            'assigned_staffs': [
+                {'id': str(st.id), 'name': st.name} for st in inv.assigned_staffs.all()
             ],
         })
 
