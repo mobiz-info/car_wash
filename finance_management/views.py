@@ -969,13 +969,14 @@ def api_collect_customer_outstanding(request):
 @login_required
 def job_report(request):
 
-    from django.db.models import Sum, Count, Q
+    from django.db.models import Sum, Count, Q, ExpressionWrapper, F, DecimalField
     from finance_management.models import Invoice
-   
+    from service_management.models import ServiceType, BranchServiceCategory
 
     from_date = request.GET.get('from_date')
     to_date = request.GET.get('to_date')
     branch_id = request.GET.get('branch')
+    category_param = request.GET.get('category')
     search = request.GET.get('search')
 
     invoices = Invoice.objects.filter(
@@ -989,35 +990,25 @@ def job_report(request):
     )
 
     # COMPANY FILTER
-
     user = request.user
-
     role = None
-
     if hasattr(user, 'profile') and user.profile.role:
         role = user.profile.role.name
 
     if role == 'COMPANY_ADMIN':
-
         if hasattr(user.profile, 'company') and user.profile.company:
-
             company = user.profile.company
-
             invoices = invoices.filter(
                 branch__company=company
             )
-
             branches = Branch.objects.filter(
                 company=company,
                 is_deleted=False
             )
-
         else:
-
             branches = Branch.objects.filter(
                 is_deleted=False
             )
-
     elif role == 'BRANCH_ADMIN':
         if hasattr(user, 'managed_branch') and user.managed_branch:
             invoices = invoices.filter(branch=user.managed_branch)
@@ -1025,40 +1016,49 @@ def job_report(request):
     else:
         branches = Branch.objects.filter(is_deleted=False)
 
+    # Fetch Enabled Categories for Category Filter
+    all_types = ServiceType.objects.filter(is_deleted=False).order_by('name')
+    disabled_slugs = set()
+    if branch_id:
+        disabled_slugs = set(BranchServiceCategory.objects.filter(branch_id=branch_id, is_enabled=False, is_deleted=False).values_list('service_type__slug', flat=True))
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        disabled_slugs = set(BranchServiceCategory.objects.filter(branch=user.managed_branch, is_enabled=False, is_deleted=False).values_list('service_type__slug', flat=True))
+
+    categories = [st for st in all_types if not (st.slug and st.slug in disabled_slugs)]
+
     # SEARCH
-
     if search:
-
         invoices = invoices.filter(
-
             Q(invoice_number__icontains=search) |
             Q(customer__name__icontains=search) |
             Q(customer__phone__icontains=search) |
             Q(vehicle__vehicle_number__icontains=search)
-
         )
 
     # DATE FILTER
-
     if from_date:
-
         invoices = invoices.filter(
             date__gte=from_date
         )
 
     if to_date:
-
         invoices = invoices.filter(
             date__lte=to_date
         )
 
     # BRANCH FILTER
-
     if branch_id:
-
         invoices = invoices.filter(
             branch_id=branch_id
         )
+
+    # CATEGORY FILTER
+    if category_param:
+        invoices = invoices.filter(
+            Q(items__service__service_type__slug=category_param) |
+            Q(items__service__service_type__id=category_param) |
+            Q(items__service_detail__service_category=category_param)
+        ).distinct()
 
     invoices = invoices.order_by(
         '-date',
@@ -1068,49 +1068,33 @@ def job_report(request):
         invoice.balance = invoice.total - invoice.amount_collected
 
     # SUMMARY
-
     summary = invoices.aggregate(
-
         total_jobs=Count('id'),
-
         total_revenue=Sum('total'),
-
         total_collected=Sum('amount_collected'),
-
         total_balance=Sum(
             ExpressionWrapper(
                 F('total') - F('amount_collected'),
                 output_field=DecimalField()
             )
         ),
-
-
         total_discount=Sum('discount'),
-
     )
 
     context = {
-
         'invoices': invoices,
-
         'branches': branches,
-
+        'categories': categories,
         'from_date': from_date,
         'to_date': to_date,
-
         'branch_id': branch_id,
+        'category': category_param,
         'search': search,
-
         'total_jobs': summary['total_jobs'] or 0,
-
         'total_revenue': summary['total_revenue'] or 0,
-
         'total_collected': summary['total_collected'] or 0,
-
         'total_balance': summary['total_balance'] or 0,
-
         'total_discount': summary['total_discount'] or 0,
-
     }
 
     return render(

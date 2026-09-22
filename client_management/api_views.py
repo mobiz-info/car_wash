@@ -3053,7 +3053,7 @@ def _parse_dates(request):
 
 @csrf_exempt
 def api_report_jobs(request):
-    """Job report: all invoices in date range."""
+    """Job report: all invoices in date range with optional category filter."""
     if request.method != 'GET':
         return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
     user = get_user_from_token(request)
@@ -3061,18 +3061,50 @@ def api_report_jobs(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
 
     from finance_management.models import Invoice
-    from django.db.models import Sum
+    from service_management.models import ServiceType, BranchServiceCategory
+    from django.db.models import Sum, Q
 
     from_date, to_date = _parse_dates(request)
-    company, scope = _report_scope(user, request.GET.get('branch_id'))
+    branch_id = request.GET.get('branch_id')
+    company, scope = _report_scope(user, branch_id)
 
     qs = Invoice.objects.filter(
         is_deleted=False, date__gte=from_date, date__lte=to_date, **scope
-    ).select_related('customer', 'vehicle', 'branch').order_by('-date', '-auto_id')
+    ).select_related('customer', 'vehicle', 'branch').prefetch_related('items', 'items__service', 'items__service__service_type', 'items__service_detail').order_by('-date', '-auto_id')
+
+    # Fetch Enabled Categories for current branch / scope
+    disabled_slugs = set()
+    if branch_id:
+        disabled_slugs = set(BranchServiceCategory.objects.filter(branch_id=branch_id, is_enabled=False, is_deleted=False).values_list('service_type__slug', flat=True))
+    elif hasattr(user, 'managed_branch') and user.managed_branch:
+        disabled_slugs = set(BranchServiceCategory.objects.filter(branch=user.managed_branch, is_enabled=False, is_deleted=False).values_list('service_type__slug', flat=True))
+
+    all_types = ServiceType.objects.filter(is_deleted=False).order_by('name')
+    enabled_categories = [
+        {'id': str(st.id), 'name': st.name, 'slug': st.slug or ''}
+        for st in all_types if not (st.slug and st.slug in disabled_slugs)
+    ]
+
+    category_param = request.GET.get('category') or request.GET.get('category_id') or request.GET.get('category_slug')
+    if category_param:
+        qs = qs.filter(
+            Q(items__service__service_type__slug=category_param) |
+            Q(items__service__service_type__id=category_param) |
+            Q(items__service_detail__service_category=category_param)
+        ).distinct()
 
     rows = []
     for inv in qs:
-        services = ', '.join(inv.items.values_list('service_name', flat=True))
+        if category_param:
+            matching_items = inv.items.filter(
+                Q(service__service_type__slug=category_param) |
+                Q(service__service_type__id=category_param) |
+                Q(service_detail__service_category=category_param)
+            )
+            services = ', '.join(matching_items.values_list('service_name', flat=True))
+        else:
+            services = ', '.join(inv.items.values_list('service_name', flat=True))
+
         rows.append({
             'invoice_number': inv.invoice_number,
             'date': inv.date.strftime('%d-%m-%Y'),
@@ -3104,6 +3136,7 @@ def api_report_jobs(request):
         'total_revenue': str(totals['total_revenue'] or 0),
         'total_collected': str(totals['total_collected'] or 0),
         'total_discount': str(totals['total_discount'] or 0),
+        'categories': enabled_categories,
         'rows': rows,
     })
 
@@ -7169,17 +7202,19 @@ def api_get_quotation_detail(request, quotation_id=None):
         if not quotation or quotation.is_deleted:
             return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
 
-        company = getattr(getattr(user, 'profile', None), 'company', None)
         branch = quotation.branch
+        company = (branch.company if branch else None) or (quotation.customer.company if quotation.customer else None) or getattr(getattr(user, 'profile', None), 'company', None)
 
         company_logo = ''
         branch_logo = ''
-        if company and hasattr(company, 'logo') and company.logo:
-            try:
-                company_logo = request.build_absolute_uri(company.logo.url)
-            except Exception:
-                company_logo = ''
-        if branch and hasattr(branch, 'logo') and branch.logo:
+        if company:
+            logo_field = getattr(company, 'logo_color', None) or getattr(company, 'logo_bw', None)
+            if logo_field:
+                try:
+                    company_logo = request.build_absolute_uri(logo_field.url)
+                except Exception:
+                    company_logo = ''
+        if branch and getattr(branch, 'logo', None):
             try:
                 branch_logo = request.build_absolute_uri(branch.logo.url)
             except Exception:

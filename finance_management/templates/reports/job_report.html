@@ -450,41 +450,19 @@
             </select>
             {% endif %}
 
-            {% comment %} <select name="status" class="select-input">
-
+            <select name="category" class="select-input">
                 <option value="">
-                    All Status
+                    All Enabled Categories
                 </option>
-
-                <option value="pending"
-                    {% if status == 'pending' %}
+                {% for cat in categories %}
+                <option value="{{ cat.slug|default:cat.id }}"
+                    {% if category == cat.slug or category == cat.id|stringformat:"s" %}
                         selected
                     {% endif %}>
-                    Pending
+                    {{ cat.name }}
                 </option>
-
-                <option value="confirmed"
-                    {% if status == 'confirmed' %}
-                        selected
-                    {% endif %}>
-                    Confirmed
-                </option>
-
-                <option value="completed"
-                    {% if status == 'completed' %}
-                        selected
-                    {% endif %}>
-                    Completed
-                </option>
-
-                <option value="cancelled"
-                    {% if status == 'cancelled' %}
-                        selected
-                    {% endif %}>
-                    Cancelled
-                </option>
-
-            </select> {% endcomment %}
+                {% endfor %}
+            </select>
 
             <button type="submit" class="filter-btn">
 

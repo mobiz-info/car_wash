@@ -1224,9 +1224,7 @@
                 <div class="navbar-right">
                     <i class="ph ph-moon"></i>
                     <div class="flex-center" style="gap: 8px;">
-                        <span
-                            style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">{{
-                            request.user.username|make_list|first|upper|default:"A" }}</span>
+                        <span style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">{{ request.user.username|slice:":1"|upper|default:"A" }}</span>
                         <span>{{ request.user.username|default:"admin" }}</span>
                     </div>
                     {% if request.user.is_authenticated %}
