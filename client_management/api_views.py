@@ -124,6 +124,7 @@ def api_login(request):
                     subscription_days_left = -1
 
             company_logo = request.build_absolute_uri(company.logo_color.url) if company and company.logo_color else ''
+            company_seal = request.build_absolute_uri(company.company_seal.url) if company and getattr(company, 'company_seal', None) else ''
 
             return JsonResponse({
                 'success': True,
@@ -138,6 +139,7 @@ def api_login(request):
                 'subscription_days_left': subscription_days_left,
                 'subscription_end_date': subscription_end_date,
                 'company_logo': company_logo,
+                'company_seal': company_seal,
             })
         else:
             return JsonResponse({'success': False, 'message': 'Invalid username or password'}, status=401)
@@ -1493,6 +1495,7 @@ def api_create_invoice(request):
         _wa_thread.start()
             
         company_logo = request.build_absolute_uri(invoice.branch.company.logo_color.url) if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color else ''
+        company_seal = request.build_absolute_uri(invoice.branch.company.company_seal.url) if invoice.branch and invoice.branch.company and getattr(invoice.branch.company, 'company_seal', None) else ''
         branch_logo = request.build_absolute_uri(invoice.branch.logo.url) if invoice.branch and invoice.branch.logo else ''
 
         return JsonResponse({
@@ -1501,6 +1504,7 @@ def api_create_invoice(request):
             'invoice_id': str(invoice.id),
             'invoice_number': invoice.invoice_number,
             'company_logo': company_logo,
+            'company_seal': company_seal,
             'branch_logo': branch_logo,
             'branch': invoice.branch.name if invoice.branch else '',
         })
@@ -5616,6 +5620,13 @@ def api_report_staff_income(request):
             except Exception:
                 pass
 
+        company_seal_url = ''
+        if inv.branch and hasattr(inv.branch, 'company') and inv.branch.company and hasattr(inv.branch.company, 'company_seal') and inv.branch.company.company_seal:
+            try:
+                company_seal_url = request.build_absolute_uri(inv.branch.company.company_seal.url)
+            except Exception:
+                pass
+
         inv_dict = {
             'id': str(inv.id),
             'invoice_number': inv.invoice_number,
@@ -5633,6 +5644,7 @@ def api_report_staff_income(request):
             'branch': inv.branch.name if inv.branch else '',
             'branch_logo': branch_logo_url,
             'company_logo': company_logo_url,
+            'company_seal': company_seal_url,
             'services': services_data,
             'trading_items': trading_data,
             'taxes': [],
@@ -7237,6 +7249,7 @@ def api_get_quotation_detail(request, quotation_id=None):
         company = (branch.company if branch else None) or (quotation.customer.company if quotation.customer else None) or getattr(getattr(user, 'profile', None), 'company', None)
 
         company_logo = ''
+        company_seal = ''
         branch_logo = ''
         if company:
             logo_field = getattr(company, 'logo_color', None) or getattr(company, 'logo_bw', None)
@@ -7245,6 +7258,11 @@ def api_get_quotation_detail(request, quotation_id=None):
                     company_logo = request.build_absolute_uri(logo_field.url)
                 except Exception:
                     company_logo = ''
+            if getattr(company, 'company_seal', None):
+                try:
+                    company_seal = request.build_absolute_uri(company.company_seal.url)
+                except Exception:
+                    company_seal = ''
         if branch and getattr(branch, 'logo', None):
             try:
                 branch_logo = request.build_absolute_uri(branch.logo.url)
@@ -7310,6 +7328,7 @@ def api_get_quotation_detail(request, quotation_id=None):
                 'is_grand_total': getattr(quotation, 'is_grand_total', True),
                 'date': quotation.date_added.strftime('%d-%m-%Y %H:%M') if quotation.date_added else '',
                 'company_logo': company_logo,
+                'company_seal': company_seal,
                 'branch_logo': branch_logo,
                 'items': items,
                 'extras': extras,

@@ -186,7 +186,12 @@
                                     <i class="ph-fill ph-buildings" style="font-size: 1.4rem;"></i>
                                 {% endif %}
                             </div>
-                            <span style="font-size: 0.95rem; font-weight: 600;">{{ obj.company_name }}</span>
+                            <span style="font-size: 0.95rem; font-weight: 600;">
+                                {{ obj.company_name }}
+                                {% if obj.company_seal %}
+                                    <span style="font-size: 0.7rem; background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 600;" title="Seal Uploaded">Seal ✓</span>
+                                {% endif %}
+                            </span>
                         </div>
                     </td>
                     <td>{{ obj.owner_name }}</td>

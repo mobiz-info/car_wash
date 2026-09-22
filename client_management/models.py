@@ -46,6 +46,13 @@ class Client(BaseModel):
         blank=True,
         null=True
     )
+
+    company_seal = models.ImageField(
+        upload_to='client_seals/',
+        validators=[validate_png, validate_image_dimensions],
+        blank=True,
+        null=True
+    )
     
     def __str__(self):
         return f"{self.company_name} ({self.owner_name})"

@@ -450,6 +450,9 @@
                 </td>
                 <td class="align-right">
                     <div class="signature-block" style="display: inline-block;">
+                        {% if invoice.branch and invoice.branch.company and invoice.branch.company.company_seal %}
+                            <img src="{{ invoice.branch.company.company_seal.url }}" style="height: 60px; max-width: 120px; object-fit: contain; margin-bottom: 5px;" /><br>
+                        {% endif %}
                         <div class="signature-line"></div>
                         <div class="signature-title">Authorized Signatory</div>
                     </div>

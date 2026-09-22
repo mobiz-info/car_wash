@@ -22,11 +22,12 @@ class ClientForm(forms.ModelForm):
             'monthly_tariff', 
             'scheme_types',
 
-            'status', 'logo_color', 'logo_bw'
+            'status', 'logo_color', 'logo_bw', 'company_seal'
         ]
         widgets = {
             'logo_color': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_color'}),
             'logo_bw': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_bw'}),
+            'company_seal': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_company_seal'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -52,7 +53,7 @@ class ClientForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             if field_name == 'status':
                 field.widget.attrs['class'] = 'form-check-input'
-            elif field_name in ('logo_color', 'logo_bw', 'scheme_types'):
+            elif field_name in ('logo_color', 'logo_bw', 'company_seal', 'scheme_types'):
                 pass  # These have their own widget configs; don't override
             else:
                 field.widget.attrs['class'] = 'form-control'
@@ -63,10 +64,11 @@ class ClientForm(forms.ModelForm):
 class CompanyProfileForm(forms.ModelForm):
     class Meta:
         model = Client
-        fields = ['company_name', 'logo_color', 'logo_bw']
+        fields = ['company_name', 'logo_color', 'logo_bw', 'company_seal']
         widgets = {
             'logo_color': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_color'}),
             'logo_bw': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_bw'}),
+            'company_seal': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_company_seal'}),
         }
 
     def __init__(self, *args, **kwargs):
