@@ -1199,16 +1199,29 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
 
     elif category == InvoiceServiceDetail.CATEGORY_SMOKE:
         from datetime import timedelta
-        validity_months = 12
-        if vehicle and vehicle.vehicle_type_model:
-            vtm = vehicle.vehicle_type_model
-            if vtm.emission_standard:
-                validity_months = vtm.emission_standard.validity_months
-            else:
-                name_upper = (vtm.name or '').upper()
-                bs3_keywords = ['BS-1', 'BS-2', 'BS-3', 'BS 1', 'BS 2', 'BS 3', 'BS1', 'BS2', 'BS3', 'BS -1', 'BS -2', 'BS -3']
-                if any(k in name_upper for k in bs3_keywords):
-                    validity_months = 6
+
+        # Prefer the value explicitly sent by the app (user-selected 6 or 12 months)
+        app_sent_months = detail_data.get('smoke_test_period_months')
+        if app_sent_months is not None:
+            try:
+                validity_months = int(app_sent_months)
+            except (ValueError, TypeError):
+                validity_months = None
+        else:
+            validity_months = None
+
+        # Fall back to vehicle emission standard / model name detection if app didn't send a value
+        if not validity_months:
+            validity_months = 12
+            if vehicle and vehicle.vehicle_type_model:
+                vtm = vehicle.vehicle_type_model
+                if vtm.emission_standard:
+                    validity_months = vtm.emission_standard.validity_months
+                else:
+                    name_upper = (vtm.name or '').upper()
+                    bs3_keywords = ['BS-1', 'BS-2', 'BS-3', 'BS 1', 'BS 2', 'BS 3', 'BS1', 'BS2', 'BS3', 'BS -1', 'BS -2', 'BS -3']
+                    if any(k in name_upper for k in bs3_keywords):
+                        validity_months = 6
 
         detail.smoke_test_period_months = validity_months
         days = 180 if validity_months == 6 else 365
