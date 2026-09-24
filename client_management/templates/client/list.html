@@ -168,6 +168,7 @@
                     <th>Company Name</th>
                     <th>Owner Name</th>
                     <th>Phone</th>
+                    <th>Created Date</th>
                     <th>Status</th>
                     <th style="width: 120px; text-align: right;">Action</th>
                 </tr>
@@ -196,6 +197,7 @@
                     </td>
                     <td>{{ obj.owner_name }}</td>
                     <td>{{ obj.phone|default:"-" }}</td>
+                    <td style="color: #475569; font-weight: 600;">{{ obj.date_added|date:"j M Y, h:i A" }}</td>
                     <td>
                         {% if obj.status %}
                             <span class="status-badge status-active">Active</span>
@@ -216,7 +218,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align:center; padding: 40px; color: #94a3b8;">
+                    <td colspan="7" style="text-align:center; padding: 40px; color: #94a3b8;">
                         <i class="ph ph-folder-open" style="font-size: 3rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
                         No clients found matching your criteria.
                     </td>
