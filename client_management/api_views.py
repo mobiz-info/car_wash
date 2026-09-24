@@ -6861,7 +6861,7 @@ def api_vehicle_service_history(request, vehicle_id):
         from finance_management.models import Invoice, InvoiceServiceDetail
         invoices = Invoice.objects.filter(
             vehicle=vehicle, is_deleted=False
-        ).order_by('-date').prefetch_related('items')
+        ).order_by('-date', '-date_added', '-auto_id').prefetch_related('items')
 
         from booking_management.models import ReminderPlan
         from datetime import timedelta
