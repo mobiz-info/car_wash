@@ -193,7 +193,7 @@ def api_list_invoices(request):
 
     invoices = Invoice.objects.filter(is_deleted=False).select_related(
         'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
-    ).prefetch_related('items').order_by('-date', '-auto_id')
+    ).prefetch_related('items', 'items__service_detail').order_by('-date', '-auto_id')
 
     role = user.profile.role.name if user.profile.role else None
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
@@ -247,7 +247,22 @@ def api_list_invoices(request):
                     'rate': str(item.rate),
                     'discount': str(item.discount),
                     'qty': float(item.qty) if item.qty else 1.0,
-                    'net_taxable_amount': str(item.net_taxable_amount) if item.net_taxable_amount else str(item.rate)
+                    'net_taxable_amount': str(item.net_taxable_amount) if item.net_taxable_amount else str(item.rate),
+                    'service_category': item.service_detail.service_category if hasattr(item, 'service_detail') and item.service_detail else '',
+                    'smoke_test_period_months': item.service_detail.smoke_test_period_months if hasattr(item, 'service_detail') and item.service_detail else None,
+                    'service_detail': {
+                        'service_category': item.service_detail.service_category,
+                        'smoke_test_period_months': item.service_detail.smoke_test_period_months,
+                        'warranty_value': item.service_detail.warranty_value,
+                        'warranty_unit': item.service_detail.warranty_unit,
+                        'odometer_at_service': item.service_detail.odometer_at_service,
+                        'next_oil_change_km': item.service_detail.next_oil_change_km,
+                        'next_tyre_change_km': item.service_detail.next_tyre_change_km,
+                        'next_alignment_km': item.service_detail.next_alignment_km,
+                        'alignment_done': item.service_detail.alignment_done,
+                        'balancing_done': item.service_detail.balancing_done,
+                        'alignment_notes': item.service_detail.alignment_notes,
+                    } if hasattr(item, 'service_detail') and item.service_detail else None,
                 }
                 for item in inv.items.all() if not item.stock_item
             ],
