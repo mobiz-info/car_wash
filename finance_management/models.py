@@ -25,6 +25,7 @@ class Invoice(BaseModel):
     )
     
     remarks = models.TextField(blank=True, null=True)
+    show_warranty_in_pdf = models.BooleanField(default=False, help_text="Include Warranty & Free Top-Up details in invoice PDF")
     
     def __str__(self):
         return f"INV-{self.invoice_number} - {self.customer.name}"
@@ -63,6 +64,7 @@ class Receipt(BaseModel):
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
 
     remarks = models.TextField(blank=True, null=True)
+    show_warranty_in_pdf = models.BooleanField(default=False, help_text="Include Warranty & Free Top-Up details in invoice PDF")
 
     cheque_no = models.CharField(max_length=100, blank=True, null=True)
     cheque_date = models.DateField(blank=True, null=True)

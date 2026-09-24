@@ -1353,6 +1353,7 @@ def api_create_invoice(request):
         inv_type = 'cashinvoice' if amt_collected_val >= total_val else 'creditinvoice'
 
         remarks_text = (data.get('remarks') or '').strip() or None
+        show_warranty_val = bool(data.get('show_warranty_in_pdf', False))
         invoice = Invoice.objects.create(
             invoice_number=inv_number,
             customer=customer,
@@ -1366,6 +1367,7 @@ def api_create_invoice(request):
             amount_collected=data.get('amount_collected', 0),
             invoice_type=inv_type,
             remarks=remarks_text,
+            show_warranty_in_pdf=show_warranty_val,
             creator=user,
             auto_id=get_auto_id(Invoice)
         )
@@ -1606,6 +1608,8 @@ def api_update_invoice(request):
             invoice.amount_collected = amt_collected_val
             invoice.invoice_type = inv_type
             invoice.remarks = remarks_text
+            if 'show_warranty_in_pdf' in data:
+                invoice.show_warranty_in_pdf = bool(data.get('show_warranty_in_pdf'))
             invoice.updater = user
 
             inv_date_str = data.get('date') or data.get('invoice_date')

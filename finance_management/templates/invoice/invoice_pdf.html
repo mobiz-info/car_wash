@@ -436,6 +436,67 @@
         </table>
     </div>
 
+    {% if invoice.show_warranty_in_pdf %}
+    <!-- Warranty Details & Free Top-Up Schedule -->
+    <div style="margin-top: 20px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
+        <div style="background-color: #1e3a8a; color: #ffffff; padding: 7px 12px; font-weight: 700; font-size: 9.5pt; letter-spacing: 0.5px; text-transform: uppercase;">
+            Warranty Details & Free Top-Up Schedule
+        </div>
+        <div style="padding: 12px; background-color: #f8fafc;">
+            <!-- Warranty Details -->
+            <div style="margin-bottom: 12px;">
+                <h5 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 9pt; font-weight: 700; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px; text-transform: uppercase;">
+                    Warranty Details
+                </h5>
+                {% for item in invoice.items.all %}
+                    {% if item.service_detail and item.service_detail.service_category == 'car_detailing' or 'detail' in item.service_name|lower or 'coating' in item.service_name|lower or 'ppf' in item.service_name|lower %}
+                    <div style="font-size: 8.5pt; color: #334155; margin-bottom: 3px; line-height: 1.4;">
+                        <strong>Service Name:</strong> {{ item.service_name }} | 
+                        {% if item.service_detail and item.service_detail.warranty_value %}
+                            <strong>Warranty Period:</strong> {{ item.service_detail.warranty_value }} {{ item.service_detail.warranty_unit|title }}{% if item.service_detail.warranty_value > 1 %}s{% endif %} | 
+                        {% else %}
+                            <strong>Warranty Period:</strong> Standard Service Warranty | 
+                        {% endif %}
+                        <strong>Date of Service:</strong> {{ invoice.date|date:"d M Y" }}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Free Top-Up Schedule -->
+            <div>
+                <h5 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 9pt; font-weight: 700; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px; text-transform: uppercase;">
+                    Free Top-Up Schedule
+                </h5>
+                {% if invoice.reminder_plans.all %}
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 8.5pt;">
+                        <thead>
+                            <tr style="background-color: #e2e8f0; color: #1e293b;">
+                                <th style="padding: 4px 8px; text-align: left;">Top-Up No</th>
+                                <th style="padding: 4px 8px; text-align: left;">Scheduled Date</th>
+                                <th style="padding: 4px 8px; text-align: left;">Service / Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plan in invoice.reminder_plans.all %}
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                                <td style="padding: 4px 8px; font-weight: 600;">Free Top-Up #{{ plan.reminder_no }}</td>
+                                <td style="padding: 4px 8px; font-weight: 600; color: #1e3a8a;">{{ plan.scheduled_date|date:"d M Y" }}</td>
+                                <td style="padding: 4px 8px;">{{ plan.reminder.service.name|default:plan.template_name|default:"Free Inspection & Top-Up" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div style="font-size: 8.5pt; color: #64748b; font-style: italic; margin-top: 2px;">
+                        Free top-up inspections scheduled periodically per service terms.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Footer -->
     <div class="footer-section">
         <table class="footer-table">

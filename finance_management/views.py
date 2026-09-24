@@ -224,6 +224,7 @@ def api_list_invoices(request):
             'amount_collected': str(inv.amount_collected),
             'invoice_type': inv.invoice_type,
             'remarks': inv.remarks or '',
+            'show_warranty_in_pdf': inv.show_warranty_in_pdf,
             'customer': {
                 'id': str(inv.customer.id) if inv.customer else '',
                 'name': inv.customer.name if inv.customer else '',
