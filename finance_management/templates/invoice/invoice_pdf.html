@@ -472,9 +472,8 @@
                     <table style="width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 8.5pt;">
                         <thead>
                             <tr style="background-color: #e2e8f0; color: #1e293b;">
-                                <th style="padding: 4px 8px; text-align: left;">Top-Up No</th>
-                                <th style="padding: 4px 8px; text-align: left;">Scheduled Date</th>
-                                <th style="padding: 4px 8px; text-align: left;">Service / Details</th>
+                                <th style="padding: 4px 8px; text-align: left; width: 40%;">Top-Up No</th>
+                                <th style="padding: 4px 8px; text-align: left; width: 60%;">Scheduled Date</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -482,7 +481,6 @@
                             <tr style="border-bottom: 1px solid #e2e8f0;">
                                 <td style="padding: 4px 8px; font-weight: 600;">Free Top-Up #{{ plan.reminder_no }}</td>
                                 <td style="padding: 4px 8px; font-weight: 600; color: #1e3a8a;">{{ plan.scheduled_date|date:"d M Y" }}</td>
-                                <td style="padding: 4px 8px;">{{ plan.reminder.service.name|default:plan.template_name|default:"Free Inspection & Top-Up" }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
