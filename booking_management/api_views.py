@@ -3782,15 +3782,39 @@ def api_reminder_list(request):
         formatted_date = plan.scheduled_date.strftime("%d-%m-%Y") if plan.scheduled_date else ""
         
         next_oil_change_km = None
-        for item in plan.invoice.items.all():
-            if hasattr(item, 'service_detail') and item.service_detail:
-                if item.service_detail.service_category == 'oil_change' or item.service_detail.next_oil_change_km:
-                    service_category = 'oil_change'
-                    if item.service_detail.next_oil_change_km:
-                        next_oil_change_km = item.service_detail.next_oil_change_km
+        next_alignment_km = None
+        if plan.invoice:
+            for item in plan.invoice.items.all():
+                if hasattr(item, 'service_detail') and item.service_detail:
+                    sd = item.service_detail
+                    if sd.service_category == 'oil_change' or sd.next_oil_change_km:
+                        if not service_category:
+                            service_category = 'oil_change'
+                        if sd.next_oil_change_km:
+                            next_oil_change_km = sd.next_oil_change_km
+                    elif sd.service_category in ['alignment', 'wheel_balancing'] or sd.next_alignment_km:
+                        if not service_category:
+                            service_category = 'alignment'
+                        if sd.next_alignment_km:
+                            next_alignment_km = str(sd.next_alignment_km)
+
+        s_name_lower = service_name.lower()
+        is_wheel = ('wheel' in s_name_lower or 'balance' in s_name_lower or 'alignment' in s_name_lower or service_category in ['alignment', 'wheel_balancing'])
+
+        if is_wheel:
+            if not next_alignment_km and plan.invoice and plan.invoice.vehicle and plan.invoice.vehicle.next_alignment_km:
+                next_alignment_km = str(plan.invoice.vehicle.next_alignment_km)
+
+        branch_name = plan.branch.name if (plan and plan.branch) else (plan.invoice.branch.name if (plan.invoice and plan.invoice.branch) else 'Mobiz Auto Care')
 
         if service_category == 'oil_change':
             message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_oil_change_km or 'N/A'} km"
+        elif is_wheel:
+            km_disp = f"{next_alignment_km} KM" if (next_alignment_km and str(next_alignment_km).upper() != 'N/A' and 'KM' not in str(next_alignment_km).upper()) else (next_alignment_km or 'N/A')
+            if km_disp != 'N/A':
+                message = f"Dear {customer_name}, your vehicle {vehicle_no} is due for Wheel Alignment at {km_disp}.\nVisit {branch_name} for a smooth ride."
+            else:
+                message = f"Dear {customer_name}, your vehicle {vehicle_no} is due for Wheel Alignment.\nVisit {branch_name} for a smooth ride."
         else:
             msg_template = (plan.reminder.reminder_message if (plan.reminder and plan.reminder.reminder_message) else "").strip()
             if not msg_template:
@@ -3971,13 +3995,20 @@ def api_send_reminder(request):
                 branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
                 # Resolve next alignment KM from invoice service_detail or vehicle
                 next_alignment_km = 'N/A'
-                for _item in invoice.items.all():
-                    if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.next_alignment_km:
-                        next_alignment_km = str(_item.service_detail.next_alignment_km)
-                        break
-                if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
-                    next_alignment_km = str(invoice.vehicle.next_alignment_km)
+                if invoice:
+                    for _item in invoice.items.all():
+                        if hasattr(_item, 'service_detail') and _item.service_detail and _item.service_detail.next_alignment_km:
+                            next_alignment_km = str(_item.service_detail.next_alignment_km)
+                            break
+                    if next_alignment_km == 'N/A' and invoice.vehicle and invoice.vehicle.next_alignment_km:
+                        next_alignment_km = str(invoice.vehicle.next_alignment_km)
                 tmpl_values = [customer_name, vehicle_no, next_alignment_km, branch_name]
+
+                km_disp = f"{next_alignment_km} KM" if (next_alignment_km and str(next_alignment_km).upper() != 'N/A' and 'KM' not in str(next_alignment_km).upper()) else (next_alignment_km or 'N/A')
+                if km_disp != 'N/A':
+                    message = f"Dear {customer_name}, your vehicle {vehicle_no} is due for Wheel Alignment at {km_disp}.\nVisit {branch_name} for a smooth ride."
+                else:
+                    message = f"Dear {customer_name}, your vehicle {vehicle_no} is due for Wheel Alignment.\nVisit {branch_name} for a smooth ride."
             else:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'servicesreminder')).strip()
                 if tmpl_name.lower() in ['servicereminder', 'reminderservice']:

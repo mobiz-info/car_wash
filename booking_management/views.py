@@ -1059,19 +1059,66 @@ def send_reminder_ajax(request):
                 service_name = plan.template_name or "Service Reminder"
             
             # Prefilled message (Template text fallback)
-            msg_template = (reminder.reminder_message if (reminder and reminder.reminder_message) else "").strip()
-            if not msg_template:
-                msg_template = "Dear {customer_name}, your vehicle {vehicle_number} is scheduled for {service_name} reminder on {scheduled_date}."
-            if msg_template.startswith('"') and msg_template.endswith('"'):
-                msg_template = msg_template[1:-1].strip()
+            branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
 
-            message = msg_template.replace('{customer_name}', customer_name) \
-                                   .replace('{vehicle_number}', vehicle_no) \
-                                   .replace('{service_name}', service_name) \
-                                   .replace('{expiry_date}', formatted_date) \
-                                   .replace('{scheduled_date}', formatted_date) \
-                                   .replace('{due_date}', formatted_date) \
-                                   .replace('{next_date}', formatted_date)
+            s_name_lower = service_name.lower()
+            is_oil = False
+            is_smoke = False
+            is_wheel = False
+            next_km = ""
+            next_alignment_km = 'N/A'
+
+            if 'wheel' in s_name_lower or 'balance' in s_name_lower or 'alignment' in s_name_lower:
+                is_wheel = True
+            elif 'smoke' in s_name_lower or 'pollution' in s_name_lower:
+                is_smoke = True
+            elif 'oil' in s_name_lower:
+                is_oil = True
+
+            if reminder and reminder.service:
+                cat_slug = reminder.service.service_type.slug if reminder.service.service_type else ""
+                if cat_slug == 'oil_change':
+                    is_oil = True
+                elif cat_slug == 'smoke_test':
+                    is_smoke = True
+                elif cat_slug in ['wheel_balancing', 'alignment']:
+                    is_wheel = True
+
+            if invoice:
+                for item in invoice.items.all():
+                    if hasattr(item, 'service_detail') and item.service_detail:
+                        sd = item.service_detail
+                        if sd.service_category == 'oil_change' or sd.next_oil_change_km:
+                            is_oil = True
+                            if sd.next_oil_change_km:
+                                next_km = str(sd.next_oil_change_km)
+                        elif sd.service_category in ['alignment', 'wheel_balancing'] or sd.next_alignment_km:
+                            is_wheel = True
+                            if sd.next_alignment_km:
+                                next_alignment_km = str(sd.next_alignment_km)
+
+            if is_wheel and next_alignment_km == 'N/A' and invoice and invoice.vehicle and invoice.vehicle.next_alignment_km:
+                next_alignment_km = str(invoice.vehicle.next_alignment_km)
+
+            if is_oil:
+                message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km"
+            elif is_wheel:
+                km_disp = f"{next_alignment_km} KM" if (next_alignment_km and str(next_alignment_km).upper() != 'N/A' and 'KM' not in str(next_alignment_km).upper()) else (next_alignment_km or 'N/A')
+                if km_disp != 'N/A':
+                    message = f"Dear {customer_name}, your vehicle {vehicle_no} is due for Wheel Alignment at {km_disp}.\nVisit {branch_name} for a smooth ride."
+                else:
+                    message = f"Dear {customer_name}, your vehicle {vehicle_no} is due for Wheel Alignment.\nVisit {branch_name} for a smooth ride."
+            else:
+                msg_template = (reminder.reminder_message if (reminder and reminder.reminder_message) else "").strip()
+                if not msg_template:
+                    msg_template = "Dear {customer_name}, your vehicle {vehicle_number} is scheduled for {service_name} reminder on {scheduled_date}."
+                if msg_template.startswith('"') and msg_template.endswith('"'):
+                    msg_template = msg_template[1:-1].strip()
+
+                message = msg_template.replace('{customer_name}', customer_name)                                        .replace('{vehicle_number}', vehicle_no)                                        .replace('{service_name}', service_name)                                        .replace('{expiry_date}', formatted_date)                                        .replace('{scheduled_date}', formatted_date)                                        .replace('{due_date}', formatted_date)                                        .replace('{next_date}', formatted_date)
+
+                if 'expired on ' in message and service_name and service_name in message:
+                    message = message.replace(f"expired on {service_name}", f"expired on {formatted_date}")
 
             encoded_message = urllib.parse.quote(message)
             fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
