@@ -82,6 +82,97 @@
 
 <!-- Superadmin Data Analytics Grid -->
 {% if role_name == 'SUPER_ADMIN' %}
+
+<!-- Client Activity Monitor (Active vs Inactive Clients - 3 Days Rule) -->
+<div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 22px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04); margin-bottom: 32px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 10px;">
+                <i class="ph-fill ph-pulse" style="color: #3b82f6; font-size: 1.4rem;"></i>
+                Client Activity Monitor
+            </h3>
+            <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px; font-weight: 500;">
+                Clients are marked <b style="color: #ef4444;">Inactive</b> if no app usage or invoice creation for more than 3 days.
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <span style="background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+                Active (≤3 days): {{ active_clients_count }}
+            </span>
+            <span style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>
+                Inactive (>3 days): {{ inactive_clients_count }}
+            </span>
+            <a href="{% url 'client_list' %}" style="font-size: 0.82rem; font-weight: 700; color: #3b82f6; text-decoration: none; margin-left: 6px;">All Clients →</a>
+        </div>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+            <thead>
+                <tr style="border-bottom: 2px solid #f1f5f9; color: #475569; background: #f8fafc;">
+                    <th style="padding: 12px 14px; font-weight: 700;">Company Name</th>
+                    <th style="padding: 12px 14px; font-weight: 700;">Owner & Contact</th>
+                    <th style="padding: 12px 14px; font-weight: 700;">Last Activity Date</th>
+                    <th style="padding: 12px 14px; font-weight: 700;">Days Inactive</th>
+                    <th style="padding: 12px 14px; font-weight: 700; text-align: center;">Activity Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in client_activity_list %}
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px 14px; font-weight: 700; color: #0f172a;">
+                        <a href="{% url 'client_edit' item.client.id %}" style="color: #0f172a; text-decoration: none;">
+                            {{ item.client.company_name }}
+                        </a>
+                    </td>
+                    <td style="padding: 12px 14px; color: #475569;">
+                        <div><b>{{ item.client.owner_name }}</b></div>
+                        <div style="font-size: 0.78rem; color: #64748b;">{{ item.client.phone|default:"No phone" }}</div>
+                    </td>
+                    <td style="padding: 12px 14px; color: #1e293b; font-weight: 600;">
+                        {% if item.last_activity %}
+                            {{ item.last_activity|date:"j M Y" }}
+                        {% else %}
+                            <span style="color: #94a3b8;">No activity recorded</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px 14px; font-weight: 700;">
+                        {% if item.days_inactive == 0 %}
+                            <span style="color: #10b981;">Today</span>
+                        {% elif item.days_inactive < 999 %}
+                            <span style="{% if item.is_active %}color: #10b981;{% else %}color: #ef4444;{% endif %}">
+                                {{ item.days_inactive }} day{% if item.days_inactive > 1 %}s{% endif %} ago
+                            </span>
+                        {% else %}
+                            <span style="color: #94a3b8;">-</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        {% if item.is_active %}
+                            <span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                                <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
+                                Active (Used ≤3d)
+                            </span>
+                        {% else %}
+                            <span style="background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                                <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444;"></span>
+                                Inactive (>3d No Use)
+                            </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="padding: 24px; text-align: center; color: #94a3b8;">No clients registered yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px;">
 
     <!-- Recent Registered Companies -->

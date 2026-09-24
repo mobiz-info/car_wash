@@ -52,7 +52,7 @@ def custom_login(request):
     return render(request, 'auth/login.html', {'error': error})
 from client_management.models import Client, Branch, Staff, CustomerVehicle, Subscription, RenewalTransaction
 from finance_management.models import Invoice, Receipt
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, Max
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
@@ -71,39 +71,90 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         if role_name == 'SUPER_ADMIN':
             today = timezone.now().date()
-            
-            total_companies = Client.objects.filter(is_deleted=False).count()
-            active_companies = Client.objects.filter(is_deleted=False, status=True).count()
+            three_days_ago = today - timedelta(days=3)
+
+            all_clients = Client.objects.filter(is_deleted=False)
+            total_companies = all_clients.count()
+
+            active_clients_count = 0
+            inactive_clients_count = 0
+            client_activity_list = []
+
+            for client in all_clients:
+                # 1. Last app open among all users in this company
+                last_app = UserProfile.objects.filter(
+                    company=client, last_app_open__isnull=False
+                ).aggregate(m=Max('last_app_open'))['m']
+
+                last_app_date = last_app.date() if last_app else None
+
+                # 2. Last invoice created by any branch in this company
+                last_inv_date = Invoice.objects.filter(
+                    branch__company=client, is_deleted=False
+                ).aggregate(m=Max('date'))['m']
+
+                # 3. Created date
+                created_date = client.date_added.date() if hasattr(client, 'date_added') and client.date_added else None
+
+                # Candidates for last activity
+                candidates = [d for d in [last_app_date, last_inv_date, created_date] if d is not None]
+                latest_activity = max(candidates) if candidates else None
+
+                is_active_3d = False
+                days_inactive = 999
+                if latest_activity:
+                    days_inactive = (today - latest_activity).days
+                    is_active_3d = days_inactive <= 3
+
+                if is_active_3d:
+                    active_clients_count += 1
+                else:
+                    inactive_clients_count += 1
+
+                client_activity_list.append({
+                    'client': client,
+                    'last_activity': latest_activity,
+                    'days_inactive': days_inactive,
+                    'is_active': is_active_3d,
+                })
+
+            # Sort activity list: inactive clients (no use for >3 days) first, then by days_inactive descending
+            client_activity_list.sort(key=lambda x: (x['is_active'], -x['days_inactive']))
+
             total_branches = Branch.objects.filter(is_deleted=False).count()
             total_staff = Staff.objects.filter(is_deleted=False).count()
             total_users = User.objects.filter(is_active=True).count()
             total_vehicles = CustomerVehicle.objects.filter(is_deleted=False).count()
-            
+
             # Financial & Invoicing metrics
             inv_qs = Invoice.objects.filter(is_deleted=False)
             total_invoices = inv_qs.count()
             total_revenue_sum = inv_qs.aggregate(s=Sum('total'))['s'] or 0.0
-            
+
             sub_qs = Subscription.objects.filter(is_deleted=False)
             sub_revenue_sum = sub_qs.aggregate(s=Sum('usage_fee'))['s'] or 0.0
-            
+
             active_subs_count = sub_qs.filter(end_date__gte=today).count()
             expiring_subs_count = sub_qs.filter(end_date__gte=today, end_date__lte=today + timedelta(days=30)).count()
 
             context['stats'] = [
-                {'label': 'Total Companies', 'value': f"{active_companies} / {total_companies}", 'icon': 'ph-fill ph-buildings', 'color': '#3b82f6', 'subtext': 'Active / Total'},
-                {'label': 'Total Branches', 'value': total_branches, 'icon': 'ph-fill ph-git-branch', 'color': '#10b981', 'subtext': 'Across all companies'},
+                {'label': 'Active Clients (<= 3 Days)', 'value': active_clients_count, 'icon': 'ph-fill ph-check-circle', 'color': '#10b981', 'subtext': 'Used in last 3 days'},
+                {'label': 'Inactive Clients (> 3 Days)', 'value': inactive_clients_count, 'icon': 'ph-fill ph-warning-circle', 'color': '#ef4444', 'subtext': 'No activity for 3+ days'},
+                {'label': 'Total Companies', 'value': total_companies, 'icon': 'ph-fill ph-buildings', 'color': '#3b82f6', 'subtext': 'All onboarded clients'},
+                {'label': 'Total Branches', 'value': total_branches, 'icon': 'ph-fill ph-git-branch', 'color': '#6366f1', 'subtext': 'Across all companies'},
                 {'label': 'Subscription Revenue', 'value': f"₹{sub_revenue_sum:,.2f}", 'icon': 'ph-fill ph-currency-circle-dollar', 'color': '#059669', 'subtext': 'Total usage fees'},
-                {'label': 'System Invoices', 'value': total_invoices, 'icon': 'ph-fill ph-receipt', 'color': '#6366f1', 'subtext': f"₹{total_revenue_sum:,.2f} Total"},
+                {'label': 'System Invoices', 'value': total_invoices, 'icon': 'ph-fill ph-receipt', 'color': '#8b5cf6', 'subtext': f"₹{total_revenue_sum:,.2f} Total"},
                 {'label': 'Vehicles Registered', 'value': total_vehicles, 'icon': 'ph-fill ph-car', 'color': '#f59e0b', 'subtext': 'Serviced in platform'},
-                {'label': 'Active Subscriptions', 'value': active_subs_count, 'icon': 'ph-fill ph-check-circle', 'color': '#0284c7', 'subtext': f"{expiring_subs_count} due in 30 days"},
-                {'label': 'Total Staff', 'value': total_staff, 'icon': 'ph-fill ph-users', 'color': '#ec4899', 'subtext': 'All branch employees'},
-                {'label': 'Active Users', 'value': total_users, 'icon': 'ph-fill ph-user-check', 'color': '#8b5cf6', 'subtext': 'Logins active'},
+                {'label': 'Active Subscriptions', 'value': active_subs_count, 'icon': 'ph-fill ph-sketch-logo', 'color': '#0284c7', 'subtext': f"{expiring_subs_count} due in 30 days"},
             ]
+
+            context['active_clients_count'] = active_clients_count
+            context['inactive_clients_count'] = inactive_clients_count
+            context['client_activity_list'] = client_activity_list
 
             # Recent Companies List
             context['recent_companies'] = Client.objects.filter(is_deleted=False).order_by('-date_added')[:6]
-            
+
             # Expiring Subscriptions List
             context['expiring_subscriptions'] = Subscription.objects.filter(
                 is_deleted=False,

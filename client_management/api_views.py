@@ -315,6 +315,23 @@ def api_dashboard_stats(request):
             subscription_active = False
             subscription_days_left = -1
 
+    active_clients_3d = 0
+    inactive_clients_3d = 0
+    if role == 'SUPER_ADMIN':
+        from django.db.models import Max
+        from .models import Client
+        for c_item in Client.objects.filter(is_deleted=False):
+            l_app = UserProfile.objects.filter(company=c_item, last_app_open__isnull=False).aggregate(m=Max('last_app_open'))['m']
+            l_app_d = l_app.date() if l_app else None
+            l_inv_d = Invoice.objects.filter(branch__company=c_item, is_deleted=False).aggregate(m=Max('date'))['m']
+            c_date = c_item.date_added.date() if hasattr(c_item, 'date_added') and c_item.date_added else None
+            c_cands = [d for d in [l_app_d, l_inv_d, c_date] if d is not None]
+            l_act = max(c_cands) if c_cands else None
+            if l_act and (today - l_act).days <= 3:
+                active_clients_3d += 1
+            else:
+                inactive_clients_3d += 1
+
     return JsonResponse({
         'success': True,
         'today_jobs': today_jobs,
@@ -330,6 +347,8 @@ def api_dashboard_stats(request):
         'subscription_active': subscription_active,
         'subscription_days_left': subscription_days_left,
         'subscription_end_date': subscription_end_date,
+        'active_clients_3d': active_clients_3d,
+        'inactive_clients_3d': inactive_clients_3d,
     })
 
 
