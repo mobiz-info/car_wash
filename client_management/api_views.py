@@ -8406,14 +8406,25 @@ def _resolve_lead_user(user):
     """Returns (company, branch) for the given API user."""
     from .models import Staff, Branch
     try:
-        staff = Staff.objects.select_related('company', 'branch').get(user=user)
-        return staff.company, staff.branch
-    except Staff.DoesNotExist:
-        try:
-            branch_obj = Branch.objects.get(branch_admin=user)
+        staff = Staff.objects.select_related('company', 'branch').filter(user=user, is_deleted=False).first()
+        if staff:
+            return staff.company, staff.branch
+    except Exception:
+        pass
+
+    try:
+        branch_obj = Branch.objects.filter(branch_admin=user, is_deleted=False).first()
+        if branch_obj:
             return branch_obj.company, branch_obj
-        except Branch.DoesNotExist:
-            return None, None
+    except Exception:
+        pass
+
+    if hasattr(user, 'profile') and user.profile and user.profile.company:
+        company = user.profile.company
+        branch = Branch.objects.filter(company=company, is_deleted=False).first()
+        return company, branch
+
+    return None, None
 
 
 @csrf_exempt
