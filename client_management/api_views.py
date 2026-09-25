@@ -8395,6 +8395,7 @@ def _lead_to_dict(lead):
         'vehicle_color_name': lead.vehicle_color.name if lead.vehicle_color else '',
         'wheel_type': lead.wheel_type or 'normal_wheel',
         'vehicle_display': lead.vehicle_display,
+        'vehicle_details': lead.vehicle_display,
         # Date
         'renewal_date': lead.renewal_date.strftime('%Y-%m-%d') if lead.renewal_date else None,
         'renewal_date_display': lead.renewal_date.strftime('%d-%m-%Y') if lead.renewal_date else '',
