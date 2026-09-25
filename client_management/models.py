@@ -610,14 +610,43 @@ class Lead(BaseModel):
     customer_name = models.CharField(max_length=200)
     phone_number = models.CharField(max_length=50)
     whatsapp_number = models.CharField(max_length=50, blank=True, null=True)
-    vehicle_details = models.TextField(blank=True, null=True)
+
+    # Structured vehicle fields (mirrors CustomerVehicle)
+    vehicle_number = models.CharField(max_length=100, blank=True, null=True)
+    vehicle_type = models.ForeignKey('master.VehicleType', on_delete=models.SET_NULL, blank=True, null=True, related_name='leads')
+    vehicle_type_model = models.ForeignKey('master.VehicleTypeModel', on_delete=models.SET_NULL, blank=True, null=True, related_name='leads')
+    vehicle_make = models.ForeignKey('master.VehicleMake', on_delete=models.SET_NULL, blank=True, null=True, related_name='leads')
+    vehicle_brand_model = models.ForeignKey('master.VehicleBrandModel', on_delete=models.SET_NULL, blank=True, null=True, related_name='leads')
+    vehicle_color = models.ForeignKey('master.VehicleColor', on_delete=models.SET_NULL, blank=True, null=True, related_name='leads')
+    WHEEL_TYPE_ALLOY = 'alloy_wheel'
+    WHEEL_TYPE_NORMAL = 'normal_wheel'
+    WHEEL_TYPE_CHOICES = (
+        (WHEEL_TYPE_ALLOY, 'Alloy Wheel'),
+        (WHEEL_TYPE_NORMAL, 'Normal Wheel'),
+    )
+    wheel_type = models.CharField(max_length=20, choices=WHEEL_TYPE_CHOICES, default=WHEEL_TYPE_NORMAL)
+
     renewal_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.customer_name} ({self.phone_number})"
 
+    @property
+    def vehicle_display(self):
+        parts = []
+        if self.vehicle_brand_model:
+            parts.append(self.vehicle_brand_model.name)
+        elif self.vehicle_make:
+            parts.append(self.vehicle_make.name)
+        if self.vehicle_type_model:
+            parts.append(self.vehicle_type_model.name)
+        if self.vehicle_number:
+            parts.append(self.vehicle_number)
+        return ' | '.join(parts) if parts else ''
+
     class Meta:
         ordering = ['-date_added']
+
 
 
 from django.db.models.signals import post_save

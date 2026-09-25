@@ -8374,6 +8374,48 @@ def api_tally_receipts(request):
 # Leads Management API
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _lead_to_dict(lead):
+    """Serialise a Lead instance to a dict for API responses."""
+    return {
+        'id': str(lead.id),
+        'customer_name': lead.customer_name,
+        'phone_number': lead.phone_number,
+        'whatsapp_number': lead.whatsapp_number or '',
+        # Vehicle structured fields
+        'vehicle_number': lead.vehicle_number or '',
+        'vehicle_type_id': str(lead.vehicle_type_id) if lead.vehicle_type_id else '',
+        'vehicle_type_name': lead.vehicle_type.name if lead.vehicle_type else '',
+        'vehicle_type_model_id': str(lead.vehicle_type_model_id) if lead.vehicle_type_model_id else '',
+        'vehicle_type_model_name': lead.vehicle_type_model.name if lead.vehicle_type_model else '',
+        'vehicle_make_id': str(lead.vehicle_make_id) if lead.vehicle_make_id else '',
+        'vehicle_make_name': lead.vehicle_make.name if lead.vehicle_make else '',
+        'vehicle_brand_model_id': str(lead.vehicle_brand_model_id) if lead.vehicle_brand_model_id else '',
+        'vehicle_brand_model_name': lead.vehicle_brand_model.name if lead.vehicle_brand_model else '',
+        'vehicle_color_id': str(lead.vehicle_color_id) if lead.vehicle_color_id else '',
+        'vehicle_color_name': lead.vehicle_color.name if lead.vehicle_color else '',
+        'wheel_type': lead.wheel_type or 'normal_wheel',
+        'vehicle_display': lead.vehicle_display,
+        # Date
+        'renewal_date': lead.renewal_date.strftime('%Y-%m-%d') if lead.renewal_date else None,
+        'renewal_date_display': lead.renewal_date.strftime('%d-%m-%Y') if lead.renewal_date else '',
+        'date_added': lead.date_added.strftime('%d-%m-%Y') if lead.date_added else '',
+    }
+
+
+def _resolve_lead_user(user):
+    """Returns (company, branch) for the given API user."""
+    from .models import Staff, Branch
+    try:
+        staff = Staff.objects.select_related('company', 'branch').get(user=user)
+        return staff.company, staff.branch
+    except Staff.DoesNotExist:
+        try:
+            branch_obj = Branch.objects.get(branch_admin=user)
+            return branch_obj.company, branch_obj
+        except Branch.DoesNotExist:
+            return None, None
+
+
 @csrf_exempt
 def api_leads_list(request):
     """GET: List all leads for the authenticated company/branch."""
@@ -8382,47 +8424,27 @@ def api_leads_list(request):
         token_obj = APIToken.objects.select_related('user').get(token=token_str)
         user = token_obj.user
 
-        from .models import Lead, Branch, Staff
-        try:
-            staff = Staff.objects.select_related('company', 'branch').get(user=user)
-            company = staff.company
-            branch = staff.branch
-        except Staff.DoesNotExist:
-            from .models import Client
-            from django.contrib.auth.models import User
-            try:
-                branch_obj = Branch.objects.get(branch_admin=user)
-                company = branch_obj.company
-                branch = branch_obj
-            except Branch.DoesNotExist:
-                company = None
-                branch = None
-
+        from .models import Lead
+        company, _ = _resolve_lead_user(user)
         if company is None:
             return JsonResponse({'status': 'error', 'message': 'Company not found.'}, status=400)
 
         search = request.GET.get('search', '').strip()
-        qs = Lead.objects.filter(company=company)
+        qs = Lead.objects.select_related(
+            'vehicle_type', 'vehicle_type_model', 'vehicle_make',
+            'vehicle_brand_model', 'vehicle_color'
+        ).filter(company=company)
+
         if search:
             qs = qs.filter(
                 Q(customer_name__icontains=search) |
                 Q(phone_number__icontains=search) |
-                Q(vehicle_details__icontains=search)
+                Q(vehicle_number__icontains=search) |
+                Q(vehicle_make__name__icontains=search) |
+                Q(vehicle_brand_model__name__icontains=search)
             )
 
-        leads = []
-        for lead in qs:
-            leads.append({
-                'id': str(lead.id),
-                'customer_name': lead.customer_name,
-                'phone_number': lead.phone_number,
-                'whatsapp_number': lead.whatsapp_number or '',
-                'vehicle_details': lead.vehicle_details or '',
-                'renewal_date': lead.renewal_date.strftime('%Y-%m-%d') if lead.renewal_date else None,
-                'date_added': lead.date_added.strftime('%d-%m-%Y') if lead.date_added else '',
-            })
-
-        return JsonResponse({'status': 'success', 'leads': leads})
+        return JsonResponse({'status': 'success', 'leads': [_lead_to_dict(l) for l in qs]})
 
     except APIToken.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
@@ -8440,34 +8462,21 @@ def api_leads_create(request):
         token_obj = APIToken.objects.select_related('user').get(token=token_str)
         user = token_obj.user
 
-        from .models import Lead, Branch, Staff
-        try:
-            staff = Staff.objects.select_related('company', 'branch').get(user=user)
-            company = staff.company
-            branch = staff.branch
-        except Staff.DoesNotExist:
-            try:
-                branch_obj = Branch.objects.get(branch_admin=user)
-                company = branch_obj.company
-                branch = branch_obj
-            except Branch.DoesNotExist:
-                company = None
-                branch = None
-
+        from .models import Lead
+        from master.models import VehicleType, VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor
+        company, branch = _resolve_lead_user(user)
         if company is None:
             return JsonResponse({'status': 'error', 'message': 'Company not found.'}, status=400)
 
         data = json.loads(request.body)
-        customer_name = data.get('customer_name', '').strip()
-        phone_number = data.get('phone_number', '').strip()
-        whatsapp_number = data.get('whatsapp_number', '').strip()
-        vehicle_details = data.get('vehicle_details', '').strip()
-        renewal_date_str = data.get('renewal_date', '')
+        customer_name = (data.get('customer_name') or '').strip()
+        phone_number = (data.get('phone_number') or '').strip()
 
         if not customer_name or not phone_number:
             return JsonResponse({'status': 'error', 'message': 'Customer name and phone number are required.'}, status=400)
 
         renewal_date = None
+        renewal_date_str = (data.get('renewal_date') or '').strip()
         if renewal_date_str:
             from datetime import date
             try:
@@ -8475,35 +8484,43 @@ def api_leads_create(request):
             except ValueError:
                 pass
 
+        def get_fk(model, id_str):
+            if not id_str:
+                return None
+            try:
+                return model.objects.filter(id=str(id_str)).first()
+            except Exception:
+                return None
+
+        whatsapp_num = (data.get('whatsapp_number') or '').strip() or None
+        vehicle_num = (data.get('vehicle_number') or '').strip() or None
+        wheel_t = data.get('wheel_type') or 'normal_wheel'
+
         lead = Lead.objects.create(
             auto_id=get_auto_id(Lead),
             company=company,
             branch=branch,
+            creator=user,
             customer_name=customer_name,
             phone_number=phone_number,
-            whatsapp_number=whatsapp_number or None,
-            vehicle_details=vehicle_details or None,
+            whatsapp_number=whatsapp_num,
+            vehicle_number=vehicle_num,
+            vehicle_type=get_fk(VehicleType, data.get('vehicle_type_id')),
+            vehicle_type_model=get_fk(VehicleTypeModel, data.get('vehicle_type_model_id')),
+            vehicle_make=get_fk(VehicleMake, data.get('vehicle_make_id')),
+            vehicle_brand_model=get_fk(VehicleBrandModel, data.get('vehicle_brand_model_id')),
+            vehicle_color=get_fk(VehicleColor, data.get('vehicle_color_id')),
+            wheel_type=wheel_t,
             renewal_date=renewal_date,
-            creator=user,
         )
 
-        return JsonResponse({
-            'status': 'success',
-            'message': 'Lead created successfully.',
-            'lead': {
-                'id': str(lead.id),
-                'customer_name': lead.customer_name,
-                'phone_number': lead.phone_number,
-                'whatsapp_number': lead.whatsapp_number or '',
-                'vehicle_details': lead.vehicle_details or '',
-                'renewal_date': lead.renewal_date.strftime('%Y-%m-%d') if lead.renewal_date else None,
-                'date_added': lead.date_added.strftime('%d-%m-%Y') if lead.date_added else '',
-            }
-        })
+        return JsonResponse({'status': 'success', 'message': 'Lead created successfully.', 'lead': _lead_to_dict(lead)})
 
     except APIToken.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
@@ -8514,37 +8531,65 @@ def api_leads_edit(request, lead_id=None):
         return JsonResponse({'status': 'error', 'message': 'Method not allowed.'}, status=405)
     try:
         token_str = (request.headers.get('Authorization') or '').replace('Bearer ', '').strip()
-        token_obj = APIToken.objects.select_related('user').get(token=token_str)
+        APIToken.objects.get(token=token_str)
 
         from .models import Lead
+        from master.models import VehicleType, VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor
         data = json.loads(request.body)
         if lead_id is None:
             lead_id = data.get('lead_id', '')
 
         lead = Lead.objects.get(id=lead_id)
-        lead.customer_name = data.get('customer_name', lead.customer_name).strip()
-        lead.phone_number = data.get('phone_number', lead.phone_number).strip()
-        lead.whatsapp_number = data.get('whatsapp_number', lead.whatsapp_number or '').strip() or None
-        lead.vehicle_details = data.get('vehicle_details', lead.vehicle_details or '').strip() or None
 
-        renewal_date_str = data.get('renewal_date', '')
-        if renewal_date_str:
-            from datetime import date
+        def get_fk(model, id_str):
+            if not id_str:
+                return None
             try:
-                lead.renewal_date = date.fromisoformat(renewal_date_str)
-            except ValueError:
-                pass
-        elif 'renewal_date' in data and not renewal_date_str:
-            lead.renewal_date = None
+                return model.objects.filter(id=str(id_str)).first()
+            except Exception:
+                return None
+
+        if 'customer_name' in data and data['customer_name'] is not None:
+            lead.customer_name = str(data['customer_name']).strip()
+        if 'phone_number' in data and data['phone_number'] is not None:
+            lead.phone_number = str(data['phone_number']).strip()
+        if 'whatsapp_number' in data:
+            lead.whatsapp_number = (str(data['whatsapp_number']) if data['whatsapp_number'] else '').strip() or None
+        if 'vehicle_number' in data:
+            lead.vehicle_number = (str(data['vehicle_number']) if data['vehicle_number'] else '').strip() or None
+        if 'vehicle_type_id' in data:
+            lead.vehicle_type = get_fk(VehicleType, data['vehicle_type_id'])
+        if 'vehicle_type_model_id' in data:
+            lead.vehicle_type_model = get_fk(VehicleTypeModel, data['vehicle_type_model_id'])
+        if 'vehicle_make_id' in data:
+            lead.vehicle_make = get_fk(VehicleMake, data['vehicle_make_id'])
+        if 'vehicle_brand_model_id' in data:
+            lead.vehicle_brand_model = get_fk(VehicleBrandModel, data['vehicle_brand_model_id'])
+        if 'vehicle_color_id' in data:
+            lead.vehicle_color = get_fk(VehicleColor, data['vehicle_color_id'])
+        if 'wheel_type' in data:
+            lead.wheel_type = data['wheel_type'] or 'normal_wheel'
+        if 'renewal_date' in data:
+            rd_str = data['renewal_date']
+            if rd_str:
+                from datetime import date
+                try:
+                    lead.renewal_date = date.fromisoformat(rd_str)
+                except ValueError:
+                    pass
+            else:
+                lead.renewal_date = None
 
         lead.save()
-        return JsonResponse({'status': 'success', 'message': 'Lead updated successfully.'})
+        return JsonResponse({'status': 'success', 'message': 'Lead updated successfully.', 'lead': _lead_to_dict(lead)})
 
     except APIToken.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
     except Lead.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Lead not found.'}, status=404)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
@@ -8580,17 +8625,8 @@ def api_leads_reminders(request):
         token_obj = APIToken.objects.select_related('user').get(token=token_str)
         user = token_obj.user
 
-        from .models import Lead, Branch, Staff
-        try:
-            staff = Staff.objects.select_related('company', 'branch').get(user=user)
-            company = staff.company
-        except Staff.DoesNotExist:
-            try:
-                branch_obj = Branch.objects.get(branch_admin=user)
-                company = branch_obj.company
-            except Branch.DoesNotExist:
-                company = None
-
+        from .models import Lead
+        company, _ = _resolve_lead_user(user)
         if company is None:
             return JsonResponse({'status': 'error', 'message': 'Company not found.'}, status=400)
 
@@ -8601,7 +8637,11 @@ def api_leads_reminders(request):
         show_all = request.GET.get('show_all', 'false').lower() == 'true'
         search = request.GET.get('search', '').strip()
 
-        qs = Lead.objects.filter(company=company, renewal_date__isnull=False)
+        qs = Lead.objects.select_related(
+            'vehicle_type', 'vehicle_type_model', 'vehicle_make',
+            'vehicle_brand_model', 'vehicle_color'
+        ).filter(company=company, renewal_date__isnull=False)
+
         if not show_all:
             qs = qs.filter(renewal_date__lte=end_date)
 
@@ -8609,7 +8649,7 @@ def api_leads_reminders(request):
             qs = qs.filter(
                 Q(customer_name__icontains=search) |
                 Q(phone_number__icontains=search) |
-                Q(vehicle_details__icontains=search)
+                Q(vehicle_number__icontains=search)
             )
 
         qs = qs.order_by('renewal_date')
@@ -8617,18 +8657,12 @@ def api_leads_reminders(request):
         leads = []
         for lead in qs:
             days_until = (lead.renewal_date - today).days if lead.renewal_date else None
-            leads.append({
-                'id': str(lead.id),
-                'customer_name': lead.customer_name,
-                'phone_number': lead.phone_number,
-                'whatsapp_number': lead.whatsapp_number or lead.phone_number,
-                'vehicle_details': lead.vehicle_details or '',
-                'renewal_date': lead.renewal_date.strftime('%Y-%m-%d') if lead.renewal_date else None,
-                'renewal_date_display': lead.renewal_date.strftime('%d-%m-%Y') if lead.renewal_date else '',
-                'days_until_renewal': days_until,
-                'is_overdue': days_until is not None and days_until < 0,
-                'is_today': days_until == 0,
-            })
+            d = _lead_to_dict(lead)
+            d['days_until_renewal'] = days_until
+            d['is_overdue'] = days_until is not None and days_until < 0
+            d['is_today'] = days_until == 0
+            d['whatsapp_number'] = lead.whatsapp_number or lead.phone_number
+            leads.append(d)
 
         return JsonResponse({'status': 'success', 'leads': leads, 'total': len(leads)})
 
@@ -8636,3 +8670,5 @@ def api_leads_reminders(request):
         return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
