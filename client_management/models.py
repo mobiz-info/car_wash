@@ -599,6 +599,27 @@ class QuotationExtra(BaseModel):
     remarks = models.TextField(blank=True, null=True)
 
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Leads Management
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Lead(BaseModel):
+    company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='leads')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='leads', null=True, blank=True)
+    customer_name = models.CharField(max_length=200)
+    phone_number = models.CharField(max_length=50)
+    whatsapp_number = models.CharField(max_length=50, blank=True, null=True)
+    vehicle_details = models.TextField(blank=True, null=True)
+    renewal_date = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.customer_name} ({self.phone_number})"
+
+    class Meta:
+        ordering = ['-date_added']
+
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 

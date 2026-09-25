@@ -8369,3 +8369,270 @@ def api_tally_receipts(request):
         import traceback
         return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Leads Management API
+# ─────────────────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def api_leads_list(request):
+    """GET: List all leads for the authenticated company/branch."""
+    try:
+        token_str = (request.headers.get('Authorization') or '').replace('Bearer ', '').strip()
+        token_obj = APIToken.objects.select_related('user').get(token=token_str)
+        user = token_obj.user
+
+        from .models import Lead, Branch, Staff
+        try:
+            staff = Staff.objects.select_related('company', 'branch').get(user=user)
+            company = staff.company
+            branch = staff.branch
+        except Staff.DoesNotExist:
+            from .models import Client
+            from django.contrib.auth.models import User
+            try:
+                branch_obj = Branch.objects.get(branch_admin=user)
+                company = branch_obj.company
+                branch = branch_obj
+            except Branch.DoesNotExist:
+                company = None
+                branch = None
+
+        if company is None:
+            return JsonResponse({'status': 'error', 'message': 'Company not found.'}, status=400)
+
+        search = request.GET.get('search', '').strip()
+        qs = Lead.objects.filter(company=company)
+        if search:
+            qs = qs.filter(
+                Q(customer_name__icontains=search) |
+                Q(phone_number__icontains=search) |
+                Q(vehicle_details__icontains=search)
+            )
+
+        leads = []
+        for lead in qs:
+            leads.append({
+                'id': str(lead.id),
+                'customer_name': lead.customer_name,
+                'phone_number': lead.phone_number,
+                'whatsapp_number': lead.whatsapp_number or '',
+                'vehicle_details': lead.vehicle_details or '',
+                'renewal_date': lead.renewal_date.strftime('%Y-%m-%d') if lead.renewal_date else None,
+                'date_added': lead.date_added.strftime('%d-%m-%Y') if lead.date_added else '',
+            })
+
+        return JsonResponse({'status': 'success', 'leads': leads})
+
+    except APIToken.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_leads_create(request):
+    """POST: Create a new lead."""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed.'}, status=405)
+    try:
+        token_str = (request.headers.get('Authorization') or '').replace('Bearer ', '').strip()
+        token_obj = APIToken.objects.select_related('user').get(token=token_str)
+        user = token_obj.user
+
+        from .models import Lead, Branch, Staff
+        try:
+            staff = Staff.objects.select_related('company', 'branch').get(user=user)
+            company = staff.company
+            branch = staff.branch
+        except Staff.DoesNotExist:
+            try:
+                branch_obj = Branch.objects.get(branch_admin=user)
+                company = branch_obj.company
+                branch = branch_obj
+            except Branch.DoesNotExist:
+                company = None
+                branch = None
+
+        if company is None:
+            return JsonResponse({'status': 'error', 'message': 'Company not found.'}, status=400)
+
+        data = json.loads(request.body)
+        customer_name = data.get('customer_name', '').strip()
+        phone_number = data.get('phone_number', '').strip()
+        whatsapp_number = data.get('whatsapp_number', '').strip()
+        vehicle_details = data.get('vehicle_details', '').strip()
+        renewal_date_str = data.get('renewal_date', '')
+
+        if not customer_name or not phone_number:
+            return JsonResponse({'status': 'error', 'message': 'Customer name and phone number are required.'}, status=400)
+
+        renewal_date = None
+        if renewal_date_str:
+            from datetime import date
+            try:
+                renewal_date = date.fromisoformat(renewal_date_str)
+            except ValueError:
+                pass
+
+        lead = Lead.objects.create(
+            auto_id=get_auto_id(Lead),
+            company=company,
+            branch=branch,
+            customer_name=customer_name,
+            phone_number=phone_number,
+            whatsapp_number=whatsapp_number or None,
+            vehicle_details=vehicle_details or None,
+            renewal_date=renewal_date,
+            creator=user,
+        )
+
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Lead created successfully.',
+            'lead': {
+                'id': str(lead.id),
+                'customer_name': lead.customer_name,
+                'phone_number': lead.phone_number,
+                'whatsapp_number': lead.whatsapp_number or '',
+                'vehicle_details': lead.vehicle_details or '',
+                'renewal_date': lead.renewal_date.strftime('%Y-%m-%d') if lead.renewal_date else None,
+                'date_added': lead.date_added.strftime('%d-%m-%Y') if lead.date_added else '',
+            }
+        })
+
+    except APIToken.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_leads_edit(request, lead_id=None):
+    """POST: Edit an existing lead."""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed.'}, status=405)
+    try:
+        token_str = (request.headers.get('Authorization') or '').replace('Bearer ', '').strip()
+        token_obj = APIToken.objects.select_related('user').get(token=token_str)
+
+        from .models import Lead
+        data = json.loads(request.body)
+        if lead_id is None:
+            lead_id = data.get('lead_id', '')
+
+        lead = Lead.objects.get(id=lead_id)
+        lead.customer_name = data.get('customer_name', lead.customer_name).strip()
+        lead.phone_number = data.get('phone_number', lead.phone_number).strip()
+        lead.whatsapp_number = data.get('whatsapp_number', lead.whatsapp_number or '').strip() or None
+        lead.vehicle_details = data.get('vehicle_details', lead.vehicle_details or '').strip() or None
+
+        renewal_date_str = data.get('renewal_date', '')
+        if renewal_date_str:
+            from datetime import date
+            try:
+                lead.renewal_date = date.fromisoformat(renewal_date_str)
+            except ValueError:
+                pass
+        elif 'renewal_date' in data and not renewal_date_str:
+            lead.renewal_date = None
+
+        lead.save()
+        return JsonResponse({'status': 'success', 'message': 'Lead updated successfully.'})
+
+    except APIToken.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
+    except Lead.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Lead not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_leads_delete(request, lead_id=None):
+    """POST/DELETE: Delete a lead."""
+    try:
+        token_str = (request.headers.get('Authorization') or '').replace('Bearer ', '').strip()
+        APIToken.objects.get(token=token_str)
+
+        from .models import Lead
+        if lead_id is None:
+            data = json.loads(request.body)
+            lead_id = data.get('lead_id', '')
+
+        lead = Lead.objects.get(id=lead_id)
+        lead.delete()
+        return JsonResponse({'status': 'success', 'message': 'Lead deleted successfully.'})
+
+    except APIToken.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
+    except Lead.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Lead not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_leads_reminders(request):
+    """GET: List leads whose renewal_date is upcoming (within next 30 days by default)."""
+    try:
+        token_str = (request.headers.get('Authorization') or '').replace('Bearer ', '').strip()
+        token_obj = APIToken.objects.select_related('user').get(token=token_str)
+        user = token_obj.user
+
+        from .models import Lead, Branch, Staff
+        try:
+            staff = Staff.objects.select_related('company', 'branch').get(user=user)
+            company = staff.company
+        except Staff.DoesNotExist:
+            try:
+                branch_obj = Branch.objects.get(branch_admin=user)
+                company = branch_obj.company
+            except Branch.DoesNotExist:
+                company = None
+
+        if company is None:
+            return JsonResponse({'status': 'error', 'message': 'Company not found.'}, status=400)
+
+        from datetime import date, timedelta
+        today = date.today()
+        days_ahead = int(request.GET.get('days', 30))
+        end_date = today + timedelta(days=days_ahead)
+        show_all = request.GET.get('show_all', 'false').lower() == 'true'
+        search = request.GET.get('search', '').strip()
+
+        qs = Lead.objects.filter(company=company, renewal_date__isnull=False)
+        if not show_all:
+            qs = qs.filter(renewal_date__lte=end_date)
+
+        if search:
+            qs = qs.filter(
+                Q(customer_name__icontains=search) |
+                Q(phone_number__icontains=search) |
+                Q(vehicle_details__icontains=search)
+            )
+
+        qs = qs.order_by('renewal_date')
+
+        leads = []
+        for lead in qs:
+            days_until = (lead.renewal_date - today).days if lead.renewal_date else None
+            leads.append({
+                'id': str(lead.id),
+                'customer_name': lead.customer_name,
+                'phone_number': lead.phone_number,
+                'whatsapp_number': lead.whatsapp_number or lead.phone_number,
+                'vehicle_details': lead.vehicle_details or '',
+                'renewal_date': lead.renewal_date.strftime('%Y-%m-%d') if lead.renewal_date else None,
+                'renewal_date_display': lead.renewal_date.strftime('%d-%m-%Y') if lead.renewal_date else '',
+                'days_until_renewal': days_until,
+                'is_overdue': days_until is not None and days_until < 0,
+                'is_today': days_until == 0,
+            })
+
+        return JsonResponse({'status': 'success', 'leads': leads, 'total': len(leads)})
+
+    except APIToken.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

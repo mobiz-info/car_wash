@@ -256,7 +256,17 @@ urlpatterns = [
     # Tally Integration APIs
     path('api/tally/invoices/', api_views.api_tally_invoices, name='api_tally_invoices'),
     path('api/tally/receipts/', api_views.api_tally_receipts, name='api_tally_receipts'),
+
+    # Leads Management APIs
+    path('api/leads/list/', api_views.api_leads_list, name='api_leads_list'),
+    path('api/leads/create/', api_views.api_leads_create, name='api_leads_create'),
+    path('api/leads/edit/<uuid:lead_id>/', api_views.api_leads_edit, name='api_leads_edit'),
+    path('api/leads/edit/', api_views.api_leads_edit, name='api_leads_edit_body'),
+    path('api/leads/delete/<uuid:lead_id>/', api_views.api_leads_delete, name='api_leads_delete'),
+    path('api/leads/delete/', api_views.api_leads_delete, name='api_leads_delete_body'),
+    path('api/leads/reminders/', api_views.api_leads_reminders, name='api_leads_reminders'),
 ]
+
 
 
 
