@@ -8370,6 +8370,365 @@ def api_tally_receipts(request):
         return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
 
 
+@csrf_exempt
+def api_tally_customers(request):
+    """
+    Tally Customer Export API
+    ──────────────────────────
+    Returns customer master records in a Tally-compatible format (Sundry Debtors).
+
+    Query Params:
+      - client_id   : (optional) UUID of Client/Company.
+      - branch_id   : (optional) UUID of specific Branch.
+      - from_date   : (optional) Start date DD-MM-YYYY or YYYY-MM-DD (created_at).
+      - to_date     : (optional) End date DD-MM-YYYY or YYYY-MM-DD (created_at).
+      - search      : (optional) Text search by name, phone, or whatsapp_number.
+
+    Auth: Bearer token
+    """
+    if request.method != 'GET':
+        return JsonResponse({'status': 'error', 'message': 'Only GET method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from client_management.models import Customer, Client, Branch
+        from django.db.models import Q
+
+        # ── Determine company scope ───────────────────────────────────────
+        client_id_param = request.GET.get('client_id', '').strip()
+        role = user.profile.role.name if user.profile.role else None
+
+        if client_id_param:
+            try:
+                company = Client.objects.get(id=client_id_param, is_deleted=False)
+            except (Client.DoesNotExist, Exception):
+                return JsonResponse({'status': 'error', 'message': 'Invalid client_id'}, status=400)
+        else:
+            company = user.profile.company
+            if not company:
+                return JsonResponse({'status': 'error', 'message': 'No company associated with this user'}, status=400)
+
+        # ── Determine branch scope ────────────────────────────────────────
+        branch_id_param = request.GET.get('branch_id', '').strip()
+        cust_filter = {'company': company}
+
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+            cust_filter['branch'] = user.managed_branch
+        elif branch_id_param:
+            try:
+                branch_obj = Branch.objects.get(id=branch_id_param, company=company, is_deleted=False)
+                cust_filter['branch'] = branch_obj
+            except (Branch.DoesNotExist, Exception):
+                pass
+
+        # ── Filter customer queryset ──────────────────────────────────────
+        qs = Customer.objects.filter(
+            is_deleted=False,
+            **cust_filter
+        ).select_related('company', 'branch', 'customer_type').prefetch_related('vehicles').order_by('name')
+
+        from_date_str = request.GET.get('from_date', '').strip()
+        to_date_str = request.GET.get('to_date', '').strip()
+        if from_date_str or to_date_str:
+            from_date, to_date = _parse_dates(request)
+            qs = qs.filter(created_at__date__gte=from_date, created_at__date__lte=to_date)
+
+        search_param = request.GET.get('search', '').strip()
+        if search_param:
+            qs = qs.filter(
+                Q(name__icontains=search_param) |
+                Q(phone__icontains=search_param) |
+                Q(whatsapp_number__icontains=search_param)
+            )
+
+        customers_data = []
+        for cust in qs:
+            vehicles = [v.vehicle_number for v in cust.vehicles.filter(is_deleted=False)]
+            customers_data.append({
+                'customer_id': str(cust.id),
+                'name': cust.name,
+                'parent_group': 'Sundry Debtors',
+                'phone': cust.phone or '',
+                'whatsapp_number': cust.whatsapp_number or cust.phone or '',
+                'email': cust.email or '',
+                'address': cust.address or '',
+                'pincode': cust.pincode or '',
+                'customer_type': cust.customer_type.name if cust.customer_type else '',
+                'company_id': str(company.id),
+                'company_name': company.company_name,
+                'branch_id': str(cust.branch.id) if cust.branch else '',
+                'branch_name': cust.branch.name if cust.branch else '',
+                'created_at': cust.created_at.strftime('%d-%m-%Y') if cust.created_at else '',
+                'vehicles_count': len(vehicles),
+                'vehicles': vehicles,
+            })
+
+        return JsonResponse({
+            'status': 'success',
+            'client_id': str(company.id),
+            'company_name': company.company_name,
+            'count': len(customers_data),
+            'customers': customers_data,
+        })
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
+@csrf_exempt
+def api_tally_stockitems(request):
+    """
+    Tally Stock Items Export API
+    ─────────────────────────────
+    Returns stock item master dataset in a Tally-compatible format.
+
+    Query Params:
+      - client_id : (optional) UUID of Client/Company.
+      - group_id  : (optional) UUID of StockGroup.
+      - search    : (optional) Text search by item_name, brand, barcode, or hsn_code.
+
+    Auth: Bearer token
+    """
+    if request.method != 'GET':
+        return JsonResponse({'status': 'error', 'message': 'Only GET method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from client_management.models import Stock, Client
+        from django.db.models import Q
+
+        # ── Determine company scope ───────────────────────────────────────
+        client_id_param = request.GET.get('client_id', '').strip()
+
+        if client_id_param:
+            try:
+                company = Client.objects.get(id=client_id_param, is_deleted=False)
+            except (Client.DoesNotExist, Exception):
+                return JsonResponse({'status': 'error', 'message': 'Invalid client_id'}, status=400)
+        else:
+            company = user.profile.company
+            if not company:
+                return JsonResponse({'status': 'error', 'message': 'No company associated with this user'}, status=400)
+
+        # ── Build stock items queryset ───────────────────────────────────
+        qs = Stock.objects.filter(
+            is_deleted=False
+        ).filter(
+            Q(company=company) | Q(company__isnull=True)
+        ).select_related(
+            'company', 'group', 'sub_group', 'expense_head'
+        ).order_by('item_name')
+
+        group_id_param = request.GET.get('group_id', '').strip()
+        if group_id_param:
+            qs = qs.filter(group_id=group_id_param)
+
+        search_param = request.GET.get('search', '').strip()
+        if search_param:
+            qs = qs.filter(
+                Q(item_name__icontains=search_param) |
+                Q(brand__icontains=search_param) |
+                Q(barcode__icontains=search_param) |
+                Q(hsn_code__icontains=search_param)
+            )
+
+        stock_items_data = []
+        for stock in qs:
+            cgst = float(stock.cgst_percent or 0)
+            sgst = float(stock.sgst_percent or 0)
+            igst = float(stock.igst_percent or 0)
+
+            stock_items_data.append({
+                'stock_id': str(stock.id),
+                'item_name': stock.item_name,
+                'parent_group': stock.group.name if stock.group else 'Stock Items',
+                'group_name': stock.group.name if stock.group else '',
+                'sub_group_name': stock.sub_group.name if stock.sub_group else '',
+                'brand': stock.brand or '',
+                'hsn_code': stock.hsn_code or '',
+                'barcode': stock.barcode or '',
+                'unit': stock.unit or 'Piece',
+                'unit_display': stock.get_unit_display() if hasattr(stock, 'get_unit_display') else (stock.unit or 'Piece'),
+                'is_trading': bool(stock.is_trading),
+                'is_operational': bool(stock.is_operational),
+                'cgst_percent': cgst,
+                'sgst_percent': sgst,
+                'igst_percent': igst,
+                'tax_rate': round(cgst + sgst + igst, 2),
+                'quantity': float(stock.quantity or 0),
+                'critical_level': float(stock.critical_level or 0),
+                'expense_head_name': stock.expense_head.name if stock.expense_head else '',
+                'company_id': str(company.id),
+                'company_name': company.company_name,
+            })
+
+        return JsonResponse({
+            'status': 'success',
+            'client_id': str(company.id),
+            'company_name': company.company_name,
+            'count': len(stock_items_data),
+            'stock_items': stock_items_data,
+        })
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
+@csrf_exempt
+def api_tally_expenses(request):
+    """
+    Tally Expenses Export API
+    ──────────────────────────
+    Returns expense entries in a Tally-compatible format (Payment/Expense Vouchers).
+
+    Query Params:
+      - client_id       : (optional) UUID of Client/Company.
+      - branch_id       : (optional) UUID of specific Branch.
+      - from_date       : (optional) Start date DD-MM-YYYY or YYYY-MM-DD. Defaults to 1st of month.
+      - to_date         : (optional) End date DD-MM-YYYY or YYYY-MM-DD. Defaults to today.
+      - expense_head_id : (optional) UUID/ID of ExpenseHead.
+      - search          : (optional) Text search by expense name, supplier, or remarks.
+
+    Auth: Bearer token
+    """
+    if request.method != 'GET':
+        return JsonResponse({'status': 'error', 'message': 'Only GET method is allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from master.models import ExpenseEntry
+        from client_management.models import Client, Branch
+        from django.db.models import Sum, Q
+
+        from_date, to_date = _parse_dates(request)
+
+        # ── Determine company scope ───────────────────────────────────────
+        client_id_param = request.GET.get('client_id', '').strip()
+        role = user.profile.role.name if user.profile.role else None
+
+        if client_id_param:
+            try:
+                company = Client.objects.get(id=client_id_param, is_deleted=False)
+            except (Client.DoesNotExist, Exception):
+                return JsonResponse({'status': 'error', 'message': 'Invalid client_id'}, status=400)
+        else:
+            company = user.profile.company
+            if not company:
+                return JsonResponse({'status': 'error', 'message': 'No company associated with this user'}, status=400)
+
+        # ── Determine branch scope ────────────────────────────────────────
+        branch_id_param = request.GET.get('branch_id', '').strip()
+        exp_scope = {'company': company}
+
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+            exp_scope['branch'] = user.managed_branch
+        elif branch_id_param:
+            try:
+                branch_obj = Branch.objects.get(id=branch_id_param, company=company, is_deleted=False)
+                exp_scope['branch'] = branch_obj
+            except (Branch.DoesNotExist, Exception):
+                pass
+
+        # ── Build expense entries queryset ───────────────────────────────
+        qs = ExpenseEntry.objects.filter(
+            is_deleted=False,
+            expense_date__gte=from_date,
+            expense_date__lte=to_date,
+            **exp_scope
+        ).select_related(
+            'company', 'branch', 'expense', 'expense__expense_head', 'supplier', 'stock_item'
+        ).order_by('expense_date', 'auto_id')
+
+        expense_head_id_param = request.GET.get('expense_head_id', '').strip()
+        if expense_head_id_param:
+            qs = qs.filter(expense__expense_head_id=expense_head_id_param)
+
+        search_param = request.GET.get('search', '').strip()
+        if search_param:
+            qs = qs.filter(
+                Q(expense__name__icontains=search_param) |
+                Q(supplier__name__icontains=search_param) |
+                Q(remarks__icontains=search_param)
+            )
+
+        expenses_data = []
+        for entry in qs:
+            amount = float(entry.amount or 0)
+            paid_amount = float(entry.paid_amount or 0)
+            balance_payable = round(amount - paid_amount, 2)
+
+            exp_head_name = entry.expense.expense_head.name if (entry.expense and entry.expense.expense_head) else 'General Expenses'
+            head_lower = exp_head_name.strip().lower()
+
+            if 'purchase' in head_lower:
+                tally_group = 'Purchase Accounts'
+            elif head_lower in ['direct wages', 'labour', 'freight', 'carriage', 'direct expense', 'direct expenses']:
+                tally_group = 'Direct Expenses'
+            else:
+                tally_group = 'Indirect Expenses'
+
+            payment_status = 'PAID' if balance_payable <= 0 else ('PARTIAL' if paid_amount > 0 else 'UNPAID')
+
+            expenses_data.append({
+                'expense_entry_id': str(entry.id),
+                'date': entry.expense_date.strftime('%d-%m-%Y'),
+                'voucher_type': 'Payment' if paid_amount > 0 else 'Journal',
+                'expense_name': entry.expense.name if entry.expense else '',
+                'expense_head_name': exp_head_name,
+                'tally_group': tally_group,
+                'amount': amount,
+                'paid_amount': paid_amount,
+                'balance_payable': balance_payable,
+                'supplier_name': entry.supplier.name if entry.supplier else '',
+                'supplier_gst': entry.supplier.gst_no if (entry.supplier and entry.supplier.gst_no) else '',
+                'payment_status': payment_status,
+                'item_category': entry.item_category or '',
+                'stock_item_name': entry.stock_item.item_name if entry.stock_item else '',
+                'remarks': entry.remarks or '',
+                'company_id': str(company.id),
+                'company_name': company.company_name,
+                'branch_id': str(entry.branch.id) if entry.branch else '',
+                'branch_name': entry.branch.name if entry.branch else '',
+            })
+
+        totals = qs.aggregate(
+            tot_amount=Sum('amount'),
+            tot_paid=Sum('paid_amount')
+        )
+        total_amount = float(totals['tot_amount'] or 0)
+        total_paid = float(totals['tot_paid'] or 0)
+
+        return JsonResponse({
+            'status': 'success',
+            'client_id': str(company.id),
+            'company_name': company.company_name,
+            'from_date': from_date.strftime('%d-%m-%Y'),
+            'to_date': to_date.strftime('%d-%m-%Y'),
+            'count': len(expenses_data),
+            'totals': {
+                'total_amount': total_amount,
+                'total_paid_amount': total_paid,
+                'balance_payable': round(total_amount - total_paid, 2),
+            },
+            'expenses': expenses_data,
+        })
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Leads Management API
 # ─────────────────────────────────────────────────────────────────────────────
