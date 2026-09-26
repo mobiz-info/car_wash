@@ -91,6 +91,7 @@ class InvoiceServiceDetail(BaseModel):
     CATEGORY_ALIGNMENT = 'wheel_alignment'
     CATEGORY_SMOKE = 'smoke_test'
     CATEGORY_DETAILING = 'car_detailing'
+    CATEGORY_INSURANCE = 'auto_insurance'
     CATEGORY_CHOICES = [
         (CATEGORY_WASHING, 'Washing'),
         (CATEGORY_OIL, 'Oil Change'),
@@ -98,6 +99,7 @@ class InvoiceServiceDetail(BaseModel):
         (CATEGORY_ALIGNMENT, 'Wheel Alignment'),
         (CATEGORY_SMOKE, 'Smoke Test'),
         (CATEGORY_DETAILING, 'Car Detailing'),
+        (CATEGORY_INSURANCE, 'Auto Insurance'),
     ]
 
     invoice_item = models.OneToOneField(
@@ -173,6 +175,13 @@ class InvoiceServiceDetail(BaseModel):
     )
     next_smoke_test_date = models.DateField(
         null=True, blank=True, help_text="Calculated next smoke test renewal date"
+    )
+
+    # -- Auto insurance fields ------------------------------------------------
+    insurance_expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Customer-selected insurance policy expiry date",
     )
 
     def __str__(self):

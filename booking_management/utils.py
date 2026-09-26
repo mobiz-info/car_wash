@@ -63,7 +63,7 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
     Supports both custom per-customer reminder schedules and default branch rules.
     """
     from booking_management.models import ServiceReminder, ReminderPlan
-    from datetime import timedelta
+    from datetime import datetime, timedelta
     from core.functions import get_auto_id
     
     branch = invoice.branch
@@ -95,6 +95,8 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
                     default_tmpl = 'batteryservice'
                 elif 'oil' in s_name or 'oil' in cat_slug:
                     default_tmpl = 'oilreminder'
+                elif 'insurance' in s_name or 'insurance' in cat_slug:
+                    default_tmpl = 'insurancereminder'
 
         for idx, rem in enumerate(custom_reminders, start=1):
             days = 0
@@ -106,7 +108,17 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
                 continue
 
             tmpl = (rem.get('template_name') or default_tmpl or 'servicesreminder').strip()
-            scheduled_date = invoice.date + timedelta(days=days)
+            scheduled_date = None
+            explicit_date = rem.get('scheduled_date') or rem.get('reminder_date')
+            if explicit_date:
+                try:
+                    scheduled_date = datetime.strptime(
+                        str(explicit_date), '%Y-%m-%d'
+                    ).date()
+                except (TypeError, ValueError):
+                    scheduled_date = None
+            if scheduled_date is None:
+                scheduled_date = invoice.date + timedelta(days=days)
 
             ReminderPlan.objects.create(
                 branch=branch,
@@ -218,6 +230,8 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
                     default_tmpl = 'batteryservice'
                 elif 'oil' in s_name or 'oil' in cat_slug:
                     default_tmpl = 'oilreminder'
+                elif 'insurance' in s_name or 'insurance' in cat_slug:
+                    default_tmpl = 'insurancereminder'
 
         for idx, rem in enumerate(custom_reminders, start=1):
             days = 0
@@ -271,6 +285,29 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
                 is_deleted=False
             ).order_by('days_after')
         
+        cat_slug_chk = item.service.service_type.slug.lower() if (item.service and item.service.service_type) else ''
+        if not reminder_rules.exists() and ('insurance' in s_name_chk or 'insurance' in cat_slug_chk):
+            insurance_expiry = getattr(
+                getattr(item, 'service_detail', None),
+                'insurance_expiry_date',
+                None,
+            ) or (invoice.date + timedelta(days=365))
+            reminder_dates = [
+                insurance_expiry - timedelta(days=20),
+                insurance_expiry - timedelta(days=1),
+            ]
+            for idx, scheduled_date in enumerate(reminder_dates, start=1):
+                if not ReminderPlan.objects.filter(invoice=invoice, template_name='insurancereminder', reminder_no=idx, is_deleted=False).exists():
+                    ReminderPlan.objects.create(
+                        branch=branch,
+                        invoice=invoice,
+                        reminder=None,
+                        template_name='insurancereminder',
+                        reminder_no=idx,
+                        scheduled_date=scheduled_date,
+                        auto_id=get_auto_id(ReminderPlan)
+                    )
+
         for idx, rule in enumerate(reminder_rules, start=1):
             scheduled_date = invoice.date + timedelta(days=rule.days_after)
             

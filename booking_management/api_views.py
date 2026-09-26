@@ -3806,9 +3806,27 @@ def api_reminder_list(request):
                 next_alignment_km = str(plan.invoice.vehicle.next_alignment_km)
 
         branch_name = plan.branch.name if (plan and plan.branch) else (plan.invoice.branch.name if (plan.invoice and plan.invoice.branch) else 'Mobiz Auto Care')
+        formatted_expiry = None
 
         if service_category == 'oil_change':
             message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_oil_change_km or 'N/A'} km"
+        elif 'insurance' in s_name_lower or service_category in ['auto_insurance', 'insurance'] or plan.template_name == 'insurancereminder':
+            if plan.invoice:
+                for item in plan.invoice.items.all():
+                    if hasattr(item, 'service_detail') and item.service_detail:
+                        exp_val = getattr(item.service_detail, 'insurance_expiry_date', None)
+                        if exp_val:
+                            try:
+                                if isinstance(exp_val, str):
+                                    from datetime import datetime
+                                    formatted_expiry = datetime.strptime(exp_val, "%Y-%m-%d").strftime("%d-%m-%Y")
+                                else:
+                                    formatted_expiry = exp_val.strftime("%d-%m-%Y")
+                            except Exception:
+                                pass
+            if not formatted_expiry:
+                formatted_expiry = (plan.invoice.date + timedelta(days=365)).strftime("%d-%m-%Y") if (plan.invoice and plan.invoice.date) else formatted_date
+            message = f"Dear {customer_name}, your vehicle {vehicle_no} insurance is expiring on {formatted_expiry}. Visit {branch_name} to renew your policy."
         elif is_wheel:
             km_disp = f"{next_alignment_km} KM" if (next_alignment_km and str(next_alignment_km).upper() != 'N/A' and 'KM' not in str(next_alignment_km).upper()) else (next_alignment_km or 'N/A')
             if km_disp != 'N/A':
@@ -3845,6 +3863,7 @@ def api_reminder_list(request):
             'next_oil_change_km': next_oil_change_km,
             'scheduled_date': str(plan.scheduled_date),
             'formatted_date': formatted_date,
+            'formatted_expiry': formatted_expiry,
             'message': message,
         })
 
@@ -3984,6 +4003,27 @@ def api_send_reminder(request):
                 tmpl_name = 'oilreminder'
                 tmpl_values = [customer_name, vehicle_no, next_km or "N/A"]
                 message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km"
+            elif 'insurance' in s_name_lower or (reminder and reminder.service and reminder.service.service_type and 'insurance' in reminder.service.service_type.slug) or plan.template_name == 'insurancereminder':
+                tmpl_name = 'insurancereminder'
+                branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
+                formatted_expiry = None
+                if invoice:
+                    for item in invoice.items.all():
+                        if hasattr(item, 'service_detail') and item.service_detail:
+                            exp_val = getattr(item.service_detail, 'insurance_expiry_date', None)
+                            if exp_val:
+                                try:
+                                    if isinstance(exp_val, str):
+                                        from datetime import datetime
+                                        formatted_expiry = datetime.strptime(exp_val, "%Y-%m-%d").strftime("%d-%m-%Y")
+                                    else:
+                                        formatted_expiry = exp_val.strftime("%d-%m-%Y")
+                                except Exception:
+                                    pass
+                if not formatted_expiry:
+                    formatted_expiry = (invoice.date + timedelta(days=365)).strftime("%d-%m-%Y") if (invoice and invoice.date) else formatted_date
+                tmpl_values = [customer_name, vehicle_no, formatted_expiry, branch_name]
+                message = f"Dear {customer_name}, your vehicle {vehicle_no} insurance is expiring on {formatted_expiry}. Visit {branch_name} to renew your policy."
             elif is_smoke:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'smoketest')).strip()
                 tmpl_values = [customer_name, vehicle_no, formatted_date]
@@ -4165,4 +4205,3 @@ def api_send_oil_reminder(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
-

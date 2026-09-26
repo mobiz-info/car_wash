@@ -672,12 +672,13 @@ def api_get_services(request):
                 if price_obj:
                     rate = float(price_obj.price)
 
-            if rate > 0:
+            is_insurance = bool(svc.service_type and ('insurance' in (svc.service_type.slug or '').lower() or 'insurance' in (svc.service_type.name or '').lower())) or 'insurance' in svc.name.lower()
+            if rate > 0 or is_smoke or is_insurance:
                 services_data.append({
                     'id': str(svc.id),
                     'name': svc.name,
-                    'service_type': svc.service_type.name,
-                    'service_type_slug': svc.service_type.slug or '',  # ← for app panel detection
+                    'service_type': svc.service_type.name if svc.service_type else 'Auto Insurance',
+                    'service_type_slug': svc.service_type.slug if svc.service_type else 'auto_insurance',
                     'rate': rate,
                     'has_price': True,
                 })
@@ -1250,6 +1251,17 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
         vehicle.last_smoke_test_date = invoice.date
         vehicle.next_smoke_test_date = next_date
         vehicle.save(update_fields=['last_smoke_test_date', 'next_smoke_test_date'])
+
+    elif category in (InvoiceServiceDetail.CATEGORY_INSURANCE, 'insurance'):
+        expiry_value = detail_data.get('insurance_expiry_date')
+        if expiry_value:
+            try:
+                from datetime import datetime as _insurance_date
+                detail.insurance_expiry_date = _insurance_date.strptime(
+                    str(expiry_value), '%Y-%m-%d'
+                ).date()
+            except (TypeError, ValueError):
+                detail.insurance_expiry_date = None
 
     elif category == InvoiceServiceDetail.CATEGORY_DETAILING or category == 'car_detailing':
         detail.service_category = InvoiceServiceDetail.CATEGORY_DETAILING
@@ -9041,5 +9053,4 @@ def api_leads_reminders(request):
         return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
 
