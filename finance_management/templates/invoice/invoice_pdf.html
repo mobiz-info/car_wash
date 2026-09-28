@@ -424,18 +424,6 @@
                             <td class="info-val">{{ invoice.vehicle.emission_standard.name }}</td>
                         </tr>
                         {% endif %}
-                        {% if invoice.vehicle.current_odometer_km %}
-                        <tr>
-                            <td class="info-label">Odometer:</td>
-                            <td class="info-val">{{ invoice.vehicle.current_odometer_km }} km</td>
-                        </tr>
-                        {% endif %}
-                        {% if invoice.scheme %}
-                        <tr>
-                            <td class="info-label">Scheme:</td>
-                            <td class="info-val">{{ invoice.scheme.name }}</td>
-                        </tr>
-                        {% endif %}
                     </table>
                 </div>
             </td>
