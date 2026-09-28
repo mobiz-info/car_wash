@@ -3805,7 +3805,15 @@ def api_reminder_list(request):
             if not next_alignment_km and plan.invoice and plan.invoice.vehicle and plan.invoice.vehicle.next_alignment_km:
                 next_alignment_km = str(plan.invoice.vehicle.next_alignment_km)
 
-        branch_name = plan.branch.name if (plan and plan.branch) else (plan.invoice.branch.name if (plan.invoice and plan.invoice.branch) else 'Mobiz Auto Care')
+        branch_name = ''
+        if plan and plan.branch and plan.branch.name:
+            branch_name = plan.branch.name.strip()
+        elif plan and plan.invoice and plan.invoice.branch and plan.invoice.branch.name:
+            branch_name = plan.invoice.branch.name.strip()
+        elif plan and plan.invoice and plan.invoice.company and plan.invoice.company.company_name:
+            branch_name = plan.invoice.company.company_name.strip()
+        if not branch_name:
+            branch_name = 'Mobiz Auto Care Pro'
         formatted_expiry = None
 
         if service_category == 'oil_change':
@@ -3860,6 +3868,7 @@ def api_reminder_list(request):
             'reminder_no': plan.reminder_no,
             'service_name': service_name,
             'service_category': service_category,
+            'branch_name': branch_name,
             'next_oil_change_km': next_oil_change_km,
             'scheduled_date': str(plan.scheduled_date),
             'formatted_date': formatted_date,
@@ -4005,7 +4014,15 @@ def api_send_reminder(request):
                 message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km"
             elif 'insurance' in s_name_lower or (reminder and reminder.service and reminder.service.service_type and 'insurance' in reminder.service.service_type.slug) or plan.template_name == 'insurancereminder':
                 tmpl_name = 'insurancereminder'
-                branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
+                branch_name = ''
+                if plan and plan.branch and plan.branch.name:
+                    branch_name = plan.branch.name.strip()
+                elif invoice and invoice.branch and invoice.branch.name:
+                    branch_name = invoice.branch.name.strip()
+                elif invoice and invoice.company and invoice.company.company_name:
+                    branch_name = invoice.company.company_name.strip()
+                if not branch_name:
+                    branch_name = 'Mobiz Auto Care Pro'
                 formatted_expiry = None
                 if invoice:
                     for item in invoice.items.all():
@@ -4032,7 +4049,15 @@ def api_send_reminder(request):
                 # DB stores 'servicereminder' as default — never use that for wheel services.
                 tmpl_name = 'wheelalignment'
                 # wheelalignment Wawy template: {{1}}=customer_name, {{2}}=vehicle_no, {{3}}=next_alignment_km, {{4}}=branch_name
-                branch_name = plan.branch.name if (plan and plan.branch) else (invoice.branch.name if (invoice and invoice.branch) else 'Mobiz Auto Care')
+                branch_name = ''
+                if plan and plan.branch and plan.branch.name:
+                    branch_name = plan.branch.name.strip()
+                elif invoice and invoice.branch and invoice.branch.name:
+                    branch_name = invoice.branch.name.strip()
+                elif invoice and invoice.company and invoice.company.company_name:
+                    branch_name = invoice.company.company_name.strip()
+                if not branch_name:
+                    branch_name = 'Mobiz Auto Care Pro'
                 # Resolve next alignment KM from invoice service_detail or vehicle
                 next_alignment_km = 'N/A'
                 if invoice:
