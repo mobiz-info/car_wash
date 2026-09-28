@@ -1101,7 +1101,7 @@ def send_reminder_ajax(request):
                 next_alignment_km = str(invoice.vehicle.next_alignment_km)
 
             if is_oil:
-                message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km"
+                message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km. Visit {branch_name} for a smooth ride."
             elif is_wheel:
                 km_disp = f"{next_alignment_km} KM" if (next_alignment_km and str(next_alignment_km).upper() != 'N/A' and 'KM' not in str(next_alignment_km).upper()) else (next_alignment_km or 'N/A')
                 if km_disp != 'N/A':

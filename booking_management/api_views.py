@@ -3817,7 +3817,7 @@ def api_reminder_list(request):
         formatted_expiry = None
 
         if service_category == 'oil_change':
-            message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_oil_change_km or 'N/A'} km"
+            message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_oil_change_km or 'N/A'} km. Visit {branch_name} for a smooth ride."
         elif 'insurance' in s_name_lower or service_category in ['auto_insurance', 'insurance'] or plan.template_name == 'insurancereminder':
             if plan.invoice:
                 for item in plan.invoice.items.all():
@@ -4008,21 +4008,22 @@ def api_send_reminder(request):
                     elif sd.service_category in ['alignment', 'wheel_balancing']:
                         is_wheel = True
 
+            branch_name = ''
+            if plan and plan.branch and plan.branch.name:
+                branch_name = plan.branch.name.strip()
+            elif invoice and invoice.branch and invoice.branch.name:
+                branch_name = invoice.branch.name.strip()
+            elif invoice and invoice.company and invoice.company.company_name:
+                branch_name = invoice.company.company_name.strip()
+            if not branch_name:
+                branch_name = 'Mobiz Auto Care Pro'
+
             if is_oil:
                 tmpl_name = 'oilreminder'
                 tmpl_values = [customer_name, vehicle_no, next_km or "N/A"]
-                message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km"
+                message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km. Visit {branch_name} for a smooth ride."
             elif 'insurance' in s_name_lower or (reminder and reminder.service and reminder.service.service_type and 'insurance' in reminder.service.service_type.slug) or plan.template_name == 'insurancereminder':
                 tmpl_name = 'insurancereminder'
-                branch_name = ''
-                if plan and plan.branch and plan.branch.name:
-                    branch_name = plan.branch.name.strip()
-                elif invoice and invoice.branch and invoice.branch.name:
-                    branch_name = invoice.branch.name.strip()
-                elif invoice and invoice.company and invoice.company.company_name:
-                    branch_name = invoice.company.company_name.strip()
-                if not branch_name:
-                    branch_name = 'Mobiz Auto Care Pro'
                 formatted_expiry = None
                 if invoice:
                     for item in invoice.items.all():
@@ -4187,7 +4188,15 @@ def api_send_oil_reminder(request):
         from client_management.models import WhatsAppSetting
         setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
 
-        message_text = f"Dear {customer_name} your vehicle no {vehicle_number} next oil change to be done on {next_oil_change_km} km"
+        branch_name = ''
+        if branch and branch.name:
+            branch_name = branch.name.strip()
+        elif company and company.company_name:
+            branch_name = company.company_name.strip()
+        if not branch_name:
+            branch_name = 'Mobiz Auto Care Pro'
+
+        message_text = f"Dear {customer_name} your vehicle no {vehicle_number} next oil change to be done on {next_oil_change_km} km. Visit {branch_name} for a smooth ride."
         import urllib.parse
         encoded_msg = urllib.parse.quote(message_text)
         whatsapp_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_msg}"
