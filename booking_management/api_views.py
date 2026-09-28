@@ -3816,7 +3816,7 @@ def api_reminder_list(request):
             branch_name = 'Mobiz Auto Care Pro'
         formatted_expiry = None
 
-        if service_category == 'oil_change':
+        if service_category == 'oil_change' or plan.template_name == 'oilreminder' or 'oil' in s_name_lower:
             message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_oil_change_km or 'N/A'} km. Visit {branch_name} for a smooth ride."
         elif 'insurance' in s_name_lower or service_category in ['auto_insurance', 'insurance'] or plan.template_name == 'insurancereminder':
             if plan.invoice:
