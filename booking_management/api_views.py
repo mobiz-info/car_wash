@@ -3800,10 +3800,30 @@ def api_reminder_list(request):
 
         s_name_lower = service_name.lower()
         is_wheel = ('wheel' in s_name_lower or 'balance' in s_name_lower or 'alignment' in s_name_lower or service_category in ['alignment', 'wheel_balancing'])
+        is_smoke = ('smoke' in s_name_lower or 'pollution' in s_name_lower or service_category == 'smoke_test' or plan.template_name == 'smoketest')
 
         if is_wheel:
             if not next_alignment_km and plan.invoice and plan.invoice.vehicle and plan.invoice.vehicle.next_alignment_km:
                 next_alignment_km = str(plan.invoice.vehicle.next_alignment_km)
+
+        formatted_smoke_due_date = formatted_date
+        if is_smoke:
+            smoke_due_date = None
+            if plan.invoice:
+                for item in plan.invoice.items.all():
+                    if hasattr(item, 'service_detail') and item.service_detail and item.service_detail.next_smoke_test_date:
+                        smoke_due_date = item.service_detail.next_smoke_test_date
+                        break
+            if not smoke_due_date and plan.invoice and plan.invoice.vehicle and plan.invoice.vehicle.next_smoke_test_date:
+                smoke_due_date = plan.invoice.vehicle.next_smoke_test_date
+            if not smoke_due_date and plan.scheduled_date:
+                r_days = 15 if plan.reminder_no == 1 else 3
+                if plan.invoice and plan.invoice.vehicle and plan.invoice.vehicle.vehicle_type_model and plan.invoice.vehicle.vehicle_type_model.emission_standard:
+                    es = plan.invoice.vehicle.vehicle_type_model.emission_standard
+                    r_days = es.reminder_1_days if plan.reminder_no == 1 else es.reminder_2_days
+                smoke_due_date = plan.scheduled_date + timedelta(days=r_days)
+            if smoke_due_date:
+                formatted_smoke_due_date = smoke_due_date.strftime("%d-%m-%Y") if hasattr(smoke_due_date, 'strftime') else str(smoke_due_date)
 
         branch_name = ''
         if plan and plan.branch and plan.branch.name:
@@ -3818,6 +3838,8 @@ def api_reminder_list(request):
 
         if service_category == 'oil_change' or plan.template_name == 'oilreminder' or 'oil' in s_name_lower:
             message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_oil_change_km or 'N/A'} km. Visit {branch_name} for a smooth ride."
+        elif is_smoke:
+            message = f"Hi {customer_name}, Your vehicle {vehicle_no}'s Smoke Test is due for renewal on {formatted_smoke_due_date}. Please visit {branch_name} to renew it before the due date."
         elif 'insurance' in s_name_lower or service_category in ['auto_insurance', 'insurance'] or plan.template_name == 'insurancereminder':
             if plan.invoice:
                 for item in plan.invoice.items.all():
@@ -3873,6 +3895,8 @@ def api_reminder_list(request):
             'scheduled_date': str(plan.scheduled_date),
             'formatted_date': formatted_date,
             'formatted_expiry': formatted_expiry,
+            'smoke_due_date': formatted_smoke_due_date,
+            'due_date': formatted_smoke_due_date if is_smoke else (formatted_expiry if 'insurance' in s_name_lower or service_category in ['auto_insurance', 'insurance'] or plan.template_name == 'insurancereminder' else formatted_date),
             'message': message,
         })
 
@@ -4044,7 +4068,23 @@ def api_send_reminder(request):
                 message = f"Dear {customer_name}, your vehicle {vehicle_no} insurance is expiring on {formatted_expiry}. Visit {branch_name} to renew your policy."
             elif is_smoke:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'smoketest')).strip()
-                tmpl_values = [customer_name, vehicle_no, formatted_date]
+                smoke_due_date = None
+                if invoice:
+                    for item in invoice.items.all():
+                        if hasattr(item, 'service_detail') and item.service_detail and item.service_detail.next_smoke_test_date:
+                            smoke_due_date = item.service_detail.next_smoke_test_date
+                            break
+                if not smoke_due_date and invoice and invoice.vehicle and invoice.vehicle.next_smoke_test_date:
+                    smoke_due_date = invoice.vehicle.next_smoke_test_date
+                if not smoke_due_date and plan.scheduled_date:
+                    r_days = 15 if plan.reminder_no == 1 else 3
+                    if invoice and invoice.vehicle and invoice.vehicle.vehicle_type_model and invoice.vehicle.vehicle_type_model.emission_standard:
+                        es = invoice.vehicle.vehicle_type_model.emission_standard
+                        r_days = es.reminder_1_days if plan.reminder_no == 1 else es.reminder_2_days
+                    smoke_due_date = plan.scheduled_date + timedelta(days=r_days)
+                formatted_smoke_due_date = smoke_due_date.strftime("%d-%m-%Y") if (smoke_due_date and hasattr(smoke_due_date, 'strftime')) else formatted_date
+                tmpl_values = [customer_name, vehicle_no, formatted_smoke_due_date, branch_name]
+                message = f"Hi {customer_name}, Your vehicle {vehicle_no}'s Smoke Test is due for renewal on {formatted_smoke_due_date}. Please visit {branch_name} to renew it before the due date."
             elif is_wheel:
                 # Always force 'wheelalignment' template for wheel alignment/balancing services.
                 # DB stores 'servicereminder' as default — never use that for wheel services.

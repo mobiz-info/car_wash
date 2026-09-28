@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.contrib import messages
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 
@@ -1070,7 +1070,7 @@ def send_reminder_ajax(request):
 
             if 'wheel' in s_name_lower or 'balance' in s_name_lower or 'alignment' in s_name_lower:
                 is_wheel = True
-            elif 'smoke' in s_name_lower or 'pollution' in s_name_lower:
+            elif 'smoke' in s_name_lower or 'pollution' in s_name_lower or (plan and plan.template_name == 'smoketest'):
                 is_smoke = True
             elif 'oil' in s_name_lower:
                 is_oil = True
@@ -1096,12 +1096,35 @@ def send_reminder_ajax(request):
                             is_wheel = True
                             if sd.next_alignment_km:
                                 next_alignment_km = str(sd.next_alignment_km)
+                        elif sd.service_category == 'smoke_test' or sd.next_smoke_test_date:
+                            is_smoke = True
 
             if is_wheel and next_alignment_km == 'N/A' and invoice and invoice.vehicle and invoice.vehicle.next_alignment_km:
                 next_alignment_km = str(invoice.vehicle.next_alignment_km)
 
+            formatted_smoke_due_date = formatted_date
+            if is_smoke:
+                smoke_due_date = None
+                if invoice:
+                    for item in invoice.items.all():
+                        if hasattr(item, 'service_detail') and item.service_detail and item.service_detail.next_smoke_test_date:
+                            smoke_due_date = item.service_detail.next_smoke_test_date
+                            break
+                if not smoke_due_date and invoice and invoice.vehicle and invoice.vehicle.next_smoke_test_date:
+                    smoke_due_date = invoice.vehicle.next_smoke_test_date
+                if not smoke_due_date and plan.scheduled_date:
+                    r_days = 15 if plan.reminder_no == 1 else 3
+                    if invoice and invoice.vehicle and invoice.vehicle.vehicle_type_model and invoice.vehicle.vehicle_type_model.emission_standard:
+                        es = invoice.vehicle.vehicle_type_model.emission_standard
+                        r_days = es.reminder_1_days if plan.reminder_no == 1 else es.reminder_2_days
+                    smoke_due_date = plan.scheduled_date + timedelta(days=r_days)
+                if smoke_due_date:
+                    formatted_smoke_due_date = smoke_due_date.strftime("%d-%m-%Y") if hasattr(smoke_due_date, 'strftime') else str(smoke_due_date)
+
             if is_oil:
                 message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km. Visit {branch_name} for a smooth ride."
+            elif is_smoke:
+                message = f"Hi {customer_name}, Your vehicle {vehicle_no}'s Smoke Test is due for renewal on {formatted_smoke_due_date}. Please visit {branch_name} to renew it before the due date."
             elif is_wheel:
                 km_disp = f"{next_alignment_km} KM" if (next_alignment_km and str(next_alignment_km).upper() != 'N/A' and 'KM' not in str(next_alignment_km).upper()) else (next_alignment_km or 'N/A')
                 if km_disp != 'N/A':
@@ -1198,8 +1221,8 @@ def send_reminder_ajax(request):
                         reminder_date_str = rem_date.strftime("%d-%m-%Y")
                         tmpl_values = [customer_name, vehicle_no, reminder_date_str, branch_name]
                     elif tmpl_name.lower() == 'smoketest':
-                        # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = scheduled_date
-                        tmpl_values = [customer_name, vehicle_no, formatted_date]
+                        # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = due_date, {{4}} = branch_name
+                        tmpl_values = [customer_name, vehicle_no, formatted_smoke_due_date, branch_name]
                     else:
                         # Default: {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = service_name
                         tmpl_values = [customer_name, vehicle_no, service_name]
@@ -1281,22 +1304,19 @@ def send_smoke_test_reminder_ajax(request):
             setting = WhatsAppSetting.objects.filter(company=company, is_deleted=False).first()
 
         renewal_date_str = vehicle.next_smoke_test_date.strftime('%d-%m-%Y') if vehicle.next_smoke_test_date else ''
-        message_text = (
-            f"Dear {customer.name},\n"
-            f"Your vehicle {vehicle.vehicle_number} Smoke Test / Pollution Certificate renewal is due on {renewal_date_str}.\n"
-            f"Please visit our service center for renewal."
-        )
+        branch_name = (customer.branch.name if customer.branch else None) or (company.company_name if company else 'Mobiz Auto Care')
+        message_text = f"Hi {customer.name}, Your vehicle {vehicle.vehicle_number}'s Smoke Test is due for renewal on {renewal_date_str}. Please visit {branch_name} to renew it before the due date."
 
         encoded_message = urllib.parse.quote(message_text)
         fallback_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
 
         if setting and setting.username and setting.password:
             if setting.is_official_api:
-                # Send template: name=smoketest, value1=Customer, value2=VehicleNo, value3=Date
+                # Send template: name=smoketest, value1=Customer, value2=VehicleNo, value3=Date, value4=Branch
                 res = send_whatsapp_template(
                     to_number=cleaned_phone,
                     template_name='smoketest',
-                    values=[customer.name, vehicle.vehicle_number, renewal_date_str],
+                    values=[customer.name, vehicle.vehicle_number, renewal_date_str, branch_name],
                     setting=setting
                 )
                 return JsonResponse({'success': True, 'message': 'Smoke test reminder sent via WhatsApp API', 'response': str(res)})
