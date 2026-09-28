@@ -3,7 +3,7 @@ from urllib.parse import urlencode
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from .utils import validate_booking
 from django.db.models import Q
 from client_management.api_views import get_user_from_token
