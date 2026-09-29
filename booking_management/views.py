@@ -1068,12 +1068,15 @@ def send_reminder_ajax(request):
             next_km = ""
             next_alignment_km = 'N/A'
 
+            is_insurance = False
             if 'wheel' in s_name_lower or 'balance' in s_name_lower or 'alignment' in s_name_lower:
                 is_wheel = True
             elif 'smoke' in s_name_lower or 'pollution' in s_name_lower or (plan and plan.template_name == 'smoketest'):
                 is_smoke = True
             elif 'oil' in s_name_lower:
                 is_oil = True
+            elif 'insurance' in s_name_lower or (plan and plan.template_name == 'insurancereminder'):
+                is_insurance = True
 
             if reminder and reminder.service:
                 cat_slug = reminder.service.service_type.slug if reminder.service.service_type else ""
@@ -1083,6 +1086,8 @@ def send_reminder_ajax(request):
                     is_smoke = True
                 elif cat_slug in ['wheel_balancing', 'alignment']:
                     is_wheel = True
+                elif cat_slug in ['auto_insurance', 'insurance']:
+                    is_insurance = True
 
             if invoice:
                 for item in invoice.items.all():
@@ -1098,6 +1103,8 @@ def send_reminder_ajax(request):
                                 next_alignment_km = str(sd.next_alignment_km)
                         elif sd.service_category == 'smoke_test' or sd.next_smoke_test_date:
                             is_smoke = True
+                        elif sd.service_category in ['auto_insurance', 'insurance'] or getattr(sd, 'insurance_expiry_date', None):
+                            is_insurance = True
 
             if is_wheel and next_alignment_km == 'N/A' and invoice and invoice.vehicle and invoice.vehicle.next_alignment_km:
                 next_alignment_km = str(invoice.vehicle.next_alignment_km)
@@ -1121,10 +1128,40 @@ def send_reminder_ajax(request):
                 if smoke_due_date:
                     formatted_smoke_due_date = smoke_due_date.strftime("%d-%m-%Y") if hasattr(smoke_due_date, 'strftime') else str(smoke_due_date)
 
+            formatted_expiry = None
+            if is_insurance:
+                if invoice:
+                    for item in invoice.items.all():
+                        if hasattr(item, 'service_detail') and item.service_detail:
+                            exp_val = getattr(item.service_detail, 'insurance_expiry_date', None)
+                            if exp_val:
+                                try:
+                                    if isinstance(exp_val, str):
+                                        from datetime import datetime as dt_cls
+                                        formatted_expiry = dt_cls.strptime(exp_val, "%Y-%m-%d").strftime("%d-%m-%Y")
+                                    else:
+                                        formatted_expiry = exp_val.strftime("%d-%m-%Y")
+                                except Exception:
+                                    pass
+                                break
+                if not formatted_expiry:
+                    formatted_expiry = (invoice.date + timedelta(days=365)).strftime("%d-%m-%Y") if (invoice and invoice.date) else formatted_date
+
+            ins_service_name = service_name if (service_name and service_name.lower() != 'service') else 'Insurance'
+            if ins_service_name.lower().endswith(' policy'):
+                ins_service_name = ins_service_name[:-7].strip()
+
             if is_oil:
                 message = f"Dear {customer_name} your vehicle no {vehicle_no} next oil change to be done on {next_km or 'N/A'} km. Visit {branch_name} for a smooth ride."
             elif is_smoke:
                 message = f"Hi {customer_name}, Your vehicle {vehicle_no}'s Smoke Test is due for renewal on {formatted_smoke_due_date}. Please visit {branch_name} to renew it before the due date."
+            elif is_insurance:
+                message = (
+                    f"Dear {customer_name}, {ins_service_name} policy expiry reminder.\n"
+                    f"Expiry date: {formatted_expiry}\n"
+                    f"Kindly contact for the renewal.\n"
+                    f"{branch_name} support team"
+                )
             elif is_wheel:
                 km_disp = f"{next_alignment_km} KM" if (next_alignment_km and str(next_alignment_km).upper() != 'N/A' and 'KM' not in str(next_alignment_km).upper()) else (next_alignment_km or 'N/A')
                 if km_disp != 'N/A':
@@ -1223,6 +1260,9 @@ def send_reminder_ajax(request):
                     elif tmpl_name.lower() == 'smoketest':
                         # {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = due_date, {{4}} = branch_name
                         tmpl_values = [customer_name, vehicle_no, formatted_smoke_due_date, branch_name]
+                    elif tmpl_name.lower() == 'insurancereminder':
+                        # {{1}} = customer_name, {{2}} = service_name, {{3}} = expiry_date, {{4}} = branch_name
+                        tmpl_values = [customer_name, ins_service_name, formatted_expiry, branch_name]
                     else:
                         # Default: {{1}} = customer_name, {{2}} = vehicle_no, {{3}} = service_name
                         tmpl_values = [customer_name, vehicle_no, service_name]

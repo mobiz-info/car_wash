@@ -3856,7 +3856,17 @@ def api_reminder_list(request):
                                 pass
             if not formatted_expiry:
                 formatted_expiry = (plan.invoice.date + timedelta(days=365)).strftime("%d-%m-%Y") if (plan.invoice and plan.invoice.date) else formatted_date
-            message = f"Dear {customer_name}, your vehicle {vehicle_no} insurance is expiring on {formatted_expiry}. Visit {branch_name} to renew your policy."
+
+            ins_service_name = service_name if (service_name and service_name.lower() != 'service') else 'Insurance'
+            if ins_service_name.lower().endswith(' policy'):
+                ins_service_name = ins_service_name[:-7].strip()
+
+            message = (
+                f"Dear {customer_name}, {ins_service_name} policy expiry reminder.\n"
+                f"Expiry date: {formatted_expiry}\n"
+                f"Kindly contact for the renewal.\n"
+                f"{branch_name} support team"
+            )
         elif is_wheel:
             km_disp = f"{next_alignment_km} KM" if (next_alignment_km and str(next_alignment_km).upper() != 'N/A' and 'KM' not in str(next_alignment_km).upper()) else (next_alignment_km or 'N/A')
             if km_disp != 'N/A':
@@ -4064,8 +4074,18 @@ def api_send_reminder(request):
                                     pass
                 if not formatted_expiry:
                     formatted_expiry = (invoice.date + timedelta(days=365)).strftime("%d-%m-%Y") if (invoice and invoice.date) else formatted_date
-                tmpl_values = [customer_name, vehicle_no, formatted_expiry, branch_name]
-                message = f"Dear {customer_name}, your vehicle {vehicle_no} insurance is expiring on {formatted_expiry}. Visit {branch_name} to renew your policy."
+
+                ins_service_name = service_name if (service_name and service_name.lower() != 'service') else 'Insurance'
+                if ins_service_name.lower().endswith(' policy'):
+                    ins_service_name = ins_service_name[:-7].strip()
+
+                tmpl_values = [customer_name, ins_service_name, formatted_expiry, branch_name]
+                message = (
+                    f"Dear {customer_name}, {ins_service_name} policy expiry reminder.\n"
+                    f"Expiry date: {formatted_expiry}\n"
+                    f"Kindly contact for the renewal.\n"
+                    f"{branch_name} support team"
+                )
             elif is_smoke:
                 tmpl_name = (plan.template_name or (reminder.template_name if reminder else 'smoketest')).strip()
                 smoke_due_date = None
