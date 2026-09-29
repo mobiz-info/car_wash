@@ -205,56 +205,9 @@ def create_reminder_plans_for_invoice(invoice, custom_reminders=None):
     if has_only_smoke and not custom_reminders:
         return
 
-    # Handle custom per-customer reminder schedule if provided
-    if custom_reminders and isinstance(custom_reminders, list) and len(custom_reminders) > 0:
-        default_tmpl = None
-        for item in invoice.items.all():
-            if item.service:
-                sr = ServiceReminder.objects.filter(branch=branch, service=item.service, is_deleted=False).first()
-                if sr and sr.template_name:
-                    default_tmpl = sr.template_name
-                    break
-                if not default_tmpl and item.service.service_type:
-                    sr = ServiceReminder.objects.filter(branch=branch, service__service_type=item.service.service_type, is_deleted=False).first()
-                    if sr and sr.template_name:
-                        default_tmpl = sr.template_name
-                        break
-            s_name = (item.service_name or (item.service.name if item.service else '')).lower()
-            cat_slug = item.service.service_type.slug if (item.service and item.service.service_type) else ''
-            if not default_tmpl:
-                if 'wheel' in s_name or 'balance' in s_name or 'alignment' in s_name or 'wheel' in cat_slug or 'alignment' in cat_slug:
-                    default_tmpl = 'wheelalignment'
-                elif 'smoke' in s_name or 'pollution' in s_name or 'smoke' in cat_slug:
-                    default_tmpl = 'smoketest'
-                elif 'battery' in s_name or 'battery' in cat_slug:
-                    default_tmpl = 'batteryservice'
-                elif 'oil' in s_name or 'oil' in cat_slug:
-                    default_tmpl = 'oilreminder'
-                elif 'insurance' in s_name or 'insurance' in cat_slug:
-                    default_tmpl = 'insurancereminder'
-
-        for idx, rem in enumerate(custom_reminders, start=1):
-            days = 0
-            try:
-                days = int(rem.get('days_after') or rem.get('days') or 0)
-            except (ValueError, TypeError):
-                days = 0
-            if days <= 0:
-                continue
-
-            tmpl = (rem.get('template_name') or default_tmpl or 'servicesreminder').strip()
-            scheduled_date = invoice.date + timedelta(days=days)
-
-            ReminderPlan.objects.create(
-                branch=branch,
-                invoice=invoice,
-                reminder=None,
-                template_name=tmpl,
-                reminder_no=idx,
-                scheduled_date=scheduled_date,
-                auto_id=get_auto_id(ReminderPlan)
-            )
-        return
+    # NOTE: Custom reminders are fully handled in the first block above (lines 73-132)
+    # which correctly reads explicit scheduled_date from the payload and returns early.
+    # A duplicate block was removed here to prevent incorrect date computation.
 
     # Fallback to default branch ServiceReminder rules
     for item in invoice.items.filter(service__isnull=False):
