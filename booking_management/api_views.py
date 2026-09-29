@@ -3764,20 +3764,77 @@ def api_reminder_list(request):
         customer_name = plan.invoice.customer.name or "Customer"
         vehicle_no = plan.invoice.vehicle.vehicle_number if plan.invoice.vehicle else "your vehicle"
 
-        first_svc_item = plan.invoice.items.filter(service__isnull=False).first() if plan.invoice else None
+        # Resolve service item and service name accurately
+        service_name = ""
+        service_category = ""
+        target_item = None
+
         if plan.reminder and plan.reminder.service:
             service_name = plan.reminder.service.name
-        elif first_svc_item:
-            service_name = first_svc_item.service_name or (first_svc_item.service.name if first_svc_item.service else '')
-        else:
-            service_name = plan.template_name or "Service Reminder"
+            if plan.reminder.service.service_type:
+                service_category = plan.reminder.service.service_type.slug
+        elif plan.invoice:
+            tmpl_name = (plan.template_name or '').lower()
+            if tmpl_name == 'insurancereminder':
+                target_item = next(
+                    (it for it in plan.invoice.items.all() if (
+                        (hasattr(it, 'service_detail') and it.service_detail and it.service_detail.service_category in ['auto_insurance', 'insurance']) or
+                        (it.service and it.service.service_type and it.service.service_type.slug in ['auto_insurance', 'insurance']) or
+                        'insurance' in (it.service_name or '').lower()
+                    )),
+                    None
+                )
+            elif tmpl_name == 'smoketest':
+                target_item = next(
+                    (it for it in plan.invoice.items.all() if (
+                        (hasattr(it, 'service_detail') and it.service_detail and it.service_detail.service_category == 'smoke_test') or
+                        (it.service and it.service.service_type and it.service.service_type.slug in ['smoke_test', 'pollution']) or
+                        'smoke' in (it.service_name or '').lower() or 'pollution' in (it.service_name or '').lower()
+                    )),
+                    None
+                )
+            elif tmpl_name == 'oilreminder':
+                target_item = next(
+                    (it for it in plan.invoice.items.all() if (
+                        (hasattr(it, 'service_detail') and it.service_detail and it.service_detail.service_category == 'oil_change') or
+                        (it.service and it.service.service_type and it.service.service_type.slug == 'oil_change') or
+                        'oil' in (it.service_name or '').lower()
+                    )),
+                    None
+                )
 
-        if plan.reminder and plan.reminder.service and plan.reminder.service.service_type:
-            service_category = plan.reminder.service.service_type.slug
-        elif first_svc_item and first_svc_item.service and first_svc_item.service.service_type:
-            service_category = first_svc_item.service.service_type.slug
-        else:
-            service_category = ""
+            if target_item:
+                service_name = target_item.service_name or (target_item.service.name if target_item.service else '')
+                if hasattr(target_item, 'service_detail') and target_item.service_detail:
+                    service_category = target_item.service_detail.service_category or ''
+                elif target_item.service and target_item.service.service_type:
+                    service_category = target_item.service.service_type.slug
+
+            if not service_name:
+                first_svc_item = plan.invoice.items.filter(stock_item__isnull=True).first() or plan.invoice.items.first()
+                if first_svc_item:
+                    service_name = first_svc_item.service_name or (first_svc_item.service.name if first_svc_item.service else '')
+                    if hasattr(first_svc_item, 'service_detail') and first_svc_item.service_detail:
+                        service_category = first_svc_item.service_detail.service_category or ''
+                    elif first_svc_item.service and first_svc_item.service.service_type:
+                        service_category = first_svc_item.service.service_type.slug
+
+        if not service_name or service_name.lower() in ['insurancereminder', 'smoketest', 'oilreminder', 'servicesreminder', 'service reminder', 'reminder']:
+            tmpl_name = (plan.template_name or '').lower()
+            if tmpl_name == 'insurancereminder':
+                service_name = 'Insurance'
+                if not service_category:
+                    service_category = 'auto_insurance'
+            elif tmpl_name == 'smoketest':
+                service_name = 'Smoke Test'
+                if not service_category:
+                    service_category = 'smoke_test'
+            elif tmpl_name == 'oilreminder':
+                service_name = 'Oil Change'
+                if not service_category:
+                    service_category = 'oil_change'
+            else:
+                service_name = 'Service'
 
         formatted_date = plan.scheduled_date.strftime("%d-%m-%Y") if plan.scheduled_date else ""
         
