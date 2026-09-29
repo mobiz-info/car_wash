@@ -560,7 +560,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'invoice_create' %}">Create Invoice</a>
                 <a href="{% url 'invoice_list' %}">Invoices</a>
-                <a href="{% url 'outstanding_list' %}">Outstanding</a>
+                <a href="{% url 'receipt_list' %}">Receipts</a>
             </div>
 
             <div class="nav-item dropdown-toggle">
@@ -706,7 +706,9 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'sales_report' %}">Sales</a>
+                <a href="{% url 'collection_report' %}">Collection Report</a>
                 <a href="{% url 'receipt_list' %}">Receipt</a>
+                <a href="{% url 'outstanding_list' %}">Customer Outstanding Report</a>
                 <a href="{% url 'job_report' %}">Job Report</a>
                 <a href="{% url 'booking_report' %}">Booking Report</a>
                 <a href="{% url 'cancellation_report' %}">Cancellation Report</a>
@@ -792,6 +794,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'invoice_create' %}">Create Invoice</a>
                 <a href="{% url 'invoice_list' %}">Invoices</a>
+                <a href="{% url 'receipt_list' %}">Receipts</a>
                 <a href="{% url 'outstanding_list' %}">Outstanding</a>
             </div>
 
@@ -920,7 +923,8 @@
             </div>
             <div class="nav-submenu">
                 <a href="{% url 'sales_report' %}">Sales Report</a>
-                <a href="{% url 'receipt_list' %}">Collection Report</a>
+                <a href="{% url 'collection_report' %}">Collection Report</a>
+                <a href="{% url 'receipt_list' %}">Receipts</a>
                 <a href="{% url 'job_report' %}">Job Report</a>
                 <a href="{% url 'outstanding_list' %}">Outstanding Report</a>
                 <a href="{% url 'booking_report' %}">Booking Report</a>
@@ -928,7 +932,6 @@
                 <a href="{% url 'expense_head_report' %}">Expense Head Report</a>
                 <a href="{% url 'expense_report' %}">Expense Report</a>
                 <a href="{% url 'profit_report' %}">Profit Report</a>
-
             </div>
 
             <a href="{% url 'complaint_list' %}" class="nav-item">
@@ -1224,7 +1227,9 @@
                 <div class="navbar-right">
                     <i class="ph ph-moon"></i>
                     <div class="flex-center" style="gap: 8px;">
-                        <span style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">{{ request.user.username|slice:":1"|upper|default:"A" }}</span>
+                        <span
+                            style="display:inline-block; width:28px; height:28px; border-radius:50%; background:#93c5fd; color:#1e3a8a; text-align:center; line-height:28px; font-weight:bold;">{{
+                            request.user.username|slice:":1"|upper|default:"A" }}</span>
                         <span>{{ request.user.username|default:"admin" }}</span>
                     </div>
                     {% if request.user.is_authenticated %}

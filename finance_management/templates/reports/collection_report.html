@@ -1,0 +1,716 @@
+{% extends 'base.html' %}
+
+{% block title %}Collection Report - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Collection Report{% endblock %}
+{% block breadcrumb_active %}Collection Report{% endblock %}
+
+{% block content %}
+
+<style>
+.report-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Header */
+.report-header {
+    background: linear-gradient(135deg, #065f46, #0d9488);
+    border-radius: 22px;
+    padding: 30px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(13, 148, 136, 0.18);
+}
+
+.report-header::after {
+    content: '';
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    right: -80px;
+    top: -80px;
+}
+
+.report-title {
+    position: relative;
+    z-index: 2;
+}
+
+.report-title h2 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.report-title p {
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.95rem;
+}
+
+.period-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-top: 12px;
+}
+
+/* Filter Card */
+.filter-card {
+    background: white;
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+
+.filter-group {
+    position: relative;
+    flex: 1;
+    min-width: 220px;
+}
+
+.search-input {
+    width: 100%;
+    height: 46px;
+    border-radius: 12px;
+    border: 1px solid #dbeafe;
+    background: #f8fafc;
+    padding: 0 16px 0 44px;
+    font-size: 0.9rem;
+    transition: 0.3s;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #0d9488;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.08);
+}
+
+.search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    font-size: 1rem;
+}
+
+.date-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.date-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.date-input {
+    height: 46px;
+    border-radius: 12px;
+    border: 1px solid #dbeafe;
+    background: #f8fafc;
+    padding: 0 14px;
+    font-size: 0.9rem;
+    transition: 0.3s;
+}
+
+.date-input:focus {
+    outline: none;
+    border-color: #0d9488;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.08);
+}
+
+.filter-btn {
+    height: 46px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #065f46, #0d9488);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.filter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(13, 148, 136, 0.2);
+}
+
+.btn-secondary {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    text-decoration: none;
+}
+
+.btn-secondary:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.btn-print {
+    background: #0f172a;
+    color: white;
+}
+
+.btn-print:hover {
+    background: #1e293b;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+}
+
+/* Summary Grid */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.summary-card {
+    background: white;
+    border-radius: 20px;
+    padding: 22px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+    transition: 0.3s;
+}
+
+.summary-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 100%;
+}
+
+.summary-card.total::before { background: #000080; }
+.summary-card.cash::before { background: #10b981; }
+.summary-card.card::before { background: #3b82f6; }
+.summary-card.digital::before { background: #8b5cf6; }
+.summary-card.count::before { background: #0284c7; }
+
+.summary-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-label {
+    color: #64748b;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.summary-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.summary-card.total .summary-icon { background: #e0e7ff; color: #000080; }
+.summary-card.cash .summary-icon { background: #d1fae5; color: #059669; }
+.summary-card.card .summary-icon { background: #dbeafe; color: #2563eb; }
+.summary-card.digital .summary-icon { background: #f3e8ff; color: #7c3aed; }
+.summary-card.count .summary-icon { background: #e0f2fe; color: #0284c7; }
+
+.summary-value {
+    margin-top: 14px;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+/* Table Card */
+.table-card {
+    background: white;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.05);
+}
+
+.table-header {
+    padding: 22px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.table-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.table-header span {
+    color: #64748b;
+    font-size: 0.88rem;
+}
+
+.badge-count {
+    background: #f1f5f9;
+    color: #334155;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.premium-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.premium-table thead {
+    background: #f8fafc;
+}
+
+.premium-table th {
+    padding: 16px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #64748b;
+    font-weight: 700;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.premium-table td {
+    padding: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+
+.premium-table tbody tr {
+    transition: 0.2s;
+}
+
+.premium-table tbody tr:hover {
+    background: #f8fbff;
+}
+
+.receipt-badge {
+    font-family: monospace;
+    font-weight: 700;
+    color: #1e293b;
+    background: #f1f5f9;
+    padding: 5px 9px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.invoice-badge {
+    font-family: monospace;
+    font-weight: 600;
+    color: #2563eb;
+    background: #eff6ff;
+    padding: 5px 9px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    text-decoration: none;
+}
+
+.customer-name {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.customer-phone {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 3px;
+}
+
+.vehicle-no {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.vehicle-model {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 3px;
+}
+
+.branch-badge {
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 5px 9px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.mode-badge {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: inline-block;
+    text-transform: capitalize;
+}
+
+.mode-badge.cash { background: #dcfce7; color: #15803d; }
+.mode-badge.card { background: #dbeafe; color: #1d4ed8; }
+.mode-badge.digital_payments { background: #f3e8ff; color: #7c3aed; }
+.mode-badge.cheque { background: #fef3c7; color: #92400e; }
+.mode-badge.online { background: #fce7f3; color: #be185d; }
+
+.amount-text {
+    font-weight: 700;
+    color: #000080;
+    font-size: 0.95rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-state i {
+    font-size: 3.5rem;
+    color: #cbd5e1;
+    margin-bottom: 12px;
+}
+
+.empty-state h4 {
+    margin: 0;
+    color: #334155;
+    font-size: 1.1rem;
+}
+
+.empty-state p {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    margin-top: 6px;
+}
+
+/* Print Styles */
+@media print {
+    .sidebar, .top-navbar, .filter-card, .btn-print, .btn-secondary, .filter-btn, .navbar-left, .navbar-right {
+        display: none !important;
+    }
+    .report-wrapper {
+        gap: 16px;
+    }
+    .report-header {
+        background: #065f46 !important;
+        box-shadow: none !important;
+        padding: 20px !important;
+    }
+    .table-card {
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+    .summary-card {
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+}
+</style>
+
+<div class="report-wrapper">
+
+    <!-- Header -->
+    <div class="report-header">
+        <div class="report-title">
+            <h2>Collection Report</h2>
+            <p>Complete breakdown of all payment collections, receipts, and modes of settlement.</p>
+            <div class="period-pill">
+                <i class="ph ph-calendar"></i>
+                <span>Period: <strong>{{ from_date }}</strong> to <strong>{{ to_date }}</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="filter-card">
+        <form method="GET" class="filter-form">
+            <div class="filter-group">
+                <i class="ph ph-magnifying-glass search-icon"></i>
+                <input type="text"
+                       name="search"
+                       value="{{ search }}"
+                       class="search-input"
+                       placeholder="Search receipt #, invoice #, customer, phone...">
+            </div>
+
+            <div class="date-group">
+                <span class="date-label">From:</span>
+                <input type="date"
+                       name="from_date"
+                       value="{{ from_date }}"
+                       class="date-input"
+                       title="From Date">
+            </div>
+
+            <div class="date-group">
+                <span class="date-label">To:</span>
+                <input type="date"
+                       name="to_date"
+                       value="{{ to_date }}"
+                       class="date-input"
+                       title="To Date">
+            </div>
+
+            {% if branches %}
+            <select name="branch" class="date-input" style="min-width: 160px;">
+                <option value="">All Branches</option>
+                {% for b in branches %}
+                <option value="{{ b.id }}" {% if branch_id == b.id|stringformat:"s" %}selected{% endif %}>
+                    {{ b.name }}
+                </option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
+            <select name="payment_mode" class="date-input" style="min-width: 170px;">
+                <option value="">All Payment Modes</option>
+                <option value="cash" {% if payment_mode == 'cash' %}selected{% endif %}>Cash</option>
+                <option value="card" {% if payment_mode == 'card' %}selected{% endif %}>Card</option>
+                <option value="digital_payments" {% if payment_mode == 'digital_payments' %}selected{% endif %}>Digital Payments</option>
+                <option value="cheque" {% if payment_mode == 'cheque' %}selected{% endif %}>Cheque</option>
+                <option value="online" {% if payment_mode == 'online' %}selected{% endif %}>Online</option>
+            </select>
+
+            <button type="submit" class="filter-btn">
+                <i class="ph ph-funnel"></i>
+                Filter Report
+            </button>
+
+            <a href="{% url 'collection_report' %}" class="filter-btn btn-secondary" title="Reset filters to today">
+                <i class="ph ph-arrow-counter-clockwise"></i>
+                Reset
+            </a>
+
+            <button type="button" onclick="window.print()" class="filter-btn btn-print" title="Print this report">
+                <i class="ph ph-printer"></i>
+                Print
+            </button>
+        </form>
+    </div>
+
+    <!-- Summary Metrics Grid -->
+    <div class="summary-grid">
+        <div class="summary-card total">
+            <div class="summary-top">
+                <div class="summary-label">Total Collection</div>
+                <div class="summary-icon">
+                    <i class="ph ph-wallet"></i>
+                </div>
+            </div>
+            <div class="summary-value">
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_collected }}
+            </div>
+        </div>
+
+        <div class="summary-card cash">
+            <div class="summary-top">
+                <div class="summary-label">Cash Collection</div>
+                <div class="summary-icon">
+                    <i class="ph ph-money"></i>
+                </div>
+            </div>
+            <div class="summary-value" style="color: #15803d;">
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_cash }}
+            </div>
+        </div>
+
+        <div class="summary-card card">
+            <div class="summary-top">
+                <div class="summary-label">Card Collection</div>
+                <div class="summary-icon">
+                    <i class="ph ph-credit-card"></i>
+                </div>
+            </div>
+            <div class="summary-value" style="color: #2563eb;">
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_card }}
+            </div>
+        </div>
+
+        <div class="summary-card digital">
+            <div class="summary-top">
+                <div class="summary-label">Digital Payments</div>
+                <div class="summary-icon">
+                    <i class="ph ph-qr-code"></i>
+                </div>
+            </div>
+            <div class="summary-value" style="color: #7c3aed;">
+                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_digital }}
+            </div>
+        </div>
+
+        <div class="summary-card count">
+            <div class="summary-top">
+                <div class="summary-label">Receipts Count</div>
+                <div class="summary-icon">
+                    <i class="ph ph-receipt"></i>
+                </div>
+            </div>
+            <div class="summary-value" style="color: #0284c7;">
+                {{ receipts|length }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="table-card">
+        <div class="table-header">
+            <div>
+                <h3>Collection Receipts</h3>
+                <span>Detailed records for the selected filters</span>
+            </div>
+            <span class="badge-count">Total Receipts: {{ receipts|length }}</span>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Receipt No</th>
+                        <th>Date & Time</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Invoice No</th>
+                        {% if request.user.profile.role.name != 'BRANCH_ADMIN' %}
+                        <th>Branch</th>
+                        {% endif %}
+                        <th>Payment Mode</th>
+                        <th style="text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in receipts %}
+                    <tr>
+                        <td style="color: #94a3b8;">{{ forloop.counter }}</td>
+                        <td>
+                            <span class="receipt-badge">{{ r.receipt_number }}</span>
+                        </td>
+                        <td>
+                            <div style="font-weight: 500; color: #1e293b;">{{ r.created_at|date:"d M Y" }}</div>
+                            <div style="font-size: 0.76rem; color: #64748b;">{{ r.created_at|time:"h:i A" }}</div>
+                        </td>
+                        <td>
+                            <div class="customer-name">{{ r.invoice.customer.name }}</div>
+                            <div class="customer-phone">{{ r.invoice.customer.phone }}</div>
+                        </td>
+                        <td>
+                            {% if r.invoice.vehicle %}
+                                <div class="vehicle-no">{{ r.invoice.vehicle.vehicle_number }}</div>
+                                <div class="vehicle-model">{{ r.invoice.vehicle.vehicle_type_model.name|default:"-" }}</div>
+                            {% else %}
+                                <span style="color: #94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'invoice_receipt' r.invoice.id %}" class="invoice-badge" title="View Invoice Receipt">
+                                {{ r.invoice.invoice_number }}
+                            </a>
+                        </td>
+                        {% if request.user.profile.role.name != 'BRANCH_ADMIN' %}
+                        <td>
+                            <span class="branch-badge">{{ r.invoice.branch.name }}</span>
+                        </td>
+                        {% endif %}
+                        <td>
+                            <span class="mode-badge {{ r.payment_mode }}">
+                                {% if r.payment_mode == 'cash' %}Cash
+                                {% elif r.payment_mode == 'card' %}Card
+                                {% elif r.payment_mode == 'digital_payments' %}Digital Payments
+                                {% elif r.payment_mode == 'cheque' %}Cheque
+                                {% elif r.payment_mode == 'online' %}Online
+                                {% else %}{{ r.payment_mode|title }}
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td style="text-align: right;">
+                            <span class="amount-text">
+                                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ r.amount }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if request.user.profile.role.name != 'BRANCH_ADMIN' %}9{% else %}8{% endif %}">
+                            <div class="empty-state">
+                                <i class="ph ph-receipt"></i>
+                                <h4>No Collections Found</h4>
+                                <p>No payment receipts recorded for the selected date range and filter criteria.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if receipts %}
+                <tfoot>
+                    <tr style="background: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1;">
+                        <td colspan="{% if request.user.profile.role.name != 'BRANCH_ADMIN' %}8{% else %}7{% endif %}" style="text-align: right; color: #475569; padding: 18px 20px;">
+                            Total Collection:
+                        </td>
+                        <td style="text-align: right; color: #000080; font-size: 1.1rem; padding: 18px 20px; font-weight: 700;">
+                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ table_total }}
+                        </td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

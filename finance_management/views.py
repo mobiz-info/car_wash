@@ -36,20 +36,58 @@ def invoice_list(request):
     user = request.user
     role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
 
+    today = timezone.localdate() if hasattr(timezone, 'localdate') else timezone.now().date()
+    today_str = today.strftime('%Y-%m-%d')
+
+    from_date_param = request.GET.get('from_date') if 'from_date' in request.GET else request.GET.get('fromdate')
+    to_date_param = request.GET.get('to_date') if 'to_date' in request.GET else request.GET.get('todate')
+
+    if from_date_param is None:
+        from_date = today_str
+    else:
+        from_date = from_date_param.strip()
+
+    if to_date_param is None:
+        to_date = today_str
+    else:
+        to_date = to_date_param.strip()
+
     invoices = Invoice.objects.filter(is_deleted=False).select_related(
         'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
     ).prefetch_related('items').order_by('-date', '-auto_id')
 
+    branches = None
     if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
         invoices = invoices.filter(branch__company=user.profile.company)
+        branches = Branch.objects.filter(company=user.profile.company, is_deleted=False)
     elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
         invoices = invoices.filter(branch=user.managed_branch)
+
+    branch_id = request.GET.get('branch_id') or request.GET.get('branch')
+    if branch_id:
+        invoices = invoices.filter(branch_id=branch_id)
+
+    # Filter by date range (defaults to today)
+    if from_date:
+        try:
+            parsed_from = datetime.strptime(from_date, '%Y-%m-%d').date()
+            invoices = invoices.filter(date__gte=parsed_from)
+        except ValueError:
+            invoices = invoices.filter(date__gte=from_date)
+
+    if to_date:
+        try:
+            parsed_to = datetime.strptime(to_date, '%Y-%m-%d').date()
+            invoices = invoices.filter(date__lte=parsed_to)
+        except ValueError:
+            invoices = invoices.filter(date__lte=to_date)
 
     search = request.GET.get('search', '').strip()
     if search:
         invoices = invoices.filter(
             Q(invoice_number__icontains=search) |
             Q(customer__name__icontains=search) |
+            Q(customer__phone__icontains=search) |
             Q(vehicle__vehicle_number__icontains=search)
         )
 
@@ -72,6 +110,10 @@ def invoice_list(request):
         'invoices': invoices,
         'search': search,
         'payment_mode': payment_mode,
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'branches': branches,
         'title': 'Invoices',
         'totals': totals
     })
@@ -2321,6 +2363,130 @@ def invoice_create(request):
     }
 
     return render(request, 'invoice/create.html', context)
+
+
+@login_required
+def collection_report(request):
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    from finance_management.models import Receipt
+    from django.db.models import Sum
+
+    today = timezone.localdate() if hasattr(timezone, 'localdate') else timezone.now().date()
+    today_str = today.strftime('%Y-%m-%d')
+
+    from_date_param = request.GET.get('from_date') if 'from_date' in request.GET else request.GET.get('fromdate')
+    to_date_param = request.GET.get('to_date') if 'to_date' in request.GET else request.GET.get('todate')
+
+    if from_date_param is None:
+        from_date = today_str
+    else:
+        from_date = from_date_param.strip()
+
+    if to_date_param is None:
+        to_date = today_str
+    else:
+        to_date = to_date_param.strip()
+
+    receipts = Receipt.objects.filter(is_deleted=False).select_related(
+        'invoice', 'invoice__customer', 'invoice__vehicle', 'invoice__vehicle__vehicle_type_model', 'invoice__branch'
+    ).order_by('-created_at')
+
+    branches = None
+    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        receipts = receipts.filter(invoice__branch__company=user.profile.company)
+        branches = Branch.objects.filter(company=user.profile.company, is_deleted=False)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        receipts = receipts.filter(invoice__branch=user.managed_branch)
+
+    branch_id = request.GET.get('branch_id') or request.GET.get('branch')
+    if branch_id:
+        receipts = receipts.filter(invoice__branch_id=branch_id)
+
+    # Date filter
+    if from_date:
+        try:
+            parsed_from = datetime.strptime(from_date, '%Y-%m-%d').date()
+            receipts = receipts.filter(created_at__date__gte=parsed_from)
+        except ValueError:
+            receipts = receipts.filter(created_at__date__gte=from_date)
+
+    if to_date:
+        try:
+            parsed_to = datetime.strptime(to_date, '%Y-%m-%d').date()
+            receipts = receipts.filter(created_at__date__lte=parsed_to)
+        except ValueError:
+            receipts = receipts.filter(created_at__date__lte=to_date)
+
+    search = request.GET.get('search', '').strip()
+    if search:
+        receipts = receipts.filter(
+            Q(receipt_number__icontains=search) |
+            Q(invoice__invoice_number__icontains=search) |
+            Q(invoice__customer__name__icontains=search) |
+            Q(invoice__customer__phone__icontains=search) |
+            Q(invoice__vehicle__vehicle_number__icontains=search)
+        )
+
+    # Summary by payment mode
+    summary_grouped = receipts.values('payment_mode').annotate(total_amount=Sum('amount')).order_by('-total_amount')
+    PAYMENT_LABELS = dict(Receipt.PAYMENT_CHOICES)
+    mode_totals = {item['payment_mode']: item['total_amount'] or Decimal('0.00') for item in summary_grouped}
+
+    total_collected = sum(mode_totals.values(), Decimal('0.00'))
+    total_cash = mode_totals.get('cash', Decimal('0.00'))
+    total_card = mode_totals.get('card', Decimal('0.00'))
+    total_digital = mode_totals.get('digital_payments', Decimal('0.00'))
+    total_cheque = mode_totals.get('cheque', Decimal('0.00'))
+    total_online = mode_totals.get('online', Decimal('0.00'))
+
+    summary = []
+    seen_modes = set()
+    for item in summary_grouped:
+        mode = item['payment_mode']
+        amt = item['total_amount'] or Decimal('0.00')
+        seen_modes.add(mode)
+        summary.append({
+            'payment_mode': mode,
+            'payment_mode_display': PAYMENT_LABELS.get(mode, mode.replace('_', ' ').title()),
+            'total_amount': amt,
+        })
+    for mode, label in Receipt.PAYMENT_CHOICES:
+        if mode not in seen_modes:
+            summary.append({
+                'payment_mode': mode,
+                'payment_mode_display': label,
+                'total_amount': Decimal('0.00'),
+            })
+
+    # Optional table filter by payment_mode
+    payment_mode = request.GET.get('payment_mode', '').strip()
+    if payment_mode:
+        receipts = receipts.filter(payment_mode=payment_mode)
+
+    table_total = receipts.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    context = {
+        'receipts': receipts,
+        'summary': summary,
+        'total_collected': total_collected,
+        'total_cash': total_cash,
+        'total_card': total_card,
+        'total_digital': total_digital,
+        'total_cheque': total_cheque,
+        'total_online': total_online,
+        'table_total': table_total,
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'branches': branches,
+        'search': search,
+        'payment_mode': payment_mode,
+        'title': 'Collection Report',
+    }
+    return render(request, 'reports/collection_report.html', context)
+
 
 
 
