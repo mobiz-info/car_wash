@@ -2488,5 +2488,175 @@ def collection_report(request):
     return render(request, 'reports/collection_report.html', context)
 
 
+@login_required
+def tax_report(request):
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
 
+    from tax_management.models import CompanyTax
+    from master.models import PurchaseInvoice
 
+    today = timezone.localdate() if hasattr(timezone, 'localdate') else timezone.now().date()
+    first_of_month = today.replace(day=1)
+
+    from_date_param = request.GET.get('from_date')
+    to_date_param = request.GET.get('to_date')
+
+    if from_date_param is None and to_date_param is None:
+        from_date = first_of_month.strftime('%Y-%m-%d')
+        to_date = today.strftime('%Y-%m-%d')
+    else:
+        from_date = (from_date_param or '').strip()
+        to_date = (to_date_param or '').strip()
+
+    branch_id = (request.GET.get('branch_id') or request.GET.get('branch') or '').strip()
+    tax_filter = request.GET.get('tax_filter', 'all').strip()
+    search = request.GET.get('search', '').strip()
+    active_tab = request.GET.get('tab', 'sales').strip()
+
+    company = None
+    branches = None
+    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        company = user.profile.company
+        branches = Branch.objects.filter(company=company, is_deleted=False)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        company = user.managed_branch.company
+    else:
+        branches = Branch.objects.filter(is_deleted=False)
+
+    # 1. Sales Invoices (Output Tax)
+    invoices = Invoice.objects.filter(is_deleted=False).select_related(
+        'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
+    ).order_by('-date', '-auto_id')
+
+    if role == 'COMPANY_ADMIN' and company:
+        invoices = invoices.filter(branch__company=company)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        invoices = invoices.filter(branch=user.managed_branch)
+
+    if branch_id:
+        invoices = invoices.filter(branch_id=branch_id)
+
+    if from_date:
+        invoices = invoices.filter(date__gte=from_date)
+    if to_date:
+        invoices = invoices.filter(date__lte=to_date)
+
+    if search:
+        invoices = invoices.filter(
+            Q(invoice_number__icontains=search) |
+            Q(customer__name__icontains=search) |
+            Q(customer__phone__icontains=search) |
+            Q(vehicle__vehicle_number__icontains=search)
+        )
+
+    # Aggregate before tax filter for complete KPI summary
+    sales_all_agg = invoices.aggregate(
+        total_tax=Sum('tax_amount'),
+        total_subtotal=Sum('subtotal'),
+        total_discount=Sum('discount'),
+        total_gross=Sum('total'),
+        total_collected=Sum('amount_collected'),
+    )
+    total_sales_tax = sales_all_agg['total_tax'] or Decimal('0.00')
+    total_sales_subtotal = sales_all_agg['total_subtotal'] or Decimal('0.00')
+    total_sales_discount = sales_all_agg['total_discount'] or Decimal('0.00')
+    total_taxable_sales = max(Decimal('0.00'), total_sales_subtotal - total_sales_discount)
+    total_gross_sales = sales_all_agg['total_gross'] or Decimal('0.00')
+    total_invoices_count = invoices.count()
+    taxed_invoices_count = invoices.filter(tax_amount__gt=0).count()
+    zero_tax_invoices_count = total_invoices_count - taxed_invoices_count
+
+    # Apply tax filter to list
+    if tax_filter == 'taxed':
+        invoices = invoices.filter(tax_amount__gt=0)
+    elif tax_filter == 'zero':
+        invoices = invoices.filter(tax_amount=0)
+
+    # Annotated taxable amount on each invoice
+    invoices = invoices.annotate(
+        taxable_amount=ExpressionWrapper(
+            F('subtotal') - F('discount'),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        )
+    )
+
+    # Table totals for filtered invoice list
+    table_sales_tax = invoices.aggregate(s=Sum('tax_amount'))['s'] or Decimal('0.00')
+    table_sales_subtotal = invoices.aggregate(s=Sum('subtotal'))['s'] or Decimal('0.00')
+    table_sales_discount = invoices.aggregate(s=Sum('discount'))['s'] or Decimal('0.00')
+    table_sales_taxable = max(Decimal('0.00'), table_sales_subtotal - table_sales_discount)
+    table_sales_total = invoices.aggregate(s=Sum('total'))['s'] or Decimal('0.00')
+
+    # 2. Purchase Invoices (Input Tax)
+    purchases = PurchaseInvoice.objects.filter(is_deleted=False).select_related(
+        'supplier', 'branch'
+    ).order_by('-invoice_date')
+
+    if role == 'COMPANY_ADMIN' and company:
+        purchases = purchases.filter(company=company)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        purchases = purchases.filter(branch=user.managed_branch)
+
+    if branch_id:
+        purchases = purchases.filter(branch_id=branch_id)
+
+    if from_date:
+        purchases = purchases.filter(invoice_date__gte=from_date)
+    if to_date:
+        purchases = purchases.filter(invoice_date__lte=to_date)
+
+    if search:
+        purchases = purchases.filter(
+            Q(purchase_inv_number__icontains=search) |
+            Q(supplier__name__icontains=search)
+        )
+
+    purchase_agg = purchases.aggregate(
+        total_tax=Sum('tax_total'),
+        total_subtotal=Sum('subtotal'),
+        total_grand=Sum('grand_total'),
+    )
+    total_purchase_tax = purchase_agg['total_tax'] or Decimal('0.00')
+    total_taxable_purchases = purchase_agg['total_subtotal'] or Decimal('0.00')
+    total_purchase_grand = purchase_agg['total_grand'] or Decimal('0.00')
+    total_purchases_count = purchases.count()
+
+    # Net Tax Position: Output Tax - Input Tax
+    net_tax_payable = total_sales_tax - total_purchase_tax
+
+    # 3. Configured Company Taxes (e.g., GST / VAT rates)
+    company_taxes = []
+    if company:
+        company_taxes = CompanyTax.objects.filter(
+            company=company, is_enabled=True, is_deleted=False
+        ).select_related('tax').order_by('tax__name')
+
+    context = {
+        'invoices': invoices,
+        'purchases': purchases,
+        'company_taxes': company_taxes,
+        'total_sales_tax': total_sales_tax,
+        'total_taxable_sales': total_taxable_sales,
+        'total_gross_sales': total_gross_sales,
+        'total_invoices_count': total_invoices_count,
+        'taxed_invoices_count': taxed_invoices_count,
+        'zero_tax_invoices_count': zero_tax_invoices_count,
+        'table_sales_tax': table_sales_tax,
+        'table_sales_taxable': table_sales_taxable,
+        'table_sales_total': table_sales_total,
+        'total_purchase_tax': total_purchase_tax,
+        'total_taxable_purchases': total_taxable_purchases,
+        'total_purchase_grand': total_purchase_grand,
+        'total_purchases_count': total_purchases_count,
+        'net_tax_payable': net_tax_payable,
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'branches': branches,
+        'tax_filter': tax_filter,
+        'search': search,
+        'active_tab': active_tab,
+        'title': 'Tax Report',
+    }
+    return render(request, 'reports/tax_report.html', context)
