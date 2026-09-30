@@ -340,8 +340,7 @@
                         <option value="">Select Supplier</option>
                         {% for s in suppliers %}
                         <option value="{{ s.id }}" data-payables="{{ s.payables }}"
-                            data-days="{{ s.credit_days|default:30 }}" data-invs="1">{{ s.name }} (Payables: ₹{{
-                            s.payables }})</option>
+                            data-days="{{ s.credit_days|default:30 }}" data-invs="1">{{ s.name }} (Payables: ₹{{ s.payables }})</option>
                         {% endfor %}
                     </select>
                 </div>
