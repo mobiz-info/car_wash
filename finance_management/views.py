@@ -2493,8 +2493,8 @@ def tax_report(request):
     user = request.user
     role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
 
-    from tax_management.models import CompanyTax
-    from master.models import PurchaseInvoice
+    from tax_management.models import Tax, CompanyTax
+    from master.models import PurchaseInvoice, Country
 
     today = timezone.localdate() if hasattr(timezone, 'localdate') else timezone.now().date()
     first_of_month = today.replace(day=1)
@@ -2511,6 +2511,7 @@ def tax_report(request):
 
     branch_id = (request.GET.get('branch_id') or request.GET.get('branch') or '').strip()
     tax_filter = request.GET.get('tax_filter', 'all').strip()
+    tax_mode = request.GET.get('tax_mode', 'intrastate').strip()
     search = request.GET.get('search', '').strip()
     active_tab = request.GET.get('tab', 'sales').strip()
 
@@ -2523,6 +2524,46 @@ def tax_report(request):
         company = user.managed_branch.company
     else:
         branches = Branch.objects.filter(is_deleted=False)
+
+    # Resolve Country based on company or user
+    country = None
+    if company and company.country:
+        country = company.country
+    elif hasattr(user, 'profile') and hasattr(user.profile, 'country') and user.profile.country:
+        country = user.profile.country
+    else:
+        country = Country.objects.filter(name__iexact='India').first()
+
+    country_name = country.name if country else 'India'
+    is_india = (country_name.strip().lower() == 'india')
+
+    # Query taxes for country from Settings -> Taxes
+    country_taxes = []
+    if country:
+        country_taxes = Tax.objects.filter(country=country, is_deleted=False).order_by('name')
+    elif is_india:
+        india_obj = Country.objects.filter(name__iexact='India').first()
+        if india_obj:
+            country_taxes = Tax.objects.filter(country=india_obj, is_deleted=False).order_by('name')
+
+    # Detect CGST, SGST, IGST rates if India
+    cgst_rate = Decimal('9.00')
+    sgst_rate = Decimal('9.00')
+    igst_rate = Decimal('18.00')
+    single_tax_rate = Decimal('0.00')
+    single_tax_name = 'Tax'
+
+    for t in country_taxes:
+        tname = t.name.strip().upper()
+        if 'CGST' in tname:
+            cgst_rate = t.percent
+        elif 'SGST' in tname:
+            sgst_rate = t.percent
+        elif 'IGST' in tname:
+            igst_rate = t.percent
+        else:
+            single_tax_rate = t.percent
+            single_tax_name = t.name
 
     # 1. Sales Invoices (Output Tax)
     invoices = Invoice.objects.filter(is_deleted=False).select_related(
@@ -2567,26 +2608,64 @@ def tax_report(request):
     taxed_invoices_count = invoices.filter(tax_amount__gt=0).count()
     zero_tax_invoices_count = total_invoices_count - taxed_invoices_count
 
+    # Calculate overall CGST, SGST, IGST totals
+    if is_india:
+        if tax_mode == 'interstate':
+            total_cgst = Decimal('0.00')
+            total_sgst = Decimal('0.00')
+            total_igst = total_sales_tax
+        else:
+            total_cgst = (total_sales_tax / Decimal('2.0')).quantize(Decimal('0.01'))
+            total_sgst = total_sales_tax - total_cgst
+            total_igst = Decimal('0.00')
+    else:
+        total_cgst = Decimal('0.00')
+        total_sgst = Decimal('0.00')
+        total_igst = Decimal('0.00')
+
     # Apply tax filter to list
     if tax_filter == 'taxed':
         invoices = invoices.filter(tax_amount__gt=0)
     elif tax_filter == 'zero':
         invoices = invoices.filter(tax_amount=0)
 
-    # Annotated taxable amount on each invoice
-    invoices = invoices.annotate(
-        taxable_amount=ExpressionWrapper(
-            F('subtotal') - F('discount'),
-            output_field=DecimalField(max_digits=12, decimal_places=2)
-        )
-    )
+    # Evaluate invoice list and separate tax amounts per row
+    table_sales_taxable = Decimal('0.00')
+    table_sales_tax = Decimal('0.00')
+    table_sales_total = Decimal('0.00')
+    table_cgst = Decimal('0.00')
+    table_sgst = Decimal('0.00')
+    table_igst = Decimal('0.00')
 
-    # Table totals for filtered invoice list
-    table_sales_tax = invoices.aggregate(s=Sum('tax_amount'))['s'] or Decimal('0.00')
-    table_sales_subtotal = invoices.aggregate(s=Sum('subtotal'))['s'] or Decimal('0.00')
-    table_sales_discount = invoices.aggregate(s=Sum('discount'))['s'] or Decimal('0.00')
-    table_sales_taxable = max(Decimal('0.00'), table_sales_subtotal - table_sales_discount)
-    table_sales_total = invoices.aggregate(s=Sum('total'))['s'] or Decimal('0.00')
+    invoices_list = list(invoices)
+    for inv in invoices_list:
+        taxable = max(Decimal('0.00'), (inv.subtotal or Decimal('0.00')) - (inv.discount or Decimal('0.00')))
+        tax_amt = inv.tax_amount or Decimal('0.00')
+        inv.taxable_amount = taxable
+
+        if is_india:
+            if tax_mode == 'interstate':
+                c = Decimal('0.00')
+                s = Decimal('0.00')
+                i = tax_amt
+            else:
+                c = (tax_amt / Decimal('2.0')).quantize(Decimal('0.01'))
+                s = tax_amt - c
+                i = Decimal('0.00')
+            inv.cgst_amount = c
+            inv.sgst_amount = s
+            inv.igst_amount = i
+            table_cgst += c
+            table_sgst += s
+            table_igst += i
+        else:
+            inv.cgst_amount = Decimal('0.00')
+            inv.sgst_amount = Decimal('0.00')
+            inv.igst_amount = Decimal('0.00')
+
+        table_sales_taxable += taxable
+        table_sales_tax += tax_amt
+        table_sales_total += (inv.total or Decimal('0.00'))
 
     # 2. Purchase Invoices (Input Tax)
     purchases = PurchaseInvoice.objects.filter(is_deleted=False).select_related(
@@ -2622,39 +2701,94 @@ def tax_report(request):
     total_purchase_grand = purchase_agg['total_grand'] or Decimal('0.00')
     total_purchases_count = purchases.count()
 
+    total_purchase_cgst = Decimal('0.00')
+    total_purchase_sgst = Decimal('0.00')
+    total_purchase_igst = Decimal('0.00')
+
+    purchases_list = list(purchases)
+    for p in purchases_list:
+        ptax = p.tax_total or Decimal('0.00')
+        if is_india:
+            if tax_mode == 'interstate':
+                pc = Decimal('0.00')
+                ps = Decimal('0.00')
+                pi = ptax
+            else:
+                pc = (ptax / Decimal('2.0')).quantize(Decimal('0.01'))
+                ps = ptax - pc
+                pi = Decimal('0.00')
+            p.cgst_amount = pc
+            p.sgst_amount = ps
+            p.igst_amount = pi
+            total_purchase_cgst += pc
+            total_purchase_sgst += ps
+            total_purchase_igst += pi
+        else:
+            p.cgst_amount = Decimal('0.00')
+            p.sgst_amount = Decimal('0.00')
+            p.igst_amount = Decimal('0.00')
+
     # Net Tax Position: Output Tax - Input Tax
     net_tax_payable = total_sales_tax - total_purchase_tax
+    net_cgst = total_cgst - total_purchase_cgst
+    net_sgst = total_sgst - total_purchase_sgst
+    net_igst = total_igst - total_purchase_igst
 
-    # 3. Configured Company Taxes (e.g., GST / VAT rates)
+    # Configured Company Taxes from Settings -> Taxes
     company_taxes = []
     if company:
         company_taxes = CompanyTax.objects.filter(
             company=company, is_enabled=True, is_deleted=False
         ).select_related('tax').order_by('tax__name')
 
+    currency_symbol = country.currency_symbol if country and country.currency_symbol else '₹'
+
     context = {
-        'invoices': invoices,
-        'purchases': purchases,
+        'invoices': invoices_list,
+        'purchases': purchases_list,
+        'country': country,
+        'country_name': country_name,
+        'is_india': is_india,
+        'cgst_rate': cgst_rate,
+        'sgst_rate': sgst_rate,
+        'igst_rate': igst_rate,
+        'single_tax_rate': single_tax_rate,
+        'single_tax_name': single_tax_name,
+        'country_taxes': country_taxes,
         'company_taxes': company_taxes,
+        'currency_symbol': currency_symbol,
         'total_sales_tax': total_sales_tax,
         'total_taxable_sales': total_taxable_sales,
         'total_gross_sales': total_gross_sales,
         'total_invoices_count': total_invoices_count,
         'taxed_invoices_count': taxed_invoices_count,
         'zero_tax_invoices_count': zero_tax_invoices_count,
+        'total_cgst': total_cgst,
+        'total_sgst': total_sgst,
+        'total_igst': total_igst,
         'table_sales_tax': table_sales_tax,
         'table_sales_taxable': table_sales_taxable,
         'table_sales_total': table_sales_total,
+        'table_cgst': table_cgst,
+        'table_sgst': table_sgst,
+        'table_igst': table_igst,
         'total_purchase_tax': total_purchase_tax,
         'total_taxable_purchases': total_taxable_purchases,
         'total_purchase_grand': total_purchase_grand,
         'total_purchases_count': total_purchases_count,
+        'total_purchase_cgst': total_purchase_cgst,
+        'total_purchase_sgst': total_purchase_sgst,
+        'total_purchase_igst': total_purchase_igst,
         'net_tax_payable': net_tax_payable,
+        'net_cgst': net_cgst,
+        'net_sgst': net_sgst,
+        'net_igst': net_igst,
         'from_date': from_date,
         'to_date': to_date,
         'branch_id': branch_id,
         'branches': branches,
         'tax_filter': tax_filter,
+        'tax_mode': tax_mode,
         'search': search,
         'active_tab': active_tab,
         'title': 'Tax Report',

@@ -78,7 +78,7 @@
     margin-top: 14px;
 }
 
-/* Company Taxes Banner */
+/* Country & Taxes Bar */
 .tax-chips-bar {
     display: flex;
     flex-wrap: wrap;
@@ -91,25 +91,33 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.16);
     border: 1px solid rgba(255, 255, 255, 0.25);
-    padding: 4px 12px;
+    padding: 5px 12px;
     border-radius: 12px;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 600;
+    color: white;
+}
+
+.country-pill {
+    background: rgba(245, 158, 11, 0.3);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    color: #fef3c7;
+    font-weight: 700;
 }
 
 /* KPI Summary Cards */
 .summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
 }
 
 .summary-card {
     background: white;
-    border-radius: 20px;
-    padding: 22px;
+    border-radius: 18px;
+    padding: 20px;
     position: relative;
     overflow: hidden;
     border: 1px solid #e2e8f0;
@@ -127,15 +135,17 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 6px;
+    width: 5px;
     height: 100%;
 }
 
 .summary-card.sales-tax::before { background: #4f46e5; }
 .summary-card.taxable-sales::before { background: #0284c7; }
-.summary-card.purchase-tax::before { background: #059669; }
-.summary-card.net-tax::before { background: #d97706; }
-.summary-card.invoice-count::before { background: #8b5cf6; }
+.summary-card.cgst::before { background: #059669; }
+.summary-card.sgst::before { background: #0d9488; }
+.summary-card.igst::before { background: #d97706; }
+.summary-card.net-tax::before { background: #7c3aed; }
+.summary-card.purchase-tax::before { background: #dc2626; }
 
 .summary-top {
     display: flex;
@@ -145,29 +155,31 @@
 
 .summary-label {
     color: #64748b;
-    font-size: 0.86rem;
+    font-size: 0.84rem;
     font-weight: 600;
 }
 
 .summary-icon {
-    width: 46px;
-    height: 46px;
+    width: 42px;
+    height: 42px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    font-size: 1.2rem;
 }
 
 .summary-card.sales-tax .summary-icon { background: #e0e7ff; color: #4338ca; }
 .summary-card.taxable-sales .summary-icon { background: #e0f2fe; color: #0284c7; }
-.summary-card.purchase-tax .summary-icon { background: #d1fae5; color: #059669; }
-.summary-card.net-tax .summary-icon { background: #fef3c7; color: #b45309; }
-.summary-card.invoice-count .summary-icon { background: #f3e8ff; color: #7c3aed; }
+.summary-card.cgst .summary-icon { background: #d1fae5; color: #059669; }
+.summary-card.sgst .summary-icon { background: #ccfbf1; color: #0d9488; }
+.summary-card.igst .summary-icon { background: #fef3c7; color: #b45309; }
+.summary-card.net-tax .summary-icon { background: #f3e8ff; color: #7c3aed; }
+.summary-card.purchase-tax .summary-icon { background: #fee2e2; color: #dc2626; }
 
 .summary-value {
-    margin-top: 14px;
-    font-size: 1.7rem;
+    margin-top: 12px;
+    font-size: 1.55rem;
     font-weight: 700;
     color: #0f172a;
     line-height: 1.2;
@@ -541,13 +553,44 @@
     font-weight: 600;
 }
 
-.tax-badge {
+.tax-badge-cgst {
+    font-weight: 700;
+    color: #059669;
+    background: #d1fae5;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: inline-block;
+}
+
+.tax-badge-sgst {
+    font-weight: 700;
+    color: #0d9488;
+    background: #ccfbf1;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: inline-block;
+}
+
+.tax-badge-igst {
+    font-weight: 700;
+    color: #b45309;
+    background: #fef3c7;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: inline-block;
+}
+
+.tax-badge-total {
     font-weight: 700;
     color: #4338ca;
-    background: #eef2ff;
+    background: #e0e7ff;
     padding: 4px 8px;
     border-radius: 6px;
     font-size: 0.88rem;
+    display: inline-block;
 }
 
 .tax-badge-zero {
@@ -557,6 +600,7 @@
     padding: 4px 8px;
     border-radius: 6px;
     font-size: 0.85rem;
+    display: inline-block;
 }
 
 .amount-text {
@@ -639,32 +683,60 @@
     <div class="report-header">
         <div class="report-title">
             <h2>Tax Compliance & GST Report</h2>
-            <p>Comprehensive overview of Output Tax (Sales), Input Tax (Purchases), and Net Tax Position.</p>
+            <p>Country-based tax breakdown with separate CGST, SGST, and IGST for complete audit readiness.</p>
             
-            <div class="period-pill">
-                <i class="ph ph-calendar"></i>
-                {% if from_date and to_date %}
-                    <span>Period: {{ from_date }} to {{ to_date }}</span>
-                {% elif from_date %}
-                    <span>From: {{ from_date }}</span>
-                {% elif to_date %}
-                    <span>Until: {{ to_date }}</span>
-                {% else %}
-                    <span>All Time</span>
-                {% endif %}
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px;">
+                <div class="period-pill" style="margin-top:0;">
+                    <i class="ph ph-calendar"></i>
+                    {% if from_date and to_date %}
+                        <span>Period: {{ from_date }} to {{ to_date }}</span>
+                    {% elif from_date %}
+                        <span>From: {{ from_date }}</span>
+                    {% elif to_date %}
+                        <span>Until: {{ to_date }}</span>
+                    {% else %}
+                        <span>All Time</span>
+                    {% endif %}
+                </div>
+
+                <div class="period-pill country-pill" style="margin-top:0;">
+                    <i class="ph ph-globe-hemisphere-east"></i>
+                    <span>Country: {{ country_name }}</span>
+                </div>
+
+                <a href="{% url 'tax_list' %}" class="tax-chip" style="text-decoration:none;" title="Open Settings - Taxes">
+                    <i class="ph ph-gear"></i>
+                    <span>Settings - Taxes</span>
+                </a>
             </div>
 
-            {% if company_taxes %}
+            <!-- Configured Taxes Pills -->
             <div class="tax-chips-bar">
-                <span style="font-size:0.8rem; font-weight:600; opacity:0.9;">Enabled Company Taxes:</span>
-                {% for ct in company_taxes %}
+                <span style="font-size:0.8rem; font-weight:600; opacity:0.9;">Configured Taxes for {{ country_name }}:</span>
+                {% if is_india %}
                     <span class="tax-chip">
                         <i class="ph ph-seal-check"></i>
-                        {{ ct.tax.name }} ({{ ct.tax.percent }}%) - {{ ct.tax.get_mode_display|default:ct.tax.mode }}
+                        CGST: {{ cgst_rate }}% (Intra-State)
                     </span>
-                {% endfor %}
+                    <span class="tax-chip">
+                        <i class="ph ph-seal-check"></i>
+                        SGST: {{ sgst_rate }}% (Intra-State)
+                    </span>
+                    <span class="tax-chip">
+                        <i class="ph ph-seal-check"></i>
+                        IGST: {{ igst_rate }}% (Inter-State)
+                    </span>
+                {% else %}
+                    {% for ct in country_taxes %}
+                        <span class="tax-chip">
+                            <i class="ph ph-seal-check"></i>
+                            {{ ct.name }}: {{ ct.percent }}% ({{ ct.get_mode_display|default:ct.mode }})
+                        </span>
+                    {% empty %}
+                        <span class="tax-chip">Standard Tax</span>
+                    {% endfor %}
+                {% endif %}
             </div>
-            {% endif %}
         </div>
     </div>
 
@@ -707,6 +779,13 @@
             </select>
             {% endif %}
 
+            {% if is_india %}
+            <select name="tax_mode" class="select-filter" title="Select Tax Mode">
+                <option value="intrastate" {% if tax_mode == 'intrastate' %}selected{% endif %}>Intra-State (CGST + SGST)</option>
+                <option value="interstate" {% if tax_mode == 'interstate' %}selected{% endif %}>Inter-State (IGST)</option>
+            </select>
+            {% endif %}
+
             <select name="tax_filter" class="select-filter">
                 <option value="all" {% if tax_filter == 'all' %}selected{% endif %}>All Invoices</option>
                 <option value="taxed" {% if tax_filter == 'taxed' %}selected{% endif %}>Taxed Only (Tax > 0)</option>
@@ -738,51 +817,117 @@
     <!-- Summary KPI Grid -->
     <div class="summary-grid">
 
-        <!-- Output Tax (Sales) -->
-        <div class="summary-card sales-tax">
-            <div class="summary-top">
-                <div class="summary-label">Output Tax (Sales)</div>
-                <div class="summary-icon">
-                    <i class="ph ph-arrow-up-right"></i>
-                </div>
-            </div>
-            <div class="summary-value">
-                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_sales_tax }}
-            </div>
-            <div class="summary-subtext">
-                Collected from customer invoices
-            </div>
-        </div>
-
-        <!-- Taxable Sales Turnover -->
+        <!-- Taxable Sales Base -->
         <div class="summary-card taxable-sales">
             <div class="summary-top">
-                <div class="summary-label">Taxable Sales Base</div>
+                <div class="summary-label">Taxable Base</div>
                 <div class="summary-icon">
                     <i class="ph ph-chart-bar"></i>
                 </div>
             </div>
             <div class="summary-value">
-                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_taxable_sales }}
+                {{ currency_symbol }}{{ total_taxable_sales }}
             </div>
             <div class="summary-subtext">
-                Net turnover before tax (Subtotal - Disc)
+                Net turnover before tax
+            </div>
+        </div>
+
+        {% if is_india %}
+            <!-- CGST Collected -->
+            <div class="summary-card cgst">
+                <div class="summary-top">
+                    <div class="summary-label">CGST ({{ cgst_rate }}%)</div>
+                    <div class="summary-icon">
+                        <i class="ph ph-receipt"></i>
+                    </div>
+                </div>
+                <div class="summary-value">
+                    {{ currency_symbol }}{{ total_cgst }}
+                </div>
+                <div class="summary-subtext">
+                    Central GST collected
+                </div>
+            </div>
+
+            <!-- SGST Collected -->
+            <div class="summary-card sgst">
+                <div class="summary-top">
+                    <div class="summary-label">SGST ({{ sgst_rate }}%)</div>
+                    <div class="summary-icon">
+                        <i class="ph ph-receipt"></i>
+                    </div>
+                </div>
+                <div class="summary-value">
+                    {{ currency_symbol }}{{ total_sgst }}
+                </div>
+                <div class="summary-subtext">
+                    State GST collected
+                </div>
+            </div>
+
+            <!-- IGST Collected -->
+            <div class="summary-card igst">
+                <div class="summary-top">
+                    <div class="summary-label">IGST ({{ igst_rate }}%)</div>
+                    <div class="summary-icon">
+                        <i class="ph ph-airplane"></i>
+                    </div>
+                </div>
+                <div class="summary-value">
+                    {{ currency_symbol }}{{ total_igst }}
+                </div>
+                <div class="summary-subtext">
+                    Integrated GST collected
+                </div>
+            </div>
+        {% else %}
+            <!-- Single / Country Tax Collected -->
+            <div class="summary-card cgst">
+                <div class="summary-top">
+                    <div class="summary-label">{{ single_tax_name }} ({{ single_tax_rate }}%)</div>
+                    <div class="summary-icon">
+                        <i class="ph ph-receipt"></i>
+                    </div>
+                </div>
+                <div class="summary-value">
+                    {{ currency_symbol }}{{ total_sales_tax }}
+                </div>
+                <div class="summary-subtext">
+                    Total {{ single_tax_name }} collected
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Total Output Tax -->
+        <div class="summary-card sales-tax">
+            <div class="summary-top">
+                <div class="summary-label">Total Output Tax</div>
+                <div class="summary-icon">
+                    <i class="ph ph-arrow-up-right"></i>
+                </div>
+            </div>
+            <div class="summary-value">
+                {{ currency_symbol }}{{ total_sales_tax }}
+            </div>
+            <div class="summary-subtext">
+                {{ taxed_invoices_count }} of {{ total_invoices_count }} invoices taxed
             </div>
         </div>
 
         <!-- Input Tax (Purchases) -->
         <div class="summary-card purchase-tax">
             <div class="summary-top">
-                <div class="summary-label">Input Tax (Purchases)</div>
+                <div class="summary-label">Input Tax (ITC)</div>
                 <div class="summary-icon">
                     <i class="ph ph-arrow-down-left"></i>
                 </div>
             </div>
             <div class="summary-value">
-                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_purchase_tax }}
+                {{ currency_symbol }}{{ total_purchase_tax }}
             </div>
             <div class="summary-subtext">
-                Paid on supplier purchase invoices
+                Paid on purchase invoices
             </div>
         </div>
 
@@ -797,26 +942,10 @@
                 </div>
             </div>
             <div class="summary-value" style="{% if net_tax_payable >= 0 %}color: #b45309;{% else %}color: #059669;{% endif %}">
-                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ net_tax_payable|floatformat:2 }}
+                {{ currency_symbol }}{{ net_tax_payable|floatformat:2 }}
             </div>
             <div class="summary-subtext">
                 Output Tax minus Input Tax
-            </div>
-        </div>
-
-        <!-- Invoices Breakdown -->
-        <div class="summary-card invoice-count">
-            <div class="summary-top">
-                <div class="summary-label">Tax Invoices</div>
-                <div class="summary-icon">
-                    <i class="ph ph-receipt"></i>
-                </div>
-            </div>
-            <div class="summary-value">
-                {{ taxed_invoices_count }} <span style="font-size: 1rem; color: #94a3b8; font-weight: 500;">/ {{ total_invoices_count }}</span>
-            </div>
-            <div class="summary-subtext">
-                {{ zero_tax_invoices_count }} invoices with zero tax
             </div>
         </div>
 
@@ -842,7 +971,13 @@
         <div class="table-header">
             <div>
                 <h3>Sales Invoices (Output Tax)</h3>
-                <span>Detailed list of customer invoices, taxable base, and tax amounts</span>
+                <span>
+                    {% if is_india %}
+                        Showing separate CGST, SGST, and IGST for {{ country_name }}
+                    {% else %}
+                        Showing {{ single_tax_name }} breakdown for {{ country_name }}
+                    {% endif %}
+                </span>
             </div>
             <div>
                 <span class="tab-count-badge">Total Invoices: {{ invoices|length }}</span>
@@ -853,7 +988,7 @@
             <table class="premium-table" id="salesTaxTable">
                 <thead>
                     <tr>
-                        <th style="width: 50px;">#</th>
+                        <th style="width: 45px;">#</th>
                         <th>Invoice No</th>
                         <th>Date</th>
                         <th>Customer</th>
@@ -861,13 +996,20 @@
                         {% if request.user.profile.role.name != 'BRANCH_ADMIN' %}
                         <th>Branch</th>
                         {% endif %}
-                        <th style="text-align: right;">Subtotal</th>
-                        <th style="text-align: right;">Discount</th>
-                        <th style="text-align: right;">Taxable Amount</th>
-                        <th style="text-align: right;">Tax Amount</th>
-                        <th style="text-align: right;">Total Amount</th>
+                        <th style="text-align: right;">Taxable Base</th>
+
+                        {% if is_india %}
+                            <th style="text-align: right; color: #059669;">CGST ({{ cgst_rate }}%)</th>
+                            <th style="text-align: right; color: #0d9488;">SGST ({{ sgst_rate }}%)</th>
+                            <th style="text-align: right; color: #b45309;">IGST ({{ igst_rate }}%)</th>
+                        {% else %}
+                            <th style="text-align: right; color: #4338ca;">{{ single_tax_name }} ({{ single_tax_rate }}%)</th>
+                        {% endif %}
+
+                        <th style="text-align: right;">Total Tax</th>
+                        <th style="text-align: right;">Grand Total</th>
                         <th style="text-align: center;">Type</th>
-                        <th style="text-align: center;">Actions</th>
+                        <th style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -899,34 +1041,67 @@
                             <span class="branch-badge">{{ inv.branch.name }}</span>
                         </td>
                         {% endif %}
-                        <td style="text-align: right; color: #64748b;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ inv.subtotal }}
-                        </td>
-                        <td style="text-align: right; color: #64748b;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ inv.discount }}
-                        </td>
                         <td style="text-align: right; font-weight: 600; color: #0f172a;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ inv.taxable_amount }}
+                            {{ currency_symbol }}{{ inv.taxable_amount }}
                         </td>
+
+                        {% if is_india %}
+                            <!-- CGST -->
+                            <td style="text-align: right;">
+                                {% if inv.cgst_amount > 0 %}
+                                    <span class="tax-badge-cgst">{{ currency_symbol }}{{ inv.cgst_amount }}</span>
+                                {% else %}
+                                    <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
+                                {% endif %}
+                            </td>
+                            <!-- SGST -->
+                            <td style="text-align: right;">
+                                {% if inv.sgst_amount > 0 %}
+                                    <span class="tax-badge-sgst">{{ currency_symbol }}{{ inv.sgst_amount }}</span>
+                                {% else %}
+                                    <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
+                                {% endif %}
+                            </td>
+                            <!-- IGST -->
+                            <td style="text-align: right;">
+                                {% if inv.igst_amount > 0 %}
+                                    <span class="tax-badge-igst">{{ currency_symbol }}{{ inv.igst_amount }}</span>
+                                {% else %}
+                                    <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
+                                {% endif %}
+                            </td>
+                        {% else %}
+                            <td style="text-align: right;">
+                                {% if inv.tax_amount > 0 %}
+                                    <span class="tax-badge-cgst">{{ currency_symbol }}{{ inv.tax_amount }}</span>
+                                {% else %}
+                                    <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
+                                {% endif %}
+                            </td>
+                        {% endif %}
+
+                        <!-- Total Tax -->
                         <td style="text-align: right;">
                             {% if inv.tax_amount > 0 %}
-                                <span class="tax-badge">
-                                    {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ inv.tax_amount }}
-                                </span>
+                                <span class="tax-badge-total">{{ currency_symbol }}{{ inv.tax_amount }}</span>
                             {% else %}
-                                <span class="tax-badge-zero">₹0.00</span>
+                                <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
                             {% endif %}
                         </td>
+
+                        <!-- Grand Total -->
                         <td style="text-align: right;">
-                            <span class="amount-text">
-                                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ inv.total }}
-                            </span>
+                            <span class="amount-text">{{ currency_symbol }}{{ inv.total }}</span>
                         </td>
+
+                        <!-- Invoice Type -->
                         <td style="text-align: center;">
                             <span class="status-badge {% if inv.invoice_type == 'cashinvoice' %}cash{% else %}credit{% endif %}">
                                 {% if inv.invoice_type == 'cashinvoice' %}Cash{% else %}Credit{% endif %}
                             </span>
                         </td>
+
+                        <!-- Action -->
                         <td style="text-align: center; white-space: nowrap;">
                             <a href="{% url 'invoice_receipt' inv.id %}" class="btn-secondary" style="height: 32px; padding: 0 10px; font-size: 0.8rem; display: inline-flex;">
                                 <i class="ph ph-receipt"></i>
@@ -936,7 +1111,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="{% if request.user.profile.role.name != 'BRANCH_ADMIN' %}13{% else %}12{% endif %}">
+                        <td colspan="{% if request.user.profile.role.name != 'BRANCH_ADMIN' %}{% if is_india %}14{% else %}12{% endif %}{% else %}{% if is_india %}13{% else %}11{% endif %}{% endif %}">
                             <div class="empty-state">
                                 <i class="ph ph-file-text"></i>
                                 <h4>No Invoices Found</h4>
@@ -949,17 +1124,34 @@
                 {% if invoices %}
                 <tfoot>
                     <tr style="background: #f8fafc; font-weight: 700; border-top: 2px solid #cbd5e1;">
-                        <td colspan="{% if request.user.profile.role.name != 'BRANCH_ADMIN' %}8{% else %}7{% endif %}" style="text-align: right; color: #475569; padding: 16px 20px;">
-                            Filtered Totals:
+                        <td colspan="{% if request.user.profile.role.name != 'BRANCH_ADMIN' %}6{% else %}5{% endif %}" style="text-align: right; color: #475569; padding: 16px 20px;">
+                            Totals:
                         </td>
                         <td style="text-align: right; color: #0f172a; padding: 16px;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ table_sales_taxable }}
+                            {{ currency_symbol }}{{ table_sales_taxable }}
                         </td>
+
+                        {% if is_india %}
+                            <td style="text-align: right; color: #059669; padding: 16px; font-size: 0.95rem;">
+                                {{ currency_symbol }}{{ table_cgst }}
+                            </td>
+                            <td style="text-align: right; color: #0d9488; padding: 16px; font-size: 0.95rem;">
+                                {{ currency_symbol }}{{ table_sgst }}
+                            </td>
+                            <td style="text-align: right; color: #b45309; padding: 16px; font-size: 0.95rem;">
+                                {{ currency_symbol }}{{ table_igst }}
+                            </td>
+                        {% else %}
+                            <td style="text-align: right; color: #4338ca; padding: 16px; font-size: 0.95rem;">
+                                {{ currency_symbol }}{{ table_sales_tax }}
+                            </td>
+                        {% endif %}
+
                         <td style="text-align: right; color: #4338ca; padding: 16px; font-size: 1rem;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ table_sales_tax }}
+                            {{ currency_symbol }}{{ table_sales_tax }}
                         </td>
                         <td style="text-align: right; color: #0f172a; padding: 16px; font-size: 1rem;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ table_sales_total }}
+                            {{ currency_symbol }}{{ table_sales_total }}
                         </td>
                         <td colspan="2"></td>
                     </tr>
@@ -974,7 +1166,13 @@
         <div class="table-header">
             <div>
                 <h3>Purchase Invoices (Input Tax)</h3>
-                <span>Suppliers, purchase invoices, and input tax credits</span>
+                <span>
+                    {% if is_india %}
+                        Input CGST, SGST, and IGST credits from supplier purchases
+                    {% else %}
+                        Supplier purchases and input tax credits for {{ country_name }}
+                    {% endif %}
+                </span>
             </div>
             <div>
                 <span class="tab-count-badge">Total Purchases: {{ purchases|length }}</span>
@@ -985,7 +1183,7 @@
             <table class="premium-table" id="purchasesTaxTable">
                 <thead>
                     <tr>
-                        <th style="width: 50px;">#</th>
+                        <th style="width: 45px;">#</th>
                         <th>Purchase Inv #</th>
                         <th>Date</th>
                         <th>Supplier</th>
@@ -993,6 +1191,15 @@
                         <th>Branch</th>
                         {% endif %}
                         <th style="text-align: right;">Subtotal (Taxable)</th>
+
+                        {% if is_india %}
+                            <th style="text-align: right; color: #059669;">Input CGST</th>
+                            <th style="text-align: right; color: #0d9488;">Input SGST</th>
+                            <th style="text-align: right; color: #b45309;">Input IGST</th>
+                        {% else %}
+                            <th style="text-align: right; color: #059669;">Input Tax</th>
+                        {% endif %}
+
                         <th style="text-align: right;">Tax Total</th>
                         <th style="text-align: right;">Grand Total</th>
                         <th style="text-align: center;">Payment Mode</th>
@@ -1020,29 +1227,67 @@
                         </td>
                         {% endif %}
                         <td style="text-align: right; font-weight: 600; color: #0f172a;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ p.subtotal }}
+                            {{ currency_symbol }}{{ p.subtotal }}
                         </td>
+
+                        {% if is_india %}
+                            <!-- Input CGST -->
+                            <td style="text-align: right;">
+                                {% if p.cgst_amount > 0 %}
+                                    <span class="tax-badge-cgst">{{ currency_symbol }}{{ p.cgst_amount }}</span>
+                                {% else %}
+                                    <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
+                                {% endif %}
+                            </td>
+                            <!-- Input SGST -->
+                            <td style="text-align: right;">
+                                {% if p.sgst_amount > 0 %}
+                                    <span class="tax-badge-sgst">{{ currency_symbol }}{{ p.sgst_amount }}</span>
+                                {% else %}
+                                    <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
+                                {% endif %}
+                            </td>
+                            <!-- Input IGST -->
+                            <td style="text-align: right;">
+                                {% if p.igst_amount > 0 %}
+                                    <span class="tax-badge-igst">{{ currency_symbol }}{{ p.igst_amount }}</span>
+                                {% else %}
+                                    <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
+                                {% endif %}
+                            </td>
+                        {% else %}
+                            <td style="text-align: right;">
+                                {% if p.tax_total > 0 %}
+                                    <span class="tax-badge-cgst">{{ currency_symbol }}{{ p.tax_total }}</span>
+                                {% else %}
+                                    <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
+                                {% endif %}
+                            </td>
+                        {% endif %}
+
+                        <!-- Tax Total -->
                         <td style="text-align: right;">
                             {% if p.tax_total > 0 %}
                                 <span class="tax-badge" style="background: #ecfdf5; color: #059669;">
-                                    {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ p.tax_total }}
+                                    {{ currency_symbol }}{{ p.tax_total }}
                                 </span>
                             {% else %}
-                                <span class="tax-badge-zero">₹0.00</span>
+                                <span class="tax-badge-zero">{{ currency_symbol }}0.00</span>
                             {% endif %}
                         </td>
+
+                        <!-- Grand Total -->
                         <td style="text-align: right;">
-                            <span class="amount-text">
-                                {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ p.grand_total }}
-                            </span>
+                            <span class="amount-text">{{ currency_symbol }}{{ p.grand_total }}</span>
                         </td>
+
                         <td style="text-align: center;">
                             <span class="status-badge cash">{{ p.get_payment_mode_display|default:p.payment_mode }}</span>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="{% if request.user.profile.role.name != 'BRANCH_ADMIN' %}9{% else %}8{% endif %}">
+                        <td colspan="{% if request.user.profile.role.name != 'BRANCH_ADMIN' %}{% if is_india %}11{% else %}9{% endif %}{% else %}{% if is_india %}10{% else %}8{% endif %}{% endif %}">
                             <div class="empty-state">
                                 <i class="ph ph-shopping-bag"></i>
                                 <h4>No Purchase Invoices Found</h4>
@@ -1059,13 +1304,30 @@
                             Purchase Totals:
                         </td>
                         <td style="text-align: right; color: #0f172a; padding: 16px;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_taxable_purchases }}
+                            {{ currency_symbol }}{{ total_taxable_purchases }}
                         </td>
+
+                        {% if is_india %}
+                            <td style="text-align: right; color: #059669; padding: 16px; font-size: 0.95rem;">
+                                {{ currency_symbol }}{{ total_purchase_cgst }}
+                            </td>
+                            <td style="text-align: right; color: #0d9488; padding: 16px; font-size: 0.95rem;">
+                                {{ currency_symbol }}{{ total_purchase_sgst }}
+                            </td>
+                            <td style="text-align: right; color: #b45309; padding: 16px; font-size: 0.95rem;">
+                                {{ currency_symbol }}{{ total_purchase_igst }}
+                            </td>
+                        {% else %}
+                            <td style="text-align: right; color: #059669; padding: 16px; font-size: 0.95rem;">
+                                {{ currency_symbol }}{{ total_purchase_tax }}
+                            </td>
+                        {% endif %}
+
                         <td style="text-align: right; color: #059669; padding: 16px; font-size: 1rem;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_purchase_tax }}
+                            {{ currency_symbol }}{{ total_purchase_tax }}
                         </td>
                         <td style="text-align: right; color: #0f172a; padding: 16px; font-size: 1rem;">
-                            {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_purchase_grand }}
+                            {{ currency_symbol }}{{ total_purchase_grand }}
                         </td>
                         <td></td>
                     </tr>
@@ -1115,7 +1377,7 @@ function exportCurrentTableToCSV() {
 
         for (let j = 0; j < cols.length; j++) {
             // Remove actions column from export if present
-            if (cols[j].textContent.trim() === 'Actions' || cols[j].querySelector('a.btn-secondary')) {
+            if (cols[j].textContent.trim() === 'Action' || cols[j].textContent.trim() === 'Actions' || cols[j].querySelector('a.btn-secondary')) {
                 continue;
             }
             let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/\s+/g, ' ').trim();
