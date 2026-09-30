@@ -36,6 +36,7 @@ class Service(BaseModel):
     service_type = models.ForeignKey(ServiceType, on_delete=models.CASCADE)
 
     name = models.CharField(max_length=150)
+    sac_code = models.CharField(max_length=50, blank=True, null=True, help_text="Services Accounting Code (SAC)")
     description = models.TextField(blank=True, null=True)
 
     # duration = models.IntegerField(help_text="Minutes")

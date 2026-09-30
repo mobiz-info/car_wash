@@ -94,7 +94,7 @@ def service_list(request):
         queryset = queryset.filter(service_type_id=category_id)
 
     if search:
-        queryset = queryset.filter(name__icontains=search)
+        queryset = queryset.filter(Q(name__icontains=search) | Q(sac_code__icontains=search))
 
     paginator = Paginator(queryset, 10)
     page_obj = paginator.get_page(request.GET.get('page'))

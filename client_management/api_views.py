@@ -8130,7 +8130,7 @@ def api_tally_invoices(request):
                 stock = item.stock_item
                 items.append({
                     'service_name': item.service_name,
-                    'hsn_sac_code': stock.hsn_code if stock and stock.hsn_code else '',
+                    'hsn_sac_code': item.service.sac_code if item.service and item.service.sac_code else (stock.hsn_code if stock and stock.hsn_code else ''),
                     'qty': float(item.qty),
                     'rate': float(item.rate),
                     'discount': float(item.discount),

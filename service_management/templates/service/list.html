@@ -168,6 +168,7 @@
                     <th style="width: 80px;">#</th>
                     <th>Service Name</th>
                     <th>Type</th>
+                    <th>SAC Code</th>
                     <!-- <th>Duration</th> -->
                     <th>Status</th>
                     <th style="width: 120px; text-align: right;">Action</th>
@@ -188,6 +189,13 @@
                         </div>
                     </td>
                     <td><span style="color: #475569; font-weight: 500;">{{ obj.service_type.name }}</span></td>
+                    <td>
+                        {% if obj.sac_code %}
+                            <span style="font-family: monospace; font-weight: 600; color: #4338ca; background: #e0e7ff; padding: 3px 8px; border-radius: 6px; font-size: 0.82rem;">{{ obj.sac_code }}</span>
+                        {% else %}
+                            <span style="color: #94a3b8;">-</span>
+                        {% endif %}
+                    </td>
                     <!-- <td>
                         <div style="color: #64748b; font-size: 0.8rem;"><i class="ph ph-clock"></i> {{ obj.duration }} mins</div>
                     </td> -->
