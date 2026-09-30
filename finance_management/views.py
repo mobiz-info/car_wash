@@ -2794,3 +2794,131 @@ def tax_report(request):
         'title': 'Tax Report',
     }
     return render(request, 'reports/tax_report.html', context)
+
+
+@login_required
+def outstanding_report(request):
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    today = timezone.localdate() if hasattr(timezone, 'localdate') else timezone.now().date()
+
+    company = None
+    branches = None
+    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        company = user.profile.company
+        branches = Branch.objects.filter(company=company, is_deleted=False)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        company = user.managed_branch.company
+    else:
+        branches = Branch.objects.filter(is_deleted=False)
+
+    # Invoices where amount_collected < total (customer has unpaid balance)
+    invoices = Invoice.objects.filter(
+        is_deleted=False,
+        customer__is_deleted=False,
+        amount_collected__lt=F('total')
+    ).select_related(
+        'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
+    ).order_by('-date', '-auto_id')
+
+    # Scope by role
+    if role == 'COMPANY_ADMIN' and company:
+        invoices = invoices.filter(branch__company=company)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        invoices = invoices.filter(branch=user.managed_branch)
+
+    # Filters
+    branch_id = (request.GET.get('branch_id') or request.GET.get('branch') or '').strip()
+    if branch_id:
+        invoices = invoices.filter(branch_id=branch_id)
+
+    from_date = (request.GET.get('from_date') or '').strip()
+    to_date = (request.GET.get('to_date') or '').strip()
+    if from_date:
+        invoices = invoices.filter(date__gte=from_date)
+    if to_date:
+        invoices = invoices.filter(date__lte=to_date)
+
+    search = (request.GET.get('search') or '').strip()
+    if search:
+        invoices = invoices.filter(
+            Q(customer__name__icontains=search) |
+            Q(customer__phone__icontains=search) |
+            Q(invoice_number__icontains=search) |
+            Q(vehicle__vehicle_number__icontains=search)
+        )
+
+    aging_filter = (request.GET.get('aging') or 'all').strip()
+
+    # Process invoice list, calculate balance and days passed
+    invoice_list_data = []
+    total_inv_amount = Decimal('0.00')
+    total_paid_amount = Decimal('0.00')
+    total_balance_amount = Decimal('0.00')
+    total_days_passed = 0
+
+    for inv in invoices:
+        inv_amt = inv.total or Decimal('0.00')
+        paid_amt = inv.amount_collected or Decimal('0.00')
+        balance = inv_amt - paid_amt
+
+        # Days passed from invoice date to today
+        if inv.date:
+            days_passed = max(0, (today - inv.date).days)
+        else:
+            days_passed = 0
+
+        # Apply aging filter
+        if aging_filter == '0_30' and not (0 <= days_passed <= 30):
+            continue
+        elif aging_filter == '31_60' and not (31 <= days_passed <= 60):
+            continue
+        elif aging_filter == '61_90' and not (61 <= days_passed <= 90):
+            continue
+        elif aging_filter == '90_plus' and not (days_passed > 90):
+            continue
+
+        total_inv_amount += inv_amt
+        total_paid_amount += paid_amt
+        total_balance_amount += balance
+        total_days_passed += days_passed
+
+        invoice_list_data.append({
+            'invoice': inv,
+            'customer_name': inv.customer.name if inv.customer else '-',
+            'customer_phone': inv.customer.phone if inv.customer else '-',
+            'vehicle_number': inv.vehicle.vehicle_number if inv.vehicle else '-',
+            'vehicle_model': inv.vehicle.vehicle_type_model.name if inv.vehicle and inv.vehicle.vehicle_type_model else '',
+            'branch_name': inv.branch.name if inv.branch else '',
+            'inv_date': inv.date,
+            'inv_amount': inv_amt,
+            'paid': paid_amt,
+            'balance': balance,
+            'days_passed': days_passed,
+        })
+
+    count = len(invoice_list_data)
+    avg_days_passed = round(total_days_passed / count) if count > 0 else 0
+
+    currency_symbol = '₹'
+    if company and company.country and company.country.currency_symbol:
+        currency_symbol = company.country.currency_symbol
+
+    context = {
+        'invoices': invoice_list_data,
+        'total_inv_amount': total_inv_amount,
+        'total_paid_amount': total_paid_amount,
+        'total_balance_amount': total_balance_amount,
+        'total_count': count,
+        'avg_days_passed': avg_days_passed,
+        'currency_symbol': currency_symbol,
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'branches': branches,
+        'aging': aging_filter,
+        'search': search,
+        'title': 'Outstanding Report',
+    }
+    return render(request, 'reports/outstanding_report.html', context)

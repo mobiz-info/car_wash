@@ -39,5 +39,7 @@ urlpatterns = [
     path('reports/staff-income-report/', views.staff_income_report, name='staff_income_report'),
     path('reports/tax-report/', views.tax_report, name='tax_report'),
     path('tax-report/', views.tax_report),
+    path('reports/outstanding-report/', views.outstanding_report, name='outstanding_report'),
+    path('outstanding-report/', views.outstanding_report),
 ]
 
