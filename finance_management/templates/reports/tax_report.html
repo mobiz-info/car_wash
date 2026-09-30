@@ -801,18 +801,15 @@
             <select name="branch_id" class="select-filter">
                 <option value="">All Branches</option>
                 {% for b in branches %}
-                <option value="{{ b.id }}" {% if branch_id==b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}
-                </option>
+                <option value="{{ b.id }}" {% if branch_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
                 {% endfor %}
             </select>
             {% endif %}
 
-
-
             <select name="tax_filter" class="select-filter">
-                <option value="all" {% if tax_filter=='all' %}selected{% endif %}>All Invoices</option>
-                <option value="taxed" {% if tax_filter=='taxed' %}selected{% endif %}>Taxed Only (Tax > 0)</option>
-                <option value="zero" {% if tax_filter=='zero' %}selected{% endif %}>Zero Tax Only</option>
+                <option value="all" {% if tax_filter == 'all' %}selected{% endif %}>All Invoices</option>
+                <option value="taxed" {% if tax_filter == 'taxed' %}selected{% endif %}>Taxed Only (Tax > 0)</option>
+                <option value="zero" {% if tax_filter == 'zero' %}selected{% endif %}>Zero Tax Only</option>
             </select>
 
             <button type="submit" class="filter-btn">
