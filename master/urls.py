@@ -183,5 +183,11 @@ urlpatterns = [
     # Supplier Payables & Payments
     path('supplier-payables/', views.supplier_payables_list, name='supplier_payables_list'),
     path('supplier-payables/pay/<uuid:supplier_id>/', views.supplier_payment_create, name='supplier_payment_create'),
+
+    # Insurance Company CRUD
+    path('insurance-company/', views.insurance_company_list, name='insurance_company_list'),
+    path('insurance-company/create/', views.insurance_company_create, name='insurance_company_create'),
+    path('insurance-company/edit/<uuid:id>/', views.insurance_company_edit, name='insurance_company_edit'),
+    path('insurance-company/delete/<uuid:id>/', views.insurance_company_delete, name='insurance_company_delete'),
 ]
 

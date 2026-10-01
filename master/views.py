@@ -2916,3 +2916,74 @@ def supplier_payment_create(request, supplier_id):
         return redirect('supplier_payables_list')
 
     return render(request, 'supplier_payables/pay.html', {'supplier': supplier, 'title': f"Record Payment - {supplier.name}"})
+
+
+# ==========================================
+# INSURANCE COMPANY MASTER
+# ==========================================
+
+@login_required
+def insurance_company_list(request):
+    search = request.GET.get('search', '')
+    profile = getattr(request.user, 'profile', None)
+    company = getattr(profile, 'company', None) if profile else None
+
+    queryset = InsuranceCompany.objects.filter(is_deleted=False)
+    if company:
+        queryset = queryset.filter(Q(company=company) | Q(company__isnull=True))
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+
+    paginator = Paginator(queryset, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'insurance_company/list.html', {
+        'page_obj': page_obj,
+        'search': search
+    })
+
+
+@login_required
+def insurance_company_create(request):
+    form = InsuranceCompanyForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.auto_id = get_auto_id(InsuranceCompany)
+            instance.creator = request.user
+            profile = getattr(request.user, 'profile', None)
+            instance.company = getattr(profile, 'company', None) if profile else None
+            instance.save()
+            messages.success(request, "Insurance Company created successfully")
+            return redirect('insurance_company_list')
+    return render(request, 'insurance_company/create.html', {
+        'form': form,
+        'title': 'Create Insurance Company'
+    })
+
+
+@login_required
+def insurance_company_edit(request, id):
+    instance = get_object_or_404(InsuranceCompany, id=id, is_deleted=False)
+    form = InsuranceCompanyForm(request.POST or None, instance=instance)
+    if request.method == 'POST':
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.updater = request.user
+            instance.save()
+            messages.success(request, "Insurance Company updated successfully")
+            return redirect('insurance_company_list')
+    return render(request, 'insurance_company/create.html', {
+        'form': form,
+        'title': 'Edit Insurance Company'
+    })
+
+
+@login_required
+def insurance_company_delete(request, id):
+    instance = get_object_or_404(InsuranceCompany, id=id)
+    instance.is_deleted = True
+    instance.save()
+    messages.success(request, "Insurance Company deleted successfully")
+    return redirect('insurance_company_list')

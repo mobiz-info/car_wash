@@ -183,6 +183,13 @@ class InvoiceServiceDetail(BaseModel):
         blank=True,
         help_text="Customer-selected insurance policy expiry date",
     )
+    insurance_company = models.ForeignKey(
+        'master.InsuranceCompany',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='invoice_details',
+    )
 
     def __str__(self):
         return f"{self.get_service_category_display()} — {self.invoice_item.invoice.invoice_number}"

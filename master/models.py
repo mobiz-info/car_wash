@@ -697,6 +697,27 @@ class Battery(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Insurance Company Master
+# ─────────────────────────────────────────────────────────────────────────────
+
+class InsuranceCompany(BaseModel):
+    """Master list of Insurance Companies (e.g. ICICI Lombard, HDFC ERGO, Tata AIG, etc.)."""
+    company = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='insurance_companies',
+        null=True, blank=True, help_text="Leave blank for global master"
+    )
+    name = models.CharField(max_length=150)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+        unique_together = ['company', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Senior ERP Purchase & Stock Management Models
 # ─────────────────────────────────────────────────────────────────────────────
 

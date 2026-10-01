@@ -420,3 +420,13 @@ class BatteryForm(forms.ModelForm):
         self.fields['price'].label = "Price (₹)"
         self.fields['stock_qty'].required = False
         self.fields['stock_qty'].label = "Stock Quantity (Units)"
+
+
+class InsuranceCompanyForm(forms.ModelForm):
+    class Meta:
+        model = InsuranceCompany
+        fields = ['name', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. ICICI Lombard, HDFC ERGO, Tata AIG'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }

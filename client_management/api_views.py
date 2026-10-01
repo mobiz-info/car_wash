@@ -1305,6 +1305,14 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
             except (TypeError, ValueError):
                 detail.insurance_expiry_date = None
 
+        ins_company_id = detail_data.get('insurance_company_id') or detail_data.get('insurance_company')
+        if ins_company_id:
+            try:
+                from master.models import InsuranceCompany
+                detail.insurance_company = InsuranceCompany.objects.filter(id=ins_company_id).first()
+            except Exception:
+                detail.insurance_company = None
+
     elif category == InvoiceServiceDetail.CATEGORY_DETAILING or category == 'car_detailing':
         detail.service_category = InvoiceServiceDetail.CATEGORY_DETAILING
         w_val = detail_data.get('warranty_value')
@@ -7764,6 +7772,28 @@ def api_update_quotation(request, quotation_id=None):
 
 
 @csrf_exempt
+def api_insurance_companies(request):
+    """GET: List active insurance companies for app dropdown."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from master.models import InsuranceCompany
+        from django.db.models import Q
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if company:
+            comps = InsuranceCompany.objects.filter(Q(company=company) | Q(company__isnull=True), is_active=True, is_deleted=False)
+        else:
+            comps = InsuranceCompany.objects.filter(is_active=True, is_deleted=False)
+        data = [{'id': str(c.id), 'name': c.name} for c in comps.order_by('name')]
+        return JsonResponse({'success': True, 'insurance_companies': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_battery_makes(request):
     """GET: List active battery makes for app dropdown."""
     if request.method != 'GET':
@@ -9215,14 +9245,17 @@ def api_insurance_reminders(request):
             if plan.invoice and plan.invoice.vehicle:
                 vehicle_no = plan.invoice.vehicle.vehicle_number
 
-            # Get insurance expiry from the invoice item
+            # Get insurance expiry and company from the invoice item
             expiry_date = None
+            insurance_company_name = ''
             if plan.invoice:
                 for item in plan.invoice.items.all():
                     if hasattr(item, 'service_detail') and item.service_detail:
                         sd = item.service_detail
                         if sd.service_category in ('auto_insurance', 'insurance') or getattr(sd, 'insurance_expiry_date', None):
                             expiry_date = getattr(sd, 'insurance_expiry_date', None)
+                            if getattr(sd, 'insurance_company', None):
+                                insurance_company_name = sd.insurance_company.name
                             break
 
             service_name = ''
@@ -9241,6 +9274,7 @@ def api_insurance_reminders(request):
                 'scheduled_date': plan.scheduled_date.strftime('%Y-%m-%d') if plan.scheduled_date else '',
                 'reminder_no': plan.reminder_no,
                 'insurance_expiry_date': expiry_date.strftime('%Y-%m-%d') if expiry_date else '',
+                'insurance_company_name': insurance_company_name,
                 'invoice_number': plan.invoice.invoice_number if plan.invoice else '',
                 'invoice_id': str(plan.invoice.id) if plan.invoice else '',
                 'template_name': plan.template_name or '',

@@ -273,6 +273,8 @@ urlpatterns = [
     path('api/insurance/customer-search/', api_views.api_insurance_customer_search, name='api_insurance_customer_search'),
     path('api/insurance/services/', api_views.api_insurance_services, name='api_insurance_services'),
     path('api/insurance/reminders/', api_views.api_insurance_reminders, name='api_insurance_reminders'),
+    path('api/insurance-companies/', api_views.api_insurance_companies, name='api_insurance_companies'),
+    path('api/insurance/companies/', api_views.api_insurance_companies, name='api_insurance_companies_alias'),
 ]
 
 
