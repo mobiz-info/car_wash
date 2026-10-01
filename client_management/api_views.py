@@ -126,6 +126,33 @@ def api_login(request):
             company_logo = request.build_absolute_uri(company.logo_color.url) if company and company.logo_color else ''
             company_seal = request.build_absolute_uri(company.company_seal.url) if company and getattr(company, 'company_seal', None) else ''
 
+            # Check if Auto Insurance category is enabled for this company's branches
+            has_insurance_module = False
+            try:
+                from service_management.models import ServiceType
+                ins_type = ServiceType.objects.filter(
+                    name__icontains='insurance', is_deleted=False
+                ).first()
+                if ins_type:
+                    from service_management.models import BranchServiceCategory
+                    from client_management.models import Branch
+                    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+                        has_insurance_module = BranchServiceCategory.objects.filter(
+                            branch=user.managed_branch,
+                            service_type=ins_type,
+                            is_enabled=True,
+                            is_deleted=False
+                        ).exists()
+                    elif role == 'COMPANY_ADMIN' and company:
+                        has_insurance_module = BranchServiceCategory.objects.filter(
+                            branch__company=company,
+                            service_type=ins_type,
+                            is_enabled=True,
+                            is_deleted=False
+                        ).exists()
+            except Exception:
+                has_insurance_module = False
+
             return JsonResponse({
                 'success': True,
                 'token': token_obj.token,
@@ -140,6 +167,7 @@ def api_login(request):
                 'subscription_end_date': subscription_end_date,
                 'company_logo': company_logo,
                 'company_seal': company_seal,
+                'has_insurance_module': has_insurance_module,
             })
         else:
             return JsonResponse({'success': False, 'message': 'Invalid username or password'}, status=401)
@@ -2164,11 +2192,17 @@ def api_add_customer(request):
         phone = data.get('phone', '').strip()
         customer_type_id = data.get('customer_type_id')
         vehicles = data.get('vehicles', [])
+        customer_category = data.get('customer_category', 'motor').strip() or 'motor'
+        if customer_category not in ('motor', 'non_motor'):
+            customer_category = 'motor'
+        aadhaar_number = data.get('aadhaar_number', '').strip() or None
+        dob_str = data.get('date_of_birth', '').strip() or None
 
         if not name or not phone or not customer_type_id:
             return JsonResponse({'success': False, 'message': 'Name, phone, and customer type are required'}, status=400)
-        if not vehicles:
-            return JsonResponse({'success': False, 'message': 'At least one vehicle is required'}, status=400)
+        # Motor customers must have at least one vehicle; non-motor do not
+        if customer_category == 'motor' and not vehicles:
+            return JsonResponse({'success': False, 'message': 'At least one vehicle is required for Motor customers'}, status=400)
 
         # Determine branch
         branch = None
@@ -2200,6 +2234,17 @@ def api_add_customer(request):
         if not customer_type:
             return JsonResponse({'success': False, 'message': 'Invalid customer type'}, status=400)
 
+        # Parse date_of_birth if provided
+        parsed_dob = None
+        if dob_str:
+            from datetime import datetime as _dt
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y'):
+                try:
+                    parsed_dob = _dt.strptime(dob_str, fmt).date()
+                    break
+                except ValueError:
+                    pass
+
         with transaction.atomic():
             customer = Customer.objects.create(
                 company=company,
@@ -2207,6 +2252,9 @@ def api_add_customer(request):
                 name=name,
                 phone=phone,
                 customer_type=customer_type,
+                customer_category=customer_category,
+                aadhaar_number=aadhaar_number,
+                date_of_birth=parsed_dob,
                 whatsapp_number=data.get('whatsapp_number', '').strip() or None,
                 email=data.get('email', '').strip() or None,
                 address=data.get('address', '').strip() or None,
@@ -2355,6 +2403,9 @@ def api_add_customer(request):
                 'whatsapp_number': customer.whatsapp_number or customer.phone,
                 'branch_name': branch.name or "our branch",
                 'type': customer_type.name,
+                'customer_category': customer.customer_category,
+                'aadhaar_number': customer.aadhaar_number or '',
+                'date_of_birth': customer.date_of_birth.strftime('%Y-%m-%d') if customer.date_of_birth else '',
                 'vehicles': vehicles_data,
             }
         })
@@ -2735,6 +2786,9 @@ def api_get_customer(request):
                 'address': customer.address or '',
                 'customer_type_id': str(customer.customer_type.id) if customer.customer_type else None,
                 'customer_type_name': customer.customer_type.name if customer.customer_type else '',
+                'customer_category': customer.customer_category or 'motor',
+                'aadhaar_number': customer.aadhaar_number or '',
+                'date_of_birth': customer.date_of_birth.strftime('%Y-%m-%d') if customer.date_of_birth else '',
                 'vehicles': vehicles_data,
             }
         })
@@ -2791,6 +2845,22 @@ def api_edit_customer(request):
             customer.address = data.get('address', '').strip() or None
             if new_phone:
                 customer.phone = new_phone
+            # Insurance category fields
+            new_category = data.get('customer_category', '').strip()
+            if new_category in ('motor', 'non_motor'):
+                customer.customer_category = new_category
+            customer.aadhaar_number = data.get('aadhaar_number', '').strip() or None
+            dob_edit_str = data.get('date_of_birth', '').strip() or None
+            if dob_edit_str:
+                from datetime import datetime as _dt2
+                for _fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y'):
+                    try:
+                        customer.date_of_birth = _dt2.strptime(dob_edit_str, _fmt).date()
+                        break
+                    except ValueError:
+                        pass
+            elif data.get('date_of_birth') == '':
+                customer.date_of_birth = None
             customer.save()
 
             # Update existing vehicles
@@ -8835,6 +8905,317 @@ def api_leads_list(request):
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# INSURANCE MODULE APIS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def api_insurance_customer_search(request):
+    """
+    Insurance > New Job: Search customers by phone/name.
+    Returns customer with category, aadhaar, dob and vehicles.
+    GET params: q (required, min 3 chars), branch_id (optional for company admin)
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    q = request.GET.get('q', '').strip()
+    if not q or len(q) < 2:
+        return JsonResponse({'success': True, 'customers': []})
+
+    company = user.profile.company
+    role = user.profile.role.name if user.profile.role else None
+
+    customers = Customer.objects.filter(is_deleted=False, company=company)
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        customers = customers.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN':
+        branch_id = request.GET.get('branch_id', '').strip()
+        if branch_id:
+            from client_management.models import Branch
+            branch = Branch.objects.filter(id=branch_id, company=company, is_deleted=False).first()
+            if branch:
+                customers = customers.filter(branch=branch)
+
+    customers = customers.filter(
+        Q(phone__icontains=q) | Q(name__icontains=q) | Q(whatsapp_number__icontains=q)
+    ).select_related('customer_type', 'branch')[:20]
+
+    results = []
+    for c in customers:
+        vehicles_data = []
+        for v in c.vehicles.filter(is_deleted=False):
+            vehicles_data.append({
+                'id': str(v.id),
+                'vehicle_number': v.vehicle_number,
+                'vehicle_model': v.vehicle_type_model.name if v.vehicle_type_model else '',
+                'vehicle_type': v.vehicle_type_model.vehicle_type.name if (v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
+            })
+        results.append({
+            'id': str(c.id),
+            'name': c.name,
+            'phone': c.phone,
+            'whatsapp_number': c.whatsapp_number or '',
+            'customer_type': c.customer_type.name if c.customer_type else '',
+            'branch_name': c.branch.name if c.branch else '',
+            'customer_category': c.customer_category or 'motor',
+            'aadhaar_number': c.aadhaar_number or '',
+            'date_of_birth': c.date_of_birth.strftime('%Y-%m-%d') if c.date_of_birth else '',
+            'vehicles': vehicles_data,
+        })
+
+    return JsonResponse({'success': True, 'customers': results})
+
+
+@csrf_exempt
+def api_insurance_services(request):
+    """
+    Insurance > New Job: Returns only insurance-category services for a branch.
+    GET params: customer_id (required), vehicle_id (optional for motor customers)
+    The response mirrors api_get_services but filtered to insurance services only.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        customer_id = request.GET.get('customer_id', '').strip()
+        vehicle_id = request.GET.get('vehicle_id', '').strip()
+
+        if not customer_id:
+            return JsonResponse({'success': False, 'message': 'customer_id is required'}, status=400)
+
+        company = user.profile.company
+        customer = Customer.objects.get(id=customer_id, company=company, is_deleted=False)
+
+        # Determine branch
+        role = user.profile.role.name if user.profile.role else None
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            branch = user.managed_branch
+        else:
+            branch = customer.branch
+
+        if not branch:
+            return JsonResponse({'success': False, 'message': 'No branch found'}, status=400)
+
+        # Get vehicle if provided
+        vehicle = None
+        vehicle_type_model = None
+        if vehicle_id:
+            vehicle = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer, is_deleted=False).first()
+            if vehicle:
+                vehicle_type_model = vehicle.vehicle_type_model
+
+        # Find Insurance ServiceType
+        from service_management.models import ServiceType, BranchService, CompanyService
+        ins_type = ServiceType.objects.filter(name__icontains='insurance', is_deleted=False).first()
+        if not ins_type:
+            return JsonResponse({'success': True, 'services': [], 'taxes': []})
+
+        # Check insurance category is enabled for this branch
+        ins_enabled = BranchServiceCategory.objects.filter(
+            branch=branch, service_type=ins_type, is_enabled=True, is_deleted=False
+        ).exists()
+        if not ins_enabled:
+            return JsonResponse({'success': False, 'message': 'Insurance category not enabled for this branch'}, status=403)
+
+        # Get enabled insurance services
+        company_enabled = CompanyService.objects.filter(
+            company=branch.company, is_enabled=True
+        ).values_list('service_id', flat=True)
+
+        branch_enabled = BranchService.objects.filter(
+            branch=branch,
+            service_id__in=company_enabled,
+            is_enabled=True,
+            is_deleted=False
+        ).values_list('service_id', flat=True)
+
+        ins_services = Service.objects.filter(
+            id__in=branch_enabled,
+            service_type=ins_type,
+            is_active=True,
+            is_deleted=False,
+        ).select_related('service_type')
+
+        services_data = []
+        for svc in ins_services:
+            rate = 0.0
+            if vehicle_type_model:
+                price_obj = ServiceVehicleTypePrice.objects.filter(
+                    branch=branch,
+                    service=svc,
+                    vehicle_model=vehicle_type_model,
+                    is_active=True,
+                    is_deleted=False,
+                ).first()
+                if price_obj:
+                    rate = float(price_obj.price)
+            services_data.append({
+                'id': str(svc.id),
+                'name': svc.name,
+                'service_type': svc.service_type.name if svc.service_type else 'Auto Insurance',
+                'service_type_slug': svc.service_type.slug if svc.service_type else 'auto_insurance',
+                'rate': rate,
+            })
+
+        # Taxes
+        from tax_management.models import CompanyTax
+        taxes_data = []
+        enabled_taxes = CompanyTax.objects.filter(company=branch.company, is_enabled=True).select_related('tax')
+        for ct in enabled_taxes:
+            taxes_data.append({
+                'id': str(ct.tax.id),
+                'name': ct.tax.name,
+                'percent': float(ct.tax.percent),
+            })
+
+        return JsonResponse({
+            'success': True,
+            'services': services_data,
+            'taxes': taxes_data,
+            'customer_category': customer.customer_category or 'motor',
+        })
+
+    except Customer.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_insurance_reminders(request):
+    """
+    Insurance > Reminders: List reminder plans that are insurance-related only.
+    Mirrors api_reminder_list but pre-filtered to insurancereminder template_name
+    or service_type containing 'insurance'.
+    GET params: date (YYYY-MM-DD or 'all'), search (optional)
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from booking_management.models import ReminderPlan
+        from django.db.models import Q as Q2
+        from datetime import datetime as _dt3
+
+        date_str = request.GET.get('date', '').strip()
+        show_all = request.GET.get('show_all', '').lower() in ['true', '1', 'yes']
+        lte_mode = request.GET.get('lte', '').lower() in ['true', '1', 'yes']
+
+        selected_date = None
+        if date_str and date_str.lower() not in ['all', '']:
+            if date_str.lower() == 'today':
+                selected_date = timezone.now().date()
+            else:
+                try:
+                    selected_date = _dt3.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    pass
+        elif not date_str and not show_all:
+            selected_date = timezone.now().date()
+
+        # Base: unsent plans only
+        plans = ReminderPlan.objects.filter(
+            is_sent=False,
+            is_deleted=False,
+        ).select_related(
+            'invoice', 'invoice__customer', 'invoice__vehicle',
+            'invoice__vehicle__vehicle_type_model', 'reminder', 'reminder__service', 'branch'
+        ).order_by('scheduled_date')
+
+        # Filter only insurance reminders
+        plans = plans.filter(
+            Q2(template_name='insurancereminder') |
+            Q2(reminder__service__service_type__slug__icontains='insurance') |
+            Q2(reminder__service__service_type__name__icontains='insurance') |
+            Q2(reminder__service__name__icontains='insurance')
+        )
+
+        # Date filter
+        if selected_date and not show_all:
+            if lte_mode:
+                plans = plans.filter(scheduled_date__lte=selected_date)
+            else:
+                plans = plans.filter(scheduled_date=selected_date)
+
+        # Scope to user branch/company
+        role = user.profile.role.name if (user.profile and user.profile.role) else None
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+            plans = plans.filter(branch=user.managed_branch)
+        elif role == 'COMPANY_ADMIN' and user.profile.company:
+            plans = plans.filter(branch__company=user.profile.company)
+
+        search_query = request.GET.get('search', '').strip()
+        if search_query:
+            plans = plans.filter(
+                Q2(invoice__customer__name__icontains=search_query) |
+                Q2(invoice__customer__phone__icontains=search_query) |
+                Q2(invoice__vehicle__vehicle_number__icontains=search_query)
+            )
+
+        plans_data = []
+        for plan in plans:
+            customer_name = plan.invoice.customer.name if plan.invoice and plan.invoice.customer else ''
+            vehicle_no = ''
+            if plan.invoice and plan.invoice.vehicle:
+                vehicle_no = plan.invoice.vehicle.vehicle_number
+
+            # Get insurance expiry from the invoice item
+            expiry_date = None
+            if plan.invoice:
+                for item in plan.invoice.items.all():
+                    if hasattr(item, 'service_detail') and item.service_detail:
+                        sd = item.service_detail
+                        if sd.service_category in ('auto_insurance', 'insurance') or getattr(sd, 'insurance_expiry_date', None):
+                            expiry_date = getattr(sd, 'insurance_expiry_date', None)
+                            break
+
+            service_name = ''
+            if plan.reminder and plan.reminder.service:
+                service_name = plan.reminder.service.name
+            elif plan.template_name == 'insurancereminder':
+                service_name = 'Insurance'
+
+            plans_data.append({
+                'id': str(plan.id),
+                'customer_name': customer_name,
+                'vehicle_number': vehicle_no,
+                'phone': plan.invoice.customer.phone if plan.invoice and plan.invoice.customer else '',
+                'whatsapp_number': plan.invoice.customer.whatsapp_number if plan.invoice and plan.invoice.customer else '',
+                'service_name': service_name,
+                'scheduled_date': plan.scheduled_date.strftime('%Y-%m-%d') if plan.scheduled_date else '',
+                'reminder_no': plan.reminder_no,
+                'insurance_expiry_date': expiry_date.strftime('%Y-%m-%d') if expiry_date else '',
+                'invoice_number': plan.invoice.invoice_number if plan.invoice else '',
+                'invoice_id': str(plan.invoice.id) if plan.invoice else '',
+                'template_name': plan.template_name or '',
+                'branch_name': plan.branch.name if plan.branch else '',
+            })
+
+        return JsonResponse({
+            'success': True,
+            'reminders': plans_data,
+            'total': len(plans_data),
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 @csrf_exempt
 def api_leads_create(request):
     """POST: Create a new lead."""

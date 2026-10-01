@@ -204,6 +204,13 @@ class CustomerType(BaseModel):
         ordering = ['-id']
 
 class Customer(BaseModel):
+    CATEGORY_MOTOR = 'motor'
+    CATEGORY_NON_MOTOR = 'non_motor'
+    CATEGORY_CHOICES = [
+        (CATEGORY_MOTOR, 'Motor'),
+        (CATEGORY_NON_MOTOR, 'Non-Motor'),
+    ]
+
     company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='customers')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='customers')
     name = models.CharField(max_length=200)
@@ -213,6 +220,22 @@ class Customer(BaseModel):
     email = models.EmailField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     pincode = models.CharField(max_length=20, blank=True, null=True)
+
+    # Insurance-related categorisation
+    customer_category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default=CATEGORY_MOTOR,
+        help_text="Motor: has vehicle. Non-Motor: no vehicle (life/health insurance)."
+    )
+    aadhaar_number = models.CharField(
+        max_length=20, blank=True, null=True,
+        help_text="Aadhaar number (required for Non-Motor customers)"
+    )
+    date_of_birth = models.DateField(
+        blank=True, null=True,
+        help_text="Date of birth (required for Non-Motor customers)"
+    )
 
     def __str__(self):
         return f"{self.name} ({self.phone})"
