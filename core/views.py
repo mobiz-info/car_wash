@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.models import User
 import datetime
@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from .models import *
 from client_management.models import Subscription
-from .forms import UserCreationAdminForm, UserProfileForm, RoleForm, UserEditForm
+from .forms import UserCreationAdminForm, UserProfileForm, RoleForm, UserEditForm, CustomPasswordChangeForm
 from core.functions import get_auto_id
 
 # Roles allowed to access this admin portal
@@ -428,4 +428,32 @@ def log_list(request):
     }
     
     return render(request, 'log_list.html', context)
+
+
+@login_required
+def change_password(request):
+    """Allows any logged-in user (Company Admin, Branch Admin, Super Admin) to change their password."""
+    if request.method == 'POST':
+        form = CustomPasswordChangeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Update plaintext password in UserProfile if present
+            new_pwd = form.cleaned_data.get('new_password1')
+            if hasattr(user, 'profile') and user.profile and new_pwd:
+                user.profile.raw_password = new_pwd
+                user.profile.save(update_fields=['raw_password'])
+
+            # Keep the user logged in after password change
+            update_session_auth_hash(request, user)
+            messages.success(request, 'Your password was successfully updated!')
+            return redirect('change_password')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = CustomPasswordChangeForm(user=request.user)
+
+    return render(request, 'auth/change_password.html', {
+        'form': form,
+        'title': 'Change Password',
+    })
 
