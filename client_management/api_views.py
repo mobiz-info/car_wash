@@ -8941,9 +8941,16 @@ def api_insurance_customer_search(request):
             if branch:
                 customers = customers.filter(branch=branch)
 
-    customers = customers.filter(
-        Q(phone__icontains=q) | Q(name__icontains=q) | Q(whatsapp_number__icontains=q)
-    ).select_related('customer_type', 'branch')[:20]
+    import re
+    q_digits = re.sub(r'\D', '', q)
+    phone_query = Q(phone__icontains=q) | Q(name__icontains=q) | Q(whatsapp_number__icontains=q)
+    if q_digits:
+        phone_query |= Q(phone__icontains=q_digits) | Q(whatsapp_number__icontains=q_digits)
+        if len(q_digits) >= 10:
+            last_10 = q_digits[-10:]
+            phone_query |= Q(phone__endswith=last_10) | Q(whatsapp_number__endswith=last_10)
+
+    customers = customers.filter(phone_query).select_related('customer_type', 'branch')[:20]
 
     results = []
     for c in customers:
@@ -8951,16 +8958,22 @@ def api_insurance_customer_search(request):
         for v in c.vehicles.filter(is_deleted=False):
             vehicles_data.append({
                 'id': str(v.id),
+                'no': v.vehicle_number,
                 'vehicle_number': v.vehicle_number,
                 'vehicle_model': v.vehicle_type_model.name if v.vehicle_type_model else '',
+                'type': v.vehicle_type_model.name if v.vehicle_type_model else '',
                 'vehicle_type': v.vehicle_type_model.vehicle_type.name if (v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
+                'wheel_type': v.wheel_type or 'normal_wheel',
+                'fuel_type': v.fuel_type or '',
             })
         results.append({
             'id': str(c.id),
             'name': c.name,
             'phone': c.phone,
             'whatsapp_number': c.whatsapp_number or '',
-            'customer_type': c.customer_type.name if c.customer_type else '',
+            'type': c.customer_type.name if c.customer_type else 'Regular',
+            'customer_type': c.customer_type.name if c.customer_type else 'Regular',
+            'branch': c.branch.name if c.branch else '',
             'branch_name': c.branch.name if c.branch else '',
             'customer_category': c.customer_category or 'motor',
             'aadhaar_number': c.aadhaar_number or '',
