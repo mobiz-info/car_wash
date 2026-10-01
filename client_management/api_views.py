@@ -597,18 +597,33 @@ def api_get_services(request):
     customer_id = request.GET.get('customer_id')
     vehicle_id = request.GET.get('vehicle_id')
     
-    if not customer_id or not vehicle_id:
-        return JsonResponse({'success': False, 'message': 'customer_id and vehicle_id are required'}, status=400)
+    if not customer_id:
+        return JsonResponse({'success': False, 'message': 'customer_id is required'}, status=400)
         
     try:
         customer = Customer.objects.get(id=customer_id, is_deleted=False)
-        vehicle = CustomerVehicle.objects.get(id=vehicle_id, customer=customer, is_deleted=False)
+        vehicle = None
+        if vehicle_id:
+            vehicle = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer, is_deleted=False).first()
+        if not vehicle:
+            vehicle = CustomerVehicle.objects.filter(customer=customer, is_deleted=False).first()
+        if not vehicle:
+            from master.models import VehicleTypeModel
+            from core.functions import get_auto_id
+            vm = VehicleTypeModel.objects.filter(is_deleted=False).first()
+            vehicle = CustomerVehicle.objects.create(
+                customer=customer,
+                vehicle_number='NON-MOTOR',
+                vehicle_type_model=vm,
+                creator=user,
+                auto_id=get_auto_id(CustomerVehicle),
+            )
         
         branch = customer.branch
-        vehicle_type = vehicle.vehicle_type_model.vehicle_type if vehicle.vehicle_type_model else None
+        vehicle_type = vehicle.vehicle_type_model.vehicle_type if (vehicle and vehicle.vehicle_type_model) else None
         
-        if not branch or not vehicle_type:
-            return JsonResponse({'success': False, 'message': 'Customer branch or vehicle type is missing'}, status=400)
+        if not branch:
+            return JsonResponse({'success': False, 'message': 'Customer branch is missing'}, status=400)
 
         # ── Get branch-enabled service CATEGORIES ─────────────────────────────
         from service_management.models import ServiceType
@@ -1328,8 +1343,8 @@ def api_create_invoice(request):
         customer_id = data.get('customer_id')
         vehicle_id = data.get('vehicle_id')
         
-        if not customer_id or not vehicle_id:
-            return JsonResponse({'success': False, 'message': 'customer_id and vehicle_id are required'}, status=400)
+        if not customer_id:
+            return JsonResponse({'success': False, 'message': 'customer_id is required'}, status=400)
             
         role = user.profile.role.name if user.profile.role else None
         customer_qs = Customer.objects.filter(id=customer_id, is_deleted=False)
@@ -1339,7 +1354,22 @@ def api_create_invoice(request):
             customer_qs = customer_qs.filter(company=user.profile.company)
 
         customer = customer_qs.get()
-        vehicle = CustomerVehicle.objects.get(id=vehicle_id, customer=customer, is_deleted=False)
+        vehicle = None
+        if vehicle_id:
+            vehicle = CustomerVehicle.objects.filter(id=vehicle_id, customer=customer, is_deleted=False).first()
+        if not vehicle:
+            vehicle = CustomerVehicle.objects.filter(customer=customer, is_deleted=False).first()
+        if not vehicle:
+            from master.models import VehicleTypeModel
+            from core.functions import get_auto_id
+            vm = VehicleTypeModel.objects.filter(is_deleted=False).first()
+            vehicle = CustomerVehicle.objects.create(
+                customer=customer,
+                vehicle_number='NON-MOTOR',
+                vehicle_type_model=vm,
+                creator=user,
+                auto_id=get_auto_id(CustomerVehicle),
+            )
         
         # Generate invoice number using a unique branch-specific prefix and sequence.
         branch = user.managed_branch if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') else customer.branch
