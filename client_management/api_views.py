@@ -609,7 +609,6 @@ def api_get_services(request):
             vehicle = CustomerVehicle.objects.filter(customer=customer, is_deleted=False).first()
         if not vehicle:
             from master.models import VehicleTypeModel
-            from core.functions import get_auto_id
             vm = VehicleTypeModel.objects.filter(is_deleted=False).first()
             vehicle = CustomerVehicle.objects.create(
                 customer=customer,
@@ -1361,7 +1360,6 @@ def api_create_invoice(request):
             vehicle = CustomerVehicle.objects.filter(customer=customer, is_deleted=False).first()
         if not vehicle:
             from master.models import VehicleTypeModel
-            from core.functions import get_auto_id
             vm = VehicleTypeModel.objects.filter(is_deleted=False).first()
             vehicle = CustomerVehicle.objects.create(
                 customer=customer,
