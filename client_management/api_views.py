@@ -1809,16 +1809,29 @@ def api_update_invoice(request):
             company_seal = request.build_absolute_uri(invoice.branch.company.company_seal.url) if invoice.branch and invoice.branch.company and getattr(invoice.branch.company, 'company_seal', None) else ''
             branch_logo = request.build_absolute_uri(invoice.branch.logo.url) if invoice.branch and invoice.branch.logo else ''
 
-            return JsonResponse({
-                'success': True,
-                'message': 'Invoice updated successfully',
-                'invoice_id': str(invoice.id),
-                'invoice_number': invoice.invoice_number,
-                'company_logo': company_logo,
-                'company_seal': company_seal,
-                'branch_logo': branch_logo,
-                'branch': invoice.branch.name if invoice.branch else '',
-            })
+        # Regenerate invoice PDF file with newly updated items and totals
+        pdf_url = ''
+        try:
+            from finance_management.views import generate_invoice_pdf_file
+            base_url = request.build_absolute_uri('/')
+            if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+                base_url = 'http://68.183.94.11:78'
+            pdf_url = generate_invoice_pdf_file(invoice, base_url)
+        except Exception as pdf_err:
+            import logging
+            logging.getLogger(__name__).warning(f"Could not regenerate invoice PDF on update: {pdf_err}")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Invoice updated successfully',
+            'invoice_id': str(invoice.id),
+            'invoice_number': invoice.invoice_number,
+            'pdf_url': pdf_url,
+            'company_logo': company_logo,
+            'company_seal': company_seal,
+            'branch_logo': branch_logo,
+            'branch': invoice.branch.name if invoice.branch else '',
+        })
 
     except Invoice.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Invoice not found'}, status=404)

@@ -2000,12 +2000,24 @@ def generate_invoice_pdf_file(invoice, base_url):
     media_dir = os.path.join(settings.BASE_DIR, 'media', 'invoices')
     os.makedirs(media_dir, exist_ok=True)
     
-    pdf_filename = f"invoice-{invoice.invoice_number}.pdf"
+    clean_no = str(invoice.invoice_number).replace('/', '_')
+    pdf_filename = f"invoice-{clean_no}.pdf"
     pdf_path = os.path.join(media_dir, pdf_filename)
     
     # Render PDF using WeasyPrint
     html = HTML(string=html_string, base_url=base_url)
     html.write_pdf(target=pdf_path)
+
+    # Also save with raw filename if it does not contain slashes and differs
+    raw_filename = f"invoice-{invoice.invoice_number}.pdf"
+    if '/' not in str(invoice.invoice_number):
+        raw_pdf_path = os.path.join(media_dir, raw_filename)
+        if raw_pdf_path != pdf_path:
+            try:
+                import shutil
+                shutil.copyfile(pdf_path, raw_pdf_path)
+            except Exception:
+                pass
     
     # Return the absolute public URL
     if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
