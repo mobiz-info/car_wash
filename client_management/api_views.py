@@ -929,10 +929,14 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         discount_line = f"Discount: -{currency}{discount_val:.2f}\n" if discount_val > 0 else ""
         tax_line = f"Tax: {currency}{tax_val:.2f}\n" if tax_val > 0 else ""
 
+        has_tax = bool(tax_val > 0)
+        inv_type_title = "Tax Invoice" if has_tax else "Proforma Invoice"
+        inv_type_lower = "tax invoice" if has_tax else "proforma invoice"
+
         message_text = (
             f"Dear {customer.name},\n\n"
-            f"Your invoice *{invoice.invoice_number}* has been generated successfully at {company_name}.\n\n"
-            f"*Invoice Details:*\n"
+            f"Your {inv_type_lower} *{invoice.invoice_number}* has been generated successfully at {company_name}.\n\n"
+            f"*{inv_type_title} Details:*\n"
             f"Vehicle: {invoice.vehicle.vehicle_number if invoice.vehicle else ''}\n"
             f"Services:\n{services_str}\n"
             f"{subtotal_line}"
@@ -1017,9 +1021,11 @@ def send_invoice_whatsapp_background(invoice_id, base_url):
         disc_text = f" (Discount: -{currency}{discount_val:.2f})" if discount_val > 0 else ""
         services_clean_with_disc = services_single_line + disc_text
 
+        inv_number_display = f"{invoice.invoice_number} ({inv_type_title})"
+
         invoice_values = [
             customer.name,
-            invoice.invoice_number,
+            inv_number_display,
             company_name,
             invoice.vehicle.vehicle_number if invoice.vehicle else "your vehicle",
             services_clean_with_disc,

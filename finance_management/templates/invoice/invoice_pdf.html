@@ -322,7 +322,7 @@
                 </table>
             </td>
             <td class="invoice-title" style="width: 40%; vertical-align: top;">
-                <h1>PROFORMA INVOICE</h1>
+                <h1>{% if invoice.tax_amount > 0 %}TAX INVOICE{% else %}PROFORMA INVOICE{% endif %}</h1>
                 <table class="invoice-meta-table">
                     <tr>
                         <td class="meta-label">Invoice No:</td>
