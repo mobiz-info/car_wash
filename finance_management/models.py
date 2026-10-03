@@ -41,6 +41,7 @@ class InvoiceItem(BaseModel):
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # per-item scheme/manual discount
     net_taxable_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     is_operational = models.BooleanField(default=False, help_text="True if stock item was consumed operationally (0 rate)")
+    remarks = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.invoice.invoice_number} - {self.service_name}"

@@ -471,6 +471,11 @@
                     <td class="align-center">{{ forloop.counter }}</td>
                     <td>
                         <div style="font-weight: 600;">{{ item.service_name }}</div>
+                        {% if item.remarks %}
+                            <div style="font-size: 8pt; color: #475569; margin-top: 2px;">
+                                <strong style="color: #1e3a8a;">Remark:</strong> {{ item.remarks }}
+                            </div>
+                        {% endif %}
                         {% if item.service_detail %}
                             <div style="font-size: 8pt; color: #475569; margin-top: 4px; padding-left: 8px; border-left: 2px solid #3b82f6; line-height: 1.4;">
                                 {% if item.service_detail.service_category == 'oil_change' %}

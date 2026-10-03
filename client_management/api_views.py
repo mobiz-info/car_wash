@@ -1578,6 +1578,8 @@ def api_create_invoice(request):
                 t_disc = Decimal(str(t.get('discount', 0)))
                 t_net = (t_rate * t_qty) - t_disc
 
+            t_remarks = (t.get('remarks') or t.get('remark') or '').strip()
+
             item = InvoiceItem.objects.create(
                 invoice=invoice,
                 stock_item=stock_obj,
@@ -1587,6 +1589,7 @@ def api_create_invoice(request):
                 discount=t_disc,
                 net_taxable_amount=t_net,
                 is_operational=is_op,
+                remarks=t_remarks or None,
                 creator=user,
                 auto_id=get_auto_id(InvoiceItem)
             )
@@ -1852,6 +1855,8 @@ def api_update_invoice(request):
                     t_disc = Decimal(str(t.get('discount', 0)))
                     t_net = (t_rate * t_qty) - t_disc
 
+                t_remarks = (t.get('remarks') or t.get('remark') or '').strip()
+
                 item = InvoiceItem.objects.create(
                     invoice=invoice,
                     stock_item=stock_obj,
@@ -1861,6 +1866,7 @@ def api_update_invoice(request):
                     discount=t_disc,
                     net_taxable_amount=t_net,
                     is_operational=is_op,
+                    remarks=t_remarks or None,
                     creator=user,
                     auto_id=get_auto_id(InvoiceItem)
                 )

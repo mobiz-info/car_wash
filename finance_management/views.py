@@ -347,6 +347,7 @@ def api_list_invoices(request):
                     'rate': str(item.rate),
                     'discount': str(item.discount),
                     'is_operational': item.is_operational,
+                    'remarks': item.remarks or '',
                 }
                 for item in inv.items.all() if item.stock_item
             ],

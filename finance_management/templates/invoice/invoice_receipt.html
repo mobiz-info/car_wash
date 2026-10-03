@@ -346,7 +346,14 @@
 
                         <td>{{ forloop.counter }}</td>
 
-                        <td>{{ item.service_name }}</td>
+                        <td>
+                            {{ item.service_name }}
+                            {% if item.remarks %}
+                                <div style="font-size: 7.5pt; color: #555; margin-top: 2px;">
+                                    <em>Remark: {{ item.remarks }}</em>
+                                </div>
+                            {% endif %}
+                        </td>
 
                         <td style="text-align:center;">{% if item.qty %}{{ item.qty|floatformat:"-2" }}{% else %}1{% endif %}</td>
 
