@@ -76,6 +76,120 @@ def client_list(request):
 
 
 @login_required
+def client_activity_list(request):
+    from django.utils import timezone
+    from core.models import UserProfile
+    from datetime import timedelta
+
+    today = timezone.now().date()
+
+    status_filter = request.GET.get('status', 'all').strip().lower()
+    days_threshold_str = request.GET.get('days_threshold', '3').strip()
+    try:
+        days_threshold = int(days_threshold_str)
+        if days_threshold < 1:
+            days_threshold = 3
+    except ValueError:
+        days_threshold = 3
+
+    search = request.GET.get('search', '').strip()
+    selected_client_id = request.GET.get('client_id', '').strip()
+
+    all_clients = Client.objects.filter(is_deleted=False).select_related('country', 'state')
+
+    activity_data = []
+    active_options = []
+    inactive_options = []
+
+    for client in all_clients:
+        last_app = UserProfile.objects.filter(
+            company=client, last_app_open__isnull=False
+        ).aggregate(m=Max('last_app_open'))['m']
+        last_app_date = last_app.date() if last_app else None
+
+        last_inv_date = Invoice.objects.filter(
+            branch__company=client, is_deleted=False
+        ).aggregate(m=Max('date'))['m']
+
+        created_date = client.date_added.date() if hasattr(client, 'date_added') and client.date_added else None
+
+        candidates = [d for d in [last_app_date, last_inv_date, created_date] if d is not None]
+        latest_activity = max(candidates) if candidates else None
+
+        days_inactive = 999
+        is_active = False
+        if latest_activity:
+            days_inactive = (today - latest_activity).days
+            is_active = days_inactive <= days_threshold
+
+        branch_count = client.branches.filter(is_deleted=False).count()
+
+        item = {
+            'client': client,
+            'company_name': client.company_name,
+            'owner_name': client.owner_name,
+            'phone': client.phone or '',
+            'email': client.email or '',
+            'branch_count': branch_count,
+            'last_activity': latest_activity,
+            'days_inactive': days_inactive,
+            'is_active': is_active,
+            'last_app_date': last_app_date,
+            'last_inv_date': last_inv_date,
+        }
+
+        activity_data.append(item)
+        if is_active:
+            active_options.append({'id': str(client.id), 'name': client.company_name})
+        else:
+            inactive_options.append({'id': str(client.id), 'name': client.company_name})
+
+    active_options.sort(key=lambda x: x['name'].lower())
+    inactive_options.sort(key=lambda x: x['name'].lower())
+
+    filtered_data = activity_data
+    if search:
+        search_lower = search.lower()
+        filtered_data = [
+            x for x in filtered_data
+            if search_lower in x['company_name'].lower()
+            or search_lower in x['owner_name'].lower()
+            or search_lower in x['phone'].lower()
+            or search_lower in x['email'].lower()
+        ]
+
+    if selected_client_id:
+        filtered_data = [x for x in filtered_data if str(x['client'].id) == selected_client_id]
+
+    active_list = [x for x in filtered_data if x['is_active']]
+    inactive_list = [x for x in filtered_data if not x['is_active']]
+
+    active_list.sort(key=lambda x: (x['days_inactive'], x['company_name'].lower()))
+    inactive_list.sort(key=lambda x: (-x['days_inactive'], x['company_name'].lower()))
+
+    total_active_count = sum(1 for x in activity_data if x['is_active'])
+    total_inactive_count = sum(1 for x in activity_data if not x['is_active'])
+    total_clients_count = len(activity_data)
+
+    context = {
+        'active_list': active_list,
+        'inactive_list': inactive_list,
+        'active_options': active_options,
+        'inactive_options': inactive_options,
+        'total_active_count': total_active_count,
+        'total_inactive_count': total_inactive_count,
+        'total_clients_count': total_clients_count,
+        'filtered_active_count': len(active_list),
+        'filtered_inactive_count': len(inactive_list),
+        'status_filter': status_filter,
+        'days_threshold': days_threshold,
+        'search': search,
+        'selected_client_id': selected_client_id,
+    }
+    return render(request, 'client/activity_list.html', context)
+
+
+@login_required
 def client_create(request):
     form = ClientForm(request.POST or None, request.FILES or None)
     if request.method == 'POST':
