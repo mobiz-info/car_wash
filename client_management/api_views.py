@@ -1553,6 +1553,9 @@ def api_create_invoice(request):
             }
             if hasattr(InvoiceItem, 'extra') and extra_obj:
                 item_kwargs['extra'] = extra_obj
+            remark_val = svc.get('remark') or svc.get('remarks')
+            if remark_val:
+                item_kwargs['remarks'] = str(remark_val).strip()
 
             item = InvoiceItem.objects.create(**item_kwargs)
 
@@ -1831,6 +1834,9 @@ def api_update_invoice(request):
                 }
                 if hasattr(InvoiceItem, 'extra') and extra_obj:
                     item_kwargs['extra'] = extra_obj
+                remark_val = svc.get('remark') or svc.get('remarks')
+                if remark_val:
+                    item_kwargs['remarks'] = str(remark_val).strip()
 
                 item = InvoiceItem.objects.create(**item_kwargs)
 
