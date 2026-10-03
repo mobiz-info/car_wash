@@ -8964,6 +8964,241 @@ def api_leads_list(request):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Vehicle Make Master API (App-side CRUD)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def api_vehicle_makes(request):
+    """GET: list all vehicle makes. POST: create a new vehicle make. DELETE: soft-delete."""
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from master.models import VehicleMake
+    from core.functions import get_auto_id
+
+    if request.method == 'GET':
+        try:
+            makes = VehicleMake.objects.filter(is_active=True, is_deleted=False).order_by('name')
+            data = [{'id': str(m.id), 'name': m.name} for m in makes]
+            return JsonResponse({'success': True, 'vehicle_makes': data})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    elif request.method == 'POST':
+        try:
+            body = json.loads(request.body)
+            name = (body.get('name') or '').strip()
+            if not name:
+                return JsonResponse({'success': False, 'message': 'Name is required'}, status=400)
+            if VehicleMake.objects.filter(name__iexact=name, is_deleted=False).exists():
+                return JsonResponse({'success': False, 'message': 'Vehicle make already exists'}, status=400)
+            make = VehicleMake(
+                name=name,
+                auto_id=get_auto_id(VehicleMake),
+                creator=user,
+                is_active=True,
+            )
+            make.save()
+            return JsonResponse({'success': True, 'message': 'Vehicle make created', 'id': str(make.id), 'name': make.name})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    elif request.method == 'DELETE':
+        try:
+            body = json.loads(request.body)
+            make_id = body.get('id')
+            make = VehicleMake.objects.get(id=make_id, is_deleted=False)
+            make.is_deleted = True
+            make.is_active = False
+            make.save()
+            return JsonResponse({'success': True, 'message': 'Vehicle make deleted'})
+        except VehicleMake.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vehicle Brand Model Master API (App-side CRUD)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def api_vehicle_brand_models(request):
+    """GET: list vehicle brand models (with make & type info).
+       POST: create a new brand model.
+       DELETE: soft-delete a brand model."""
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    from master.models import VehicleBrandModel, VehicleMake, VehicleTypeModel
+    from core.functions import get_auto_id
+
+    if request.method == 'GET':
+        try:
+            qs = VehicleBrandModel.objects.filter(
+                is_active=True, is_deleted=False
+            ).select_related('vehicle_type_model', 'make').order_by('vehicle_type_model__name', 'name')
+            data = [
+                {
+                    'id': str(b.id),
+                    'name': b.name,
+                    'make_id': str(b.make.id) if b.make else None,
+                    'make_name': b.make.name if b.make else '',
+                    'vehicle_type_id': str(b.vehicle_type_model.id),
+                    'vehicle_type_name': b.vehicle_type_model.name,
+                }
+                for b in qs
+            ]
+            return JsonResponse({'success': True, 'vehicle_brand_models': data})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    elif request.method == 'POST':
+        try:
+            body = json.loads(request.body)
+            name = (body.get('name') or '').strip()
+            vehicle_type_id = body.get('vehicle_type_id')
+            make_id = body.get('make_id')
+
+            if not name or not vehicle_type_id:
+                return JsonResponse({'success': False, 'message': 'Name and vehicle type are required'}, status=400)
+
+            vehicle_type = VehicleTypeModel.objects.get(id=vehicle_type_id, is_deleted=False)
+            make = None
+            if make_id:
+                try:
+                    make = VehicleMake.objects.get(id=make_id, is_deleted=False)
+                except VehicleMake.DoesNotExist:
+                    pass
+
+            if VehicleBrandModel.objects.filter(
+                vehicle_type_model=vehicle_type, make=make, name__iexact=name, is_deleted=False
+            ).exists():
+                return JsonResponse({'success': False, 'message': 'Brand model already exists for this type/make'}, status=400)
+
+            brand = VehicleBrandModel(
+                name=name,
+                vehicle_type_model=vehicle_type,
+                make=make,
+                auto_id=get_auto_id(VehicleBrandModel),
+                creator=user,
+                is_active=True,
+            )
+            brand.save()
+            return JsonResponse({
+                'success': True,
+                'message': 'Vehicle brand model created',
+                'id': str(brand.id),
+                'name': brand.name,
+                'make_name': make.name if make else '',
+                'vehicle_type_name': vehicle_type.name,
+            })
+        except VehicleTypeModel.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Vehicle type not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    elif request.method == 'DELETE':
+        try:
+            body = json.loads(request.body)
+            brand_id = body.get('id')
+            brand = VehicleBrandModel.objects.get(id=brand_id, is_deleted=False)
+            brand.is_deleted = True
+            brand.is_active = False
+            brand.save()
+            return JsonResponse({'success': True, 'message': 'Vehicle brand model deleted'})
+        except VehicleBrandModel.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+def api_vehicle_types_list(request):
+    """GET: list vehicle segments available for this company.
+    Returns all active, non-deleted segments (excluding those explicitly disabled for this company).
+    Matches the web backend VehicleBrandModelForm queryset.
+    """
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from master.models import VehicleTypeModel
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company and hasattr(user, 'staff_profile') and user.staff_profile:
+            company = getattr(user.staff_profile.branch, 'company', None)
+        if company:
+            qs = VehicleTypeModel.objects.filter(
+                is_active=True, is_deleted=False
+            ).exclude(
+                disabled_companies=company
+            ).select_related('vehicle_type').order_by('vehicle_type__name', 'name')
+        else:
+            qs = VehicleTypeModel.objects.filter(
+                is_active=True, is_deleted=False
+            ).select_related('vehicle_type').order_by('vehicle_type__name', 'name')
+        data = [
+            {
+                'id': str(t.id),
+                'name': t.name,
+                'type_name': t.vehicle_type.name if t.vehicle_type else '',
+                'full_name': f"{t.vehicle_type.name} - {t.name}" if t.vehicle_type else t.name,
+            }
+            for t in qs
+        ]
+        return JsonResponse({'success': True, 'vehicle_types': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_vehicle_makes_by_type(request):
+    """GET: VehicleMake entries for a given vehicle_type_id.
+    Returns segment-corresponding makes (linked via VehicleBrandModel).
+    Also includes all active makes as a fallback so user can always pick a make.
+    Query param: vehicle_type_id (optional/recommended)
+    """
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from master.models import VehicleMake, VehicleBrandModel
+        vehicle_type_id = request.GET.get('vehicle_type_id', '').strip()
+        all_makes_qs = VehicleMake.objects.filter(is_active=True, is_deleted=False).order_by('name')
+        all_makes = [{'id': str(m.id), 'name': m.name} for m in all_makes_qs]
+
+        segment_makes = []
+        if vehicle_type_id:
+            make_ids = VehicleBrandModel.objects.filter(
+                vehicle_type_model_id=vehicle_type_id,
+                is_active=True, is_deleted=False,
+                make__isnull=False,
+            ).values_list('make_id', flat=True).distinct()
+            segment_makes_qs = VehicleMake.objects.filter(
+                id__in=make_ids, is_active=True, is_deleted=False
+            ).order_by('name')
+            segment_makes = [{'id': str(m.id), 'name': m.name} for m in segment_makes_qs]
+
+        # Use segment-corresponding makes if found, else fall back to all makes
+        makes_to_return = segment_makes if segment_makes else all_makes
+
+        return JsonResponse({
+            'success': True,
+            'vehicle_makes': makes_to_return,
+            'segment_makes': segment_makes,
+            'all_makes': all_makes,
+            'has_segment_makes': bool(segment_makes),
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+# ─────────────────────────────────────────────────────────────────────────────
 # INSURANCE MODULE APIS
 # ─────────────────────────────────────────────────────────────────────────────
 
