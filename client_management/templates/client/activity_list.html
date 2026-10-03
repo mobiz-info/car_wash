@@ -19,6 +19,7 @@
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         gap: 20px;
     }
+
     .metric-card {
         background: white;
         border-radius: 16px;
@@ -30,10 +31,12 @@
         gap: 18px;
         transition: transform 0.2s, box-shadow 0.2s;
     }
+
     .metric-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
     }
+
     .metric-icon-box {
         width: 54px;
         height: 54px;
@@ -43,12 +46,14 @@
         justify-content: center;
         font-size: 1.6rem;
     }
+
     .metric-val {
         font-size: 1.85rem;
         font-weight: 800;
         line-height: 1.1;
         margin-bottom: 4px;
     }
+
     .metric-label {
         font-size: 0.82rem;
         font-weight: 600;
@@ -56,6 +61,7 @@
         text-transform: uppercase;
         letter-spacing: 0.04em;
     }
+
     .metric-subtext {
         font-size: 0.78rem;
         color: #94a3b8;
@@ -70,12 +76,14 @@
         padding: 22px 24px;
         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
     }
+
     .filter-row {
         display: flex;
         flex-wrap: wrap;
         gap: 16px;
         align-items: flex-end;
     }
+
     .filter-group {
         display: flex;
         flex-direction: column;
@@ -83,6 +91,7 @@
         flex: 1;
         min-width: 200px;
     }
+
     .filter-group label {
         font-size: 0.8rem;
         font-weight: 700;
@@ -91,7 +100,9 @@
         align-items: center;
         gap: 6px;
     }
-    .filter-select, .filter-input {
+
+    .filter-select,
+    .filter-input {
         height: 42px;
         padding: 0 14px;
         border: 1px solid #cbd5e1;
@@ -104,7 +115,9 @@
         font-family: inherit;
         width: 100%;
     }
-    .filter-select:focus, .filter-input:focus {
+
+    .filter-select:focus,
+    .filter-input:focus {
         background-color: #ffffff;
         border-color: #3b82f6;
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
@@ -119,6 +132,7 @@
         grid-template-columns: 1fr 1fr;
         gap: 16px;
     }
+
     @media (max-width: 768px) {
         .quick-selectors-bar {
             grid-template-columns: 1fr;
@@ -134,6 +148,7 @@
         overflow: hidden;
         margin-bottom: 24px;
     }
+
     .section-header {
         padding: 18px 24px;
         cursor: pointer;
@@ -143,15 +158,19 @@
         user-select: none;
         transition: background-color 0.2s;
     }
+
     .section-header:hover {
         background-color: #f8fafc;
     }
+
     .section-header.active-header {
         border-bottom: 2px solid #10b981;
     }
+
     .section-header.inactive-header {
         border-bottom: 2px solid #ef4444;
     }
+
     .section-title {
         display: flex;
         align-items: center;
@@ -160,6 +179,7 @@
         font-weight: 800;
         margin: 0;
     }
+
     .badge-count {
         padding: 4px 12px;
         border-radius: 20px;
@@ -167,21 +187,25 @@
         font-weight: 700;
         letter-spacing: 0.02em;
     }
+
     .badge-active {
         background: #d1fae5;
         color: #065f46;
         border: 1px solid #a7f3d0;
     }
+
     .badge-inactive {
         background: #fee2e2;
         color: #991b1b;
         border: 1px solid #fca5a5;
     }
+
     .chevron-icon {
         font-size: 1.25rem;
         color: #64748b;
         transition: transform 0.3s ease;
     }
+
     .chevron-icon.rotated {
         transform: rotate(180deg);
     }
@@ -193,6 +217,7 @@
         text-align: left;
         font-size: 0.88rem;
     }
+
     .activity-table th {
         background-color: #f8fafc;
         color: #475569;
@@ -203,15 +228,18 @@
         font-weight: 700;
         border-bottom: 1px solid #e2e8f0;
     }
+
     .activity-table td {
         padding: 14px 20px;
         color: #1e293b;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
     }
+
     .activity-table tr:hover {
         background-color: #f8fafc;
     }
+
     .company-avatar {
         width: 36px;
         height: 36px;
@@ -224,6 +252,7 @@
         font-weight: 800;
         font-size: 0.95rem;
     }
+
     .btn-action {
         padding: 6px 12px;
         border-radius: 8px;
@@ -236,20 +265,24 @@
         transition: all 0.2s;
         border: 1px solid transparent;
     }
+
     .btn-action-primary {
         background: #f1f5f9;
         color: #0f172a;
         border-color: #cbd5e1;
     }
+
     .btn-action-primary:hover {
         background: #e2e8f0;
         color: #0f172a;
     }
+
     .btn-action-whatsapp {
         background: #ecfdf5;
         color: #047857;
         border-color: #a7f3d0;
     }
+
     .btn-action-whatsapp:hover {
         background: #d1fae5;
     }
@@ -258,20 +291,14 @@
 <div class="activity-dashboard">
     <!-- Top Action Header -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-        <div>
-            <h1 style="font-size: 1.55rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 10px;">
-                <i class="ph-fill ph-pulse" style="color: #3b82f6;"></i>
-                Active / Inactive Clients
-            </h1>
-            <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: #64748b;">
-                Clients are classified based on app logins and invoice creation activity.
-            </p>
-        </div>
+
         <div style="display: flex; gap: 10px;">
-            <a href="{% url 'client_list' %}" class="btn-action btn-action-primary" style="padding: 10px 18px; font-size: 0.88rem;">
+            <a href="{% url 'client_list' %}" class="btn-action btn-action-primary"
+                style="padding: 10px 18px; font-size: 0.88rem;">
                 <i class="ph ph-buildings"></i> All Clients Master
             </a>
-            <a href="{% url 'client_create' %}" class="btn-action" style="padding: 10px 18px; font-size: 0.88rem; background: #10b981; color: white;">
+            <a href="{% url 'client_create' %}" class="btn-action"
+                style="padding: 10px 18px; font-size: 0.88rem; background: #10b981; color: white;">
                 <i class="ph ph-plus-circle"></i> Add Client
             </a>
         </div>
@@ -324,12 +351,16 @@
                 <div class="filter-group">
                     <label for="statusSelect">
                         <i class="ph ph-funnel" style="color: #3b82f6;"></i>
-                        1. Client Status Dropdown
+                        1. Client Status
                     </label>
-                    <select name="status" id="statusSelect" class="filter-select" onchange="document.getElementById('filterForm').submit();">
-                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Clients (Active & Inactive)</option>
-                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>🟢 Active Clients Only (≤ {{ days_threshold }} days)</option>
-                        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>🔴 Inactive Clients Only (> {{ days_threshold }} days)</option>
+                    <select name="status" id="statusSelect" class="filter-select"
+                        onchange="document.getElementById('filterForm').submit();">
+                        <option value="all" {% if status_filter=='all' %}selected{% endif %}>All Clients (Active &
+                            Inactive)</option>
+                        <option value="active" {% if status_filter=='active' %}selected{% endif %}>🟢 Active Clients
+                            Only (≤ {{ days_threshold }} days)</option>
+                        <option value="inactive" {% if status_filter=='inactive' %}selected{% endif %}>🔴 Inactive
+                            Clients Only (> {{ days_threshold }} days)</option>
                     </select>
                 </div>
 
@@ -337,15 +368,21 @@
                 <div class="filter-group">
                     <label for="daysThreshold">
                         <i class="ph ph-calendar" style="color: #8b5cf6;"></i>
-                        2. Inactivity Threshold Dropdown
+                        2. Inactivity
                     </label>
-                    <select name="days_threshold" id="daysThreshold" class="filter-select" onchange="document.getElementById('filterForm').submit();">
-                        <option value="3" {% if days_threshold == 3 %}selected{% endif %}>3 Days Inactive (Default)</option>
-                        <option value="5" {% if days_threshold == 5 %}selected{% endif %}>5 Days Inactive</option>
-                        <option value="7" {% if days_threshold == 7 %}selected{% endif %}>7 Days Inactive (1 Week+)</option>
-                        <option value="15" {% if days_threshold == 15 %}selected{% endif %}>15 Days Inactive (Half Month+)</option>
-                        <option value="30" {% if days_threshold == 30 %}selected{% endif %}>30 Days Inactive (1 Month+)</option>
-                        <option value="60" {% if days_threshold == 60 %}selected{% endif %}>60 Days Inactive (2 Months+)</option>
+                    <select name="days_threshold" id="daysThreshold" class="filter-select"
+                        onchange="document.getElementById('filterForm').submit();">
+                        <option value="3" {% if days_threshold==3 %}selected{% endif %}>3 Days Inactive (Default)
+                        </option>
+                        <option value="5" {% if days_threshold==5 %}selected{% endif %}>5 Days Inactive</option>
+                        <option value="7" {% if days_threshold==7 %}selected{% endif %}>7 Days Inactive (1 Week+)
+                        </option>
+                        <option value="15" {% if days_threshold==15 %}selected{% endif %}>15 Days Inactive (Half Month+)
+                        </option>
+                        <option value="30" {% if days_threshold==30 %}selected{% endif %}>30 Days Inactive (1 Month+)
+                        </option>
+                        <option value="60" {% if days_threshold==60 %}selected{% endif %}>60 Days Inactive (2 Months+)
+                        </option>
                     </select>
                 </div>
 
@@ -356,12 +393,16 @@
                         Search Client
                     </label>
                     <div style="display: flex; gap: 8px;">
-                        <input type="text" name="search" id="searchInput" class="filter-input" placeholder="Search company, owner, phone..." value="{{ search }}">
-                        <button type="submit" class="btn-action" style="background: #3b82f6; color: white; padding: 0 18px; height: 42px;">
+                        <input type="text" name="search" id="searchInput" class="filter-input"
+                            placeholder="Search company, owner, phone..." value="{{ search }}">
+                        <button type="submit" class="btn-action"
+                            style="background: #3b82f6; color: white; padding: 0 18px; height: 42px;">
                             Filter
                         </button>
                         {% if search or status_filter != 'all' or days_threshold != 3 or selected_client_id %}
-                        <a href="{% url 'client_activity_list' %}" class="btn-action" style="background: #e2e8f0; color: #475569; padding: 0 14px; height: 42px; display: flex; align-items: center;" title="Reset filters">
+                        <a href="{% url 'client_activity_list' %}" class="btn-action"
+                            style="background: #e2e8f0; color: #475569; padding: 0 14px; height: 42px; display: flex; align-items: center;"
+                            title="Reset filters">
                             <i class="ph ph-x"></i>
                         </a>
                         {% endif %}
@@ -370,37 +411,7 @@
             </div>
 
             <!-- Quick Direct Jump Dropdowns (Active vs Inactive Client Selectors) -->
-            <div class="quick-selectors-bar">
-                <div class="filter-group">
-                    <label for="activeClientDropdown" style="color: #065f46;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
-                        Jump to Active Client
-                    </label>
-                    <select id="activeClientDropdown" class="filter-select" onchange="jumpToClient(this.value)">
-                        <option value="">-- Select an Active Client ({{ active_options|length }}) --</option>
-                        {% for opt in active_options %}
-                            <option value="{{ opt.id }}" {% if selected_client_id == opt.id %}selected{% endif %}>
-                                {{ opt.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
 
-                <div class="filter-group">
-                    <label for="inactiveClientDropdown" style="color: #991b1b;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>
-                        Jump to Inactive Client
-                    </label>
-                    <select id="inactiveClientDropdown" class="filter-select" onchange="jumpToClient(this.value)">
-                        <option value="">-- Select an Inactive Client ({{ inactive_options|length }}) --</option>
-                        {% for opt in inactive_options %}
-                            <option value="{{ opt.id }}" {% if selected_client_id == opt.id %}selected{% endif %}>
-                                {{ opt.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
             <input type="hidden" name="client_id" id="hiddenClientId" value="{{ selected_client_id }}">
         </form>
     </div>
@@ -441,12 +452,14 @@
                                     {{ item.company_name|slice:":1"|upper }}
                                 </div>
                                 <div>
-                                    <a href="{% url 'client_edit' item.client.id %}" style="font-weight: 700; color: #0f172a; text-decoration: none; font-size: 0.95rem;">
+                                    <a href="{% url 'client_edit' item.client.id %}"
+                                        style="font-weight: 700; color: #0f172a; text-decoration: none; font-size: 0.95rem;">
                                         {{ item.company_name }}
                                     </a>
                                     {% if item.client.country %}
                                     <div style="font-size: 0.76rem; color: #64748b; margin-top: 2px;">
-                                        {{ item.client.country.name }}{% if item.client.state %}, {{ item.client.state.name }}{% endif %}
+                                        {{ item.client.country.name }}{% if item.client.state %}, {{
+                                        item.client.state.name }}{% endif %}
                                     </div>
                                     {% endif %}
                                 </div>
@@ -456,10 +469,12 @@
                             <div style="font-weight: 600; color: #334155;">{{ item.owner_name }}</div>
                             {% if item.phone %}
                             <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
-                                <a href="tel:{{ item.phone }}" style="font-size: 0.8rem; color: #3b82f6; text-decoration: none;">
+                                <a href="tel:{{ item.phone }}"
+                                    style="font-size: 0.8rem; color: #3b82f6; text-decoration: none;">
                                     {{ item.phone }}
                                 </a>
-                                <a href="https://wa.me/{{ item.phone|cut:'+'|cut:' '|cut:'-' }}" target="_blank" style="color: #10b981; font-size: 0.95rem;" title="Chat on WhatsApp">
+                                <a href="https://wa.me/{{ item.phone|cut:'+'|cut:' '|cut:'-' }}" target="_blank"
+                                    style="color: #10b981; font-size: 0.95rem;" title="Chat on WhatsApp">
                                     <i class="ph-fill ph-whatsapp-logo"></i>
                                 </a>
                             </div>
@@ -469,38 +484,41 @@
                         </td>
                         <td>
                             {% if item.last_activity %}
-                                <div style="font-weight: 600; color: #0f172a;">{{ item.last_activity|date:"d M Y" }}</div>
-                                <div style="font-size: 0.74rem; color: #64748b;">
-                                    {% if item.last_inv_date and item.last_inv_date == item.last_activity %}
-                                        via Invoice
-                                    {% elif item.last_app_date and item.last_app_date == item.last_activity %}
-                                        via App Login
-                                    {% else %}
-                                        Registration
-                                    {% endif %}
-                                </div>
+                            <div style="font-weight: 600; color: #0f172a;">{{ item.last_activity|date:"d M Y" }}</div>
+                            <div style="font-size: 0.74rem; color: #64748b;">
+                                {% if item.last_inv_date and item.last_inv_date == item.last_activity %}
+                                via Invoice
+                                {% elif item.last_app_date and item.last_app_date == item.last_activity %}
+                                via App Login
+                                {% else %}
+                                Registration
+                                {% endif %}
+                            </div>
                             {% else %}
-                                <span style="color: #94a3b8;">No activity recorded</span>
+                            <span style="color: #94a3b8;">No activity recorded</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if item.days_inactive == 0 %}
-                                <span style="background: #ecfdf5; color: #065f46; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">
-                                    Today
-                                </span>
+                            <span
+                                style="background: #ecfdf5; color: #065f46; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">
+                                Today
+                            </span>
                             {% else %}
-                                <span style="font-weight: 700; color: #059669;">
-                                    {{ item.days_inactive }} day{% if item.days_inactive > 1 %}s{% endif %} ago
-                                </span>
+                            <span style="font-weight: 700; color: #059669;">
+                                {{ item.days_inactive }} day{% if item.days_inactive > 1 %}s{% endif %} ago
+                            </span>
                             {% endif %}
                         </td>
                         <td style="text-align: center;">
-                            <span style="font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 10px; border-radius: 12px; font-size: 0.82rem;">
+                            <span
+                                style="font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 10px; border-radius: 12px; font-size: 0.82rem;">
                                 {{ item.branch_count }}
                             </span>
                         </td>
                         <td style="text-align: right;">
-                            <a href="{% url 'client_edit' item.client.id %}" class="btn-action btn-action-primary" title="View / Edit Company Profile">
+                            <a href="{% url 'client_edit' item.client.id %}" class="btn-action btn-action-primary"
+                                title="View / Edit Company Profile">
                                 <i class="ph ph-gear"></i> Manage
                             </a>
                         </td>
@@ -508,7 +526,8 @@
                     {% empty %}
                     <tr>
                         <td colspan="6" style="padding: 32px; text-align: center; color: #94a3b8;">
-                            <i class="ph ph-check-circle" style="font-size: 2rem; display: block; margin-bottom: 6px; color: #cbd5e1;"></i>
+                            <i class="ph ph-check-circle"
+                                style="font-size: 2rem; display: block; margin-bottom: 6px; color: #cbd5e1;"></i>
                             No active clients found matching your filter criteria.
                         </td>
                     </tr>
@@ -522,7 +541,8 @@
     <!-- SECTION 2: Inactive Clients Dropdown / Collapsible Card -->
     {% if status_filter == 'all' or status_filter == 'inactive' %}
     <div class="section-card" id="inactiveSection">
-        <div class="section-header inactive-header" onclick="toggleSection('inactiveTableContainer', 'inactiveChevron')">
+        <div class="section-header inactive-header"
+            onclick="toggleSection('inactiveTableContainer', 'inactiveChevron')">
             <div class="section-title" style="color: #991b1b;">
                 <span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span>
                 <span>Inactive Clients (> {{ days_threshold }} Days No Activity)</span>
@@ -555,12 +575,14 @@
                                     {{ item.company_name|slice:":1"|upper }}
                                 </div>
                                 <div>
-                                    <a href="{% url 'client_edit' item.client.id %}" style="font-weight: 700; color: #0f172a; text-decoration: none; font-size: 0.95rem;">
+                                    <a href="{% url 'client_edit' item.client.id %}"
+                                        style="font-weight: 700; color: #0f172a; text-decoration: none; font-size: 0.95rem;">
                                         {{ item.company_name }}
                                     </a>
                                     {% if item.client.country %}
                                     <div style="font-size: 0.76rem; color: #64748b; margin-top: 2px;">
-                                        {{ item.client.country.name }}{% if item.client.state %}, {{ item.client.state.name }}{% endif %}
+                                        {{ item.client.country.name }}{% if item.client.state %}, {{
+                                        item.client.state.name }}{% endif %}
                                     </div>
                                     {% endif %}
                                 </div>
@@ -570,10 +592,12 @@
                             <div style="font-weight: 600; color: #334155;">{{ item.owner_name }}</div>
                             {% if item.phone %}
                             <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
-                                <a href="tel:{{ item.phone }}" style="font-size: 0.8rem; color: #3b82f6; text-decoration: none;">
+                                <a href="tel:{{ item.phone }}"
+                                    style="font-size: 0.8rem; color: #3b82f6; text-decoration: none;">
                                     {{ item.phone }}
                                 </a>
-                                <a href="https://wa.me/{{ item.phone|cut:'+'|cut:' '|cut:'-' }}" target="_blank" style="color: #10b981; font-size: 0.95rem;" title="Chat on WhatsApp">
+                                <a href="https://wa.me/{{ item.phone|cut:'+'|cut:' '|cut:'-' }}" target="_blank"
+                                    style="color: #10b981; font-size: 0.95rem;" title="Chat on WhatsApp">
                                     <i class="ph-fill ph-whatsapp-logo"></i>
                                 </a>
                             </div>
@@ -583,44 +607,48 @@
                         </td>
                         <td>
                             {% if item.last_activity %}
-                                <div style="font-weight: 600; color: #1e293b;">{{ item.last_activity|date:"d M Y" }}</div>
-                                <div style="font-size: 0.74rem; color: #64748b;">
-                                    {% if item.last_inv_date and item.last_inv_date == item.last_activity %}
-                                        via Invoice
-                                    {% elif item.last_app_date and item.last_app_date == item.last_activity %}
-                                        via App Login
-                                    {% else %}
-                                        Registration
-                                    {% endif %}
-                                </div>
+                            <div style="font-weight: 600; color: #1e293b;">{{ item.last_activity|date:"d M Y" }}</div>
+                            <div style="font-size: 0.74rem; color: #64748b;">
+                                {% if item.last_inv_date and item.last_inv_date == item.last_activity %}
+                                via Invoice
+                                {% elif item.last_app_date and item.last_app_date == item.last_activity %}
+                                via App Login
+                                {% else %}
+                                Registration
+                                {% endif %}
+                            </div>
                             {% else %}
-                                <span style="color: #94a3b8;">Never recorded</span>
+                            <span style="color: #94a3b8;">Never recorded</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if item.days_inactive < 999 %}
-                                <span style="background: #fef2f2; color: #b91c1c; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; border: 1px solid #fecaca;">
-                                    {{ item.days_inactive }} days inactive
+                            {% if item.days_inactive < 999 %} <span
+                                style="background: #fef2f2; color: #b91c1c; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; border: 1px solid #fecaca;">
+                                {{ item.days_inactive }} days inactive
                                 </span>
-                            {% else %}
-                                <span style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">
+                                {% else %}
+                                <span
+                                    style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">
                                     Never active
                                 </span>
-                            {% endif %}
+                                {% endif %}
                         </td>
                         <td style="text-align: center;">
-                            <span style="font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 10px; border-radius: 12px; font-size: 0.82rem;">
+                            <span
+                                style="font-weight: 700; color: #475569; background: #f1f5f9; padding: 2px 10px; border-radius: 12px; font-size: 0.82rem;">
                                 {{ item.branch_count }}
                             </span>
                         </td>
                         <td style="text-align: right;">
                             <div style="display: flex; gap: 6px; justify-content: flex-end;">
                                 {% if item.phone %}
-                                <a href="https://wa.me/{{ item.phone|cut:'+'|cut:' '|cut:'-' }}" target="_blank" class="btn-action btn-action-whatsapp" title="Send WhatsApp Message">
+                                <a href="https://wa.me/{{ item.phone|cut:'+'|cut:' '|cut:'-' }}" target="_blank"
+                                    class="btn-action btn-action-whatsapp" title="Send WhatsApp Message">
                                     <i class="ph-fill ph-whatsapp-logo"></i>
                                 </a>
                                 {% endif %}
-                                <a href="{% url 'client_edit' item.client.id %}" class="btn-action btn-action-primary" title="View / Edit Company Profile">
+                                <a href="{% url 'client_edit' item.client.id %}" class="btn-action btn-action-primary"
+                                    title="View / Edit Company Profile">
                                     <i class="ph ph-gear"></i> Manage
                                 </a>
                             </div>
@@ -629,7 +657,8 @@
                     {% empty %}
                     <tr>
                         <td colspan="6" style="padding: 32px; text-align: center; color: #94a3b8;">
-                            <i class="ph ph-seal-check" style="font-size: 2rem; display: block; margin-bottom: 6px; color: #10b981;"></i>
+                            <i class="ph ph-seal-check"
+                                style="font-size: 2rem; display: block; margin-bottom: 6px; color: #10b981;"></i>
                             Great! No inactive clients found matching your filter criteria.
                         </td>
                     </tr>
