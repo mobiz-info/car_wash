@@ -353,14 +353,10 @@
                         <i class="ph ph-funnel" style="color: #3b82f6;"></i>
                         1. Client Status
                     </label>
-                    <select name="status" id="statusSelect" class="filter-select"
-                        onchange="document.getElementById('filterForm').submit();">
-                        <option value="all" {% if status_filter=='all' %}selected{% endif %}>All Clients (Active &
-                            Inactive)</option>
-                        <option value="active" {% if status_filter=='active' %}selected{% endif %}>🟢 Active Clients
-                            Only (≤ {{ days_threshold }} days)</option>
-                        <option value="inactive" {% if status_filter=='inactive' %}selected{% endif %}>🔴 Inactive
-                            Clients Only (> {{ days_threshold }} days)</option>
+                    <select name="status" id="statusSelect" class="filter-select" onchange="document.getElementById('filterForm').submit();">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Clients (Active & Inactive)</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>🟢 Active Clients Only (≤ {{ days_threshold }} days)</option>
+                        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>🔴 Inactive Clients Only (> {{ days_threshold }} days)</option>
                     </select>
                 </div>
 
@@ -370,19 +366,13 @@
                         <i class="ph ph-calendar" style="color: #8b5cf6;"></i>
                         2. Inactivity
                     </label>
-                    <select name="days_threshold" id="daysThreshold" class="filter-select"
-                        onchange="document.getElementById('filterForm').submit();">
-                        <option value="3" {% if days_threshold==3 %}selected{% endif %}>3 Days Inactive (Default)
-                        </option>
-                        <option value="5" {% if days_threshold==5 %}selected{% endif %}>5 Days Inactive</option>
-                        <option value="7" {% if days_threshold==7 %}selected{% endif %}>7 Days Inactive (1 Week+)
-                        </option>
-                        <option value="15" {% if days_threshold==15 %}selected{% endif %}>15 Days Inactive (Half Month+)
-                        </option>
-                        <option value="30" {% if days_threshold==30 %}selected{% endif %}>30 Days Inactive (1 Month+)
-                        </option>
-                        <option value="60" {% if days_threshold==60 %}selected{% endif %}>60 Days Inactive (2 Months+)
-                        </option>
+                    <select name="days_threshold" id="daysThreshold" class="filter-select" onchange="document.getElementById('filterForm').submit();">
+                        <option value="3" {% if days_threshold == 3 %}selected{% endif %}>3 Days Inactive (Default)</option>
+                        <option value="5" {% if days_threshold == 5 %}selected{% endif %}>5 Days Inactive</option>
+                        <option value="7" {% if days_threshold == 7 %}selected{% endif %}>7 Days Inactive (1 Week+)</option>
+                        <option value="15" {% if days_threshold == 15 %}selected{% endif %}>15 Days Inactive (Half Month+)</option>
+                        <option value="30" {% if days_threshold == 30 %}selected{% endif %}>30 Days Inactive (1 Month+)</option>
+                        <option value="60" {% if days_threshold == 60 %}selected{% endif %}>60 Days Inactive (2 Months+)</option>
                     </select>
                 </div>
 
