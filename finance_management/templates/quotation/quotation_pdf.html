@@ -135,6 +135,19 @@
             border-collapse: collapse;
             margin-top: 10px;
             margin-bottom: 20px;
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+        .items-table thead {
+            display: table-header-group;
+        }
+        .items-table tbody {
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+        .items-table tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .items-table th {
             background-color: #eff6ff;
@@ -144,12 +157,16 @@
             padding: 8px 12px;
             font-size: 9pt;
             border-bottom: 2px solid #bfdbfe;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .items-table td {
             padding: 8px 12px;
             border-bottom: 1px solid #e2e8f0;
             font-size: 9pt;
             color: #334155;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .align-right {
             text-align: right !important;
@@ -162,6 +179,8 @@
         .summary-wrapper {
             width: 100%;
             margin-top: 10px;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .summary-table {
             width: 280px;

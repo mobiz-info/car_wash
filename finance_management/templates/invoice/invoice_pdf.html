@@ -156,6 +156,19 @@
             border-collapse: collapse;
             margin-top: 10px;
             margin-bottom: 30px;
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+        .items-table thead {
+            display: table-header-group;
+        }
+        .items-table tbody {
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+        .items-table tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .items-table th {
             background-color: #eff6ff;
@@ -165,12 +178,16 @@
             padding: 10px 12px;
             font-size: 9pt;
             border-bottom: 2px solid #bfdbfe;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .items-table td {
             padding: 10px 12px;
             border-bottom: 1px solid #e2e8f0;
             font-size: 9pt;
             color: #334155;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .items-table tr:last-child td {
             border-bottom: 2px solid #cbd5e1;
@@ -186,11 +203,15 @@
         .summary-wrapper {
             width: 100%;
             margin-top: 10px;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .summary-table {
             width: 280px;
             margin-left: auto;
             border-collapse: collapse;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .summary-table td {
             padding: 6px 12px;
@@ -219,8 +240,10 @@
 
         /* Footer block */
         .footer-section {
-            margin-top: 60px;
+            margin-top: 40px;
             width: 100%;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
         .footer-table {
             width: 100%;
