@@ -255,6 +255,61 @@ def api_list_invoices(request):
 
     results = []
     for inv in invoices:
+        services_data = []
+        extras_data = []
+        for item in inv.items.all():
+            if item.stock_item:
+                continue
+            is_ext = False
+            ext_id = None
+            if hasattr(item, 'extra') and item.extra:
+                is_ext = True
+                ext_id = str(item.extra.id)
+            elif not item.service and not item.stock_item and item.service_name:
+                from client_management.models import Extra
+                from django.db.models import Q
+                clean_name = item.service_name.strip()
+                base_name = clean_name.split('(')[0].strip()
+                company_obj = inv.branch.company if inv.branch else None
+                extra_match = Extra.objects.filter(
+                    Q(company=company_obj) | Q(company__isnull=True),
+                    name__iexact=base_name,
+                    is_deleted=False
+                ).first()
+                if extra_match:
+                    is_ext = True
+                    ext_id = str(extra_match.id)
+
+            s_item = {
+                'id': ext_id if is_ext else (str(item.service.id) if item.service else str(item.id)),
+                'service_id': str(item.service.id) if item.service else None,
+                'extra_id': ext_id,
+                'is_extra': is_ext,
+                'name': item.service_name,
+                'rate': str(item.rate),
+                'discount': str(item.discount),
+                'qty': float(item.qty) if item.qty else 1.0,
+                'net_taxable_amount': str(item.net_taxable_amount) if item.net_taxable_amount else str(item.rate),
+                'service_category': item.service_detail.service_category if hasattr(item, 'service_detail') and item.service_detail else '',
+                'smoke_test_period_months': item.service_detail.smoke_test_period_months if hasattr(item, 'service_detail') and item.service_detail else None,
+                'service_detail': {
+                    'service_category': item.service_detail.service_category,
+                    'smoke_test_period_months': item.service_detail.smoke_test_period_months,
+                    'warranty_value': item.service_detail.warranty_value,
+                    'warranty_unit': item.service_detail.warranty_unit,
+                    'odometer_at_service': item.service_detail.odometer_at_service,
+                    'next_oil_change_km': item.service_detail.next_oil_change_km,
+                    'next_tyre_change_km': item.service_detail.next_tyre_change_km,
+                    'next_alignment_km': item.service_detail.next_alignment_km,
+                    'alignment_done': item.service_detail.alignment_done,
+                    'balancing_done': item.service_detail.balancing_done,
+                    'alignment_notes': item.service_detail.alignment_notes,
+                } if hasattr(item, 'service_detail') and item.service_detail else None,
+            }
+            services_data.append(s_item)
+            if is_ext:
+                extras_data.append(s_item)
+
         results.append({
             'id': str(inv.id),
             'invoice_number': inv.invoice_number,
@@ -282,33 +337,8 @@ def api_list_invoices(request):
             'branch_logo': request.build_absolute_uri(inv.branch.logo.url) if inv.branch and inv.branch.logo else '',
             'company_logo': request.build_absolute_uri(inv.branch.company.logo_color.url) if inv.branch and inv.branch.company and inv.branch.company.logo_color else '',
             'company_seal': request.build_absolute_uri(inv.branch.company.company_seal.url) if inv.branch and inv.branch.company and getattr(inv.branch.company, 'company_seal', None) else '',
-            'services': [
-                {
-                    'id': str(item.service.id) if item.service else str(item.id),
-                    'service_id': str(item.service.id) if item.service else None,
-                    'name': item.service_name,
-                    'rate': str(item.rate),
-                    'discount': str(item.discount),
-                    'qty': float(item.qty) if item.qty else 1.0,
-                    'net_taxable_amount': str(item.net_taxable_amount) if item.net_taxable_amount else str(item.rate),
-                    'service_category': item.service_detail.service_category if hasattr(item, 'service_detail') and item.service_detail else '',
-                    'smoke_test_period_months': item.service_detail.smoke_test_period_months if hasattr(item, 'service_detail') and item.service_detail else None,
-                    'service_detail': {
-                        'service_category': item.service_detail.service_category,
-                        'smoke_test_period_months': item.service_detail.smoke_test_period_months,
-                        'warranty_value': item.service_detail.warranty_value,
-                        'warranty_unit': item.service_detail.warranty_unit,
-                        'odometer_at_service': item.service_detail.odometer_at_service,
-                        'next_oil_change_km': item.service_detail.next_oil_change_km,
-                        'next_tyre_change_km': item.service_detail.next_tyre_change_km,
-                        'next_alignment_km': item.service_detail.next_alignment_km,
-                        'alignment_done': item.service_detail.alignment_done,
-                        'balancing_done': item.service_detail.balancing_done,
-                        'alignment_notes': item.service_detail.alignment_notes,
-                    } if hasattr(item, 'service_detail') and item.service_detail else None,
-                }
-                for item in inv.items.all() if not item.stock_item
-            ],
+            'services': services_data,
+            'extras': extras_data,
             'trading_items': [
                 {
                     'id': str(item.stock_item.id),

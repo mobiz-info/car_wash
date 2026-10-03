@@ -34,6 +34,7 @@ class InvoiceItem(BaseModel):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True)
     service_name = models.CharField(max_length=150)
+    extra = models.ForeignKey('client_management.Extra', on_delete=models.SET_NULL, null=True, blank=True)
     stock_item = models.ForeignKey('client_management.Stock', on_delete=models.SET_NULL, null=True, blank=True)
     qty = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
     rate = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)

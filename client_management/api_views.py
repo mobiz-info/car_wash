@@ -1501,31 +1501,60 @@ def api_create_invoice(request):
 
         for svc in services_list:
             from service_management.models import Service
+            from client_management.models import Extra
             svc_id = svc.get('id')
             service_obj = None
-            if svc_id:
+            extra_obj = None
+            is_extra_flag = bool(svc.get('is_extra'))
+            extra_id_val = svc.get('extra_id')
+
+            if is_extra_flag or extra_id_val:
+                try:
+                    extra_obj = Extra.objects.filter(id=extra_id_val or svc_id).first()
+                except Exception:
+                    extra_obj = None
+            elif svc_id:
                 try:
                     service_obj = Service.objects.get(id=svc_id)
                 except Exception:
                     service_obj = None
+                if not service_obj:
+                    try:
+                        extra_obj = Extra.objects.filter(id=svc_id).first()
+                    except Exception:
+                        extra_obj = None
                 
             svc_name = svc.get('name', 'Unknown Item')
+            if not service_obj and not extra_obj and svc_name:
+                clean_name = svc_name.strip()
+                base_name = clean_name.split('(')[0].strip()
+                company_obj = invoice.branch.company if invoice.branch else None
+                extra_obj = Extra.objects.filter(
+                    Q(company=company_obj) | Q(company__isnull=True),
+                    name__iexact=base_name,
+                    is_deleted=False
+                ).first()
+
             qty_val = Decimal(str(svc.get('qty', 1)))
             rate_val = Decimal(str(svc.get('rate', 0)))
             disc_val = Decimal(str(svc.get('discount', 0)))
             net_val = (rate_val * qty_val) - disc_val
 
-            item = InvoiceItem.objects.create(
-                invoice=invoice,
-                service=service_obj,
-                service_name=svc_name,
-                qty=qty_val,
-                rate=rate_val,
-                discount=disc_val,  # per-item scheme/manual discount
-                net_taxable_amount=net_val,
-                creator=user,
-                auto_id=get_auto_id(InvoiceItem)
-            )
+            item_kwargs = {
+                'invoice': invoice,
+                'service': service_obj,
+                'service_name': svc_name,
+                'qty': qty_val,
+                'rate': rate_val,
+                'discount': disc_val,  # per-item scheme/manual discount
+                'net_taxable_amount': net_val,
+                'creator': user,
+                'auto_id': get_auto_id(InvoiceItem),
+            }
+            if hasattr(InvoiceItem, 'extra') and extra_obj:
+                item_kwargs['extra'] = extra_obj
+
+            item = InvoiceItem.objects.create(**item_kwargs)
 
             # ── Save category-specific service detail (oil/tyre/alignment) ───
             svc_detail = svc.get('service_detail')
@@ -1747,31 +1776,60 @@ def api_update_invoice(request):
 
             for svc in services_list:
                 from service_management.models import Service
+                from client_management.models import Extra
                 svc_id = svc.get('id')
                 service_obj = None
-                if svc_id:
+                extra_obj = None
+                is_extra_flag = bool(svc.get('is_extra'))
+                extra_id_val = svc.get('extra_id')
+
+                if is_extra_flag or extra_id_val:
+                    try:
+                        extra_obj = Extra.objects.filter(id=extra_id_val or svc_id).first()
+                    except Exception:
+                        extra_obj = None
+                elif svc_id:
                     try:
                         service_obj = Service.objects.get(id=svc_id)
                     except Exception:
                         service_obj = None
+                    if not service_obj:
+                        try:
+                            extra_obj = Extra.objects.filter(id=svc_id).first()
+                        except Exception:
+                            extra_obj = None
 
                 svc_name = svc.get('name', 'Unknown Item')
+                if not service_obj and not extra_obj and svc_name:
+                    clean_name = svc_name.strip()
+                    base_name = clean_name.split('(')[0].strip()
+                    company_obj = invoice.branch.company if invoice.branch else None
+                    extra_obj = Extra.objects.filter(
+                        Q(company=company_obj) | Q(company__isnull=True),
+                        name__iexact=base_name,
+                        is_deleted=False
+                    ).first()
+
                 qty_val = Decimal(str(svc.get('qty', 1)))
                 rate_val = Decimal(str(svc.get('rate', 0)))
                 disc_val = Decimal(str(svc.get('discount', 0)))
                 net_val = (rate_val * qty_val) - disc_val
 
-                item = InvoiceItem.objects.create(
-                    invoice=invoice,
-                    service=service_obj,
-                    service_name=svc_name,
-                    qty=qty_val,
-                    rate=rate_val,
-                    discount=disc_val,
-                    net_taxable_amount=net_val,
-                    creator=user,
-                    auto_id=get_auto_id(InvoiceItem)
-                )
+                item_kwargs = {
+                    'invoice': invoice,
+                    'service': service_obj,
+                    'service_name': svc_name,
+                    'qty': qty_val,
+                    'rate': rate_val,
+                    'discount': disc_val,
+                    'net_taxable_amount': net_val,
+                    'creator': user,
+                    'auto_id': get_auto_id(InvoiceItem),
+                }
+                if hasattr(InvoiceItem, 'extra') and extra_obj:
+                    item_kwargs['extra'] = extra_obj
+
+                item = InvoiceItem.objects.create(**item_kwargs)
 
                 svc_detail = svc.get('service_detail')
                 if svc_detail:
