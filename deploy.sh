@@ -35,8 +35,14 @@ echo "📥 Pulling latest code on server..."
 cd /home/mobiz/webapps/car_wash/live
 git pull origin main
 
+echo "📦 Installing requirements..."
+/home/mobiz/webapps/car_wash/venv/bin/pip install -r requirements.txt
+
 echo "🔄 Checking migrations..."
 /home/mobiz/webapps/car_wash/venv/bin/python manage.py migrate --noinput
+
+echo "🎨 Collecting static files..."
+/home/mobiz/webapps/car_wash/venv/bin/python manage.py collectstatic --noinput
 
 echo "♻️  Restarting car_wash.service..."
 systemctl restart car_wash.service

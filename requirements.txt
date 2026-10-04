@@ -9,3 +9,4 @@ xlrd==2.0.1
 reportlab==4.0.9
 weasyprint==66.0
 gunicorn==26.0.0
+django-jazzmin==3.0.5

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -32,6 +33,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -131,9 +133,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-import os
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'core', 'static'),
 ]
@@ -151,4 +153,102 @@ LOGIN_URL = 'login'
 # Media files (Uploaded logos, attachments, etc.)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Jazzmin Admin UI Configuration
+JAZZMIN_SETTINGS = {
+    "site_title": "Mobiz Car Wash Admin",
+    "site_header": "Mobiz Car Wash",
+    "site_brand": "Mobiz Car Wash",
+    "site_logo": "images/car_wash_login.png",
+    "login_logo": "images/car_wash_login.png",
+    "site_logo_classes": "img-circle",
+    "site_icon": "images/car_wash_login.png",
+    "welcome_sign": "Welcome to Mobiz Car Wash Administration",
+    "copyright": "Mobiz Car Wash Ltd",
+    "search_model": ["auth.User", "client_management.Customer"],
+    "user_avatar": None,
+    "topmenu_links": [
+        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "Dashboard", "url": "/dashboard/", "new_window": False},
+        {"model": "auth.User"},
+    ],
+    "usermenu_links": [
+        {"name": "Application Dashboard", "url": "/dashboard/", "new_window": False},
+        {"model": "auth.user"},
+    ],
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "hide_apps": [],
+    "hide_models": [],
+    "order_with_respect_to": [
+        "core",
+        "client_management",
+        "booking_management",
+        "service_management",
+        "finance_management",
+        "tax_management",
+        "master",
+        "auth",
+    ],
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.group": "fas fa-users",
+        "core.roles": "fas fa-user-shield",
+        "client_management.customer": "fas fa-user-tie",
+        "client_management.customervehicles": "fas fa-car",
+        "booking_management.bookingsettings": "fas fa-calendar-check",
+        "service_management": "fas fa-cogs",
+        "finance_management.invoices": "fas fa-file-invoice-dollar",
+        "finance_management.invoiceitems": "fas fa-receipt",
+        "master.expenses": "fas fa-money-bill-wave",
+        "master.expenseentrys": "fas fa-wallet",
+        "master.expenseheads": "fas fa-list-alt",
+        "master.states": "fas fa-map-marked-alt",
+        "master.districts": "fas fa-map-marker-alt",
+        "master.vehicletypemodels": "fas fa-truck-pickup",
+        "master.vehiclebrandmodels": "fas fa-car-side",
+        "master.vehiclecolors": "fas fa-palette",
+    },
+    "default_icon_parents": "fas fa-chevron-circle-right",
+    "default_icon_children": "fas fa-circle",
+    "related_modal_active": True,
+    "custom_css": None,
+    "custom_js": None,
+    "show_ui_builder": False,
+    "changeform_format": "horizontal_tabs",
+    "changeform_format_overrides": {"auth.user": "collapsible", "auth.group": "vertical_tabs"},
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "navbar_small_text": False,
+    "footer_small_text": False,
+    "body_small_text": False,
+    "brand_small_text": False,
+    "brand_colour": "navbar-dark",
+    "accent": "accent-primary",
+    "navbar": "navbar-dark navbar-primary",
+    "no_navbar_border": False,
+    "navbar_fixed": True,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": True,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": True,
+    "sidebar_nav_compact_style": False,
+    "sidebar_nav_legacy_style": False,
+    "sidebar_nav_flat_style": False,
+    "theme": "flatly",
+    "dark_mode_theme": None,
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success",
+    },
+}
 
