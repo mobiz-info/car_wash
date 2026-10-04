@@ -10,14 +10,15 @@ class InvoiceItemInline(admin.TabularInline):
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = (
         'invoice_number',
-        'customer',
-        'vehicle',
+        'customer_name',
+        'vehicle_number',
         'branch',
         'invoice_type',
         'total',
         'amount_collected',
         'date',
     )
+    list_select_related = ()
     search_fields = (
         'invoice_number',
         'customer__name',
@@ -33,6 +34,15 @@ class InvoiceAdmin(admin.ModelAdmin):
     date_hierarchy = 'date'
     ordering = ('-date', '-auto_id')
     inlines = [InvoiceItemInline]
+
+    @admin.display(description='Customer', ordering='customer__name')
+    def customer_name(self, obj):
+        return obj.customer.name if obj.customer else '-'
+
+    @admin.display(description='Vehicle', ordering='vehicle__vehicle_number')
+    def vehicle_number(self, obj):
+        return obj.vehicle.vehicle_number if obj.vehicle else '-'
+
 
 @admin.register(InvoiceItem)
 class InvoiceItemAdmin(admin.ModelAdmin):
