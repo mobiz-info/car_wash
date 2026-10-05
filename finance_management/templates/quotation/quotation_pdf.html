@@ -335,6 +335,24 @@
                             <span class="info-val">{{ quotation.customer.email }}</span>
                         </div>
                     {% endif %}
+                    {% if quotation.customer.address %}
+                        <div class="info-row">
+                            <span class="info-label">Address:</span>
+                            <span class="info-val">{{ quotation.customer.address|linebreaksbr }}</span>
+                        </div>
+                    {% endif %}
+                    {% if quotation.customer.tax_number %}
+                        <div class="info-row">
+                            <span class="info-label">Tax / TRN:</span>
+                            <span class="info-val">{{ quotation.customer.tax_number }}</span>
+                        </div>
+                    {% endif %}
+                    {% if quotation.customer.tin_number %}
+                        <div class="info-row">
+                            <span class="info-label">TIN:</span>
+                            <span class="info-val">{{ quotation.customer.tin_number }}</span>
+                        </div>
+                    {% endif %}
                 </div>
             </td>
             <td>

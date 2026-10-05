@@ -574,6 +574,9 @@ def api_customer_search(request):
             'name': customer.name,
             'type': customer.customer_type.name if customer.customer_type else 'Regular',
             'phone': customer.phone,
+            'whatsapp': customer.whatsapp_number or '',
+            'email': customer.email or '',
+            'address': customer.address or '',
             'tax_number': customer.tax_number or '',
             'tin_number': customer.tin_number or '',
             'vehicles': vehicles_data
@@ -2119,6 +2122,8 @@ def api_vehicle_search(request):
             'name': customer.name,
             'phone': customer.phone,
             'whatsapp': customer.whatsapp_number or '',
+            'email': customer.email or '',
+            'address': customer.address or '',
             'type': customer.customer_type.name if customer.customer_type else 'Regular',
             'tax_number': customer.tax_number or '',
             'tin_number': customer.tin_number or '',
@@ -2556,6 +2561,9 @@ def api_add_customer(request):
                 'branch_name': branch.name or "our branch",
                 'type': customer_type.name,
                 'customer_category': customer.customer_category,
+                'address': customer.address or '',
+                'tax_number': customer.tax_number or '',
+                'tin_number': customer.tin_number or '',
                 'aadhaar_number': customer.aadhaar_number or '',
                 'date_of_birth': customer.date_of_birth.strftime('%Y-%m-%d') if customer.date_of_birth else '',
                 'vehicles': vehicles_data,
@@ -6123,6 +6131,9 @@ def api_report_staff_income(request):
             'invoice_type': inv.invoice_type or 'cashinvoice',
             'customer_name': inv.customer.name if inv.customer else 'N/A',
             'customer_phone': inv.customer.phone if inv.customer else '',
+            'customer_address': inv.customer.address if inv.customer and inv.customer.address else '',
+            'customer_tax_number': inv.customer.tax_number if inv.customer and inv.customer.tax_number else '',
+            'customer_tin_number': inv.customer.tin_number if inv.customer and inv.customer.tin_number else '',
             'vehicle_number': inv.vehicle.vehicle_number if inv.vehicle else 'N/A',
             'vehicle_type': inv.vehicle.vehicle_type_model.name if inv.vehicle and hasattr(inv.vehicle, 'vehicle_type_model') and inv.vehicle.vehicle_type_model else '',
             'branch': inv.branch.name if inv.branch else '',
@@ -8422,6 +8433,9 @@ def api_tally_invoices(request):
                 # ── Party / Customer ─────────────────────────────────
                 'customer_name': inv.customer.name if inv.customer else '',
                 'customer_phone': inv.customer.phone if inv.customer else '',
+                'customer_address': inv.customer.address if inv.customer and inv.customer.address else '',
+                'customer_tax_number': inv.customer.tax_number if inv.customer and inv.customer.tax_number else '',
+                'customer_tin_number': inv.customer.tin_number if inv.customer and inv.customer.tin_number else '',
                 'vehicle_number': inv.vehicle.vehicle_number if inv.vehicle else '',
 
                 # ── Amounts ──────────────────────────────────────────

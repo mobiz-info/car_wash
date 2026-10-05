@@ -271,6 +271,33 @@
                         </span>
                     </div>
 
+                    {% if invoice.customer.address %}
+                    <div class="info-row">
+                        <span class="info-label">Address</span>
+                        <span class="info-value">
+                            {{ invoice.customer.address|linebreaksbr }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    {% if invoice.customer.tax_number %}
+                    <div class="info-row">
+                        <span class="info-label">Tax / TRN</span>
+                        <span class="info-value">
+                            {{ invoice.customer.tax_number }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    {% if invoice.customer.tin_number %}
+                    <div class="info-row">
+                        <span class="info-label">TIN</span>
+                        <span class="info-value">
+                            {{ invoice.customer.tin_number }}
+                        </span>
+                    </div>
+                    {% endif %}
+
                     <div class="info-row">
                         <span class="info-label">Vehicle</span>
                         <span class="info-value">

@@ -359,6 +359,12 @@ def api_list_invoices(request):
                 'id': str(inv.customer.id) if inv.customer else '',
                 'name': inv.customer.name if inv.customer else '',
                 'phone': inv.customer.phone if inv.customer else '',
+                'whatsapp': inv.customer.whatsapp_number if inv.customer and inv.customer.whatsapp_number else '',
+                'email': inv.customer.email if inv.customer and inv.customer.email else '',
+                'address': inv.customer.address if inv.customer and inv.customer.address else '',
+                'type': inv.customer.customer_type.name if inv.customer and inv.customer.customer_type else 'Regular',
+                'tax_number': inv.customer.tax_number if inv.customer and inv.customer.tax_number else '',
+                'tin_number': inv.customer.tin_number if inv.customer and inv.customer.tin_number else '',
             },
             'vehicle': {
                 'id': str(inv.vehicle.id) if inv.vehicle else '',

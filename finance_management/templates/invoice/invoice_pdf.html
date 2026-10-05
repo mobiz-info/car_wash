@@ -386,6 +386,18 @@
                             <td class="info-val">{{ invoice.customer.address|linebreaksbr }}</td>
                         </tr>
                         {% endif %}
+                        {% if invoice.customer.tax_number %}
+                        <tr>
+                            <td class="info-label">Tax / TRN:</td>
+                            <td class="info-val">{{ invoice.customer.tax_number }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if invoice.customer.tin_number %}
+                        <tr>
+                            <td class="info-label">TIN:</td>
+                            <td class="info-val">{{ invoice.customer.tin_number }}</td>
+                        </tr>
+                        {% endif %}
                         {% if invoice.customer.pincode %}
                         <tr>
                             <td class="info-label">Pincode:</td>
