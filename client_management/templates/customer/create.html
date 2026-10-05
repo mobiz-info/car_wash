@@ -105,6 +105,18 @@
                 {% if customer_form.customer_type.errors %}<div class="error-text">{{ customer_form.customer_type.errors.0 }}</div>{% endif %}
             </div>
 
+            <div class="form-group" id="corporate-tax-group" style="display: none;">
+                <label for="{{ customer_form.tax_number.id_for_label }}">Tax Number <span style="color:red">*</span></label>
+                {{ customer_form.tax_number }}
+                {% if customer_form.tax_number.errors %}<div class="error-text">{{ customer_form.tax_number.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group" id="corporate-tin-group" style="display: none;">
+                <label for="{{ customer_form.tin_number.id_for_label }}">TIN Number <span style="color:#64748b; font-size: 0.8rem; font-weight: normal;">(optional)</span></label>
+                {{ customer_form.tin_number }}
+                {% if customer_form.tin_number.errors %}<div class="error-text">{{ customer_form.tin_number.errors.0 }}</div>{% endif %}
+            </div>
+
             <div class="form-group">
                 <label for="{{ customer_form.whatsapp_number.id_for_label }}">WhatsApp Number</label>
                 {{ customer_form.whatsapp_number }}
@@ -174,22 +186,37 @@
 document.addEventListener('DOMContentLoaded', function() {
     const customerTypeSelect = document.getElementById('{{ customer_form.customer_type.id_for_label }}');
     const vehicleSection = document.getElementById('vehicle-details-section');
+    const taxGroup = document.getElementById('corporate-tax-group');
+    const tinGroup = document.getElementById('corporate-tin-group');
 
-    function toggleVehicleSection() {
+    function toggleCustomerTypeSections() {
         if (customerTypeSelect && customerTypeSelect.selectedIndex >= 0) {
             const selectedText = customerTypeSelect.options[customerTypeSelect.selectedIndex].text.toLowerCase();
-            if (selectedText.includes('rc owner')) {
-                vehicleSection.style.display = 'block';
-            } else {
-                vehicleSection.style.display = 'none';
+            
+            // Toggle Vehicle section for RC Owner
+            if (vehicleSection) {
+                if (selectedText.includes('rc owner')) {
+                    vehicleSection.style.display = 'block';
+                } else {
+                    vehicleSection.style.display = 'none';
+                }
+            }
+
+            // Toggle Corporate fields (Tax Number & TIN Number)
+            const isCorporate = selectedText.includes('corporate');
+            if (taxGroup) {
+                taxGroup.style.display = isCorporate ? 'block' : 'none';
+            }
+            if (tinGroup) {
+                tinGroup.style.display = isCorporate ? 'block' : 'none';
             }
         }
     }
 
     if (customerTypeSelect) {
-        customerTypeSelect.addEventListener('change', toggleVehicleSection);
+        customerTypeSelect.addEventListener('change', toggleCustomerTypeSections);
         // Initial check on load
-        toggleVehicleSection();
+        toggleCustomerTypeSections();
     }
 
     const vehicleTypeSelect = document.getElementById('{{ vehicle_form.vehicle_type.id_for_label }}');

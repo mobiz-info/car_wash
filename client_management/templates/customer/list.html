@@ -67,6 +67,16 @@
                         <span style="background: #eff6ff; color: #2563eb; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500;">
                             {{ customer.customer_type.name|default:"-" }}
                         </span>
+                        {% if customer.tax_number %}
+                        <div style="font-size: 0.75rem; color: #475569; margin-top: 4px;">
+                            <strong>Tax:</strong> {{ customer.tax_number }}
+                        </div>
+                        {% endif %}
+                        {% if customer.tin_number %}
+                        <div style="font-size: 0.72rem; color: #64748b;">
+                            <strong>TIN:</strong> {{ customer.tin_number }}
+                        </div>
+                        {% endif %}
                     </td>
                     <td>{{ customer.branch.name }}</td>
                     <td>

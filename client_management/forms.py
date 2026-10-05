@@ -457,7 +457,7 @@ from master.models import VehicleType, VehicleTypeModel, VehicleBrandModel
 class CustomerForm(forms.ModelForm):
     class Meta:
         model = Customer
-        fields = ['branch', 'name', 'phone', 'customer_type', 'whatsapp_number', 'email', 'address', 'pincode']
+        fields = ['branch', 'name', 'phone', 'customer_type', 'tax_number', 'tin_number', 'whatsapp_number', 'email', 'address', 'pincode']
         widgets = {
             'address': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
@@ -465,6 +465,9 @@ class CustomerForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
+        
+        # Exclude deleted or Workshop/Painting customer types
+        self.fields['customer_type'].queryset = CustomerType.objects.filter(is_deleted=False).exclude(name__icontains='Workshop')
         
         # Restrict branches based on role
         if self.request and hasattr(self.request.user, 'profile') and self.request.user.profile.company:
@@ -485,6 +488,21 @@ class CustomerForm(forms.ModelForm):
             field.widget.attrs['class'] = 'form-control'
             if not isinstance(field.widget, forms.Select) and not isinstance(field.widget, forms.Textarea):
                 field.widget.attrs['placeholder'] = f"Enter {field.label}"
+
+        self.fields['tax_number'].required = False
+        self.fields['tin_number'].required = False
+        self.fields['tax_number'].widget.attrs['placeholder'] = "Enter Tax Number / GSTIN / TRN"
+        self.fields['tin_number'].widget.attrs['placeholder'] = "Enter TIN Number (optional)"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        customer_type = cleaned_data.get('customer_type')
+        tax_number = cleaned_data.get('tax_number')
+        
+        if customer_type and 'corporate' in customer_type.name.lower():
+            if not tax_number or not tax_number.strip():
+                self.add_error('tax_number', 'Tax number is required for Corporate customers.')
+        return cleaned_data
 
 from master.models import VehicleType, VehicleTypeModel
 

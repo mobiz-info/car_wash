@@ -574,6 +574,8 @@ def api_customer_search(request):
             'name': customer.name,
             'type': customer.customer_type.name if customer.customer_type else 'Regular',
             'phone': customer.phone,
+            'tax_number': customer.tax_number or '',
+            'tin_number': customer.tin_number or '',
             'vehicles': vehicles_data
         }
     }
@@ -2118,6 +2120,8 @@ def api_vehicle_search(request):
             'phone': customer.phone,
             'whatsapp': customer.whatsapp_number or '',
             'type': customer.customer_type.name if customer.customer_type else 'Regular',
+            'tax_number': customer.tax_number or '',
+            'tin_number': customer.tin_number or '',
             'branch': customer.branch.name if customer.branch else '',
         },
         'visits': {
@@ -2146,7 +2150,7 @@ def api_get_form_data(request):
     from master.models import VehicleTypeModel, VehicleType, VehicleColor, VehicleBrandModel
     from .models import CustomerType, Branch
 
-    customer_types = CustomerType.objects.filter(is_deleted=False)
+    customer_types = CustomerType.objects.filter(is_deleted=False).exclude(name__icontains='Workshop')
 
     # --- Vehicle Types (branch-filtered) ---
     role = user.profile.role.name if user.profile.role else None
@@ -2373,6 +2377,13 @@ def api_add_customer(request):
         if not customer_type:
             return JsonResponse({'success': False, 'message': 'Invalid customer type'}, status=400)
 
+        tax_number = data.get('tax_number', '').strip() or None
+        tin_number = data.get('tin_number', '').strip() or None
+
+        if customer_type and 'corporate' in customer_type.name.lower():
+            if not tax_number:
+                return JsonResponse({'success': False, 'message': 'Tax number is required for Corporate customers'}, status=400)
+
         # Parse date_of_birth if provided
         parsed_dob = None
         if dob_str:
@@ -2394,6 +2405,8 @@ def api_add_customer(request):
                 customer_category=customer_category,
                 aadhaar_number=aadhaar_number,
                 date_of_birth=parsed_dob,
+                tax_number=tax_number,
+                tin_number=tin_number,
                 whatsapp_number=data.get('whatsapp_number', '').strip() or None,
                 email=data.get('email', '').strip() or None,
                 address=data.get('address', '').strip() or None,
@@ -2925,6 +2938,8 @@ def api_get_customer(request):
                 'address': customer.address or '',
                 'customer_type_id': str(customer.customer_type.id) if customer.customer_type else None,
                 'customer_type_name': customer.customer_type.name if customer.customer_type else '',
+                'tax_number': customer.tax_number or '',
+                'tin_number': customer.tin_number or '',
                 'customer_category': customer.customer_category or 'motor',
                 'aadhaar_number': customer.aadhaar_number or '',
                 'date_of_birth': customer.date_of_birth.strftime('%Y-%m-%d') if customer.date_of_birth else '',
@@ -2971,6 +2986,13 @@ def api_edit_customer(request):
         if not customer_type:
             return JsonResponse({'success': False, 'message': 'Invalid customer type'}, status=400)
 
+        tax_number = data.get('tax_number', '').strip() or None
+        tin_number = data.get('tin_number', '').strip() or None
+
+        if customer_type and 'corporate' in customer_type.name.lower():
+            if not tax_number and not getattr(customer, 'tax_number', None):
+                return JsonResponse({'success': False, 'message': 'Tax number is required for Corporate customers'}, status=400)
+
         # Check phone uniqueness if changed
         if new_phone and new_phone != customer.phone:
             if Customer.objects.filter(phone=new_phone, company=company, is_deleted=False).exclude(id=customer_id).exists():
@@ -2979,6 +3001,10 @@ def api_edit_customer(request):
         with transaction.atomic():
             customer.name = name
             customer.customer_type = customer_type
+            if 'tax_number' in data:
+                customer.tax_number = tax_number
+            if 'tin_number' in data:
+                customer.tin_number = tin_number
             customer.whatsapp_number = data.get('whatsapp_number', '').strip() or None
             customer.email = data.get('email', '').strip() or None
             customer.address = data.get('address', '').strip() or None

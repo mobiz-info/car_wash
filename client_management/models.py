@@ -220,6 +220,8 @@ class Customer(BaseModel):
     email = models.EmailField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     pincode = models.CharField(max_length=20, blank=True, null=True)
+    tax_number = models.CharField(max_length=100, blank=True, null=True, help_text="Tax / GST / TRN Number for Corporate customers")
+    tin_number = models.CharField(max_length=100, blank=True, null=True, help_text="TIN Number (optional)")
 
     # Insurance-related categorisation
     customer_category = models.CharField(
