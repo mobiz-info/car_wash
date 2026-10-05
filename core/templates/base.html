@@ -1241,8 +1241,7 @@
                                 {{ request.user.username|slice:":1"|upper|default:"A" }}
                             </span>
                             <div style="display: flex; flex-direction: column; text-align: left; line-height: 1.2;">
-                                <span style="font-size: 0.85rem; font-weight: 600; color: #ffffff;">{{
-                                    request.user.username|default:"admin" }}</span>
+                                <span style="font-size: 0.85rem; font-weight: 600; color: #ffffff;">{{ request.user.username|default:"admin" }}</span>
                                 <span style="font-size: 0.68rem; opacity: 0.85; font-weight: 500; color: #e2e8f0;">
                                     {% if request.user.profile.role %}
                                     {{ request.user.profile.role.name|cut:"_" }}
@@ -1253,8 +1252,7 @@
                                     {% endif %}
                                 </span>
                             </div>
-                            <i class="ph ph-caret-down"
-                                style="font-size: 0.75rem; margin-left: 2px; color: rgba(255,255,255,0.8);"></i>
+                            <i class="ph ph-caret-down" style="font-size: 0.75rem; margin-left: 2px; color: rgba(255,255,255,0.8);"></i>
                         </button>
 
                         <!-- Dropdown Menu -->
@@ -1262,13 +1260,10 @@
                             style="display: none; position: absolute; right: 0; top: calc(100% + 8px); background: #ffffff; min-width: 240px; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; z-index: 1050; padding: 6px; color: #1e293b;">
                             <!-- User Details Header -->
                             <div style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9;">
-                                <div style="font-weight: 700; font-size: 0.92rem; color: #0f172a;">{{
-                                    request.user.username }}</div>
+                                <div style="font-weight: 700; font-size: 0.92rem; color: #0f172a;">{{ request.user.username }}</div>
                                 <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                                     {% if request.user.profile.company %}
-                                    {{ request.user.profile.company.name }}
-                                    {% if request.user.profile.branch %} &bull; {{ request.user.profile.branch.name }}{%
-                                    endif %}
+                                    {{ request.user.profile.company.name }}{% if request.user.profile.branch %} &bull; {{ request.user.profile.branch.name }}{% endif %}
                                     {% elif request.user.managed_branch %}
                                     {{ request.user.managed_branch.name }}
                                     {% elif request.user.is_superuser %}
