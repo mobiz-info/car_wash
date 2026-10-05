@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db.models import Sum, Count, F, DecimalField, Max, Q
 from django.db.models.functions import Coalesce
 from datetime import timedelta
@@ -973,9 +973,12 @@ def customer_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    branches = Branch.objects.filter(company=company, is_deleted=False)
+    
     return render(request, 'customer/list.html', {
         'page_obj': page_obj,
         'search': search,
+        'branches': branches,
         'title': 'Customers',
     })
 
@@ -1080,6 +1083,306 @@ def customer_delete(request, id):
     customer.save()
     messages.success(request, "Customer deleted successfully.")
     return redirect('customer_list')
+
+
+def _get_default_vehicle_model(company):
+    from master.models import VehicleTypeModel
+    qs = VehicleTypeModel.objects.filter(
+        is_active=True, is_deleted=False, vehicle_type__is_active=True, vehicle_type__is_deleted=False
+    )
+    if company:
+        qs = qs.filter(Q(company=company) | Q(company__isnull=True)).exclude(disabled_companies=company)
+    
+    # Try finding Car segment
+    car_model = qs.filter(vehicle_type__name__icontains='Car').first()
+    if car_model:
+        return car_model
+    return qs.first()
+
+
+@login_required
+def customer_sample_excel(request):
+    import io
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Customers Template"
+
+    headers = [
+        "Customer Name *",
+        "Customer Type",
+        "Mob Number *",
+        "WhatsApp Number",
+        "Email",
+        "Tax Number / TRN Number",
+        "TIN Number",
+        "State / Emirate",
+        "District",
+        "Location",
+        "Address",
+        "Vehicle Number"
+    ]
+    ws.append(headers)
+
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+
+    sample_rows = [
+        [
+            "Mohammed Al Mansoor",
+            "Individual",
+            "0501234567",
+            "0501234567",
+            "almansoor@example.com",
+            "",
+            "",
+            "Dubai",
+            "Deira",
+            "Al Rigga",
+            "Flat 302, Sunset Building",
+            "DXB A 12345"
+        ],
+        [
+            "Apex Logistics LLC",
+            "Corporate",
+            "0559876543",
+            "0559876543",
+            "info@apexlogistics.ae",
+            "100234567800003",
+            "TIN-98765",
+            "Abu Dhabi",
+            "Musaffah",
+            "Industrial Area M-12",
+            "Warehouse 4B",
+            "AD 14 67890"
+        ]
+    ]
+
+    for row_data in sample_rows:
+        ws.append(row_data)
+
+    # Adjust widths
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 16)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response['Content-Disposition'] = 'attachment; filename="customer_sample_template.xlsx"'
+    return response
+
+
+@login_required
+def customer_import_excel(request):
+    if request.user.profile.role.name not in ['BRANCH_ADMIN', 'COMPANY_ADMIN']:
+        messages.error(request, "Only Branch or Company Admins can import customers.")
+        return redirect('customer_list')
+
+    try:
+        company = request.user.profile.company
+    except AttributeError:
+        messages.error(request, "Company configuration missing.")
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        excel_file = request.FILES.get('excel_file')
+        if not excel_file:
+            messages.error(request, "Please select an Excel file (.xlsx) to upload.")
+            return redirect('customer_list')
+
+        if not excel_file.name.lower().endswith(('.xlsx', '.xls')):
+            messages.error(request, "Invalid file format. Please upload an Excel (.xlsx) file.")
+            return redirect('customer_list')
+
+        branch = None
+        if request.user.profile.role.name == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+            branch = request.user.managed_branch
+        else:
+            branch_id = request.POST.get('branch_id')
+            if branch_id:
+                branch = Branch.objects.filter(id=branch_id, company=company, is_deleted=False).first()
+            if not branch:
+                branch = Branch.objects.filter(company=company, is_deleted=False).first()
+
+        if not branch:
+            messages.error(request, "No active branch found. Please ensure at least one branch exists.")
+            return redirect('customer_list')
+
+        import openpyxl
+        try:
+            wb = openpyxl.load_workbook(excel_file, data_only=True)
+            ws = wb.active
+        except Exception as e:
+            messages.error(request, f"Could not read Excel file: {str(e)}")
+            return redirect('customer_list')
+
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows or len(rows) < 2:
+            messages.error(request, "The Excel file is empty or missing data rows.")
+            return redirect('customer_list')
+
+        raw_headers = [str(h or '').strip().lower() for h in rows[0]]
+
+        def find_col(*keywords):
+            for i, h in enumerate(raw_headers):
+                for kw in keywords:
+                    if kw in h:
+                        return i
+            return None
+
+        idx_name = find_col('customer name', 'name')
+        idx_type = find_col('customer type', 'type')
+        idx_phone = find_col('mob number', 'mobile', 'phone', 'contact')
+        idx_whatsapp = find_col('whatsapp')
+        idx_email = find_col('email')
+        idx_tax = find_col('taxnumber', 'tax number', 'trn', 'tax')
+        idx_tin = find_col('tin')
+        idx_state = find_col('state', 'emirate')
+        idx_district = find_col('district')
+        idx_location = find_col('location', 'area')
+        idx_address = find_col('address')
+        idx_vehicle = find_col('vehicle number', 'vehicle', 'plate')
+
+        if idx_name is None or idx_phone is None:
+            messages.error(request, "Required columns missing. Your Excel file must include 'Customer Name' and 'Mob Number' headers.")
+            return redirect('customer_list')
+
+        indiv_type = CustomerType.objects.filter(name__icontains='Individual', is_deleted=False).first()
+        corp_type = CustomerType.objects.filter(name__icontains='Corporate', is_deleted=False).first()
+        if not indiv_type:
+            indiv_type = CustomerType.objects.filter(is_deleted=False).first()
+
+        default_vehicle_model = _get_default_vehicle_model(company)
+
+        created_count = 0
+        updated_count = 0
+        error_rows = []
+
+        from django.db import transaction
+
+        for row_idx, row in enumerate(rows[1:], start=2):
+            if not row or all(v is None or str(v).strip() == '' for v in row):
+                continue
+
+            def get_val(idx):
+                if idx is not None and idx < len(row) and row[idx] is not None:
+                    val = str(row[idx]).strip()
+                    if val.endswith('.0'):
+                        val = val[:-2]
+                    return val
+                return ''
+
+            name = get_val(idx_name)
+            phone = get_val(idx_phone)
+
+            if not name or not phone:
+                error_rows.append(f"Row {row_idx}: Name and Mobile number are required.")
+                continue
+
+            phone = phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+            whatsapp = get_val(idx_whatsapp).replace(' ', '').replace('-', '') or phone
+            email = get_val(idx_email) or None
+            tax_number = get_val(idx_tax) or None
+            tin_number = get_val(idx_tin) or None
+
+            c_type_str = get_val(idx_type).lower()
+            if 'corp' in c_type_str and corp_type:
+                customer_type = corp_type
+            else:
+                customer_type = indiv_type
+
+            # Combine address and state/emirate, district, location
+            addr_val = get_val(idx_address)
+            loc_val = get_val(idx_location)
+            dist_val = get_val(idx_district)
+            state_val = get_val(idx_state)
+
+            addr_parts = [p for p in [addr_val, loc_val, dist_val, state_val] if p]
+            combined_address = ", ".join(addr_parts) if addr_parts else None
+
+            v_num = get_val(idx_vehicle).upper()
+
+            try:
+                with transaction.atomic():
+                    existing_customer = Customer.objects.filter(phone=phone, company=company, is_deleted=False).first()
+                    if existing_customer:
+                        if not existing_customer.tax_number and tax_number:
+                            existing_customer.tax_number = tax_number
+                        if not existing_customer.tin_number and tin_number:
+                            existing_customer.tin_number = tin_number
+                        if not existing_customer.email and email:
+                            existing_customer.email = email
+                        if not existing_customer.address and combined_address:
+                            existing_customer.address = combined_address
+                        existing_customer.save()
+
+                        if v_num and default_vehicle_model:
+                            if not CustomerVehicle.objects.filter(customer=existing_customer, vehicle_number=v_num, is_deleted=False).exists():
+                                CustomerVehicle.objects.create(
+                                    customer=existing_customer,
+                                    vehicle_type=default_vehicle_model.vehicle_type,
+                                    vehicle_type_model=default_vehicle_model,
+                                    vehicle_number=v_num,
+                                    auto_id=get_auto_id(CustomerVehicle),
+                                    creator=request.user,
+                                )
+                        updated_count += 1
+                    else:
+                        new_cust = Customer.objects.create(
+                            company=company,
+                            branch=branch,
+                            name=name,
+                            phone=phone,
+                            whatsapp_number=whatsapp,
+                            email=email,
+                            customer_type=customer_type,
+                            tax_number=tax_number,
+                            tin_number=tin_number,
+                            address=combined_address,
+                            auto_id=get_auto_id(Customer),
+                            creator=request.user,
+                        )
+                        if v_num and default_vehicle_model:
+                            CustomerVehicle.objects.create(
+                                customer=new_cust,
+                                vehicle_type=default_vehicle_model.vehicle_type,
+                                vehicle_type_model=default_vehicle_model,
+                                vehicle_number=v_num,
+                                auto_id=get_auto_id(CustomerVehicle),
+                                creator=request.user,
+                            )
+                        created_count += 1
+            except Exception as row_err:
+                error_rows.append(f"Row {row_idx} ({name}): {str(row_err)}")
+
+        success_msg = f"Excel Import Completed: {created_count} customer(s) created"
+        if updated_count:
+            success_msg += f", {updated_count} existing customer(s) updated"
+        messages.success(request, success_msg)
+
+        if error_rows:
+            messages.warning(request, f"{len(error_rows)} row(s) had errors: " + "; ".join(error_rows[:5]))
+
+        return redirect('customer_list')
+
+    return redirect('customer_list')
+
 
 def ajax_load_vehicle_models(request):
     vehicle_type_id = request.GET.get('vehicle_type')
