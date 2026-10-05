@@ -15,7 +15,7 @@ class ClientForm(forms.ModelForm):
         fields = [
             'company_name', 'business_name', 'owner_name',
             'email', 'phone', 'address',
-            'gst_number',
+            'gst_number', 'tin_pan_no', 'reference',
             'country', 'state', 'district', 'area',
 
             'licenses_count', 'max_branches',
@@ -24,6 +24,10 @@ class ClientForm(forms.ModelForm):
 
             'status', 'logo_color', 'logo_bw', 'company_seal'
         ]
+        labels = {
+            'tin_pan_no': 'TIN No / PAN No',
+            'reference': 'Reference',
+        }
         widgets = {
             'logo_color': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_color'}),
             'logo_bw': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_logo_bw'}),

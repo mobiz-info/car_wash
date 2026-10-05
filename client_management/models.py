@@ -20,6 +20,8 @@ class Client(BaseModel):
     address = models.TextField(blank=True, null=True)
     status = models.BooleanField(default=True)
     gst_number = models.CharField(max_length=100, blank=True, null=True)
+    tin_pan_no = models.CharField(max_length=100, blank=True, null=True, verbose_name="TIN No / PAN No")
+    reference = models.CharField(max_length=200, blank=True, null=True, verbose_name="Reference")
     country = models.ForeignKey('master.Country', on_delete=models.SET_NULL, blank=True, null=True)
     state = models.ForeignKey('master.State', on_delete=models.SET_NULL, blank=True, null=True)
     district = models.ForeignKey('master.District', on_delete=models.SET_NULL, blank=True, null=True)

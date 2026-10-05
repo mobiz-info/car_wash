@@ -142,6 +142,19 @@
             <div class="form-group">
                 <label>GST Number</label>
                 {{ form.gst_number }}
+                {% if form.gst_number.errors %}<div class="error-text">{{ form.gst_number.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>TIN No / PAN No</label>
+                {{ form.tin_pan_no }}
+                {% if form.tin_pan_no.errors %}<div class="error-text">{{ form.tin_pan_no.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Reference</label>
+                {{ form.reference }}
+                {% if form.reference.errors %}<div class="error-text">{{ form.reference.errors.0 }}</div>{% endif %}
             </div>
 
             <div class="form-group">
