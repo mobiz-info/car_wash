@@ -235,7 +235,7 @@ def api_list_invoices(request):
 
     invoices = Invoice.objects.filter(is_deleted=False).select_related(
         'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
-    ).prefetch_related('items', 'items__service_detail').order_by('-date', '-auto_id')
+    ).prefetch_related('items', 'items__service_detail', 'reminder_plans').order_by('-date', '-auto_id')
 
     role = user.profile.role.name if user.profile.role else None
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
@@ -292,6 +292,8 @@ def api_list_invoices(request):
                 'net_taxable_amount': str(item.net_taxable_amount) if item.net_taxable_amount else str(item.rate),
                 'service_category': item.service_detail.service_category if hasattr(item, 'service_detail') and item.service_detail else '',
                 'smoke_test_period_months': item.service_detail.smoke_test_period_months if hasattr(item, 'service_detail') and item.service_detail else None,
+                'warranty_value': item.service_detail.warranty_value if hasattr(item, 'service_detail') and item.service_detail else None,
+                'warranty_unit': item.service_detail.warranty_unit if hasattr(item, 'service_detail') and item.service_detail else None,
                 'service_detail': {
                     'service_category': item.service_detail.service_category,
                     'smoke_test_period_months': item.service_detail.smoke_test_period_months,
@@ -309,6 +311,32 @@ def api_list_invoices(request):
             services_data.append(s_item)
             if is_ext:
                 extras_data.append(s_item)
+
+        reminders_data = []
+        custom_reminders_data = []
+        try:
+            sorted_plans = sorted(
+                [rp for rp in inv.reminder_plans.all() if not rp.is_deleted],
+                key=lambda x: (x.reminder_no, x.scheduled_date or datetime.min.date())
+            )
+            for rp in sorted_plans:
+                days_after = (rp.scheduled_date - inv.date).days if (rp.scheduled_date and inv.date) else 0
+                is_custom = rp.reminder is None and (rp.template_name or '') not in ('insurancereminder', 'smoketest')
+                rem_dict = {
+                    'id': str(rp.id),
+                    'days_after': days_after,
+                    'days': days_after,
+                    'scheduled_date': str(rp.scheduled_date) if rp.scheduled_date else '',
+                    'template_name': rp.template_name or '',
+                    'reminder_no': rp.reminder_no,
+                    'is_sent': rp.is_sent,
+                    'is_custom': is_custom,
+                }
+                reminders_data.append(rem_dict)
+                if is_custom:
+                    custom_reminders_data.append(rem_dict)
+        except Exception:
+            pass
 
         results.append({
             'id': str(inv.id),
@@ -354,6 +382,8 @@ def api_list_invoices(request):
             'assigned_staffs': [
                 {'id': str(st.id), 'name': st.name} for st in inv.assigned_staffs.all()
             ],
+            'reminders': reminders_data,
+            'custom_reminders': custom_reminders_data,
         })
 
     return JsonResponse({'success': True, 'invoices': results})

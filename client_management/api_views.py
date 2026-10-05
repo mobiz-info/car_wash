@@ -1881,6 +1881,20 @@ def api_update_invoice(request):
                     stock_obj.quantity = max(Decimal('0'), Decimal(str(stock_obj.quantity or 0)) - t_qty)
                     stock_obj.save(update_fields=['quantity'])
 
+            # Update scheduled ReminderPlan entries
+            from booking_management.utils import create_reminder_plans_for_invoice
+            import logging as _logging
+            _reminder_logger = _logging.getLogger(__name__)
+            try:
+                custom_reminders = data.get('reminders') or data.get('custom_reminders')
+                if custom_reminders is not None or data.get('reminders_enabled'):
+                    invoice.reminder_plans.filter(is_sent=False).delete()
+                    create_reminder_plans_for_invoice(invoice, custom_reminders=custom_reminders)
+                    _reminder_logger.info(f"[Reminder] Reminder plans updated for invoice {invoice.invoice_number}")
+            except Exception as e:
+                import traceback
+                _reminder_logger.error(f"[Reminder] Error updating reminder plans for {invoice.invoice_number}: {e}\n{traceback.format_exc()}")
+
             company_logo = request.build_absolute_uri(invoice.branch.company.logo_color.url) if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color else ''
             company_seal = request.build_absolute_uri(invoice.branch.company.company_seal.url) if invoice.branch and invoice.branch.company and getattr(invoice.branch.company, 'company_seal', None) else ''
             branch_logo = request.build_absolute_uri(invoice.branch.logo.url) if invoice.branch and invoice.branch.logo else ''
