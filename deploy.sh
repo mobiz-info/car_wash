@@ -35,8 +35,7 @@ echo "📥 Pulling latest code on server..."
 cd /home/mobiz/webapps/car_wash/live
 git pull origin main
 
-echo "📦 Installing requirements..."
-/home/mobiz/webapps/car_wash/venv/bin/pip install -r requirements.txt
+
 
 echo "🔄 Checking migrations..."
 /home/mobiz/webapps/car_wash/venv/bin/python manage.py migrate --noinput

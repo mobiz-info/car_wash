@@ -243,13 +243,18 @@ def api_list_invoices(request):
     elif role == 'COMPANY_ADMIN' and user.profile.company:
         invoices = invoices.filter(branch__company=user.profile.company)
 
-    from_date = request.GET.get('from_date')
-    to_date = request.GET.get('to_date')
+    invoice_id = request.GET.get('invoice_id') or request.GET.get('id')
+    if invoice_id:
+        invoices = invoices.filter(id=invoice_id)
+    else:
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        if from_date:
+            invoices = invoices.filter(date__gte=from_date)
+        if to_date:
+            invoices = invoices.filter(date__lte=to_date)
+
     payment_mode = request.GET.get('payment_mode')
-    if from_date:
-        invoices = invoices.filter(date__gte=from_date)
-    if to_date:
-        invoices = invoices.filter(date__lte=to_date)
     if payment_mode:
         invoices = invoices.filter(receipts__payment_mode=payment_mode).distinct()
 
@@ -321,7 +326,7 @@ def api_list_invoices(request):
             )
             for rp in sorted_plans:
                 days_after = (rp.scheduled_date - inv.date).days if (rp.scheduled_date and inv.date) else 0
-                is_custom = rp.reminder is None and (rp.template_name or '') not in ('insurancereminder', 'smoketest')
+                is_custom = (rp.template_name or '') not in ('insurancereminder', 'smoketest')
                 rem_dict = {
                     'id': str(rp.id),
                     'days_after': days_after,
