@@ -508,23 +508,6 @@
         margin-bottom: 14px;
         display: block;
     }
-
-    /* Overdue Customers List */
-    .overdue-list-card {
-        background: #ffffff;
-        border-radius: 16px;
-        padding: 24px;
-        border: 1px solid #e2e8f0;
-    }
-
-    .badge-overdue-pill {
-        background: #fee2e2;
-        color: #991b1b;
-        font-size: 0.78rem;
-        font-weight: 700;
-        padding: 3px 8px;
-        border-radius: 6px;
-    }
 </style>
 
 <div class="soa-wrapper">
@@ -771,71 +754,6 @@
         <p style="margin:0; font-size:0.92rem;">Use the search bar above to find a customer and generate their Statement of Account.</p>
     </div>
 
-    {% endif %}
-
-    <!-- 6. Overdue Customers (>30 Days) Section -->
-    {% if overdue_customers %}
-    <div class="overdue-list-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-            <div>
-                <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:#991b1b; display:flex; align-items:center; gap:8px;">
-                    <i class="ph ph-warning-circle"></i> Overdue Customers (>30 Days Outstanding)
-                </h3>
-                <small style="color:#64748b;">Customers with pending invoice balances older than 30 days credit period.</small>
-            </div>
-            <span class="badge-overdue-pill">{{ overdue_customers|length }} Overdue Accounts</span>
-        </div>
-        <div style="overflow-x: auto;">
-            <table class="soa-table">
-                <thead>
-                    <tr>
-                        <th style="width: 40px; text-align:center;">SL</th>
-                        <th>Customer Name</th>
-                        <th style="width: 130px;">Mobile No</th>
-                        <th class="num-col" style="width: 110px;">Pending Inv</th>
-                        <th class="num-col" style="width: 130px;">Total Inv Value</th>
-                        <th class="num-col" style="width: 140px;">Overdue (>30d)</th>
-                        <th class="num-col" style="width: 110px;">Overdue Inv</th>
-                        <th style="width: 130px; text-align:center;">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in overdue_customers %}
-                    <tr>
-                        <td style="text-align:center; color:#94a3b8;">{{ row.sl_no }}</td>
-                        <td>
-                            <strong>{{ row.custname }}</strong>
-                            {% if row.customer.customer_type %}
-                                <span class="cust-badge" style="margin-left:4px;">{{ row.customer.customer_type.name }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {{ row.mobno }}
-                            {% if row.customer.whatsapp_number %}
-                                <a href="https://wa.me/{{ row.customer.whatsapp_number }}" target="_blank" style="color:#16a34a; margin-left:4px;" title="WhatsApp">
-                                    <i class="ph ph-whatsapp-logo"></i>
-                                </a>
-                            {% endif %}
-                        </td>
-                        <td class="num-col">{{ row.no_of_invc_pending }}</td>
-                        <td class="num-col">{{ currency }} {{ row.invc_value|floatformat:2 }}</td>
-                        <td class="num-col" style="color:#dc2626; font-weight:700;">
-                            {{ currency }} {{ row.overdue_amount|floatformat:2 }}
-                        </td>
-                        <td class="num-col">
-                            <span class="badge-overdue-pill">{{ row.overdue_invc }}</span>
-                        </td>
-                        <td style="text-align:center;">
-                            <a href="?customer={{ row.customer.id }}&from_date={{ from_date }}&to_date={{ to_date }}" class="btn-action" style="background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; padding:4px 12px; height:32px; font-size:0.8rem;">
-                                <i class="ph ph-file-text"></i> View SOA
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
     {% endif %}
 
 </div>

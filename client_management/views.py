@@ -2297,60 +2297,9 @@ def customer_ledger(request):
     else:
         to_date = today
 
-    # ── OVERDUE CUSTOMERS LIST (> 30 days outstanding) ───
-    thirty_days_ago = today - timedelta(days=30)
-    overdue_customers = []
-
-    overdue_invoices_qs = Invoice.objects.filter(
-        is_deleted=False,
-        date__lte=thirty_days_ago
-    )
-    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
-        overdue_invoices_qs = overdue_invoices_qs.filter(branch=user.managed_branch)
-    elif role == 'COMPANY_ADMIN' and company:
-        overdue_invoices_qs = overdue_invoices_qs.filter(branch__company=company)
-
-    overdue_cust_summary = overdue_invoices_qs.annotate(
-        bal=F('total') - F('amount_collected')
-    ).filter(bal__gt=0).values('customer_id').annotate(
-        overdue_amount=Sum('bal'),
-        overdue_inv_count=Count('id')
-    ).order_by('-overdue_amount')[:100]
-
-    if overdue_cust_summary:
-        cust_ids = [item['customer_id'] for item in overdue_cust_summary]
-        cust_map = {str(c.id): c for c in Customer.objects.filter(id__in=cust_ids).select_related('customer_type', 'branch')}
-
-        all_pending_qs = Invoice.objects.filter(
-            customer_id__in=cust_ids,
-            is_deleted=False
-        ).annotate(bal=F('total') - F('amount_collected')).filter(bal__gt=0).values('customer_id').annotate(
-            total_pending_count=Count('id'),
-            total_inv_value=Sum('total')
-        )
-        pending_map = {str(p['customer_id']): p for p in all_pending_qs}
-
-        sl = 1
-        for item in overdue_cust_summary:
-            c_obj = cust_map.get(str(item['customer_id']))
-            if c_obj:
-                p_info = pending_map.get(str(item['customer_id']), {})
-                overdue_customers.append({
-                    'sl_no': sl,
-                    'customer': c_obj,
-                    'custname': c_obj.name,
-                    'mobno': c_obj.phone,
-                    'no_of_invc_pending': p_info.get('total_pending_count', item['overdue_inv_count']),
-                    'invc_value': p_info.get('total_inv_value', Decimal('0.00')),
-                    'overdue_amount': item['overdue_amount'],
-                    'overdue_invc': item['overdue_inv_count'],
-                })
-                sl += 1
-
     if customer_id:
         customer = get_object_or_404(customers, id=customer_id)
         context = _build_customer_statement_context(request, customer, from_date, to_date)
-        context['overdue_customers'] = overdue_customers
 
         if request.GET.get('pdf') == '1':
             return _generate_statement_pdf_response(request, context)
@@ -2367,7 +2316,6 @@ def customer_ledger(request):
         'to_date_display': to_date.strftime('%d %b %Y'),
         'currency': currency,
         'company': company,
-        'overdue_customers': overdue_customers,
     }
     return render(request, 'customer/customer_ledger.html', context)
 
