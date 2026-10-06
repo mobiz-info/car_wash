@@ -141,6 +141,26 @@
         gap: 12px;
     }
 
+    .btn-show-soa {
+        background: #4f46e5;
+        color: white;
+        border: none;
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        white-space: nowrap;
+    }
+
+    .btn-show-soa:hover {
+        background: #4338ca;
+    }
+
     /* Active Selected Customer Pill */
     .selected-customer-pill {
         display: inline-flex;
@@ -519,13 +539,18 @@
                 <label style="display:block; font-size:0.85rem; font-weight:700; color:#1e293b; margin-bottom:8px;">
                     <i class="ph ph-magnifying-glass"></i> Search Customer for Statement of Account
                 </label>
-                <div class="search-input-wrapper">
-                    <i class="ph ph-magnifying-glass search-icon"></i>
-                    <input type="text" id="customerSearchInput" class="customer-search-input"
-                           placeholder="Type customer name, phone, vehicle number, or tax ID..."
-                           autocomplete="off" value="{% if customer %}{{ customer.name }} ({{ customer.phone }}){% endif %}">
-                    <button type="button" id="clearCustomerBtn" class="search-clear-btn" title="Clear selection" style="{% if not customer %}display:none;{% endif %}">
-                        <i class="ph ph-x"></i>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="search-input-wrapper" style="flex: 1;">
+                        <i class="ph ph-magnifying-glass search-icon"></i>
+                        <input type="text" id="customerSearchInput" class="customer-search-input"
+                               placeholder="Search customer by name, mobile number, vehicle number, or TRN..."
+                               autocomplete="off" value="{% if customer %}{{ customer.name }} ({{ customer.phone }}){% endif %}">
+                        <button type="button" id="clearCustomerBtn" class="search-clear-btn" title="Clear selection" style="{% if not customer %}display:none;{% endif %}">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </div>
+                    <button type="button" id="searchCustomerBtn" class="btn-apply" style="white-space: nowrap; height: 46px;">
+                        <i class="ph ph-magnifying-glass"></i> Search
                     </button>
                 </div>
                 <!-- Autocomplete Dropdown -->
@@ -820,9 +845,69 @@
     const searchInput = document.getElementById('customerSearchInput');
     const searchResults = document.getElementById('customerSearchResults');
     const clearBtn = document.getElementById('clearCustomerBtn');
+    const searchCustomerBtn = document.getElementById('searchCustomerBtn');
     const selectedCustomerId = document.getElementById('selectedCustomerId');
     const soaForm = document.getElementById('soaFilterForm');
     let searchTimeout = null;
+
+    function performCustomerSearch(query) {
+        query = (query || '').trim();
+        searchResults.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: #64748b; font-size: 0.9rem;">
+                <i class="ph ph-spinner ph-spin" style="font-size:1.4rem; display:inline-block; vertical-align:middle; margin-right:8px;"></i>
+                Searching customers...
+            </div>
+        `;
+        searchResults.style.display = 'block';
+
+        fetch(`{% url 'customer_search_ajax' %}?q=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(data => {
+                const results = data.results || [];
+                if (results.length === 0) {
+                    searchResults.innerHTML = `
+                        <div style="padding: 18px; text-align: center; color: #64748b; font-size: 0.9rem;">
+                            <i class="ph ph-user-circle-dashed" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 6px; display: block;"></i>
+                            No customer found matching "<strong>${escapeHtml(query)}</strong>".
+                        </div>
+                    `;
+                } else {
+                    searchResults.innerHTML = `
+                        <div style="padding: 8px 14px; font-size: 0.76rem; font-weight: 700; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #f1f5f9; background: #f8fafc; border-radius: 8px 8px 0 0;">
+                            ${query ? `Matching Customers (${results.length})` : 'Recent Customers'} — Click to view Statement of Account (SOA)
+                        </div>
+                    ` + results.map(c => `
+                        <div class="customer-result-item" onclick="selectCustomer('${c.id}', '${escapeHtml(c.name)}', '${escapeHtml(c.phone)}')">
+                            <div style="flex: 1; min-width: 0;">
+                                <div class="cust-info-title">
+                                    <span>${escapeHtml(c.name)}</span>
+                                    <span class="cust-badge">${escapeHtml(c.type)}</span>
+                                    ${c.tax_number ? `<span style="font-size:0.75rem; color:#64748b; font-weight:normal;">(TRN: ${escapeHtml(c.tax_number)})</span>` : ''}
+                                </div>
+                                <div class="cust-info-sub">
+                                    <span><i class="ph ph-phone"></i> ${escapeHtml(c.phone)}</span>
+                                    ${c.whatsapp ? `<span style="color:#16a34a;"><i class="ph ph-whatsapp-logo"></i> ${escapeHtml(c.whatsapp)}</span>` : ''}
+                                    ${c.vehicles ? `<span><i class="ph ph-car"></i> ${escapeHtml(c.vehicles)}</span>` : ''}
+                                    ${c.branch ? `<span><i class="ph ph-buildings"></i> ${escapeHtml(c.branch)}</span>` : ''}
+                                </div>
+                            </div>
+                            <button type="button" class="btn-show-soa" onclick="event.stopPropagation(); selectCustomer('${c.id}', '${escapeHtml(c.name)}', '${escapeHtml(c.phone)}')">
+                                <i class="ph ph-file-text"></i> Show SOA
+                            </button>
+                        </div>
+                    `).join('');
+                }
+                searchResults.style.display = 'block';
+            })
+            .catch(err => {
+                console.error('Search error:', err);
+                searchResults.innerHTML = `
+                    <div style="padding: 14px; text-align: center; color: #ef4444; font-size: 0.9rem;">
+                        Failed to load customer results. Please try again.
+                    </div>
+                `;
+            });
+    }
 
     if (searchInput) {
         searchInput.addEventListener('input', function() {
@@ -830,73 +915,61 @@
             if (clearBtn) clearBtn.style.display = query.length > 0 ? 'flex' : 'none';
 
             clearTimeout(searchTimeout);
-            if (query.length < 1) {
-                searchResults.style.display = 'none';
-                return;
-            }
-
             searchTimeout = setTimeout(() => {
-                fetch(`{% url 'customer_search_ajax' %}?q=${encodeURIComponent(query)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        const results = data.results || [];
-                        if (results.length === 0) {
-                            searchResults.innerHTML = `
-                                <div style="padding: 14px; text-align: center; color: #64748b; font-size: 0.9rem;">
-                                    No customers found matching "${query}".
-                                </div>
-                            `;
-                        } else {
-                            searchResults.innerHTML = results.map(c => `
-                                <div class="customer-result-item" onclick="selectCustomer('${c.id}', '${escapeHtml(c.name)}', '${escapeHtml(c.phone)}')">
-                                    <div>
-                                        <div class="cust-info-title">
-                                            <span>${escapeHtml(c.name)}</span>
-                                            <span class="cust-badge">${escapeHtml(c.type)}</span>
-                                            ${c.tax_number ? `<span style="font-size:0.75rem; color:#64748b;">(TRN: ${escapeHtml(c.tax_number)})</span>` : ''}
-                                        </div>
-                                        <div class="cust-info-sub">
-                                            <span><i class="ph ph-phone"></i> ${escapeHtml(c.phone)}</span>
-                                            ${c.vehicles ? `<span><i class="ph ph-car"></i> ${escapeHtml(c.vehicles)}</span>` : ''}
-                                            ${c.branch ? `<span><i class="ph ph-buildings"></i> ${escapeHtml(c.branch)}</span>` : ''}
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn-action" style="background:#4f46e5; color:white; border:none; padding:4px 12px; height:32px; font-size:0.8rem;">
-                                        Select SOA <i class="ph ph-arrow-right"></i>
-                                    </button>
-                                </div>
-                            `).join('');
-                        }
-                        searchResults.style.display = 'block';
-                    })
-                    .catch(err => {
-                        console.error('Search error:', err);
-                    });
-            }, 250);
+                performCustomerSearch(query);
+            }, 200);
+        });
+
+        searchInput.addEventListener('focus', function() {
+            if (!selectedCustomerId.value || !this.value) {
+                performCustomerSearch(this.value);
+            }
+        });
+
+        // Prevent submitting form with empty customer on Enter, auto-select first or perform search
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const firstResult = searchResults ? searchResults.querySelector('.customer-result-item') : null;
+                if (firstResult && searchResults.style.display === 'block') {
+                    firstResult.click();
+                } else {
+                    performCustomerSearch(this.value);
+                }
+            }
         });
 
         // Hide results on outside click
         document.addEventListener('click', function(e) {
-            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target) && (searchCustomerBtn ? !searchCustomerBtn.contains(e.target) : true)) {
                 searchResults.style.display = 'none';
             }
+        });
+    }
+
+    if (searchCustomerBtn) {
+        searchCustomerBtn.addEventListener('click', function() {
+            performCustomerSearch(searchInput ? searchInput.value : '');
         });
     }
 
     function selectCustomer(id, name, phone) {
         selectedCustomerId.value = id;
-        searchInput.value = `${name} (${phone})`;
-        searchResults.style.display = 'none';
+        if (searchInput) searchInput.value = `${name} (${phone})`;
+        if (searchResults) searchResults.style.display = 'none';
         if (clearBtn) clearBtn.style.display = 'flex';
-        // Submit form immediately to show SOA
+        // Submit form immediately to load Statement of Account
         soaForm.submit();
     }
 
     function focusCustomerSearch() {
         selectedCustomerId.value = '';
-        searchInput.value = '';
-        searchInput.focus();
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
         if (clearBtn) clearBtn.style.display = 'none';
+        performCustomerSearch('');
     }
 
     if (clearBtn) {

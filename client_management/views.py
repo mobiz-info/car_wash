@@ -967,7 +967,15 @@ def customer_list(request):
         customers = customers.filter(branch=request.user.managed_branch)
     
     if search:
-        customers = customers.filter(name__icontains=search)
+        customers = customers.filter(
+            Q(name__icontains=search) |
+            Q(phone__icontains=search) |
+            Q(whatsapp_number__icontains=search) |
+            Q(email__icontains=search) |
+            Q(tax_number__icontains=search) |
+            Q(tin_number__icontains=search) |
+            Q(vehicles__vehicle_number__icontains=search)
+        ).distinct()
         
     paginator = Paginator(customers, 10)
     page_number = request.GET.get('page')
@@ -1987,32 +1995,38 @@ def load_vehicle_models(request):
 @login_required
 def customer_search_ajax(request):
     """
-    Live autocomplete search for customers by name, phone, whatsapp, tax_number, vehicle_number.
+    Live autocomplete search for customers by name, phone, whatsapp, tax_number, tin_number, vehicle_number.
     """
     q = request.GET.get('q', '').strip()
-    if not q:
-        return JsonResponse({'results': []})
 
     user = request.user
     role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
 
     customers_qs = Customer.objects.filter(is_deleted=False)
-    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
         customers_qs = customers_qs.filter(branch=user.managed_branch)
     elif role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
         customers_qs = customers_qs.filter(company=user.profile.company)
+    elif hasattr(user, 'profile') and user.profile.company:
+        customers_qs = customers_qs.filter(company=user.profile.company)
 
-    customers_qs = customers_qs.filter(
-        Q(name__icontains=q) |
-        Q(phone__icontains=q) |
-        Q(whatsapp_number__icontains=q) |
-        Q(tax_number__icontains=q) |
-        Q(vehicles__vehicle__vehicle_number__icontains=q)
-    ).distinct().select_related('customer_type', 'branch').prefetch_related('vehicles__vehicle')[:20]
+    if q:
+        customers_qs = customers_qs.filter(
+            Q(name__icontains=q) |
+            Q(phone__icontains=q) |
+            Q(whatsapp_number__icontains=q) |
+            Q(tax_number__icontains=q) |
+            Q(tin_number__icontains=q) |
+            Q(vehicles__vehicle_number__icontains=q)
+        ).distinct()
+    else:
+        customers_qs = customers_qs.order_by('-date_added')
+
+    customers_qs = customers_qs.select_related('customer_type', 'branch').prefetch_related('vehicles')[:25]
 
     results = []
     for c in customers_qs:
-        veh_list = [cv.vehicle.vehicle_number for cv in c.vehicles.all() if cv.vehicle and cv.vehicle.vehicle_number]
+        veh_list = [cv.vehicle_number for cv in c.vehicles.all() if not getattr(cv, 'is_deleted', False) and cv.vehicle_number]
         results.append({
             'id': str(c.id),
             'name': c.name,
