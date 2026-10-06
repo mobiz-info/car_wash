@@ -619,7 +619,7 @@
                 <a href="{% url 'customer_list' %}">Customers</a>
                 <a href="{% url 'new_customer' %}">New Customers</a>
                 <a href="{% url 'inactive_customer' %}">Inactive Customers</a>
-                <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
+                <a href="{% url 'customer_ledger' %}">Statement of Account (SOA)</a>
             </div>
 
             {% if request.user.profile.company.scheme_types.exists %}
@@ -834,7 +834,7 @@
                 <a href="{% url 'customer_list' %}">Customer List</a>
                 <a href="{% url 'new_customer' %}">New Customers</a>
                 <a href="{% url 'inactive_customer' %}">Inactive Customers</a>
-                <a href="{% url 'customer_ledger' %}">Customer Ledger</a>
+                <a href="{% url 'customer_ledger' %}">Statement of Account (SOA)</a>
             </div>
             <!-- Service Management -->
             <div class="nav-item dropdown-toggle">

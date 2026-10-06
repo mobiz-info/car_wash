@@ -1,464 +1,948 @@
 {% extends 'base.html' %}
 
-{% block title %}Customer Ledger{% endblock %}
-{% block page_title %}Customer Ledger{% endblock %}
-{% block breadcrumb_active %}Customer Ledger{% endblock %}
+{% block title %}Statement of Account (SOA) - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Statement of Account (SOA){% endblock %}
+{% block breadcrumb_active %}Statement of Account{% endblock %}
 
 {% block content %}
-
 <style>
-
-.ledger-wrapper{
-    display:flex;
-    flex-direction:column;
-    gap:24px;
-}
-
-/* Filter Card */
-
-.filter-card{
-    background:#fff;
-    border-radius:18px;
-    padding:24px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.06);
-    border:1px solid #eef2ff;
-}
-
-.filter-grid{
-    display:grid;
-    grid-template-columns:1fr auto;
-    gap:16px;
-    align-items:end;
-}
-
-.filter-label{
-    font-size:14px;
-    font-weight:600;
-    color:#374151;
-    margin-bottom:8px;
-}
-
-.form-select-custom{
-    width:100%;
-    height:48px;
-    border-radius:12px;
-    border:1px solid #d1d5db;
-    padding:0 14px;
-    font-size:15px;
-    transition:all .2s ease;
-}
-
-.form-select-custom:focus{
-    outline:none;
-    border-color:#7c3aed;
-    box-shadow:0 0 0 4px rgba(124,58,237,.15);
-}
-
-.search-btn{
-    height:48px;
-    padding:0 28px;
-    border:none;
-    border-radius:12px;
-    background:linear-gradient(135deg,#7c3aed,#5b21b6);
-    color:#fff;
-    font-weight:600;
-    transition:.3s;
-}
-
-.search-btn:hover{
-    transform:translateY(-1px);
-    box-shadow:0 6px 18px rgba(124,58,237,.25);
-}
-
-/* Customer Card */
-
-.customer-card{
-    background:#fff;
-    border-radius:20px;
-    padding:28px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.06);
-    border:1px solid #eef2ff;
-}
-
-.section-title{
-    font-size:20px;
-    font-weight:700;
-    color:#111827;
-    margin-bottom:22px;
-}
-
-.customer-grid{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:20px;
-}
-
-.customer-item{
-    background:#f9fafb;
-    border-radius:14px;
-    padding:18px;
-}
-
-.customer-item label{
-    display:block;
-    font-size:13px;
-    color:#6b7280;
-    margin-bottom:6px;
-}
-
-.customer-item span{
-    font-size:15px;
-    font-weight:600;
-    color:#111827;
-}
-
-/* Summary Cards */
-
-.summary-grid{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:20px;
-}
-
-.summary-card{
-    background:#fff;
-    border-radius:20px;
-    padding:24px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.06);
-    position:relative;
-    overflow:hidden;
-}
-
-.summary-card::before{
-    content:'';
-    position:absolute;
-    top:0;
-    left:0;
-    width:5px;
-    height:100%;
-    background:#7c3aed;
-}
-
-.summary-title{
-    font-size:14px;
-    color:#6b7280;
-    margin-bottom:10px;
-}
-
-.summary-value{
-    font-size:28px;
-    font-weight:700;
-    color:#111827;
-}
-
-/* Table */
-
-.table-card{
-    background:#fff;
-    border-radius:20px;
-    padding:24px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.06);
-}
-
-.table-responsive{
-    overflow-x:auto;
-}
-
-.custom-table{
-    width:100%;
-    border-collapse:collapse;
-    min-width:950px;
-}
-
-.custom-table thead{
-    background:linear-gradient(135deg,#7c3aed,#5b21b6);
-}
-
-.custom-table thead th{
-    color:#fff;
-    padding:16px;
-    font-size:14px;
-    font-weight:600;
-    text-align:left;
-    white-space:nowrap;
-}
-
-.custom-table tbody td{
-    padding:16px;
-    border-bottom:1px solid #f1f5f9;
-    font-size:14px;
-    color:#374151;
-    vertical-align:middle;
-}
-
-.custom-table tbody tr:hover{
-    background:#faf5ff;
-}
-
-.badge-balance{
-    padding:6px 12px;
-    border-radius:999px;
-    font-size:12px;
-    font-weight:600;
-    background:#fee2e2;
-    color:#dc2626;
-}
-
-.empty-row{
-    text-align:center;
-    padding:30px !important;
-    color:#9ca3af !important;
-}
-
-/* Responsive */
-
-@media(max-width:991px){
-
-    .customer-grid,
-    .summary-grid{
-        grid-template-columns:repeat(2,1fr);
+    .soa-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
     }
-}
 
-@media(max-width:767px){
-
-    .filter-grid,
-    .customer-grid,
-    .summary-grid{
-        grid-template-columns:1fr;
+    /* Top Control Card */
+    .soa-filter-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 22px 26px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e2e8f0;
     }
-}
 
+    .search-section {
+        position: relative;
+        margin-bottom: 18px;
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-input-wrapper i.search-icon {
+        position: absolute;
+        left: 16px;
+        font-size: 1.25rem;
+        color: #64748b;
+        pointer-events: none;
+    }
+
+    .customer-search-input {
+        width: 100%;
+        height: 50px;
+        border-radius: 12px;
+        border: 1.5px solid #cbd5e1;
+        padding: 0 46px 0 48px;
+        font-size: 0.95rem;
+        background: #f8fafc;
+        color: #0f172a;
+        transition: all 0.2s ease;
+        outline: none;
+        font-family: inherit;
+    }
+
+    .customer-search-input:focus {
+        background: #ffffff;
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+    }
+
+    .search-clear-btn {
+        position: absolute;
+        right: 14px;
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .search-clear-btn:hover {
+        color: #ef4444;
+        background: #fee2e2;
+    }
+
+    /* Live Search Results Dropdown */
+    .search-results-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #cbd5e1;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.15);
+        max-height: 380px;
+        overflow-y: auto;
+        z-index: 1000;
+        padding: 6px;
+    }
+
+    .customer-result-item {
+        padding: 10px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .customer-result-item:last-child {
+        border-bottom: none;
+    }
+
+    .customer-result-item:hover {
+        background: #f1f5f9;
+    }
+
+    .cust-info-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .cust-badge {
+        font-size: 0.72rem;
+        padding: 2px 7px;
+        border-radius: 12px;
+        font-weight: 600;
+        background: #e0e7ff;
+        color: #4338ca;
+    }
+
+    .cust-info-sub {
+        font-size: 0.82rem;
+        color: #64748b;
+        margin-top: 2px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    /* Active Selected Customer Pill */
+    .selected-customer-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        color: #312e81;
+        padding: 8px 16px;
+        border-radius: 10px;
+        margin-bottom: 16px;
+        font-size: 0.9rem;
+    }
+
+    .selected-customer-pill strong {
+        color: #1e1b4b;
+        font-weight: 700;
+    }
+
+    .change-cust-link {
+        color: #4f46e5;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: underline;
+        cursor: pointer;
+        margin-left: 6px;
+    }
+
+    /* Date Filter Row */
+    .date-filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 16px;
+    }
+
+    .date-input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .date-input-group label {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .date-input-control {
+        height: 42px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 0 12px;
+        font-size: 0.88rem;
+        background: #fff;
+        color: #1e293b;
+        outline: none;
+    }
+
+    .date-input-control:focus {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+
+    .filter-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .btn-apply {
+        height: 42px;
+        padding: 0 20px;
+        background: #4f46e5;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.2s;
+    }
+
+    .btn-apply:hover {
+        background: #4338ca;
+    }
+
+    .quick-preset-btn {
+        height: 42px;
+        padding: 0 14px;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        color: #475569;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .quick-preset-btn:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+    }
+
+    /* Actions Header (PDF, WhatsApp, Print) */
+    .soa-actions-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 14px;
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 16px 22px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .soa-period-tag {
+        font-size: 0.9rem;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .soa-buttons-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .btn-action {
+        height: 40px;
+        padding: 0 16px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .btn-pdf {
+        background: #dc2626;
+        color: white;
+        border: none;
+    }
+
+    .btn-pdf:hover {
+        background: #b91c1c;
+        color: white;
+    }
+
+    .btn-whatsapp {
+        background: #16a34a;
+        color: white;
+        border: none;
+    }
+
+    .btn-whatsapp:hover {
+        background: #15803d;
+        color: white;
+    }
+
+    .btn-print {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+    }
+
+    .btn-print:hover {
+        background: #e2e8f0;
+    }
+
+    /* Customer Info Grid */
+    .soa-cust-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 22px 26px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 16px;
+        margin-top: 14px;
+    }
+
+    .info-cell {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 12px 16px;
+        border: 1px solid #f1f5f9;
+    }
+
+    .info-cell label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin-bottom: 4px;
+    }
+
+    .info-cell span {
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: #0f172a;
+    }
+
+    /* KPI Summary Cards */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+
+    .kpi-card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 18px 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    }
+
+    .kpi-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin-bottom: 6px;
+    }
+
+    .kpi-value {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .kpi-opening .kpi-value { color: #475569; }
+    .kpi-invoiced .kpi-value { color: #2563eb; }
+    .kpi-collected .kpi-value { color: #16a34a; }
+    .kpi-closing .kpi-value { color: #dc2626; }
+    .kpi-overdue {
+        background: #fef2f2;
+        border-color: #fecaca;
+    }
+    .kpi-overdue .kpi-label { color: #991b1b; }
+    .kpi-overdue .kpi-value { color: #b91c1c; }
+
+    /* Statement Table */
+    .soa-table-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 22px 26px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+    }
+
+    .soa-table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+    }
+
+    .soa-table-header h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .soa-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+    }
+
+    .soa-table th {
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding: 12px 14px;
+        border-bottom: 2px solid #e2e8f0;
+        text-align: left;
+    }
+
+    .soa-table th.num-col { text-align: right; }
+
+    .soa-table td {
+        padding: 13px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #1e293b;
+        vertical-align: middle;
+    }
+
+    .soa-table td.num-col {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+
+    .soa-table tr:hover td {
+        background: #f8fafc;
+    }
+
+    .opening-row-ui td {
+        background: #f1f5f9 !important;
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .table-totals-ui td {
+        background: #eef2ff !important;
+        font-weight: 700;
+        color: #1e1b4b;
+        border-top: 2px solid #6366f1;
+        border-bottom: 2px solid #6366f1;
+    }
+
+    /* Empty state */
+    .soa-empty-state {
+        text-align: center;
+        padding: 48px 24px;
+        color: #64748b;
+    }
+
+    .soa-empty-state i {
+        font-size: 3.5rem;
+        color: #cbd5e1;
+        margin-bottom: 14px;
+        display: block;
+    }
+
+    /* Overdue Customers List */
+    .overdue-list-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .badge-overdue-pill {
+        background: #fee2e2;
+        color: #991b1b;
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
+    }
 </style>
 
-<div class="ledger-wrapper">
+<div class="soa-wrapper">
 
-    <!-- Filter -->
+    <!-- 1. Customer Search & Date Filter Card -->
+    <div class="soa-filter-card">
+        <form method="GET" id="soaFilterForm">
+            <input type="hidden" name="customer" id="selectedCustomerId" value="{{ customer_id }}">
 
-    <div class="filter-card">
-
-        <form method="GET">
-
-            <div class="filter-grid">
-
-                <div>
-
-                    <label class="filter-label">
-                        Select Customer
-                    </label>
-
-                    <select name="customer" class="form-select-custom" required>
-
-                        <option value="">
-                            Choose Customer
-                        </option>
-
-                        {% for c in customers %}
-
-                        <option value="{{ c.id }}"
-                            {% if customer and customer.id == c.id %}
-                                selected
-                            {% endif %}
-                        >
-                            {{ c.name }} - {{ c.phone }}
-                        </option>
-
-                        {% endfor %}
-
-                    </select>
-
-                </div>
-
-                <div>
-                    <button type="submit" class="search-btn">
-                        Search Ledger
+            <!-- Customer Search Input -->
+            <div class="search-section">
+                <label style="display:block; font-size:0.85rem; font-weight:700; color:#1e293b; margin-bottom:8px;">
+                    <i class="ph ph-magnifying-glass"></i> Search Customer for Statement of Account
+                </label>
+                <div class="search-input-wrapper">
+                    <i class="ph ph-magnifying-glass search-icon"></i>
+                    <input type="text" id="customerSearchInput" class="customer-search-input"
+                           placeholder="Type customer name, phone, vehicle number, or tax ID..."
+                           autocomplete="off" value="{% if customer %}{{ customer.name }} ({{ customer.phone }}){% endif %}">
+                    <button type="button" id="clearCustomerBtn" class="search-clear-btn" title="Clear selection" style="{% if not customer %}display:none;{% endif %}">
+                        <i class="ph ph-x"></i>
                     </button>
                 </div>
-
+                <!-- Autocomplete Dropdown -->
+                <div id="customerSearchResults" class="search-results-dropdown" style="display: none;"></div>
             </div>
 
-        </form>
+            <!-- Active Selected Customer Pill -->
+            {% if customer %}
+            <div class="selected-customer-pill">
+                <span>Selected: <strong>{{ customer.name }}</strong> ({{ customer.phone }}) {% if customer.customer_type %}<span class="cust-badge">{{ customer.customer_type.name }}</span>{% endif %}</span>
+                <span class="change-cust-link" onclick="focusCustomerSearch()"><i class="ph ph-arrows-left-right"></i> Change Customer</span>
+            </div>
+            {% endif %}
 
+            <!-- Date Range Filter Row -->
+            <div class="date-filter-row">
+                <div class="date-input-group">
+                    <label>From Date</label>
+                    <input type="date" name="from_date" id="fromDateInput" value="{{ from_date }}" class="date-input-control" required>
+                </div>
+                <div class="date-input-group">
+                    <label>To Date</label>
+                    <input type="date" name="to_date" id="toDateInput" value="{{ to_date }}" class="date-input-control" required>
+                </div>
+                <div class="filter-actions">
+                    <button type="submit" class="btn-apply">
+                        <i class="ph ph-funnel"></i> Apply Filter
+                    </button>
+                    <button type="button" class="quick-preset-btn" onclick="setPreset('this_month')">This Month</button>
+                    <button type="button" class="quick-preset-btn" onclick="setPreset('last_30_days')">Last 30 Days</button>
+                    <button type="button" class="quick-preset-btn" onclick="setPreset('last_90_days')">Last 90 Days</button>
+                    <button type="button" class="quick-preset-btn" onclick="setPreset('this_year')">This Year</button>
+                </div>
+            </div>
+        </form>
     </div>
 
     {% if customer %}
 
-    <!-- Customer Details -->
-
-    <div class="customer-card">
-
-        <div class="section-title">
-            Customer Details
+    <!-- 2. Actions & Export Bar -->
+    <div class="soa-actions-bar">
+        <div class="soa-period-tag">
+            <i class="ph ph-calendar" style="color: #4f46e5; font-size: 1.1rem;"></i>
+            Statement Period: <strong>{{ from_date_display }}</strong> to <strong>{{ to_date_display }}</strong>
         </div>
+        <div class="soa-buttons-group">
+            <a href="{% url 'customer_statement_pdf' %}?customer={{ customer.id }}&from_date={{ from_date }}&to_date={{ to_date }}" target="_blank" class="btn-action btn-pdf">
+                <i class="ph ph-file-pdf"></i> Download PDF
+            </a>
+            <button type="button" onclick="window.open('{% url 'customer_statement_pdf' %}?customer={{ customer.id }}&from_date={{ from_date }}&to_date={{ to_date }}', '_blank')" class="btn-action btn-print">
+                <i class="ph ph-printer"></i> Print Statement
+            </button>
+            {% if whatsapp_url %}
+            <a href="{{ whatsapp_url }}" target="_blank" class="btn-action btn-whatsapp">
+                <i class="ph ph-whatsapp-logo"></i> Share via WhatsApp
+            </a>
+            {% endif %}
+        </div>
+    </div>
 
-        <div class="customer-grid">
-
-            <div class="customer-item">
+    <!-- 3. Customer Info Summary Card -->
+    <div class="soa-cust-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#0f172a;">
+                Customer & Account Information
+            </h3>
+            {% if customer.customer_type %}
+                <span class="cust-badge">{{ customer.customer_type.name }} Customer</span>
+            {% endif %}
+        </div>
+        <div class="info-grid">
+            <div class="info-cell">
                 <label>Customer Name</label>
                 <span>{{ customer.name }}</span>
             </div>
-
-            <div class="customer-item">
-                <label>Phone Number</label>
+            <div class="info-cell">
+                <label>Mobile Number</label>
                 <span>{{ customer.phone }}</span>
             </div>
-
-            <div class="customer-item">
-                <label>Email Address</label>
-                <span>{{ customer.email|default:'-' }}</span>
+            {% if customer.whatsapp_number %}
+            <div class="info-cell">
+                <label>WhatsApp</label>
+                <span>{{ customer.whatsapp_number }}</span>
             </div>
-
-            <div class="customer-item">
-                <label>Address</label>
-                <span>{{ customer.address|default:'-' }}</span>
+            {% endif %}
+            {% if customer.email %}
+            <div class="info-cell">
+                <label>Email</label>
+                <span>{{ customer.email }}</span>
             </div>
-
+            {% endif %}
+            {% if customer.tax_number %}
+            <div class="info-cell">
+                <label>Tax / TRN Number</label>
+                <span style="color:#4338ca;">{{ customer.tax_number }}</span>
+            </div>
+            {% endif %}
+            {% if customer.tin_number %}
+            <div class="info-cell">
+                <label>TIN Number</label>
+                <span>{{ customer.tin_number }}</span>
+            </div>
+            {% endif %}
+            {% if customer.address %}
+            <div class="info-cell" style="grid-column: span 2;">
+                <label>Full Address</label>
+                <span>{{ customer.address }}</span>
+            </div>
+            {% endif %}
         </div>
-
     </div>
 
-    <!-- Summary -->
-
-    <div class="summary-grid">
-
-        <div class="summary-card">
-            <div class="summary-title">
-                Total Services
-            </div>
-
-            <div class="summary-value">
-                {{ total_services }}
-            </div>
+    <!-- 4. Account Summary KPI Cards -->
+    <div class="kpi-grid">
+        <div class="kpi-card kpi-opening">
+            <div class="kpi-label">Opening Balance</div>
+            <div class="kpi-value">{{ currency }} {{ opening_balance|floatformat:2 }}</div>
         </div>
-
-        <div class="summary-card">
-            <div class="summary-title">
-                Total Amount
-            </div>
-
-            <div class="summary-value">
-                ₹ {{ total_amount }}
-            </div>
+        <div class="kpi-card kpi-invoiced">
+            <div class="kpi-label">Period Invoiced (Debits)</div>
+            <div class="kpi-value">{{ currency }} {{ period_invoiced|floatformat:2 }}</div>
         </div>
-
-        <div class="summary-card">
-            <div class="summary-title">
-                Amount Collected
-            </div>
-
-            <div class="summary-value">
-                ₹ {{ total_collected }}
-            </div>
+        <div class="kpi-card kpi-collected">
+            <div class="kpi-label">Period Paid (Credits)</div>
+            <div class="kpi-value">{{ currency }} {{ period_collected|floatformat:2 }}</div>
         </div>
-
-        <div class="summary-card">
-            <div class="summary-title">
-                Pending Balance
-            </div>
-
-            <div class="summary-value">
-                ₹ {{ total_balance }}
-            </div>
+        <div class="kpi-card kpi-closing">
+            <div class="kpi-label">Closing Balance Due</div>
+            <div class="kpi-value">{{ currency }} {{ closing_balance|floatformat:2 }}</div>
         </div>
-
+        {% if overdue_amount > 0 %}
+        <div class="kpi-card kpi-overdue">
+            <div class="kpi-label">⚠️ Overdue (>30 Days)</div>
+            <div class="kpi-value">{{ currency }} {{ overdue_amount|floatformat:2 }}</div>
+            <small style="font-weight:600; color:#991b1b;">{{ overdue_invoices_count }} overdue invoice(s)</small>
+        </div>
+        {% endif %}
     </div>
 
-    <!-- Ledger Table -->
-
-    <div class="table-card">
-
-        <div class="section-title">
-            Customer Ledger Details
+    <!-- 5. Statement of Account Table -->
+    <div class="soa-table-card">
+        <div class="soa-table-header">
+            <h3>Statement Transactions (Running Balance)</h3>
+            <span style="font-size:0.85rem; color:#64748b; font-weight:600;">
+                {{ ledger_items|length }} Transaction(s)
+            </span>
         </div>
-
-        <div class="table-responsive">
-
-            <table class="custom-table">
-
+        <div style="overflow-x: auto;">
+            <table class="soa-table">
                 <thead>
                     <tr>
-                        <th>SL</th>
-                        <th>Date</th>
-                        <th>Invoice No</th>
-                        <th>Vehicle No</th>
-                        <th>Service Name</th>
-                        <th>Price</th>
-                        <th>Collected</th>
-                        <th>Balance</th>
+                        <th style="width: 40px; text-align:center;">#</th>
+                        <th style="width: 100px;">Date</th>
+                        <th>Particulars / Description</th>
+                        <th style="width: 130px;">Invoice #</th>
+                        <th style="width: 120px;">Vehicle #</th>
+                        <th class="num-col" style="width: 120px;">Debit ({{ currency }})</th>
+                        <th class="num-col" style="width: 120px;">Credit ({{ currency }})</th>
+                        <th class="num-col" style="width: 130px;">Balance ({{ currency }})</th>
                     </tr>
                 </thead>
-
                 <tbody>
+                    <!-- Row 0: Opening Balance -->
+                    <tr class="opening-row-ui">
+                        <td style="text-align:center;">-</td>
+                        <td>{{ from_date_display }}</td>
+                        <td colspan="3"><strong>OPENING BALANCE B/F</strong></td>
+                        <td class="num-col">-</td>
+                        <td class="num-col">-</td>
+                        <td class="num-col"><strong>{{ currency }} {{ opening_balance|floatformat:2 }}</strong></td>
+                    </tr>
 
                     {% for item in ledger_items %}
-
                     <tr>
-
-                        <td>
-                            {{ item.sl_no }}
+                        <td style="text-align:center; color:#94a3b8;">{{ item.sl_no }}</td>
+                        <td>{{ item.date|date:"d M Y" }}</td>
+                        <td>{{ item.particulars }}</td>
+                        <td><strong>{{ item.invoice_number }}</strong></td>
+                        <td>{{ item.vehicle_no }}</td>
+                        <td class="num-col" style="color:#1e293b;">{{ item.debit|floatformat:2 }}</td>
+                        <td class="num-col" style="color:#16a34a;">
+                            {% if item.credit > 0 %}{{ item.credit|floatformat:2 }}{% else %}-{% endif %}
                         </td>
-
-                        <td>
-                            {{ item.date }}
+                        <td class="num-col" style="{% if item.balance > 0 %}color:#dc2626;{% else %}color:#16a34a;{% endif %}">
+                            {{ item.balance|floatformat:2 }}
                         </td>
-
-                        <td>
-                            {{ item.invoice_number }}
-                        </td>
-
-                        <td>
-                            {{ item.vehicle_no }}
-                        </td>
-
-                        <td>
-                            {{ item.service_name }}
-                        </td>
-
-                        <td>
-                            ₹ {{ item.price }}
-                        </td>
-                        <td>
-                            ₹ {{ item.collected }}
-                        </td>
-
-                        <td>
-
-                            {% if item.balance > 0 %}
-
-                                <span class="badge-balance">
-                                    ₹ {{ item.balance }}
-                                </span>
-
-                            {% else %}
-
-                                ₹ {{ item.balance }}
-
-                            {% endif %}
-
-                        </td>
-
                     </tr>
-
                     {% empty %}
-
                     <tr>
-                        <td colspan="7" class="empty-row">
-                            No ledger records found
+                        <td colspan="8" style="text-align:center; padding:24px; color:#94a3b8;">
+                            No invoice transactions found in this date range.
                         </td>
                     </tr>
-
                     {% endfor %}
 
+                    <!-- Totals Row -->
+                    <tr class="table-totals-ui">
+                        <td colspan="5" style="text-align:right; text-transform:uppercase;">
+                            Period Totals & Closing Balance:
+                        </td>
+                        <td class="num-col">{{ period_invoiced|floatformat:2 }}</td>
+                        <td class="num-col">{{ period_collected|floatformat:2 }}</td>
+                        <td class="num-col" style="{% if closing_balance > 0 %}color:#dc2626;{% else %}color:#16a34a;{% endif %}">
+                            {{ currency }} {{ closing_balance|floatformat:2 }}
+                        </td>
+                    </tr>
                 </tbody>
-
             </table>
-
         </div>
+    </div>
 
+    {% else %}
+
+    <!-- Empty State: No Customer Selected Yet -->
+    <div class="soa-empty-state">
+        <i class="ph ph-user-focus"></i>
+        <h3 style="margin:0 0 8px 0; color:#1e293b; font-size:1.3rem;">Please Search and Select a Customer</h3>
+        <p style="margin:0; font-size:0.92rem;">Use the search bar above to find a customer and generate their Statement of Account.</p>
     </div>
 
     {% endif %}
 
+    <!-- 6. Overdue Customers (>30 Days) Section -->
+    {% if overdue_customers %}
+    <div class="overdue-list-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <div>
+                <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:#991b1b; display:flex; align-items:center; gap:8px;">
+                    <i class="ph ph-warning-circle"></i> Overdue Customers (>30 Days Outstanding)
+                </h3>
+                <small style="color:#64748b;">Customers with pending invoice balances older than 30 days credit period.</small>
+            </div>
+            <span class="badge-overdue-pill">{{ overdue_customers|length }} Overdue Accounts</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="soa-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align:center;">SL</th>
+                        <th>Customer Name</th>
+                        <th style="width: 130px;">Mobile No</th>
+                        <th class="num-col" style="width: 110px;">Pending Inv</th>
+                        <th class="num-col" style="width: 130px;">Total Inv Value</th>
+                        <th class="num-col" style="width: 140px;">Overdue (>30d)</th>
+                        <th class="num-col" style="width: 110px;">Overdue Inv</th>
+                        <th style="width: 130px; text-align:center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in overdue_customers %}
+                    <tr>
+                        <td style="text-align:center; color:#94a3b8;">{{ row.sl_no }}</td>
+                        <td>
+                            <strong>{{ row.custname }}</strong>
+                            {% if row.customer.customer_type %}
+                                <span class="cust-badge" style="margin-left:4px;">{{ row.customer.customer_type.name }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ row.mobno }}
+                            {% if row.customer.whatsapp_number %}
+                                <a href="https://wa.me/{{ row.customer.whatsapp_number }}" target="_blank" style="color:#16a34a; margin-left:4px;" title="WhatsApp">
+                                    <i class="ph ph-whatsapp-logo"></i>
+                                </a>
+                            {% endif %}
+                        </td>
+                        <td class="num-col">{{ row.no_of_invc_pending }}</td>
+                        <td class="num-col">{{ currency }} {{ row.invc_value|floatformat:2 }}</td>
+                        <td class="num-col" style="color:#dc2626; font-weight:700;">
+                            {{ currency }} {{ row.overdue_amount|floatformat:2 }}
+                        </td>
+                        <td class="num-col">
+                            <span class="badge-overdue-pill">{{ row.overdue_invc }}</span>
+                        </td>
+                        <td style="text-align:center;">
+                            <a href="?customer={{ row.customer.id }}&from_date={{ from_date }}&to_date={{ to_date }}" class="btn-action" style="background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; padding:4px 12px; height:32px; font-size:0.8rem;">
+                                <i class="ph ph-file-text"></i> View SOA
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 
+<script>
+    // ── Live Customer Search Autocomplete ───
+    const searchInput = document.getElementById('customerSearchInput');
+    const searchResults = document.getElementById('customerSearchResults');
+    const clearBtn = document.getElementById('clearCustomerBtn');
+    const selectedCustomerId = document.getElementById('selectedCustomerId');
+    const soaForm = document.getElementById('soaFilterForm');
+    let searchTimeout = null;
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (clearBtn) clearBtn.style.display = query.length > 0 ? 'flex' : 'none';
+
+            clearTimeout(searchTimeout);
+            if (query.length < 1) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                fetch(`{% url 'customer_search_ajax' %}?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const results = data.results || [];
+                        if (results.length === 0) {
+                            searchResults.innerHTML = `
+                                <div style="padding: 14px; text-align: center; color: #64748b; font-size: 0.9rem;">
+                                    No customers found matching "${query}".
+                                </div>
+                            `;
+                        } else {
+                            searchResults.innerHTML = results.map(c => `
+                                <div class="customer-result-item" onclick="selectCustomer('${c.id}', '${escapeHtml(c.name)}', '${escapeHtml(c.phone)}')">
+                                    <div>
+                                        <div class="cust-info-title">
+                                            <span>${escapeHtml(c.name)}</span>
+                                            <span class="cust-badge">${escapeHtml(c.type)}</span>
+                                            ${c.tax_number ? `<span style="font-size:0.75rem; color:#64748b;">(TRN: ${escapeHtml(c.tax_number)})</span>` : ''}
+                                        </div>
+                                        <div class="cust-info-sub">
+                                            <span><i class="ph ph-phone"></i> ${escapeHtml(c.phone)}</span>
+                                            ${c.vehicles ? `<span><i class="ph ph-car"></i> ${escapeHtml(c.vehicles)}</span>` : ''}
+                                            ${c.branch ? `<span><i class="ph ph-buildings"></i> ${escapeHtml(c.branch)}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn-action" style="background:#4f46e5; color:white; border:none; padding:4px 12px; height:32px; font-size:0.8rem;">
+                                        Select SOA <i class="ph ph-arrow-right"></i>
+                                    </button>
+                                </div>
+                            `).join('');
+                        }
+                        searchResults.style.display = 'block';
+                    })
+                    .catch(err => {
+                        console.error('Search error:', err);
+                    });
+            }, 250);
+        });
+
+        // Hide results on outside click
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+    }
+
+    function selectCustomer(id, name, phone) {
+        selectedCustomerId.value = id;
+        searchInput.value = `${name} (${phone})`;
+        searchResults.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'flex';
+        // Submit form immediately to show SOA
+        soaForm.submit();
+    }
+
+    function focusCustomerSearch() {
+        selectedCustomerId.value = '';
+        searchInput.value = '';
+        searchInput.focus();
+        if (clearBtn) clearBtn.style.display = 'none';
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            focusCustomerSearch();
+        });
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // ── Quick Date Presets ───
+    function setPreset(type) {
+        const fromInput = document.getElementById('fromDateInput');
+        const toInput = document.getElementById('toDateInput');
+        const today = new Date();
+        const formatDate = d => d.toISOString().split('T')[0];
+
+        toInput.value = formatDate(today);
+
+        if (type === 'this_month') {
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            fromInput.value = formatDate(firstDay);
+        } else if (type === 'last_30_days') {
+            const d = new Date(today);
+            d.setDate(d.getDate() - 30);
+            fromInput.value = formatDate(d);
+        } else if (type === 'last_90_days') {
+            const d = new Date(today);
+            d.setDate(d.getDate() - 90);
+            fromInput.value = formatDate(d);
+        } else if (type === 'this_year') {
+            const d = new Date(today.getFullYear(), 0, 1);
+            fromInput.value = formatDate(d);
+        }
+
+        if (selectedCustomerId.value) {
+            soaForm.submit();
+        }
+    }
+</script>
 {% endblock %}

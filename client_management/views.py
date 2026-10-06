@@ -1985,128 +1985,377 @@ def load_vehicle_models(request):
 
 
 @login_required
-def customer_ledger(request):
+def customer_search_ajax(request):
+    """
+    Live autocomplete search for customers by name, phone, whatsapp, tax_number, vehicle_number.
+    """
+    q = request.GET.get('q', '').strip()
+    if not q:
+        return JsonResponse({'results': []})
 
-    customers = Customer.objects.filter(
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    customers_qs = Customer.objects.filter(is_deleted=False)
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        customers_qs = customers_qs.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        customers_qs = customers_qs.filter(company=user.profile.company)
+
+    customers_qs = customers_qs.filter(
+        Q(name__icontains=q) |
+        Q(phone__icontains=q) |
+        Q(whatsapp_number__icontains=q) |
+        Q(tax_number__icontains=q) |
+        Q(vehicles__vehicle__vehicle_number__icontains=q)
+    ).distinct().select_related('customer_type', 'branch').prefetch_related('vehicles__vehicle')[:20]
+
+    results = []
+    for c in customers_qs:
+        veh_list = [cv.vehicle.vehicle_number for cv in c.vehicles.all() if cv.vehicle and cv.vehicle.vehicle_number]
+        results.append({
+            'id': str(c.id),
+            'name': c.name,
+            'phone': c.phone,
+            'whatsapp': c.whatsapp_number or '',
+            'type': c.customer_type.name if c.customer_type else 'Regular',
+            'branch': c.branch.name if c.branch else '',
+            'vehicles': ", ".join(veh_list[:3]) if veh_list else '',
+            'tax_number': c.tax_number or '',
+        })
+
+    return JsonResponse({'results': results})
+
+
+def _build_customer_statement_context(request, customer, from_date, to_date):
+    """
+    Shared computation for customer Statement of Account (SOA).
+    Calculates opening balance, period transactions with running balance, and overdue stats.
+    """
+    from decimal import Decimal
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+    company = customer.company if customer else (getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None)
+
+    currency = '₹'
+    if customer and customer.company and customer.company.country:
+        currency = getattr(customer.company.country, 'currency_symbol', '₹') or '₹'
+    elif company and company.country:
+        currency = getattr(company.country, 'currency_symbol', '₹') or '₹'
+
+    # 1. Opening balance: all transactions before from_date
+    invoices_prior = Invoice.objects.filter(
+        customer=customer,
+        date__lt=from_date,
         is_deleted=False
     )
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        invoices_prior = invoices_prior.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and company:
+        invoices_prior = invoices_prior.filter(branch__company=company)
 
-    role = request.user.profile.role.name if request.user.profile.role else None
+    prior_agg = invoices_prior.aggregate(
+        tot=Coalesce(Sum('total'), Decimal('0.00'), output_field=DecimalField()),
+        col=Coalesce(Sum('amount_collected'), Decimal('0.00'), output_field=DecimalField())
+    )
+    opening_balance = prior_agg['tot'] - prior_agg['col']
 
-    # BRANCH ADMIN -> only own branch customers
-    if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+    # 2. Invoices in the selected period (chronological)
+    invoices_period = Invoice.objects.filter(
+        customer=customer,
+        date__gte=from_date,
+        date__lte=to_date,
+        is_deleted=False
+    ).select_related('vehicle', 'branch').prefetch_related('items').order_by('date', 'auto_id')
 
-        customers = customers.filter(
-            branch=request.user.managed_branch
-        )
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        invoices_period = invoices_period.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and company:
+        invoices_period = invoices_period.filter(branch__company=company)
 
-    # COMPANY ADMIN -> all branch customers under company
-    elif role == 'COMPANY_ADMIN' and request.user.profile.company:
-
-        customers = customers.filter(
-            company=request.user.profile.company
-        )
-
-    customer_id = request.GET.get('customer')
-
-    customer = None
+    # 3. Build chronological statement rows with running balance
     ledger_items = []
+    running_balance = opening_balance
+    sl_no = 1
 
-    total_services = 0
-    total_amount = 0
-    total_collected = 0
-    total_balance = 0
+    for invoice in invoices_period:
+        debit = invoice.total
+        credit = invoice.amount_collected
+        running_balance = running_balance + debit - credit
 
-    if customer_id:
+        items_list = [item.service_name for item in invoice.items.all() if item.service_name]
+        particulars = ", ".join(items_list) if items_list else "Service Invoice"
 
-        customer = get_object_or_404(
-            customers,
-            id=customer_id
-        )
+        ledger_items.append({
+            'sl_no': sl_no,
+            'date': invoice.date,
+            'invoice_number': invoice.invoice_number,
+            'invoice_id': str(invoice.id),
+            'vehicle_no': invoice.vehicle.vehicle_number if invoice.vehicle else '-',
+            'particulars': particulars,
+            'debit': debit,
+            'credit': credit,
+            'balance': running_balance,
+            'branch': invoice.branch.name if invoice.branch else '',
+        })
+        sl_no += 1
 
-        invoices = Invoice.objects.filter(
-            customer=customer,
-            is_deleted=False
-        ).select_related(
-            'vehicle',
-            'branch'
-        ).prefetch_related(
-            'items'
-        ).order_by('-date', '-id')
+    closing_balance = running_balance
 
-        # Restrict invoices by role
+    period_agg = invoices_period.aggregate(
+        tot=Coalesce(Sum('total'), Decimal('0.00'), output_field=DecimalField()),
+        col=Coalesce(Sum('amount_collected'), Decimal('0.00'), output_field=DecimalField())
+    )
+    period_invoiced = period_agg['tot']
+    period_collected = period_agg['col']
+    total_services = InvoiceItem.objects.filter(invoice__in=invoices_period, is_deleted=False).count()
 
-        if role == 'BRANCH_ADMIN' and hasattr(request.user, 'managed_branch'):
+    # 4. Overdue (>30 Days) for this customer
+    thirty_days_ago = now().date() - timedelta(days=30)
+    cust_overdue_qs = Invoice.objects.filter(
+        customer=customer,
+        date__lte=thirty_days_ago,
+        is_deleted=False
+    ).annotate(bal=F('total') - F('amount_collected')).filter(bal__gt=0)
 
-            invoices = invoices.filter(
-                branch=request.user.managed_branch
-            )
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        cust_overdue_qs = cust_overdue_qs.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and company:
+        cust_overdue_qs = cust_overdue_qs.filter(branch__company=company)
 
-        elif role == 'COMPANY_ADMIN' and request.user.profile.company:
+    cust_overdue_agg = cust_overdue_qs.aggregate(
+        amt=Coalesce(Sum('bal'), Decimal('0.00'), output_field=DecimalField()),
+        cnt=Count('id')
+    )
+    overdue_amount = cust_overdue_agg['amt']
+    overdue_invoices_count = cust_overdue_agg['cnt']
 
-            invoices = invoices.filter(
-                branch__company=request.user.profile.company
-            )
+    # 5. WhatsApp URL & Message
+    phone_raw = customer.whatsapp_number or customer.phone or ''
+    clean_phone = "".join(filter(str.isdigit, str(phone_raw)))
+    comp_name = company.company_name if company else 'Mobiz Car Wash'
 
-        sl_no = 1
+    wa_text = (
+        f"📄 *STATEMENT OF ACCOUNT*\n"
+        f"🏢 *{comp_name}*\n"
+        f"👤 Customer: *{customer.name}*\n"
+        f"📅 Period: *{from_date.strftime('%d-%m-%Y')}* to *{to_date.strftime('%d-%m-%Y')}*\n\n"
+        f"• *Opening Balance:* {currency} {opening_balance:,.2f}\n"
+        f"• *Total Invoiced:* {currency} {period_invoiced:,.2f}\n"
+        f"• *Total Paid:* {currency} {period_collected:,.2f}\n"
+        f"• *Closing Balance Due:* {currency} {closing_balance:,.2f}\n"
+    )
+    if overdue_amount > 0:
+        wa_text += f"⚠️ *Overdue (>30 Days):* {currency} {overdue_amount:,.2f} ({overdue_invoices_count} invoices)\n"
+    wa_text += f"\nPlease review your statement and arrange payment. Thank you!"
 
-        for invoice in invoices:
+    import urllib.parse
+    encoded_msg = urllib.parse.quote(wa_text)
+    whatsapp_url = f"https://wa.me/{clean_phone}?text={encoded_msg}" if clean_phone else ""
 
-            invoice_balance = invoice.total - invoice.amount_collected
-
-            for item in invoice.items.all():
-
-                ledger_items.append({
-                    'sl_no': sl_no,
-                    'date': invoice.date,
-                    'invoice_number': invoice.invoice_number,
-                    'vehicle_no': invoice.vehicle.vehicle_number if invoice.vehicle else '',
-                    'service_name': item.service_name,
-                    'price': invoice.total,
-                    'collected': invoice.amount_collected,
-                    'balance': invoice_balance,
-                    'branch': invoice.branch.name if invoice.branch else '',
-                })
-
-                sl_no += 1
-
-        total_services = InvoiceItem.objects.filter(
-            invoice__in=invoices,
-            is_deleted=False
-        ).count()
-
-        totals = invoices.aggregate(
-            total_amount=Coalesce(
-                Sum('total'),
-                0,
-                output_field=DecimalField()
-            ),
-            total_collected=Coalesce(
-                Sum('amount_collected'),
-                0,
-                output_field=DecimalField()
-            )
-        )
-
-        total_amount = totals['total_amount']
-        total_collected = totals['total_collected']
-        total_balance = total_amount - total_collected
-
-    context = {
-        'customers': customers,
+    return {
         'customer': customer,
-        'ledger_items': ledger_items,
+        'customer_id': str(customer.id),
+        'from_date': from_date.strftime('%Y-%m-%d'),
+        'to_date': to_date.strftime('%Y-%m-%d'),
+        'from_date_display': from_date.strftime('%d %b %Y'),
+        'to_date_display': to_date.strftime('%d %b %Y'),
+        'statement_date': now().date().strftime('%d %b %Y'),
+        'opening_balance': opening_balance,
+        'period_invoiced': period_invoiced,
+        'period_collected': period_collected,
+        'closing_balance': closing_balance,
+        'overdue_amount': overdue_amount,
+        'overdue_invoices_count': overdue_invoices_count,
         'total_services': total_services,
-        'total_amount': total_amount,
-        'total_collected': total_collected,
-        'total_balance': total_balance,
+        'ledger_items': ledger_items,
+        'currency': currency,
+        'company': company,
+        'whatsapp_url': whatsapp_url,
     }
 
-    return render(
-        request,
-        'customer/customer_ledger.html',
-        context
+
+def _generate_statement_pdf_response(request, context):
+    import sys
+    import os
+    from django.template.loader import render_to_string
+
+    if sys.platform == 'darwin':
+        os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
+    from weasyprint import HTML
+
+    html_string = render_to_string('customer/statement_of_account_pdf.html', context)
+    base_url = request.build_absolute_uri('/')
+    html = HTML(string=html_string, base_url=base_url)
+    pdf = html.write_pdf()
+
+    clean_cust_name = str(context['customer'].name).replace(' ', '_').replace('/', '_')
+    filename = f"Statement_of_Account_{clean_cust_name}_{context['from_date']}_to_{context['to_date']}.pdf"
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+@login_required
+def customer_statement_pdf(request):
+    """Dedicated endpoint to download/print Statement of Account PDF."""
+    from datetime import datetime
+    customer_id = request.GET.get('customer')
+    if not customer_id:
+        messages.error(request, "Please select a customer first.")
+        return redirect('customer_ledger')
+
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    customers = Customer.objects.filter(is_deleted=False)
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        customers = customers.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        customers = customers.filter(company=user.profile.company)
+
+    customer = get_object_or_404(customers, id=customer_id)
+
+    today = now().date()
+    from_date_str = request.GET.get('from_date', '').strip()
+    to_date_str = request.GET.get('to_date', '').strip()
+
+    if from_date_str:
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            from_date = today.replace(day=1)
+    else:
+        from_date = today.replace(day=1)
+
+    if to_date_str:
+        try:
+            to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            to_date = today
+    else:
+        to_date = today
+
+    context = _build_customer_statement_context(request, customer, from_date, to_date)
+    return _generate_statement_pdf_response(request, context)
+
+
+@login_required
+def customer_ledger(request):
+    from decimal import Decimal
+    from datetime import datetime
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    customers = Customer.objects.filter(is_deleted=False)
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        customers = customers.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        customers = customers.filter(company=user.profile.company)
+
+    company = None
+    if hasattr(user, 'profile') and user.profile.company:
+        company = user.profile.company
+
+    currency = '₹'
+    if company and company.country:
+        currency = getattr(company.country, 'currency_symbol', '₹') or '₹'
+
+    customer_id = request.GET.get('customer')
+    today = now().date()
+    from_date_str = request.GET.get('from_date', '').strip()
+    to_date_str = request.GET.get('to_date', '').strip()
+
+    if from_date_str:
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            from_date = today.replace(day=1)
+    else:
+        from_date = today.replace(day=1)
+
+    if to_date_str:
+        try:
+            to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            to_date = today
+    else:
+        to_date = today
+
+    # ── OVERDUE CUSTOMERS LIST (> 30 days outstanding) ───
+    thirty_days_ago = today - timedelta(days=30)
+    overdue_customers = []
+
+    overdue_invoices_qs = Invoice.objects.filter(
+        is_deleted=False,
+        date__lte=thirty_days_ago
     )
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        overdue_invoices_qs = overdue_invoices_qs.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and company:
+        overdue_invoices_qs = overdue_invoices_qs.filter(branch__company=company)
+
+    overdue_cust_summary = overdue_invoices_qs.annotate(
+        bal=F('total') - F('amount_collected')
+    ).filter(bal__gt=0).values('customer_id').annotate(
+        overdue_amount=Sum('bal'),
+        overdue_inv_count=Count('id')
+    ).order_by('-overdue_amount')[:100]
+
+    if overdue_cust_summary:
+        cust_ids = [item['customer_id'] for item in overdue_cust_summary]
+        cust_map = {str(c.id): c for c in Customer.objects.filter(id__in=cust_ids).select_related('customer_type', 'branch')}
+
+        all_pending_qs = Invoice.objects.filter(
+            customer_id__in=cust_ids,
+            is_deleted=False
+        ).annotate(bal=F('total') - F('amount_collected')).filter(bal__gt=0).values('customer_id').annotate(
+            total_pending_count=Count('id'),
+            total_inv_value=Sum('total')
+        )
+        pending_map = {str(p['customer_id']): p for p in all_pending_qs}
+
+        sl = 1
+        for item in overdue_cust_summary:
+            c_obj = cust_map.get(str(item['customer_id']))
+            if c_obj:
+                p_info = pending_map.get(str(item['customer_id']), {})
+                overdue_customers.append({
+                    'sl_no': sl,
+                    'customer': c_obj,
+                    'custname': c_obj.name,
+                    'mobno': c_obj.phone,
+                    'no_of_invc_pending': p_info.get('total_pending_count', item['overdue_inv_count']),
+                    'invc_value': p_info.get('total_inv_value', Decimal('0.00')),
+                    'overdue_amount': item['overdue_amount'],
+                    'overdue_invc': item['overdue_inv_count'],
+                })
+                sl += 1
+
+    if customer_id:
+        customer = get_object_or_404(customers, id=customer_id)
+        context = _build_customer_statement_context(request, customer, from_date, to_date)
+        context['overdue_customers'] = overdue_customers
+
+        if request.GET.get('pdf') == '1':
+            return _generate_statement_pdf_response(request, context)
+
+        return render(request, 'customer/customer_ledger.html', context)
+
+    # When no customer selected yet:
+    context = {
+        'customer': None,
+        'customer_id': '',
+        'from_date': from_date.strftime('%Y-%m-%d'),
+        'to_date': to_date.strftime('%Y-%m-%d'),
+        'from_date_display': from_date.strftime('%d %b %Y'),
+        'to_date_display': to_date.strftime('%d %b %Y'),
+        'currency': currency,
+        'company': company,
+        'overdue_customers': overdue_customers,
+    }
+    return render(request, 'customer/customer_ledger.html', context)
 
 
 @login_required

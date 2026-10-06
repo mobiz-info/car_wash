@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Statement of Account - {{ customer.name }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 12mm 14mm 14mm 14mm;
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 8pt;
+                color: #64748b;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            }
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 9pt;
+            color: #1e293b;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+        }
+
+        .header-table td {
+            vertical-align: top;
+        }
+
+        .company-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1e1b4b;
+            margin-bottom: 2px;
+            letter-spacing: -0.3px;
+        }
+
+        .company-meta {
+            font-size: 8.5pt;
+            color: #475569;
+            line-height: 1.35;
+        }
+
+        .logo-box {
+            text-align: right;
+        }
+
+        .logo-box img {
+            max-height: 55px;
+            max-width: 160px;
+            object-fit: contain;
+        }
+
+        .soa-banner {
+            background: linear-gradient(135deg, #1e1b4b, #312e81);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            margin: 10px 0 14px 0;
+        }
+
+        .soa-banner-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+        }
+
+        .soa-banner-title {
+            font-size: 13pt;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        .soa-banner-meta {
+            text-align: right;
+            font-size: 8.5pt;
+        }
+
+        /* 2-column info & summary box */
+        .info-grid-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 14px;
+        }
+
+        .info-grid-table td {
+            vertical-align: top;
+            width: 50%;
+        }
+
+        .customer-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-right: 6px;
+            min-height: 105px;
+        }
+
+        .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-left: 6px;
+            min-height: 105px;
+        }
+
+        .card-header-label {
+            font-size: 7.5pt;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: #64748b;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 3px;
+        }
+
+        .customer-name {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #0f172a;
+            margin-bottom: 2px;
+        }
+
+        .customer-meta-row {
+            font-size: 8.5pt;
+            color: #334155;
+            margin-top: 2px;
+        }
+
+        .customer-meta-label {
+            font-weight: 600;
+            color: #64748b;
+            display: inline-block;
+            width: 75px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 8.5pt;
+            padding: 2px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+
+        .summary-row-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .summary-row-table td {
+            font-size: 8.5pt;
+            padding: 2px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+
+        .summary-row-table td.val {
+            text-align: right;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .summary-total-td {
+            font-size: 9.5pt !important;
+            font-weight: bold !important;
+            color: #1e1b4b !important;
+            padding-top: 5px !important;
+            border-bottom: none !important;
+        }
+
+        .overdue-alert {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 8pt;
+            font-weight: bold;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        /* Transactions Table */
+        .statement-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            margin-bottom: 16px;
+        }
+
+        .statement-table th {
+            background-color: #312e81;
+            color: white;
+            font-size: 8pt;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 6px 6px;
+            text-align: left;
+            border: 1px solid #312e81;
+        }
+
+        .statement-table th.num-col {
+            text-align: right;
+        }
+
+        .statement-table td {
+            padding: 6px 6px;
+            font-size: 8pt;
+            border: 1px solid #e2e8f0;
+            color: #1e293b;
+        }
+
+        .statement-table td.num-col {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .statement-table tr:nth-child(even) td {
+            background-color: #f8fafc;
+        }
+
+        .opening-row td {
+            background-color: #f1f5f9 !important;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .table-total-row td {
+            background-color: #e0e7ff !important;
+            font-weight: bold;
+            font-size: 8.5pt;
+            border-top: 2px solid #312e81;
+            border-bottom: 2px solid #312e81;
+            color: #1e1b4b;
+        }
+
+        .table-total-row td.num-col {
+            text-align: right;
+        }
+
+        /* Footer & Signatures */
+        .footer-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .footer-table td {
+            vertical-align: top;
+            width: 50%;
+        }
+
+        .notes-box {
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 7.5pt;
+            color: #6b7280;
+            margin-right: 20px;
+        }
+
+        .notes-box h5 {
+            margin: 0 0 3px 0;
+            font-size: 8pt;
+            color: #374151;
+            text-transform: uppercase;
+        }
+
+        .signature-box {
+            text-align: right;
+            padding-right: 10px;
+        }
+
+        .signature-box .seal-img {
+            max-height: 50px;
+            margin-bottom: 4px;
+            display: inline-block;
+        }
+
+        .signature-line {
+            border-top: 1px solid #cbd5e1;
+            width: 170px;
+            margin-left: auto;
+            margin-top: 25px;
+            padding-top: 4px;
+            font-size: 8pt;
+            font-weight: 600;
+            color: #475569;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 65%;">
+                <div class="company-title">
+                    {% if company %}{{ company.company_name }}{% else %}Mobiz Car Wash{% endif %}
+                </div>
+                <div class="company-meta">
+                    {% if company.business_name and company.business_name != company.company_name %}
+                        <div><strong>Trading As:</strong> {{ company.business_name }}</div>
+                    {% endif %}
+                    {% if company.address %}
+                        <div>{{ company.address }}</div>
+                    {% endif %}
+                    <div>
+                        {% if company.phone %}<span>Phone: {{ company.phone }}</span>{% endif %}
+                        {% if company.email %}<span> | Email: {{ company.email }}</span>{% endif %}
+                    </div>
+                    {% if company.gst_number %}
+                        <div><strong>GST / Tax ID / TRN:</strong> {{ company.gst_number }}</div>
+                    {% endif %}
+                    {% if company.tin_pan_no %}
+                        <div><strong>TIN / PAN No:</strong> {{ company.tin_pan_no }}</div>
+                    {% endif %}
+                </div>
+            </td>
+            <td class="logo-box" style="width: 35%;">
+                {% if company.logo_color %}
+                    <img src="{{ company.logo_color.url }}" alt="Company Logo">
+                {% elif company.logo_bw %}
+                    <img src="{{ company.logo_bw.url }}" alt="Company Logo">
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <!-- Banner -->
+    <div class="soa-banner">
+        <table class="soa-banner-table">
+            <tr>
+                <td class="soa-banner-title">
+                    STATEMENT OF ACCOUNT
+                </td>
+                <td class="soa-banner-meta">
+                    <div><strong>Statement Date:</strong> {{ statement_date }}</div>
+                    <div><strong>Period:</strong> {{ from_date_display }} — {{ to_date_display }}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Customer Details & Summary Cards -->
+    <table class="info-grid-table">
+        <tr>
+            <td>
+                <div class="customer-card">
+                    <div class="card-header-label">BILLED TO / CUSTOMER DETAILS</div>
+                    <div class="customer-name">{{ customer.name }}</div>
+                    {% if customer.customer_type %}
+                        <div style="font-size: 8pt; color: #4338ca; font-weight: 600; margin-bottom: 4px;">
+                            {{ customer.customer_type.name }} Customer
+                        </div>
+                    {% endif %}
+                    <div class="customer-meta-row">
+                        <span class="customer-meta-label">Phone:</span> {{ customer.phone }}
+                        {% if customer.whatsapp_number and customer.whatsapp_number != customer.phone %}
+                            | <span style="color:#64748b;">WA:</span> {{ customer.whatsapp_number }}
+                        {% endif %}
+                    </div>
+                    {% if customer.email %}
+                        <div class="customer-meta-row">
+                            <span class="customer-meta-label">Email:</span> {{ customer.email }}
+                        </div>
+                    {% endif %}
+                    {% if customer.address %}
+                        <div class="customer-meta-row">
+                            <span class="customer-meta-label">Address:</span> {{ customer.address }}
+                        </div>
+                    {% endif %}
+                    {% if customer.tax_number %}
+                        <div class="customer-meta-row">
+                            <span class="customer-meta-label">Tax / TRN:</span> <strong>{{ customer.tax_number }}</strong>
+                        </div>
+                    {% endif %}
+                    {% if customer.tin_number %}
+                        <div class="customer-meta-row">
+                            <span class="customer-meta-label">TIN No:</span> {{ customer.tin_number }}
+                        </div>
+                    {% endif %}
+                </div>
+            </td>
+            <td>
+                <div class="summary-card">
+                    <div class="card-header-label">ACCOUNT SUMMARY ({{ currency }})</div>
+                    <table class="summary-row-table">
+                        <tr>
+                            <td>Opening Balance:</td>
+                            <td class="val">{{ currency }} {{ opening_balance|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Invoiced (Debits):</td>
+                            <td class="val">{{ currency }} {{ period_invoiced|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Paid (Credits):</td>
+                            <td class="val" style="color: #15803d;">{{ currency }} {{ period_collected|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="summary-total-td">Closing Balance Due:</td>
+                            <td class="val summary-total-td" style="{% if closing_balance > 0 %}color:#b91c1c;{% endif %}">
+                                {{ currency }} {{ closing_balance|floatformat:2 }}
+                            </td>
+                        </tr>
+                    </table>
+                    {% if overdue_amount > 0 %}
+                        <div class="overdue-alert">
+                            ⚠️ Overdue (>30 Days): {{ currency }} {{ overdue_amount|floatformat:2 }} ({{ overdue_invoices_count }} Inv)
+                        </div>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Transactions Table -->
+    <table class="statement-table">
+        <thead>
+            <tr>
+                <th style="width: 28px; text-align: center;">#</th>
+                <th style="width: 70px;">Date</th>
+                <th>Particulars / Description</th>
+                <th style="width: 80px;">Invoice #</th>
+                <th style="width: 80px;">Vehicle #</th>
+                <th class="num-col" style="width: 75px;">Debit ({{ currency }})</th>
+                <th class="num-col" style="width: 75px;">Credit ({{ currency }})</th>
+                <th class="num-col" style="width: 85px;">Balance ({{ currency }})</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Opening Balance Row -->
+            <tr class="opening-row">
+                <td style="text-align: center;">-</td>
+                <td>{{ from_date_display }}</td>
+                <td colspan="3"><strong>OPENING BALANCE B/F</strong></td>
+                <td class="num-col">-</td>
+                <td class="num-col">-</td>
+                <td class="num-col"><strong>{{ currency }} {{ opening_balance|floatformat:2 }}</strong></td>
+            </tr>
+
+            {% for item in ledger_items %}
+            <tr>
+                <td style="text-align: center; color: #94a3b8;">{{ item.sl_no }}</td>
+                <td>{{ item.date|date:"d-m-Y" }}</td>
+                <td>{{ item.particulars }}</td>
+                <td><strong>{{ item.invoice_number }}</strong></td>
+                <td>{{ item.vehicle_no }}</td>
+                <td class="num-col">{{ item.debit|floatformat:2 }}</td>
+                <td class="num-col" style="{% if item.credit > 0 %}color:#15803d; font-weight:600;{% endif %}">
+                    {% if item.credit > 0 %}{{ item.credit|floatformat:2 }}{% else %}-{% endif %}
+                </td>
+                <td class="num-col" style="font-weight: 600; {% if item.balance > 0 %}color:#b91c1c;{% endif %}">
+                    {{ item.balance|floatformat:2 }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 18px; color: #94a3b8;">
+                    No invoice transactions recorded during this period.
+                </td>
+            </tr>
+            {% endfor %}
+
+            <!-- Total Row -->
+            <tr class="table-total-row">
+                <td colspan="5" style="text-align: right; text-transform: uppercase;">
+                    Period Totals & Closing Balance:
+                </td>
+                <td class="num-col">{{ period_invoiced|floatformat:2 }}</td>
+                <td class="num-col">{{ period_collected|floatformat:2 }}</td>
+                <td class="num-col" style="{% if closing_balance > 0 %}color:#b91c1c;{% endif %}">
+                    {{ currency }} {{ closing_balance|floatformat:2 }}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Footer Notes & Signatures -->
+    <table class="footer-table">
+        <tr>
+            <td>
+                <div class="notes-box">
+                    <h5>Terms & Payment Instructions</h5>
+                    <div>• Please verify all transactions listed above and report any discrepancies within 7 days.</div>
+                    <div>• Overdue accounts may attract service suspension or delayed booking confirmations.</div>
+                    <div>• Payments can be made via Cash, Card, UPI, or Direct Bank Transfer.</div>
+                    <div style="margin-top: 4px;">Thank you for choosing <strong>{% if company %}{{ company.company_name }}{% else %}our car care center{% endif %}</strong>!</div>
+                </div>
+            </td>
+            <td class="signature-box">
+                {% if company.company_seal %}
+                    <img src="{{ company.company_seal.url }}" alt="Company Seal" class="seal-img">
+                {% endif %}
+                <div class="signature-line">
+                    Authorized Signatory
+                </div>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

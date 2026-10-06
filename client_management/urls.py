@@ -186,9 +186,11 @@ urlpatterns = [
     path('settings/bulk-sms/', views.bulk_sms_settings, name='bulk_sms_settings'),
     path('settings/gmail-credentials/', views.gmail_credentials, name='gmail_credentials'),
     
-    path('customer-ledger/',views.customer_ledger,name='customer_ledger'),
-    path('inactive-customer/',views.inactive_customer,name='inactive_customer'),
-    path('new-customer/',views.new_customer,name='new_customer'),
+    path('customer-ledger/', views.customer_ledger, name='customer_ledger'),
+    path('customer-ledger/search-ajax/', views.customer_search_ajax, name='customer_search_ajax'),
+    path('customer-ledger/pdf/', views.customer_statement_pdf, name='customer_statement_pdf'),
+    path('inactive-customer/', views.inactive_customer, name='inactive_customer'),
+    path('new-customer/', views.new_customer, name='new_customer'),
     
     # Purchase Requests
     path('purchase-requests/', views.purchase_request_list, name='purchase_request_list'),
