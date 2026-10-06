@@ -492,16 +492,8 @@
     <!-- Footer Notes & Signatures -->
     <table class="footer-table">
         <tr>
-            <td>
-                <div class="notes-box">
-                    <h5>Terms & Payment Instructions</h5>
-                    <div>• Please verify all transactions listed above and report any discrepancies within 7 days.</div>
-                    <div>• Overdue accounts may attract service suspension or delayed booking confirmations.</div>
-                    <div>• Payments can be made via Cash, Card, UPI, or Direct Bank Transfer.</div>
-                    <div style="margin-top: 4px;">Thank you for choosing <strong>{% if company %}{{ company.company_name }}{% else %}our car care center{% endif %}</strong>!</div>
-                </div>
-            </td>
-            <td class="signature-box">
+            <td style="width: 60%;"></td>
+            <td class="signature-box" style="width: 40%;">
                 {% if company.company_seal %}
                     <img src="{{ company.company_seal.url }}" alt="Company Seal" class="seal-img">
                 {% endif %}
