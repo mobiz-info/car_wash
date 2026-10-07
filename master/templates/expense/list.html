@@ -1,190 +1,538 @@
 {% extends 'base.html' %}
 
 {% block title %}Expense List - Mobiz Autocare Pro{% endblock %}
-{% block page_title %}Expense List{% endblock %}
-{% block breadcrumb_active %}Expense List{% endblock %}
+{% block page_title %}Expense Management{% endblock %}
+{% block breadcrumb_active %}Expenses{% endblock %}
 
 {% block content %}
+<style>
+    .expense-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
 
-<div class="list-container">
+    .expense-kpi-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
 
-    <div class="list-header">
+    .expense-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+    }
 
-        <form method="GET"
-              class="search-wrapper">
+    .kpi-icon-wrapper {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+        flex-shrink: 0;
+    }
 
-            <i class="ph ph-magnifying-glass search-icon"></i>
+    .kpi-icon-blue { background: #eff6ff; color: #2563eb; }
+    .kpi-icon-purple { background: #f5f3ff; color: #7c3aed; }
+    .kpi-icon-green { background: #ecfdf5; color: #059669; }
+    .kpi-icon-amber { background: #fffbeb; color: #d97706; }
 
-            <input type="text"
-                   name="search"
-                   value="{{ search }}"
-                   placeholder="Search Expense..."
-                   class="search-input">
+    .kpi-content {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
 
-        </form>
+    .kpi-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
 
-        <a href="{% url 'expense_create' %}"
-           class="btn-create">
+    .kpi-value {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
-            <i class="ph-bold ph-plus"></i>
+    /* Filter Bar */
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
 
-            Add Expense
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        align-items: flex-end;
+    }
 
-        </a>
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
 
+    .filter-group label {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .filter-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        background: #ffffff;
+        color: #1e293b;
+        transition: all 0.2s;
+        outline: none;
+    }
+
+    .filter-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .preset-pills {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px dashed #e2e8f0;
+    }
+
+    .preset-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 0.82rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .preset-pill:hover, .preset-pill.active {
+        background: #e0e7ff;
+        color: #4338ca;
+        border-color: #c7d2fe;
+    }
+
+    /* Table Badges */
+    .head-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: #f1f5f9;
+        color: #334155;
+    }
+
+    .supplier-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: #ede9fe;
+        color: #6d28d9;
+    }
+
+    .status-badge-paid {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .status-badge-due {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: #fef3c7;
+        color: #b45309;
+    }
+</style>
+
+<!-- Financial KPI Summary Cards -->
+<div class="expense-kpi-grid">
+    <div class="expense-kpi-card">
+        <div class="kpi-icon-wrapper kpi-icon-blue">
+            <i class="ph-bold ph-receipt"></i>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-label">Total Records</div>
+            <div class="kpi-value">{{ total_expenses_count }}</div>
+        </div>
     </div>
 
+    <div class="expense-kpi-card">
+        <div class="kpi-icon-wrapper kpi-icon-purple">
+            <i class="ph-bold ph-coins"></i>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-label">Total Expense</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ total_amount|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <div class="expense-kpi-card">
+        <div class="kpi-icon-wrapper kpi-icon-green">
+            <i class="ph-bold ph-check-circle"></i>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-label">Total Paid</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ total_paid|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <div class="expense-kpi-card">
+        <div class="kpi-icon-wrapper kpi-icon-amber">
+            <i class="ph-bold ph-clock-counter-clockwise"></i>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-label">Payable / Due</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ total_balance|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters Card -->
+<div class="filter-card">
+    <form method="GET" id="expenseFilterForm">
+        <div class="filter-grid">
+            <!-- Search -->
+            <div class="filter-group" style="grid-column: span 1;">
+                <label><i class="ph ph-magnifying-glass"></i> Search</label>
+                <input type="text" name="search" value="{{ search }}" class="filter-control"
+                       placeholder="Item, head, remark, supplier...">
+            </div>
+
+            <!-- Branch (for Company Admin) -->
+            {% if role_name == 'COMPANY_ADMIN' and branches %}
+            <div class="filter-group">
+                <label><i class="ph ph-buildings"></i> Branch</label>
+                <select name="branch_id" class="filter-control">
+                    <option value="all">All Branches</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if branch_id == b.id|stringformat:"s" %}selected{% endif %}>
+                        {{ b.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- Expense Head -->
+            <div class="filter-group">
+                <label><i class="ph ph-tag"></i> Expense Head</label>
+                <select name="head_id" class="filter-control">
+                    <option value="all">All Expense Heads</option>
+                    {% for h in expense_heads %}
+                    <option value="{{ h.id }}" {% if head_id == h.id|stringformat:"s" %}selected{% endif %}>
+                        {{ h.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- From Date -->
+            <div class="filter-group">
+                <label><i class="ph ph-calendar"></i> From Date</label>
+                <input type="date" name="from_date" id="from_date_input" value="{{ from_date }}" class="filter-control">
+            </div>
+
+            <!-- To Date -->
+            <div class="filter-group">
+                <label><i class="ph ph-calendar"></i> To Date</label>
+                <input type="date" name="to_date" id="to_date_input" value="{{ to_date }}" class="filter-control">
+            </div>
+
+            <!-- Filter Buttons -->
+            <div style="display: flex; gap: 8px;">
+                <button type="submit" class="btn-primary" style="flex: 1; padding: 10px 16px; border-radius: 10px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="ph-bold ph-funnel"></i> Filter
+                </button>
+                <a href="{% url 'expense_list' %}" class="btn-secondary" style="padding: 10px 14px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" title="Reset Filters">
+                    <i class="ph ph-arrow-counter-clockwise"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Quick Date Range Presets -->
+        <div class="preset-pills">
+            <span style="font-size: 0.8rem; font-weight: 600; color: #64748b; display: flex; align-items: center; gap: 4px;">
+                <i class="ph ph-lightning"></i> Quick Filters:
+            </span>
+            <button type="button" class="preset-pill" onclick="setDatePreset('today')">Today</button>
+            <button type="button" class="preset-pill" onclick="setDatePreset('yesterday')">Yesterday</button>
+            <button type="button" class="preset-pill" onclick="setDatePreset('this_week')">This Week</button>
+            <button type="button" class="preset-pill" onclick="setDatePreset('this_month')">This Month</button>
+            <button type="button" class="preset-pill" onclick="setDatePreset('clear')">All Time</button>
+        </div>
+    </form>
+</div>
+
+<!-- List Header & Table -->
+<div class="list-container">
+    <div class="list-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 16px;">
+        <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                Expenses History
+            </h3>
+            <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                Showing recorded expenditures and payment status
+            </p>
+        </div>
+
+        <a href="{% url 'expense_create' %}" class="btn-create" style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="ph-bold ph-plus"></i>
+            Add Expense
+        </a>
+    </div>
+
+    <!-- Feedback Messages -->
+    {% if messages %}
+    <div style="margin-bottom: 16px;">
+        {% for message in messages %}
+        <div style="margin-bottom:8px; padding:12px 16px; border-radius:10px; display:flex; align-items:center; gap:8px;
+            {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+            {% elif message.tags == 'error' %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;
+            {% elif message.tags == 'warning' %}background:#fef3c7; color:#92400e; border:1px solid #fde68a;
+            {% else %}background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;{% endif %}">
+            <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% elif message.tags == 'error' %}ph-warning-circle{% elif message.tags == 'warning' %}ph-warning{% else %}ph-info{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div style="overflow-x:auto;">
-
         <table class="premium-table">
-
             <thead>
-
                 <tr>
-
                     <th>#</th>
-
-                    <th>Branch</th>
-
-                    <th>Expense Head</th>
-
-                    <th>Expense</th>
-
-                    <th>Amount</th>
-
                     <th>Date</th>
-
+                    {% if role_name == 'COMPANY_ADMIN' %}
+                    <th>Branch</th>
+                    {% endif %}
+                    <th>Expense Head</th>
+                    <th>Expense Item</th>
+                    <th>Supplier / Payee</th>
+                    <th>Amount</th>
+                    <th>Paid</th>
+                    <th>Status</th>
                     <th>Remarks</th>
-
-                    <th style="text-align:right;">
-                        Actions
-                    </th>
-
+                    <th style="text-align:right;">Actions</th>
                 </tr>
-
             </thead>
-
             <tbody>
-
                 {% for obj in page_obj %}
-
                 <tr>
-
-                    <td style="color:#94a3b8;">
+                    <td style="color:#94a3b8; font-weight: 500;">
                         {{ forloop.counter }}
                     </td>
 
-                    <td style="font-weight:600;">
-                        {{ obj.branch.name }}
+                    <td style="white-space:nowrap; font-weight: 600; color: #334155;">
+                        <i class="ph ph-calendar-blank" style="color:#94a3b8; margin-right: 2px;"></i>
+                        {{ obj.expense_date|date:"d M Y" }}
                     </td>
 
+                    {% if role_name == 'COMPANY_ADMIN' %}
                     <td>
-                        {{ obj.expense.expense_head.name }}
+                        <span style="font-weight: 600; color: #1e293b;">
+                            {{ obj.branch.name|default:"-" }}
+                        </span>
                     </td>
+                    {% endif %}
 
                     <td>
+                        <span class="head-badge">
+                            <i class="ph ph-tag" style="color:#64748b;"></i>
+                            {{ obj.expense.expense_head.name|default:"General" }}
+                        </span>
+                    </td>
+
+                    <td style="font-weight: 600; color: #0f172a;">
                         {{ obj.expense.name }}
                     </td>
 
-                    <td style="font-weight:600; color:#16a34a;">
-                        ₹ {{ obj.amount }}
+                    <td>
+                        {% if obj.supplier %}
+                        <span class="supplier-badge">
+                            <i class="ph ph-truck"></i> {{ obj.supplier.name }}
+                        </span>
+                        {% else %}
+                        <span style="color:#94a3b8; font-size:0.85rem;">Cash / Direct</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="font-weight: 700; color: #0f172a; white-space: nowrap;">
+                        {{ currency_symbol }} {{ obj.amount|floatformat:2 }}
+                    </td>
+
+                    <td style="font-weight: 600; color: #059669; white-space: nowrap;">
+                        {{ currency_symbol }} {{ obj.paid_amount|default:obj.amount|floatformat:2 }}
                     </td>
 
                     <td>
-                        {{ obj.expense_date }}
+                        {% if obj.paid_amount >= obj.amount %}
+                        <span class="status-badge-paid">
+                            <i class="ph ph-check"></i> Paid
+                        </span>
+                        {% else %}
+                        <span class="status-badge-due" title="Due: {{ currency_symbol }} {{ obj.amount|add:'-1'|default:'' }}">
+                            <i class="ph ph-clock"></i> Partial
+                        </span>
+                        {% endif %}
                     </td>
 
-                    <td>
+                    <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #64748b;" title="{{ obj.remarks }}">
                         {{ obj.remarks|default:"-" }}
                     </td>
 
                     <td style="text-align:right;">
-
                         <div style="display:flex; gap:8px; justify-content:flex-end;">
-
                             <a href="{% url 'expense_edit' obj.pk %}"
-                               class="action-btn edit">
-
+                               class="action-btn edit"
+                               title="Edit Expense">
                                 <i class="ph ph-pencil-simple"></i>
-
                             </a>
 
                             <a href="{% url 'expense_delete' obj.pk %}"
-                               onclick="return confirm('Delete this Expense?')"
-                               class="action-btn delete">
-
+                               onclick="return confirm('Are you sure you want to delete this expense record?')"
+                               class="action-btn delete"
+                               title="Delete Expense">
                                 <i class="ph ph-trash"></i>
-
                             </a>
-
                         </div>
-
                     </td>
-
                 </tr>
-
                 {% empty %}
-
                 <tr>
-
-                    <td colspan="8"
-                        style="text-align:center; padding:40px; color:#94a3b8;">
-
-                        <i class="ph ph-wallet"
-                           style="font-size:3rem; display:block; margin-bottom:10px;"></i>
-
-                        No Expenses Found.
-
+                    <td colspan="{% if role_name == 'COMPANY_ADMIN' %}11{% else %}10{% endif %}"
+                        style="text-align:center; padding: 48px 20px; color:#94a3b8;">
+                        <i class="ph ph-wallet" style="font-size:3.5rem; display:block; margin-bottom:12px; color:#cbd5e1;"></i>
+                        <p style="font-size:1.05rem; font-weight:600; color:#475569; margin:0 0 6px 0;">No Expenses Found</p>
+                        <p style="font-size:0.88rem; color:#94a3b8; margin:0 0 16px 0;">No records match your selected filters.</p>
+                        <a href="{% url 'expense_create' %}" class="btn-create" style="display:inline-flex; align-items:center; gap:6px;">
+                            <i class="ph-bold ph-plus"></i> Add Expense Now
+                        </a>
                     </td>
-
                 </tr>
-
                 {% endfor %}
-
             </tbody>
-
         </table>
-
     </div>
 
+    <!-- Pagination -->
     {% if page_obj.has_other_pages %}
-
-    <div class="pagination">
-
+    <div class="pagination" style="margin-top: 24px;">
         {% if page_obj.has_previous %}
-
-        <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}"
+        <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&from_date={{ from_date }}&to_date={{ to_date }}&branch_id={{ branch_id }}&head_id={{ head_id }}"
            class="page-link">
-
-            Previous
-
+            &laquo; Previous
         </a>
-
         {% endif %}
 
         <span>
-
-            Page {{ page_obj.number }}
-            of
-            {{ page_obj.paginator.num_pages }}
-
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
         </span>
 
         {% if page_obj.has_next %}
-
-        <a href="?page={{ page_obj.next_page_number }}&search={{ search }}"
+        <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&from_date={{ from_date }}&to_date={{ to_date }}&branch_id={{ branch_id }}&head_id={{ head_id }}"
            class="page-link">
-
-            Next
-
+            Next &raquo;
         </a>
-
         {% endif %}
-
     </div>
-
     {% endif %}
-
 </div>
 
+<script>
+    function setDatePreset(type) {
+        const fromInput = document.getElementById('from_date_input');
+        const toInput = document.getElementById('to_date_input');
+        const form = document.getElementById('expenseFilterForm');
+        const now = new Date();
+
+        function formatDate(d) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        if (type === 'today') {
+            const todayStr = formatDate(now);
+            fromInput.value = todayStr;
+            toInput.value = todayStr;
+        } else if (type === 'yesterday') {
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yStr = formatDate(yesterday);
+            fromInput.value = yStr;
+            toInput.value = yStr;
+        } else if (type === 'this_week') {
+            const firstDay = new Date(now);
+            const day = firstDay.getDay() || 7; // Get Monday
+            firstDay.setDate(firstDay.getDate() - day + 1);
+            fromInput.value = formatDate(firstDay);
+            toInput.value = formatDate(now);
+        } else if (type === 'this_month') {
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            fromInput.value = formatDate(firstDay);
+            toInput.value = formatDate(now);
+        } else if (type === 'clear') {
+            fromInput.value = '';
+            toInput.value = '';
+        }
+
+        form.submit();
+    }
+</script>
 {% endblock %}

@@ -4,276 +4,642 @@
 {% block breadcrumb_active %}{{ title }}{% endblock %}
 
 {% block content %}
-
 <style>
+.form-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.form-header-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.form-header-icon {
+    width: 44px;
+    height: 44px;
+    background: #e0e7ff;
+    color: #4338ca;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.form-header-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.form-header-subtitle {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 2px 0 0 0;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-col-span-2 {
+    grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+    .form-col-span-2 {
+        grid-column: span 1;
+    }
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.form-label .required {
+    color: #ef4444;
+}
+
 .form-control,
-textarea,
-select,
-input[type="date"],
-input[type="number"],
-input[type="text"] {
+textarea.form-control,
+select.form-control {
     width: 100%;
-    padding: 12px 14px;
-    border: 1px solid #d1d5db;
+    padding: 11px 14px;
+    border: 1px solid #cbd5e1;
     border-radius: 10px;
-    font-size: 14px;
-    background: #fff;
+    font-size: 0.92rem;
+    background: #ffffff;
+    color: #1e293b;
     transition: all 0.2s ease;
     outline: none;
+    box-sizing: border-box;
 }
 
 .form-control:focus,
-textarea:focus,
-select:focus,
-input:focus {
+select.form-control:focus,
+textarea.form-control:focus {
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.10);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
 }
 
-textarea.form-control {
-    min-height: 120px;
-    resize: vertical;
+.input-with-prefix {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-prefix {
+    position: absolute;
+    left: 14px;
+    font-weight: 600;
+    color: #64748b;
+    pointer-events: none;
+    font-size: 0.95rem;
+}
+
+.input-with-prefix input {
+    padding-left: 36px;
+}
+
+.btn-inline-action {
+    background: none;
+    border: none;
+    color: #3b82f6;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s;
+}
+
+.btn-inline-action:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+/* Modal for Add Expense Head */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+}
+
+.modal-box {
+    background: #ffffff;
+    border-radius: 16px;
+    max-width: 440px;
+    width: 100%;
+    padding: 24px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 </style>
 
-<div class="premium-form-container">
-    <div class="premium-form-title">
-        <i class="ph ph-wallet" style="color:#3b82f6;"></i>
-        {{ title }}
+<div class="form-card">
+    <div class="form-header-bar">
+        <div class="form-header-icon">
+            <i class="ph-bold ph-receipt"></i>
+        </div>
+        <div>
+            <h2 class="form-header-title">{{ title }}</h2>
+            <p class="form-header-subtitle">
+                {% if role_name == 'COMPANY_ADMIN' %}
+                Record expense across company branches
+                {% else %}
+                Record expense for <strong>{{ branch.name }}</strong>
+                {% endif %}
+            </p>
+        </div>
     </div>
 
-    <form method="POST">
+    <!-- Messages -->
+    {% if messages %}
+    <div style="margin-bottom: 20px;">
+        {% for message in messages %}
+        <div style="margin-bottom:8px; padding:12px 16px; border-radius:10px; display:flex; align-items:center; gap:8px;
+            {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
+            {% elif message.tags == 'error' %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;
+            {% else %}background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;{% endif %}">
+            <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% else %}ph-warning-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="POST" id="expenseForm">
         {% csrf_token %}
 
-        <div class="row" style="display: flex; flex-wrap: wrap; margin: -8px;">
+        <div class="form-grid">
 
+            <!-- Branch Selection (Company Admin) -->
             {% if role_name == 'COMPANY_ADMIN' %}
-            <!-- Branch -->
-            <div style="width: 50%; padding: 8px;">
-                <div class="form-group">
-                    <label>Branch <span style="color:red;">*</span></label>
-                    <select name="branch" class="form-control" required>
-                        <option value="">Select Branch</option>
-                        {% for branch in branches %}
-                        <option value="{{ branch.id }}" {% if expense_entry and expense_entry.branch.id == branch.id %}selected{% endif %}>
-                            {{ branch.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
+            <div class="form-group">
+                <label class="form-label">
+                    <span>Branch <span class="required">*</span></span>
+                </label>
+                <select name="branch" class="form-control" required>
+                    <option value="">-- Select Branch --</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if expense_entry and expense_entry.branch.id == b.id %}selected{% endif %}>
+                        {{ b.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <!-- Branch Info for Branch Admin -->
+            <div class="form-group">
+                <label class="form-label">Branch</label>
+                <div style="padding: 11px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                    <i class="ph-bold ph-buildings" style="color: #64748b;"></i>
+                    {{ branch.name }}
                 </div>
             </div>
             {% endif %}
 
             <!-- Expense Date -->
-            <div style="width: 50%; padding: 8px;">
-                <div class="form-group">
-                    <label>Expense Date <span style="color:red;">*</span></label>
-                    <input type="date" name="expense_date" class="form-control" value="{% if expense_entry %}{{ expense_entry.expense_date|date:'Y-m-d' }}{% endif %}" required>
-                </div>
+            <div class="form-group">
+                <label class="form-label">
+                    <span>Expense Date <span class="required">*</span></span>
+                </label>
+                <input type="date" name="expense_date" id="expense_date_input" class="form-control"
+                       value="{% if expense_entry %}{{ expense_entry.expense_date|date:'Y-m-d' }}{% endif %}" required>
             </div>
 
             <!-- Expense Head -->
-            <div style="width: 50%; padding: 8px;">
-                <div class="form-group">
-                    <label>Expense Head <span style="color:red;">*</span></label>
-                    <select name="expense_head" id="expense_head" class="form-control" required>
-                        <option value="">Select Expense Head</option>
-                        {% for head in expense_heads %}
-                        <option value="{{ head.id }}" {% if expense_entry and expense_entry.expense.expense_head.id == head.id %}selected{% endif %}>
-                            {{ head.name }}
-                        </option>
-                        {% endfor %}
+            <div class="form-group">
+                <label class="form-label">
+                    <span>Expense Head <span class="required">*</span></span>
+                    <button type="button" class="btn-inline-action" onclick="openHeadModal()">
+                        <i class="ph-bold ph-plus"></i> New Head
+                    </button>
+                </label>
+                <select name="expense_head" id="expense_head" class="form-control" required>
+                    <option value="">-- Select Expense Head --</option>
+                    {% for head in expense_heads %}
+                    <option value="{{ head.id }}" data-head-name="{{ head.name|lower }}"
+                        {% if expense_entry and expense_entry.expense.expense_head.id == head.id %}selected{% endif %}>
+                        {{ head.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Expense Name / Item -->
+            <div class="form-group">
+                <label class="form-label">
+                    <span>Expense Name / Item <span class="required">*</span></span>
+                    <button type="button" class="btn-inline-action" id="toggle_custom_name_btn" onclick="toggleCustomNameInput()">
+                        <i class="ph ph-pencil-simple"></i> Custom Name
+                    </button>
+                </label>
+
+                <!-- Select Mode Container -->
+                <div id="expense_select_container">
+                    <select id="expense_name_select" class="form-control" onchange="handleSelectChange(this)">
+                        <option value="">-- Select Expense Head First --</option>
                     </select>
                 </div>
+
+                <!-- Custom Text Input Container (Hidden by default, or active if typed) -->
+                <div id="expense_text_container" style="display: none;">
+                    <input type="text" id="expense_name_text" class="form-control"
+                           placeholder="e.g. Office Supplies, Fuel, Maintenance..."
+                           value="{% if expense_entry %}{{ expense_entry.expense.name }}{% endif %}">
+                </div>
+
+                <!-- Real Form Input Submitted to POST -->
+                <input type="hidden" name="expense_name" id="final_expense_name"
+                       value="{% if expense_entry %}{{ expense_entry.expense.name }}{% endif %}" required>
             </div>
 
-            <!-- Stock / Expense Item (Dropdown) -->
-            <div style="width: 50%; padding: 8px;">
-                <div class="form-group">
-                    <label>Stock / Expense Item <span style="color:red;">*</span></label>
-                    <div id="expense_name_container">
-                        <select name="expense_name" id="expense_name_select" class="form-control" required disabled>
-                            <option value="">Select Expense Head first</option>
-                        </select>
-                    </div>
-                </div>
+            <!-- Has Supplier / Credit Supplier Checkbox -->
+            <div class="form-col-span-2">
+                <label style="display: inline-flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; width: 100%; box-sizing: border-box;">
+                    <input type="checkbox" id="has_supplier_checkbox" name="has_supplier"
+                           style="width: 18px; height: 18px; cursor: pointer; accent-color: #3b82f6;"
+                           {% if expense_entry and expense_entry.supplier %}checked{% endif %}>
+                    <span style="font-weight: 600; font-size: 0.92rem; color: #1e293b;">
+                        Credit / Supplier Purchase
+                    </span>
+                    <span style="font-size: 0.8rem; color: #64748b; margin-left: auto;">
+                        Check if buying from vendor with partial/credit payment
+                    </span>
+                </label>
             </div>
 
-            <!-- Has Supplier Checkbox -->
-            <div style="width: 100%; padding: 8px; margin-top: 4px; margin-bottom: 4px;">
-                <div class="form-group" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="has_supplier_checkbox" name="has_supplier" style="width: 18px; height: 18px; cursor: pointer;" {% if expense_entry and expense_entry.supplier %}checked{% endif %}>
-                    <label for="has_supplier_checkbox" style="margin-bottom: 0; font-weight: 600; cursor: pointer; color: #1e293b;">
-                        Has Supplier / Credit Supplier Payment
-                    </label>
-                </div>
-            </div>
-
-            <!-- Supplier (Optional) -->
-            <div id="supplier_wrapper" style="width: 50%; padding: 8px; display: none;">
-                <div class="form-group">
-                    <label>Supplier (Optional)</label>
-                    <select name="supplier" id="supplier_select" class="form-control">
-                        <option value="">Select Supplier (Optional)</option>
-                        {% for supplier in suppliers %}
-                        <option value="{{ supplier.id }}" {% if expense_entry and expense_entry.supplier_id == supplier.id %}selected{% endif %}>
-                            {{ supplier.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <!-- Supplier Dropdown (Appears if Has Supplier checked) -->
+            <div class="form-group" id="supplier_wrapper" style="display: none;">
+                <label class="form-label">
+                    <span>Supplier / Vendor</span>
+                </label>
+                <select name="supplier" id="supplier_select" class="form-control">
+                    <option value="">-- Select Supplier --</option>
+                    {% for s in suppliers %}
+                    <option value="{{ s.id }}" {% if expense_entry and expense_entry.supplier_id == s.id %}selected{% endif %}>
+                        {{ s.name }} {% if s.phone %}({{ s.phone }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
 
             <!-- Amount -->
-            <div style="width: 50%; padding: 8px;">
-                <div class="form-group">
-                    <label>Amount <span style="color:red;">*</span></label>
-                    <input type="number" step="0.01" name="amount" id="amount_input" class="form-control" value="{{ expense_entry.amount|default:'' }}" required placeholder="0.00">
+            <div class="form-group" id="amount_group">
+                <label class="form-label">
+                    <span>Total Amount <span class="required">*</span></span>
+                </label>
+                <div class="input-with-prefix">
+                    <span class="input-prefix">{{ currency_symbol }}</span>
+                    <input type="number" step="0.01" name="amount" id="amount_input" class="form-control"
+                           placeholder="0.00" value="{{ expense_entry.amount|default:'' }}" required>
                 </div>
             </div>
 
-            <!-- Paid Amount -->
-            <div id="paid_amount_wrapper" style="width: 50%; padding: 8px; display: none;">
-                <div class="form-group">
-                    <label>Paid Amount</label>
-                    <input type="number" step="0.01" name="paid_amount" id="paid_amount_input" class="form-control" value="{{ expense_entry.paid_amount|default:'' }}" placeholder="0.00">
+            <!-- Paid Amount (Appears if Has Supplier checked) -->
+            <div class="form-group" id="paid_amount_wrapper" style="display: none;">
+                <label class="form-label">
+                    <span>Paid Amount</span>
+                    <span style="font-size: 0.78rem; color: #64748b;">(Leave equal for full payment)</span>
+                </label>
+                <div class="input-with-prefix">
+                    <span class="input-prefix">{{ currency_symbol }}</span>
+                    <input type="number" step="0.01" name="paid_amount" id="paid_amount_input" class="form-control"
+                           placeholder="0.00" value="{{ expense_entry.paid_amount|default:'' }}">
                 </div>
             </div>
 
             <!-- Remarks -->
-            <div style="width: 100%; padding: 8px;">
-                <div class="form-group">
-                    <label>Remarks</label>
-                    <textarea name="remarks" rows="3" class="form-control" placeholder="Optional remarks">{{ expense_entry.remarks|default:'' }}</textarea>
-                </div>
+            <div class="form-col-span-2 form-group">
+                <label class="form-label">
+                    <span>Remarks / Note</span>
+                </label>
+                <textarea name="remarks" rows="3" class="form-control"
+                          placeholder="Optional notes or reference...">{{ expense_entry.remarks|default:'' }}</textarea>
             </div>
 
         </div>
 
-        <div class="form-actions">
-            <a href="{% url 'expense_list' %}" class="btn-secondary">Cancel</a>
-            <button type="submit" class="btn-primary">
-                <i class="ph ph-check-circle"></i> Save Expense
+        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 28px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
+            <a href="{% url 'expense_list' %}" class="btn-secondary" style="padding: 11px 22px; border-radius: 10px; text-decoration: none;">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary" style="padding: 11px 24px; border-radius: 10px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
+                <i class="ph-bold ph-check"></i>
+                Save Expense
             </button>
         </div>
     </form>
 </div>
 
+<!-- Modal: Quick Add Expense Head -->
+<div class="modal-overlay" id="headModal">
+    <div class="modal-box">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                <i class="ph-bold ph-tag" style="color: #3b82f6;"></i>
+                Add Expense Head
+            </h3>
+            <button type="button" onclick="closeHeadModal()" style="background:none; border:none; font-size: 1.25rem; color: #94a3b8; cursor: pointer;">
+                &times;
+            </button>
+        </div>
+
+        <div id="modalAlert" style="display: none; padding: 10px 14px; border-radius: 8px; font-size: 0.88rem; margin-bottom: 14px;"></div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label class="form-label">Expense Head Name <span class="required">*</span></label>
+            <input type="text" id="new_head_name_input" class="form-control" placeholder="e.g. Travel, Utilities, Cleaning...">
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="closeHeadModal()" style="padding: 9px 18px; border-radius: 8px;">
+                Cancel
+            </button>
+            <button type="button" id="btnSaveHead" class="btn-primary" onclick="submitNewHead()" style="padding: 9px 18px; border-radius: 8px; font-weight: 600;">
+                Create Head
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     const initialExpenseName = "{{ expense_entry.expense.name|escapejs }}";
-    const initialDate = "{% if not expense_entry %}" + new Date().toISOString().split('T')[0] + "{% endif %}";
+    const isEditMode = {% if expense_entry %}true{% else %}false{% endif %};
+    let isCustomMode = false;
 
+    // Default Date to Today if empty
     document.addEventListener('DOMContentLoaded', function() {
-        const dateInput = document.querySelector('input[name="expense_date"]');
-        if (dateInput && !dateInput.value && initialDate) {
-            dateInput.value = initialDate;
+        const dateInput = document.getElementById('expense_date_input');
+        if (dateInput && !dateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
         }
 
         const expenseHeadSelect = document.getElementById('expense_head');
-        const expenseNameContainer = document.getElementById('expense_name_container');
         const hasSupplierCheckbox = document.getElementById('has_supplier_checkbox');
         const supplierWrapper = document.getElementById('supplier_wrapper');
-        const supplierSelect = document.getElementById('supplier_select');
         const paidAmountWrapper = document.getElementById('paid_amount_wrapper');
-        const paidAmountInput = document.getElementById('paid_amount_input');
         const amountInput = document.getElementById('amount_input');
+        const paidAmountInput = document.getElementById('paid_amount_input');
+        const supplierSelect = document.getElementById('supplier_select');
 
-        function toggleSupplierFields() {
+        function updateSupplierVisibility() {
             if (hasSupplierCheckbox.checked) {
-                supplierWrapper.style.display = 'block';
-                paidAmountWrapper.style.display = 'block';
+                supplierWrapper.style.display = 'flex';
+                paidAmountWrapper.style.display = 'flex';
+                if (!paidAmountInput.value && amountInput.value) {
+                    paidAmountInput.value = amountInput.value;
+                }
             } else {
                 supplierWrapper.style.display = 'none';
-                if (supplierSelect) supplierSelect.value = '';
                 paidAmountWrapper.style.display = 'none';
+                if (supplierSelect) supplierSelect.value = '';
                 if (amountInput && paidAmountInput) {
                     paidAmountInput.value = amountInput.value;
                 }
             }
         }
 
-        hasSupplierCheckbox.addEventListener('change', toggleSupplierFields);
+        hasSupplierCheckbox.addEventListener('change', updateSupplierVisibility);
 
-        if (amountInput && paidAmountInput) {
-            amountInput.addEventListener('input', function() {
-                if (!hasSupplierCheckbox.checked) {
-                    paidAmountInput.value = amountInput.value;
-                }
-            });
-        }
-
-        async function loadItemsForHead() {
-            const headId = expenseHeadSelect.value;
-            expenseNameContainer.innerHTML = '';
-
-            if (!headId) {
-                const select = document.createElement('select');
-                select.name = 'expense_name';
-                select.className = 'form-control';
-                select.disabled = true;
-                select.required = true;
-                const opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = 'Select Expense Head first';
-                select.appendChild(opt);
-                expenseNameContainer.appendChild(select);
-                return;
+        amountInput.addEventListener('input', function() {
+            if (!hasSupplierCheckbox.checked) {
+                paidAmountInput.value = amountInput.value;
             }
+        });
 
-            // Show loading dropdown
-            const loadingSelect = document.createElement('select');
-            loadingSelect.className = 'form-control';
-            loadingSelect.disabled = true;
-            const loadingOpt = document.createElement('option');
-            loadingOpt.textContent = 'Loading items...';
-            loadingSelect.appendChild(loadingOpt);
-            expenseNameContainer.appendChild(loadingSelect);
+        expenseHeadSelect.addEventListener('change', function() {
+            loadItemsForSelectedHead();
+        });
 
-            try {
-                const response = await fetch(`/api/expenses/items-by-head/?expense_head_id=${headId}`);
-                const data = await response.json();
-                
-                expenseNameContainer.innerHTML = '';
-                const select = document.createElement('select');
-                select.name = 'expense_name';
-                select.className = 'form-control';
-                select.required = true;
-
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = '';
-                defaultOpt.textContent = '-- Select Stock / Expense Item --';
-                select.appendChild(defaultOpt);
-
-                if (data.success && data.items && data.items.length > 0) {
-                    data.items.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item;
-                        opt.textContent = item;
-                        if (item === initialExpenseName) {
-                            opt.selected = true;
-                        }
-                        select.appendChild(opt);
-                    });
-                } else {
-                    const customOpt = document.createElement('option');
-                    customOpt.value = 'General Expense';
-                    customOpt.textContent = 'General Expense';
-                    select.appendChild(customOpt);
-                }
-
-                expenseNameContainer.appendChild(select);
-
-            } catch (err) {
-                console.error("Error loading expense items:", err);
-                expenseNameContainer.innerHTML = `<input type="text" name="expense_name" class="form-control" value="${initialExpenseName}" placeholder="Enter Expense Name" required>`;
-            }
-        }
-
-        toggleSupplierFields();
-        expenseHeadSelect.addEventListener('change', loadItemsForHead);
+        // Initialize state
+        updateSupplierVisibility();
         if (expenseHeadSelect.value) {
-            loadItemsForHead();
+            loadItemsForSelectedHead();
         }
     });
+
+    async function loadItemsForSelectedHead() {
+        const headSelect = document.getElementById('expense_head');
+        const headId = headSelect.value;
+        const nameSelect = document.getElementById('expense_name_select');
+        const finalInput = document.getElementById('final_expense_name');
+
+        if (!headId) {
+            nameSelect.innerHTML = '<option value="">-- Select Expense Head First --</option>';
+            return;
+        }
+
+        nameSelect.innerHTML = '<option value="">Loading items...</option>';
+
+        try {
+            const res = await fetch(`/api/expenses/items-by-head/?expense_head_id=${headId}`);
+            const data = await res.json();
+
+            nameSelect.innerHTML = '';
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = '-- Select Item or Type Custom --';
+            nameSelect.appendChild(defaultOpt);
+
+            let matched = false;
+
+            if (data.success && data.items && data.items.length > 0) {
+                data.items.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item;
+                    opt.textContent = item;
+                    if (item === initialExpenseName || item === finalInput.value) {
+                        opt.selected = true;
+                        matched = true;
+                    }
+                    nameSelect.appendChild(opt);
+                });
+            }
+
+            // Always add option for custom item
+            const customOpt = document.createElement('option');
+            customOpt.value = '__CUSTOM__';
+            customOpt.textContent = '+ Enter Custom Item Name...';
+            nameSelect.appendChild(customOpt);
+
+            if (isEditMode && initialExpenseName && !matched) {
+                // If the existing name wasn't in list, activate custom mode
+                switchToCustomMode(initialExpenseName);
+            }
+
+        } catch (err) {
+            console.error("Failed to load items:", err);
+            nameSelect.innerHTML = '<option value="__CUSTOM__">+ Enter Custom Item Name</option>';
+            switchToCustomMode(finalInput.value);
+        }
+    }
+
+    function handleSelectChange(select) {
+        const finalInput = document.getElementById('final_expense_name');
+        if (select.value === '__CUSTOM__') {
+            switchToCustomMode('');
+        } else {
+            finalInput.value = select.value;
+        }
+    }
+
+    function toggleCustomNameInput() {
+        if (isCustomMode) {
+            switchToSelectMode();
+        } else {
+            switchToCustomMode(document.getElementById('final_expense_name').value);
+        }
+    }
+
+    function switchToCustomMode(val) {
+        isCustomMode = true;
+        document.getElementById('expense_select_container').style.display = 'none';
+        const textCont = document.getElementById('expense_text_container');
+        textCont.style.display = 'block';
+        const textInput = document.getElementById('expense_name_text');
+        textInput.value = val || '';
+        textInput.focus();
+        document.getElementById('final_expense_name').value = val || '';
+        document.getElementById('toggle_custom_name_btn').innerHTML = '<i class="ph ph-list-dashes"></i> Choose List';
+
+        textInput.oninput = function() {
+            document.getElementById('final_expense_name').value = textInput.value;
+        };
+    }
+
+    function switchToSelectMode() {
+        isCustomMode = false;
+        document.getElementById('expense_text_container').style.display = 'none';
+        document.getElementById('expense_select_container').style.display = 'block';
+        document.getElementById('toggle_custom_name_btn').innerHTML = '<i class="ph ph-pencil-simple"></i> Custom Name';
+        const select = document.getElementById('expense_name_select');
+        if (select.value && select.value !== '__CUSTOM__') {
+            document.getElementById('final_expense_name').value = select.value;
+        }
+    }
+
+    // Modal Functions for Quick Add Expense Head
+    function openHeadModal() {
+        document.getElementById('headModal').style.display = 'flex';
+        document.getElementById('new_head_name_input').value = '';
+        document.getElementById('modalAlert').style.display = 'none';
+        document.getElementById('new_head_name_input').focus();
+    }
+
+    function closeHeadModal() {
+        document.getElementById('headModal').style.display = 'none';
+    }
+
+    async function submitNewHead() {
+        const nameInput = document.getElementById('new_head_name_input');
+        const name = nameInput.value.trim();
+        const alertBox = document.getElementById('modalAlert');
+        const btnSave = document.getElementById('btnSaveHead');
+
+        if (!name) {
+            alertBox.style.display = 'block';
+            alertBox.style.background = '#fee2e2';
+            alertBox.style.color = '#991b1b';
+            alertBox.textContent = 'Please enter an expense head name.';
+            return;
+        }
+
+        btnSave.disabled = true;
+        btnSave.textContent = 'Saving...';
+
+        try {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const formData = new FormData();
+            formData.append('name', name);
+
+            const res = await fetch("{% url 'ajax_create_expense_head' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                // Add to dropdown if not present
+                const headSelect = document.getElementById('expense_head');
+                let exists = false;
+                for (let i = 0; i < headSelect.options.length; i++) {
+                    if (headSelect.options[i].value === data.id) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists) {
+                    const opt = document.createElement('option');
+                    opt.value = data.id;
+                    opt.textContent = data.name;
+                    headSelect.appendChild(opt);
+                }
+
+                headSelect.value = data.id;
+                closeHeadModal();
+                loadItemsForSelectedHead();
+            } else {
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#fee2e2';
+                alertBox.style.color = '#991b1b';
+                alertBox.textContent = data.message || 'Error creating head.';
+            }
+        } catch (e) {
+            alertBox.style.display = 'block';
+            alertBox.style.background = '#fee2e2';
+            alertBox.style.color = '#991b1b';
+            alertBox.textContent = 'Connection error: ' + e.message;
+        } finally {
+            btnSave.disabled = false;
+            btnSave.textContent = 'Create Head';
+        }
+    }
 </script>
 {% endblock %}

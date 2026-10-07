@@ -1030,137 +1030,223 @@ def expense_item_delete(request, id):
 
 @login_required
 def expense_list(request):
-
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
 
-    search = request.GET.get('search', '')
-
+    company = None
+    branch = None
+    branches = None
 
     if role_name == 'COMPANY_ADMIN':
-
-        company = getattr(request.user.profile, 'company', None)
-
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
         expenses = ExpenseEntry.objects.filter(
             company=company,
             is_deleted=False
         )
-
+        if company:
+            branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
     else:
-
         branch = getattr(request.user, 'managed_branch', None)
+        if branch:
+            company = branch.company
+        elif hasattr(request.user, 'profile') and request.user.profile.company:
+            company = request.user.profile.company
+            branch = Branch.objects.filter(company=company, is_deleted=False).first()
 
         expenses = ExpenseEntry.objects.filter(
             branch=branch,
             is_deleted=False
         )
 
+    # Currency symbol
+    currency_symbol = '₹'
+    if company and getattr(company, 'country', None) and company.country.currency_symbol:
+        currency_symbol = company.country.currency_symbol
+
+    # Filter parameters
+    search = request.GET.get('search', '').strip()
+    from_date = request.GET.get('from_date', '').strip()
+    to_date = request.GET.get('to_date', '').strip()
+    branch_id = request.GET.get('branch_id', '').strip()
+    head_id = request.GET.get('head_id', '').strip()
+
+    if role_name == 'COMPANY_ADMIN' and branch_id and branch_id.lower() != 'all':
+        expenses = expenses.filter(branch_id=branch_id)
+
+    if from_date:
+        expenses = expenses.filter(expense_date__gte=from_date)
+
+    if to_date:
+        expenses = expenses.filter(expense_date__lte=to_date)
+
+    if head_id and head_id.lower() != 'all':
+        expenses = expenses.filter(expense__expense_head_id=head_id)
 
     if search:
-
+        from django.db.models import Q
         expenses = expenses.filter(
-            expense__name__icontains=search
+            Q(expense__name__icontains=search) |
+            Q(expense__expense_head__name__icontains=search) |
+            Q(remarks__icontains=search) |
+            Q(supplier__name__icontains=search) |
+            Q(branch__name__icontains=search)
         )
 
-    expenses = expenses.order_by('-id')
+    # Ordering and optimization
+    expenses = expenses.select_related(
+        'expense',
+        'expense__expense_head',
+        'branch',
+        'supplier'
+    ).order_by('-expense_date', '-id')
 
-    paginator = Paginator(expenses, 10)
+    # Financial KPI summary
+    from django.db.models import Sum
+    from decimal import Decimal
 
+    summary = expenses.aggregate(
+        total_amount=Sum('amount'),
+        total_paid=Sum('paid_amount'),
+    )
+    total_expenses_count = expenses.count()
+    total_amount = summary['total_amount'] or Decimal('0.00')
+    total_paid = summary['total_paid'] or Decimal('0.00')
+    total_balance = total_amount - total_paid
+
+    # Expense heads for filter dropdown
+    from django.db.models import Q
+    expense_heads = ExpenseHead.objects.filter(
+        Q(company=company) | Q(company__isnull=True),
+        is_deleted=False
+    ).order_by('name')
+
+    # Pagination
+    paginator = Paginator(expenses, 15)
     page_number = request.GET.get('page')
-
     page_obj = paginator.get_page(page_number)
 
     context = {
         'page_obj': page_obj,
         'search': search,
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'head_id': head_id,
+        'branches': branches,
+        'branch': branch,
+        'expense_heads': expense_heads,
+        'role_name': role_name,
+        'currency_symbol': currency_symbol,
+        'total_expenses_count': total_expenses_count,
+        'total_amount': total_amount,
+        'total_paid': total_paid,
+        'total_balance': total_balance,
+        'title': 'Expense List',
     }
 
     return render(request, 'expense/list.html', context)
 
+
 @login_required
 def expense_create(request):
-
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
-    print("role_name",role_name)
+
+    company = None
+    branch = None
+    branches = None
 
     if role_name == 'COMPANY_ADMIN':
-
-        company = request.user.profile.company
-
-        branches = Branch.objects.filter(
-            company=company,
-            is_deleted=False
-        )
-
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        if company:
+            branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
     else:
-
-        branch = request.user.managed_branch
+        branch = getattr(request.user, 'managed_branch', None)
+        if not branch and hasattr(request.user, 'profile') and request.user.profile.company:
+            branch = Branch.objects.filter(company=request.user.profile.company, is_deleted=False).first()
 
         if not branch:
-            messages.error(request, "No branch assigned.")
+            messages.error(request, "No branch assigned to your account.")
             return redirect('dashboard')
-
         company = branch.company
 
+    currency_symbol = '₹'
+    if company and getattr(company, 'country', None) and company.country.currency_symbol:
+        currency_symbol = company.country.currency_symbol
 
     from django.db.models import Q
-
     expense_heads = ExpenseHead.objects.filter(
-        Q(company=company) |
-        Q(company__isnull=True),
+        Q(company=company) | Q(company__isnull=True),
         is_deleted=False
     ).order_by('name')
 
-    expenses = Expense.objects.filter(
+    from client_management.models import Stock, Staff
+    from master.models import Supplier
+
+    stocks = Stock.objects.filter(
+        company=company,
         is_deleted=False
-    )
+    ).select_related('expense_head').order_by('item_name')
 
-    branches = None
-    branch = None
-    company = None
+    staffs = Staff.objects.filter(
+        company=company,
+        is_deleted=False
+    ).order_by('name')
+    if branch:
+        staffs = staffs.filter(branch=branch)
 
-    if role_name == 'COMPANY_ADMIN':
-
-        company = getattr(request.user.profile, 'company', None)
-        print("company",company)
-
-        branches = Branch.objects.filter(
-            company=company,
-            is_deleted=False
-        )
-    else:
-
-        branch = getattr(request.user, 'managed_branch', None)
-
-        if not branch:
-            messages.error(request, "No branch assigned.")
-            return redirect('dashboard')
-
-        company = branch.company
-
+    suppliers = Supplier.objects.filter(
+        company=company,
+        is_deleted=False
+    ).order_by('name')
 
     if request.method == 'POST':
-
         expense_head_id = request.POST.get('expense_head')
-        expense_name = request.POST.get('expense_name')
-
-        amount = request.POST.get('amount')
-        paid_amount = request.POST.get('paid_amount') or amount
+        expense_name = request.POST.get('expense_name', '').strip()
+        amount_raw = request.POST.get('amount')
+        paid_amount_raw = request.POST.get('paid_amount')
+        has_supplier = request.POST.get('has_supplier') in ['on', 'true', '1', True]
         supplier_id = request.POST.get('supplier') or None
+        if not has_supplier:
+            supplier_id = None
         expense_date = request.POST.get('expense_date')
-        remarks = request.POST.get('remarks')
+        remarks = request.POST.get('remarks', '').strip()
 
         if role_name == 'COMPANY_ADMIN':
-
             branch_id = request.POST.get('branch')
-
+            if not branch_id:
+                messages.error(request, "Please select a branch.")
+                return redirect('expense_create')
         else:
-
             branch_id = branch.id
 
+        if not expense_head_id or not expense_name or not amount_raw or not expense_date:
+            messages.error(request, "Please fill all required fields (Date, Head, Expense Name, Amount).")
+            return redirect('expense_create')
+
+        try:
+            amount = float(amount_raw)
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid amount.")
+            return redirect('expense_create')
+
+        if has_supplier and paid_amount_raw is not None and str(paid_amount_raw).strip() != '':
+            try:
+                paid_amount = float(paid_amount_raw)
+            except (ValueError, TypeError):
+                paid_amount = amount
+        else:
+            paid_amount = amount
+
+        expense_head = get_object_or_404(
+            ExpenseHead,
+            Q(company=company) | Q(company__isnull=True),
+            id=expense_head_id,
+            is_deleted=False
+        )
+
         expense, created = Expense.objects.get_or_create(
-            expense_head_id=expense_head_id,
+            expense_head=expense_head,
             name=expense_name,
             defaults={
                 'auto_id': get_auto_id(Expense),
@@ -1184,34 +1270,15 @@ def expense_create(request):
         messages.success(request, "Expense Created Successfully")
         return redirect('expense_list')
 
-    from client_management.models import Stock, Staff
-    from master.models import Supplier
-    from django.db.models import Q
-    stocks = Stock.objects.filter(
-        company=company,
-        is_deleted=False
-    ).select_related('expense_head')
-
-    staffs = Staff.objects.filter(
-        company=company,
-        is_deleted=False
-    )
-    if branch:
-        staffs = staffs.filter(branch=branch)
-
-    suppliers = Supplier.objects.filter(
-        company=company,
-        is_deleted=False
-    ).order_by('name')
-
     context = {
         'expense_heads': expense_heads,
-        'expenses': expenses,
         'branches': branches,
+        'branch': branch,
         'stocks': stocks,
         'staffs': staffs,
         'suppliers': suppliers,
         'role_name': role_name,
+        'currency_symbol': currency_symbol,
         'title': 'Add Expense'
     }
 
@@ -1220,209 +1287,233 @@ def expense_create(request):
 
 @login_required
 def expense_edit(request, pk):
-
-    if role_name == 'COMPANY_ADMIN':
-
-        expense_entry = get_object_or_404(
-            ExpenseEntry,
-            pk=pk,
-            company=request.user.profile.company,
-            is_deleted=False
-        )
-
-    else:
-
-        expense_entry = get_object_or_404(
-            ExpenseEntry,
-            pk=pk,
-            branch=request.user.managed_branch,
-            is_deleted=False
-        )
-
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
 
-    if role_name == 'COMPANY_ADMIN':
-
-        company = request.user.profile.company
-
-    else:
-
-        company = request.user.managed_branch.company
-
-
-    expense_heads = ExpenseHead.objects.filter(
-        Q(company=company) |
-        Q(company__isnull=True),
-        is_deleted=False
-    ).order_by('name')
-
-    branches = None
+    company = None
     branch = None
+    branches = None
 
     if role_name == 'COMPANY_ADMIN':
-
-        company = getattr(
-            request.user.profile,
-            'company',
-            None
-        )
-
-        branches = Branch.objects.filter(
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+        expense_entry = get_object_or_404(
+            ExpenseEntry,
+            pk=pk,
             company=company,
             is_deleted=False
         )
-
-
+        if company:
+            branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
     else:
+        branch = getattr(request.user, 'managed_branch', None)
+        if not branch and hasattr(request.user, 'profile') and request.user.profile.company:
+            branch = Branch.objects.filter(company=request.user.profile.company, is_deleted=False).first()
 
-        branch = getattr(
-            request.user,
-            'managed_branch',
-            None
+        if not branch:
+            messages.error(request, "No branch assigned to your account.")
+            return redirect('dashboard')
+        company = branch.company
+        expense_entry = get_object_or_404(
+            ExpenseEntry,
+            pk=pk,
+            branch=branch,
+            is_deleted=False
         )
 
-        if expense_entry.branch != branch:
+    currency_symbol = '₹'
+    if company and getattr(company, 'country', None) and company.country.currency_symbol:
+        currency_symbol = company.country.currency_symbol
 
-            messages.error(
-                request,
-                "Permission denied"
-            )
+    from django.db.models import Q
+    expense_heads = ExpenseHead.objects.filter(
+        Q(company=company) | Q(company__isnull=True),
+        is_deleted=False
+    ).order_by('name')
 
-            return redirect('expense_list')
+    from client_management.models import Stock, Staff
+    from master.models import Supplier
 
+    stocks = Stock.objects.filter(
+        company=company,
+        is_deleted=False
+    ).select_related('expense_head').order_by('item_name')
+
+    staffs = Staff.objects.filter(
+        company=company,
+        is_deleted=False
+    ).order_by('name')
+    if branch:
+        staffs = staffs.filter(branch=branch)
+    elif expense_entry.branch:
+        staffs = staffs.filter(branch=expense_entry.branch)
+
+    suppliers = Supplier.objects.filter(
+        company=company,
+        is_deleted=False
+    ).order_by('name')
 
     if request.method == 'POST':
-
-        expense_head_id = request.POST.get(
-            'expense_head'
-        )
-
-        expense_name = request.POST.get(
-            'expense_name'
-        )
-
-        amount = request.POST.get(
-            'amount'
-        )
-
-        expense_date = request.POST.get(
-            'expense_date'
-        )
-
-        remarks = request.POST.get(
-            'remarks'
-        )
-
+        expense_head_id = request.POST.get('expense_head')
+        expense_name = request.POST.get('expense_name', '').strip()
+        amount_raw = request.POST.get('amount')
+        paid_amount_raw = request.POST.get('paid_amount')
+        has_supplier = request.POST.get('has_supplier') in ['on', 'true', '1', True]
+        supplier_id = request.POST.get('supplier') or None
+        if not has_supplier:
+            supplier_id = None
+        expense_date = request.POST.get('expense_date')
+        remarks = request.POST.get('remarks', '').strip()
 
         if role_name == 'COMPANY_ADMIN':
-
-            branch_id = request.POST.get(
-                'branch'
-            )
-
-            expense_entry.branch_id = branch_id
-
+            branch_id = request.POST.get('branch')
+            if branch_id:
+                expense_entry.branch_id = branch_id
         else:
-
             expense_entry.branch = branch
 
+        if not expense_head_id or not expense_name or not amount_raw or not expense_date:
+            messages.error(request, "Please fill all required fields.")
+            return redirect('expense_edit', pk=pk)
+
+        try:
+            amount = float(amount_raw)
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid amount.")
+            return redirect('expense_edit', pk=pk)
+
+        if has_supplier and paid_amount_raw is not None and str(paid_amount_raw).strip() != '':
+            try:
+                paid_amount = float(paid_amount_raw)
+            except (ValueError, TypeError):
+                paid_amount = amount
+        else:
+            paid_amount = amount
+
+        expense_head = get_object_or_404(
+            ExpenseHead,
+            Q(company=company) | Q(company__isnull=True),
+            id=expense_head_id,
+            is_deleted=False
+        )
 
         expense, created = Expense.objects.get_or_create(
-            expense_head_id=expense_head_id,
+            expense_head=expense_head,
             name=expense_name,
             defaults={
                 'auto_id': get_auto_id(Expense),
                 'creator': request.user
             }
         )
-        
+
         expense_entry.expense = expense
-
         expense_entry.amount = amount
-
+        expense_entry.paid_amount = paid_amount
+        expense_entry.supplier_id = supplier_id
         expense_entry.expense_date = expense_date
-
         expense_entry.remarks = remarks
-
+        expense_entry.updater = request.user
         expense_entry.save()
 
-        messages.success(
-            request,
-            "Expense Updated Successfully"
-        )
-
+        messages.success(request, "Expense Updated Successfully")
         return redirect('expense_list')
-
-    from client_management.models import Stock, Staff
-    from django.db.models import Q
-    stocks = Stock.objects.filter(
-        company=company,
-        is_deleted=False
-    ).select_related('expense_head')
-
-    staffs = Staff.objects.filter(
-        company=company,
-        is_deleted=False
-    )
-    if branch:
-        staffs = staffs.filter(branch=branch)
 
     context = {
         'expense_entry': expense_entry,
         'expense_heads': expense_heads,
         'branches': branches,
+        'branch': branch,
         'stocks': stocks,
         'staffs': staffs,
+        'suppliers': suppliers,
         'role_name': role_name,
-        'title': 'Expense Update'
+        'currency_symbol': currency_symbol,
+        'title': 'Edit Expense'
     }
 
-    return render(
-        request,
-        'expense/create.html',
-        context
-    )
+    return render(request, 'expense/create.html', context)
 
 
 @login_required
 def expense_delete(request, pk):
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
 
     if role_name == 'COMPANY_ADMIN':
-
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
         expense = get_object_or_404(
             ExpenseEntry,
             pk=pk,
-            company=request.user.profile.company,
+            company=company,
             is_deleted=False
         )
-
     else:
-
+        branch = getattr(request.user, 'managed_branch', None)
         expense = get_object_or_404(
             ExpenseEntry,
             pk=pk,
-            branch=request.user.managed_branch,
+            branch=branch,
             is_deleted=False
         )
+
+    expense.is_deleted = True
+    expense.updater = request.user
+    expense.save()
+
+    messages.success(request, "Expense Deleted Successfully")
+    return redirect('expense_list')
+
+
+@login_required
+def ajax_create_expense_head(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+
+    name = request.POST.get('name', '').strip()
+    if not name:
+        return JsonResponse({'success': False, 'message': 'Expense Head name is required'}, status=400)
 
     role = getattr(getattr(request.user, 'profile', None), 'role', None)
     role_name = role.name if role else None
 
-    if role_name != 'COMPANY_ADMIN':
+    company = None
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(getattr(request.user, 'profile', None), 'company', None)
+    elif hasattr(request.user, 'managed_branch') and request.user.managed_branch:
+        company = request.user.managed_branch.company
+    elif hasattr(request.user, 'profile') and request.user.profile.company:
+        company = request.user.profile.company
 
-        branch = getattr(request.user, 'managed_branch', None)
+    from django.db.models import Q
+    existing = ExpenseHead.objects.filter(
+        Q(company=company) | Q(company__isnull=True),
+        name__iexact=name,
+        is_deleted=False
+    ).first()
 
-        if expense.branch != branch:
-            messages.error(request, "Permission denied")
-            return redirect('expense_list')
+    if existing:
+        return JsonResponse({
+            'success': True,
+            'id': str(existing.id),
+            'name': existing.name,
+            'is_new': False,
+            'message': 'Expense Head already exists and was selected.'
+        })
 
-    expense.is_deleted = True
-    expense.save()
+    head = ExpenseHead.objects.create(
+        auto_id=get_auto_id(ExpenseHead),
+        creator=request.user,
+        company=company,
+        name=name,
+        is_deletable=True
+    )
 
-    messages.success(request, "Expense Deleted Successfully")
-
-    return redirect('expense_list')
+    return JsonResponse({
+        'success': True,
+        'id': str(head.id),
+        'name': head.name,
+        'is_new': True,
+        'message': 'Expense Head created successfully!'
+    })
 
 
 # ==========================================

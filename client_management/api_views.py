@@ -4713,6 +4713,9 @@ def api_get_expense_items_by_head(request):
 
         # 2. Fetch from Stock model under this head (by FK or by matching name)
         company = getattr(getattr(user, 'profile', None), 'company', None)
+        if not company and hasattr(user, 'managed_branch') and user.managed_branch:
+            company = user.managed_branch.company
+
         stock_qs = Stock.objects.filter(
             Q(expense_head=head) | Q(expense_head__name__iexact=head.name),
             is_deleted=False
@@ -4724,6 +4727,16 @@ def api_get_expense_items_by_head(request):
         for s in stock_qs:
             if s.item_name and s.item_name.strip():
                 items_set.add(s.item_name.strip())
+
+        # 3. If head is Salary, also include staff names
+        if 'salary' in head.name.strip().lower():
+            from client_management.models import Staff
+            staff_qs = Staff.objects.filter(is_deleted=False)
+            if company:
+                staff_qs = staff_qs.filter(company=company)
+            for st in staff_qs:
+                if st.name and st.name.strip():
+                    items_set.add(st.name.strip())
 
         items_list = sorted(list(items_set))
         return JsonResponse({

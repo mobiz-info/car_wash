@@ -66,6 +66,7 @@ urlpatterns = [
     path('expense/create/',views.expense_create,name='expense_create'),
     path('expense/edit/<uuid:pk>/',views.expense_edit,name='expense_edit'),
     path('expense/delete/<uuid:pk>/',views.expense_delete,name='expense_delete'),
+    path('expense/ajax-create-head/', views.ajax_create_expense_head, name='ajax_create_expense_head'),
 
     # Vehicle Color
     path('vehicle-color/', views.vehicle_color_list, name='vehicle_color_list'),
