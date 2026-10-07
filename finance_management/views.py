@@ -121,26 +121,59 @@ def invoice_list(request):
 
 @login_required
 def outstanding_list(request):
-    """Show all invoices where amount_collected < total (customer has balance due)."""
+    """Show all invoices where amount_collected < total (customer has balance due) with date & branch filtering."""
     user = request.user
     role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
 
-    # Only invoices with outstanding balance
+    company = None
+    branch = None
+    branches = None
+
+    if role == 'COMPANY_ADMIN':
+        company = getattr(getattr(user, 'profile', None), 'company', None)
+        if company:
+            branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+    else:
+        branch = getattr(user, 'managed_branch', None)
+        if not branch and hasattr(user, 'profile') and user.profile.company:
+            branch = Branch.objects.filter(company=user.profile.company, is_deleted=False).first()
+
+        if branch:
+            company = branch.company
+        elif hasattr(user, 'profile') and user.profile.company:
+            company = user.profile.company
+
+    # Currency symbol
+    currency_symbol = '₹'
+    if company and getattr(company, 'country', None) and company.country.currency_symbol:
+        currency_symbol = company.country.currency_symbol
+
+    # Base query: only invoices with outstanding balance
     invoices = Invoice.objects.filter(
         is_deleted=False,
         customer__is_deleted=False,
     ).select_related(
         'customer', 'vehicle', 'vehicle__vehicle_type_model', 'branch'
-    ).order_by('customer__name', '-date')
+    ).filter(amount_collected__lt=F('total'))
 
-    # Scope by role
-    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
-        invoices = invoices.filter(branch__company=user.profile.company)
-    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
-        invoices = invoices.filter(branch=user.managed_branch)
+    # Scope by role and branch filter
+    branch_id = request.GET.get('branch_id', '').strip()
+    if role == 'COMPANY_ADMIN' and company:
+        invoices = invoices.filter(branch__company=company)
+        if branch_id and branch_id.lower() != 'all':
+            invoices = invoices.filter(branch_id=branch_id)
+    else:
+        if branch:
+            invoices = invoices.filter(branch=branch)
+        branch_id = ''
 
-    # Filter only outstanding (balance > 0)
-    invoices = invoices.filter(amount_collected__lt=F('total'))
+    # Date range filters
+    from_date = request.GET.get('from_date', '').strip()
+    to_date = request.GET.get('to_date', '').strip()
+    if from_date:
+        invoices = invoices.filter(date__gte=from_date)
+    if to_date:
+        invoices = invoices.filter(date__lte=to_date)
 
     # Search
     search = request.GET.get('search', '').strip()
@@ -148,41 +181,77 @@ def outstanding_list(request):
         invoices = invoices.filter(
             Q(customer__name__icontains=search) |
             Q(customer__phone__icontains=search) |
-            Q(invoice_number__icontains=search)
+            Q(customer__whatsapp_number__icontains=search) |
+            Q(invoice_number__icontains=search) |
+            Q(vehicle__vehicle_number__icontains=search) |
+            Q(branch__name__icontains=search)
         )
 
-    # Annotate outstanding on each invoice
+    invoices = invoices.order_by('-date', '-id')
+
+    # Data lists and KPI summaries
     invoice_list_data = []
     total_outstanding = Decimal('0.00')
+    total_invoiced_value = Decimal('0.00')
+    total_collected_value = Decimal('0.00')
+
+    from collections import defaultdict
+    customer_summary = defaultdict(lambda: {'customer': None, 'total_outstanding': Decimal('0'), 'total_invoiced': Decimal('0'), 'invoices': []})
+
     for inv in invoices:
         outstanding = inv.total - inv.amount_collected
         total_outstanding += outstanding
-        invoice_list_data.append({
+        total_invoiced_value += inv.total
+        total_collected_value += inv.amount_collected
+
+        progress_percent = int((inv.amount_collected / inv.total) * 100) if inv.total > 0 else 0
+
+        item_data = {
             'invoice': inv,
             'outstanding': outstanding,
-        })
+            'progress_percent': progress_percent,
+        }
+        invoice_list_data.append(item_data)
 
-    # Group by customer for summary
-    from collections import defaultdict
-    customer_summary = defaultdict(lambda: {'customer': None, 'total_outstanding': Decimal('0'), 'invoices': []})
-    for item in invoice_list_data:
-        cid = str(item['invoice'].customer.id)
-        customer_summary[cid]['customer'] = item['invoice'].customer
-        customer_summary[cid]['total_outstanding'] += item['outstanding']
-        customer_summary[cid]['invoices'].append(item)
+        cid = str(inv.customer.id)
+        customer_summary[cid]['customer'] = inv.customer
+        customer_summary[cid]['total_outstanding'] += outstanding
+        customer_summary[cid]['total_invoiced'] += inv.total
+        customer_summary[cid]['invoices'].append(item_data)
 
-    return render(request, 'invoice/outstanding.html', {
+    # Pagination for invoices list
+    from django.core.paginator import Paginator
+    paginator = Paginator(invoice_list_data, 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    view_mode = request.GET.get('view_mode', 'list')
+
+    context = {
+        'page_obj': page_obj,
         'customer_summary': list(customer_summary.values()),
-        'invoice_list': invoice_list_data,
         'total_outstanding': total_outstanding,
+        'total_invoiced_value': total_invoiced_value,
+        'total_collected_value': total_collected_value,
+        'total_pending_count': len(invoice_list_data),
         'search': search,
-        'title': 'Customer Outstanding',
-    })
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'branches': branches,
+        'branch': branch,
+        'role_name': role,
+        'currency_symbol': currency_symbol,
+        'view_mode': view_mode,
+        'title': 'Collection / Outstanding',
+    }
+
+    return render(request, 'invoice/outstanding.html', context)
 
 
 @login_required
 def collect_payment(request, invoice_id):
-    """Collect partial or full payment for an outstanding invoice."""
+    """Collect partial or full payment for an outstanding invoice and generate receipt."""
     user = request.user
     role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
 
@@ -200,26 +269,64 @@ def collect_payment(request, invoice_id):
 
     if request.method == 'POST':
         amount_str = request.POST.get('amount', '0').strip()
+        payment_mode = request.POST.get('payment_mode', 'cash')
+        remarks = request.POST.get('remarks', 'Outstanding collection')
         try:
             amount = Decimal(amount_str)
             outstanding = invoice.total - invoice.amount_collected
             if amount <= 0:
-                messages.error(request, "Amount must be greater than 0.")
+                msg = "Amount must be greater than 0."
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'message': msg}, status=400)
+                messages.error(request, msg)
             elif amount > outstanding:
                 currency = invoice.branch.company.country.currency_symbol if invoice.branch.company.country else '₹'
-                messages.error(request, f"Amount {currency}{amount} exceeds outstanding {currency}{outstanding}.")
+                msg = f"Amount {currency}{amount} exceeds outstanding {currency}{outstanding}."
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'message': msg}, status=400)
+                messages.error(request, msg)
             else:
                 invoice.amount_collected += amount
                 invoice.save()
+
+                # Generate Receipt for consistent accounting
+                from master.functions import get_auto_id
+                from finance_management.models import Receipt
+                receipt_auto_id = get_auto_id(Receipt)
+                receipt = Receipt.objects.create(
+                    auto_id=receipt_auto_id,
+                    creator=user,
+                    receipt_number=f"RCPT-{str(receipt_auto_id).zfill(5)}",
+                    invoice=invoice,
+                    amount=amount,
+                    payment_mode=payment_mode,
+                    remarks=remarks,
+                )
+
                 remaining = invoice.total - invoice.amount_collected
+                currency = invoice.branch.company.country.currency_symbol if invoice.branch.company.country else '₹'
                 if remaining == 0:
-                    messages.success(request, f"Full payment collected for Invoice #{invoice.invoice_number}. ✓ Fully settled.")
+                    success_msg = f"✓ Full payment of {currency}{amount:,.2f} collected for Invoice #{invoice.invoice_number}. Fully settled."
                 else:
-                    currency = invoice.branch.company.country.currency_symbol if invoice.branch.company.country else '₹'
-                    messages.success(request, f"{currency}{amount} collected. Remaining outstanding: {currency}{remaining}.")
+                    success_msg = f"✓ {currency}{amount:,.2f} collected for Invoice #{invoice.invoice_number}. Remaining outstanding: {currency}{remaining:,.2f}."
+
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'message': success_msg,
+                        'new_collected': str(invoice.amount_collected),
+                        'remaining': str(remaining),
+                        'fully_settled': remaining == 0,
+                        'receipt_number': receipt.receipt_number
+                    })
+
+                messages.success(request, success_msg)
                 return redirect('outstanding_list')
         except Exception as e:
-            messages.error(request, f"Invalid amount: {e}")
+            err_msg = f"Invalid amount: {e}"
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': err_msg}, status=400)
+            messages.error(request, err_msg)
 
     return redirect('outstanding_list')
 

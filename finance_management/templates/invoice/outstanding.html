@@ -1,164 +1,694 @@
 {% extends 'base.html' %}
-{% block title %}Customer Outstanding - Mobiz Autocare Pro{% endblock %}
-{% block page_title %}Customer Outstanding{% endblock %}
-{% block breadcrumb_active %}Outstanding{% endblock %}
+
+{% block title %}Collection & Outstanding - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Collection & Outstanding Payments{% endblock %}
+{% block breadcrumb_active %}Collection{% endblock %}
 
 {% block content %}
-<div class="list-container">
+<style>
+    /* KPI Cards */
+    .collection-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
 
-    <!-- Header -->
-    <div class="list-header">
-        <div style="font-size:1rem; font-weight:600; color:#1e293b;">Customer Outstanding Balances</div>
+    .collection-kpi-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .collection-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+    }
+
+    .kpi-icon-wrapper {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+        flex-shrink: 0;
+    }
+
+    .kpi-icon-blue { background: #eff6ff; color: #2563eb; }
+    .kpi-icon-purple { background: #f5f3ff; color: #7c3aed; }
+    .kpi-icon-green { background: #ecfdf5; color: #059669; }
+    .kpi-icon-rose { background: #fff1f2; color: #e11d48; }
+
+    .kpi-content {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .kpi-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+
+    .kpi-value {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Filter Card */
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .filter-group label {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .filter-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        background: #ffffff;
+        color: #1e293b;
+        transition: all 0.2s;
+        outline: none;
+    }
+
+    .filter-control:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .preset-pills {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px dashed #e2e8f0;
+    }
+
+    .preset-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 0.82rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .preset-pill:hover, .preset-pill.active {
+        background: #e0e7ff;
+        color: #4338ca;
+        border-color: #c7d2fe;
+    }
+
+    /* Table Badges & Elements */
+    .invoice-chip {
+        font-family: monospace;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #1e293b;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .invoice-chip:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+
+    .outstanding-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 800;
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+    }
+
+    .progress-track {
+        background: #e2e8f0;
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+
+    .progress-fill {
+        background: #10b981;
+        height: 100%;
+        border-radius: 3px;
+    }
+
+    .btn-collect {
+        background: #000080;
+        color: #ffffff;
+        border: none;
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        transition: all 0.15s ease;
+    }
+
+    .btn-collect:hover {
+        background: #000066;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 128, 0.2);
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        padding: 16px;
+    }
+
+    .modal-box {
+        background: #ffffff;
+        border-radius: 18px;
+        max-width: 460px;
+        width: 100%;
+        padding: 24px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+</style>
+
+<!-- Financial KPI Summary Cards -->
+<div class="collection-kpi-grid">
+    <div class="collection-kpi-card">
+        <div class="kpi-icon-wrapper kpi-icon-blue">
+            <i class="ph-bold ph-receipt"></i>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-label">Pending Invoices</div>
+            <div class="kpi-value">{{ total_pending_count }}</div>
+        </div>
+    </div>
+
+    <div class="collection-kpi-card">
+        <div class="kpi-icon-wrapper kpi-icon-purple">
+            <i class="ph-bold ph-file-text"></i>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-label">Invoiced Value</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ total_invoiced_value|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <div class="collection-kpi-card">
+        <div class="kpi-icon-wrapper kpi-icon-green">
+            <i class="ph-bold ph-check-circle"></i>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-label">Already Collected</div>
+            <div class="kpi-value">{{ currency_symbol }} {{ total_collected_value|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <div class="collection-kpi-card">
+        <div class="kpi-icon-wrapper kpi-icon-rose">
+            <i class="ph-bold ph-warning-circle"></i>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-label">Total Outstanding</div>
+            <div class="kpi-value" style="color: #dc2626;">{{ currency_symbol }} {{ total_outstanding|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters Card -->
+<div class="filter-card">
+    <form method="GET" id="collectionFilterForm">
+        <div class="filter-grid">
+            <!-- Search -->
+            <div class="filter-group">
+                <label><i class="ph ph-magnifying-glass"></i> Search</label>
+                <input type="text" name="search" value="{{ search }}" class="filter-control"
+                       placeholder="Customer, phone, vehicle, invoice #...">
+            </div>
+
+            <!-- Branch (for Company Admin) -->
+            {% if role_name == 'COMPANY_ADMIN' and branches %}
+            <div class="filter-group">
+                <label><i class="ph ph-buildings"></i> Branch</label>
+                <select name="branch_id" class="filter-control">
+                    <option value="all">All Branches</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if branch_id == b.id|stringformat:"s" %}selected{% endif %}>
+                        {{ b.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- From Date -->
+            <div class="filter-group">
+                <label><i class="ph ph-calendar"></i> From Date</label>
+                <input type="date" name="from_date" id="from_date_input" value="{{ from_date }}" class="filter-control">
+            </div>
+
+            <!-- To Date -->
+            <div class="filter-group">
+                <label><i class="ph ph-calendar"></i> To Date</label>
+                <input type="date" name="to_date" id="to_date_input" value="{{ to_date }}" class="filter-control">
+            </div>
+
+            <!-- Filter Buttons -->
+            <div style="display: flex; gap: 8px;">
+                <button type="submit" class="btn-primary" style="flex: 1; padding: 10px 16px; border-radius: 10px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="ph-bold ph-funnel"></i> Filter
+                </button>
+                <a href="{% url 'outstanding_list' %}" class="btn-secondary" style="padding: 10px 14px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;" title="Reset Filters">
+                    <i class="ph ph-arrow-counter-clockwise"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Quick Date Range Presets & View Mode Toggle -->
+        <div class="preset-pills" style="justify-content: space-between; align-items: center;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <span style="font-size: 0.8rem; font-weight: 600; color: #64748b; display: flex; align-items: center; gap: 4px;">
+                    <i class="ph ph-lightning"></i> Quick Filters:
+                </span>
+                <button type="button" class="preset-pill" onclick="setDatePreset('today')">Today</button>
+                <button type="button" class="preset-pill" onclick="setDatePreset('yesterday')">Yesterday</button>
+                <button type="button" class="preset-pill" onclick="setDatePreset('this_week')">This Week</button>
+                <button type="button" class="preset-pill" onclick="setDatePreset('this_month')">This Month</button>
+                <button type="button" class="preset-pill" onclick="setDatePreset('clear')">All Time</button>
+            </div>
+
+            <!-- View Switcher -->
+            <div style="display: flex; gap: 6px; background: #f1f5f9; padding: 3px; border-radius: 10px;">
+                <a href="?search={{ search }}&from_date={{ from_date }}&to_date={{ to_date }}&branch_id={{ branch_id }}&view_mode=list"
+                   class="preset-pill {% if view_mode != 'customer' %}active{% endif %}" style="padding: 5px 12px; margin: 0;">
+                    <i class="ph ph-list-dashes"></i> Invoice List
+                </a>
+                <a href="?search={{ search }}&from_date={{ from_date }}&to_date={{ to_date }}&branch_id={{ branch_id }}&view_mode=customer"
+                   class="preset-pill {% if view_mode == 'customer' %}active{% endif %}" style="padding: 5px 12px; margin: 0;">
+                    <i class="ph ph-users"></i> By Customer
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Main List Container -->
+<div class="list-container">
+    <div class="list-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 16px;">
+        <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                Outstanding Collections
+            </h3>
+            <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                Invoices with pending balance awaiting payment collection
+            </p>
+        </div>
     </div>
 
     <!-- Messages -->
-    {% comment %} {% if messages %}
-    <div style="padding:0 24px 16px;">
+    {% if messages %}
+    <div style="margin-bottom: 16px;">
         {% for message in messages %}
-        <div style="padding:12px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; margin-bottom:8px;
+        <div style="margin-bottom:8px; padding:12px 16px; border-radius:10px; display:flex; align-items:center; gap:8px;
             {% if message.tags == 'success' %}background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;
-            {% else %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;{% endif %}">
+            {% elif message.tags == 'error' %}background:#fee2e2; color:#991b1b; border:1px solid #fecaca;
+            {% else %}background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;{% endif %}">
             <i class="ph-bold {% if message.tags == 'success' %}ph-check-circle{% else %}ph-warning-circle{% endif %}"></i>
             {{ message }}
         </div>
         {% endfor %}
     </div>
-    {% endif %} {% endcomment %}
-
-
-    <!-- Search -->
-    <div style="padding:0 24px 20px;">
-        <form method="get">
-            <div style="display:flex; gap:10px; max-width:500px;">
-                <input type="text" name="search" value="{{ search }}" placeholder="Search by customer name, phone or invoice #..."
-                    style="flex:1; padding:10px 14px; border:1px solid #e2e8f0; border-radius:8px; font-size:.9rem; outline:none;">
-                <button type="submit" style="padding:10px 20px; background:#000080; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
-                    <i class="ph ph-magnifying-glass"></i> Search
-                </button>
-                {% if search %}
-                <a href="{% url 'outstanding_list' %}" style="padding:10px 16px; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; border-radius:8px; font-weight:600; text-decoration:none;">Clear</a>
-                {% endif %}
-            </div>
-        </form>
-    </div>
-
-    {% if customer_summary %}
-    <!-- Customer Accordion -->
-    <div style="padding:0 24px;">
-        {% for summary in customer_summary %}
-        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; margin-bottom:14px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.04);">
-            <!-- Customer Header -->
-            <div style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; cursor:pointer; border-bottom:1px solid #f1f5f9;"
-                 onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div style="background:#eff6ff; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
-                        <i class="ph-bold ph-user" style="color:#2563eb; font-size:1.1rem;"></i>
-                    </div>
-                    <div>
-                        <div style="font-weight:700; color:#1e293b; font-size:.95rem;">{{ summary.customer.name }}</div>
-                        <div style="font-size:.8rem; color:#64748b;">{{ summary.customer.phone }} &nbsp;·&nbsp; {{ summary.invoices|length }} invoice{{ summary.invoices|length|pluralize }}</div>
-                    </div>
-                </div>
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div style="text-align:right;">
-                        <div style="font-size:.72rem; color:#94a3b8; font-weight:600;">TOTAL DUE</div>
-                        <div style="font-size:1.3rem; font-weight:900; color:#dc2626;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ summary.total_outstanding|floatformat:2 }}</div>
-                    </div>
-                    <i class="ph ph-caret-down" style="color:#94a3b8;"></i>
-                </div>
-            </div>
-
-            <!-- Invoices for this customer -->
-            <div>
-                <table style="width:100%; border-collapse:collapse; font-size:.875rem;">
-                    <thead>
-                        <tr style="background:#f8fafc;">
-                            <th style="padding:10px 16px; text-align:left; font-weight:600; color:#64748b; font-size:.78rem; letter-spacing:.3px;">INVOICE #</th>
-                            <th style="padding:10px 16px; text-align:left; font-weight:600; color:#64748b; font-size:.78rem;">DATE</th>
-                            <th style="padding:10px 16px; text-align:left; font-weight:600; color:#64748b; font-size:.78rem;">VEHICLE</th>
-                            <th style="padding:10px 16px; text-align:right; font-weight:600; color:#64748b; font-size:.78rem;">TOTAL</th>
-                            <th style="padding:10px 16px; text-align:right; font-weight:600; color:#64748b; font-size:.78rem;">COLLECTED</th>
-                            <th style="padding:10px 16px; text-align:right; font-weight:600; color:#64748b; font-size:.78rem;">OUTSTANDING</th>
-                            <th style="padding:10px 16px; text-align:right; font-weight:600; color:#64748b; font-size:.78rem;">ACTION</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in summary.invoices %}
-                        <tr style="border-top:1px solid #f1f5f9;">
-                            <td style="padding:12px 16px; font-weight:600; color:#1e293b;">
-                                <span style="font-family:monospace; background:#f8fafc; border:1px solid #e2e8f0; padding:2px 8px; border-radius:5px; font-size:.82rem;">
-                                    #{{ item.invoice.invoice_number }}
-                                </span>
-                            </td>
-                            <td style="padding:12px 16px; color:#64748b;">{{ item.invoice.date|date:"d M Y" }}</td>
-                            <td style="padding:12px 16px; color:#64748b;">{{ item.invoice.vehicle.vehicle_number }}</td>
-                            <td style="padding:12px 16px; text-align:right; font-weight:600; color:#1e293b;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.invoice.total|floatformat:2 }}</td>
-                            <td style="padding:12px 16px; text-align:right; color:#16a34a; font-weight:600;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.invoice.amount_collected|floatformat:2 }}</td>
-                            <td style="padding:12px 16px; text-align:right; font-weight:800; color:#dc2626;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ item.outstanding|floatformat:2 }}</td>
-                            <td style="padding:12px 16px; text-align:right;">
-                                <button onclick="openCollect('{{ item.invoice.id }}', '{{ item.invoice.invoice_number }}', '{{ item.outstanding }}')"
-                                    style="background:#000080; color:#fff; border:none; padding:6px 14px; border-radius:7px; font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap;">
-                                    <i class="ph ph-currency-inr"></i> Collect
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% endfor %}
-
-        <!-- Total Outstanding Row -->
-        {% if customer_summary %}
-        <div style="display:flex; justify-content:flex-end; align-items:center; gap:12px; padding:14px 20px; border-top:2px solid #e2e8f0; margin-top:4px;">
-            <span style="font-size:.95rem; font-weight:600; color:#64748b;">Total Outstanding</span>
-            <span style="font-size:1.2rem; font-weight:900; color:#dc2626;">{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ total_outstanding|floatformat:2 }}</span>
-        </div>
-        {% endif %}
-    </div>
-
-    {% else %}
-    <div style="text-align:center; padding:80px 20px; color:#94a3b8;">
-        <i class="ph ph-check-circle" style="font-size:4rem; display:block; margin-bottom:16px; color:#22c55e;"></i>
-        <div style="font-size:1.2rem; font-weight:700; color:#16a34a;">All Clear!</div>
-        <div style="margin-top:6px; font-size:.9rem;">No outstanding balances found{% if search %} for "{{ search }}"{% endif %}.</div>
-    </div>
     {% endif %}
 
+    {% if view_mode == 'customer' %}
+        <!-- VIEW MODE: GROUPED BY CUSTOMER ACCORDION -->
+        {% if customer_summary %}
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                {% for summary in customer_summary %}
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.04);">
+                    <div style="padding:16px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; cursor:pointer; border-bottom:1px solid #f1f5f9;"
+                         onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="background:#eff6ff; width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#2563eb; font-size:1.2rem;">
+                                <i class="ph-bold ph-user"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:700; color:#1e293b; font-size:1rem;">{{ summary.customer.name }}</div>
+                                <div style="font-size:0.82rem; color:#64748b; display:flex; align-items:center; gap:8px; margin-top:2px;">
+                                    <span><i class="ph ph-phone"></i> {{ summary.customer.phone }}</span>
+                                    {% if summary.customer.whatsapp_number %}
+                                    <a href="https://wa.me/{{ summary.customer.whatsapp_number }}" target="_blank" style="color:#10b981; text-decoration:none;" title="Chat on WhatsApp">
+                                        <i class="ph ph-whatsapp-logo"></i> WhatsApp
+                                    </a>
+                                    {% endif %}
+                                    <span>· {{ summary.invoices|length }} invoice{{ summary.invoices|length|pluralize }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <div style="text-align:right;">
+                                <div style="font-size:0.75rem; color:#64748b; font-weight:600; text-transform:uppercase;">Total Due</div>
+                                <div style="font-size:1.35rem; font-weight:800; color:#dc2626;">{{ currency_symbol }} {{ summary.total_outstanding|floatformat:2 }}</div>
+                            </div>
+                            <i class="ph ph-caret-down" style="color:#94a3b8; font-size:1.2rem;"></i>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="overflow-x:auto;">
+                            <table class="premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice #</th>
+                                        <th>Date</th>
+                                        <th>Vehicle</th>
+                                        <th>Total</th>
+                                        <th>Collected</th>
+                                        <th>Outstanding</th>
+                                        <th style="text-align:right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in summary.invoices %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'invoice_receipt' item.invoice.pk %}" class="invoice-chip" target="_blank">
+                                                #{{ item.invoice.invoice_number }}
+                                            </a>
+                                        </td>
+                                        <td style="color:#64748b;">{{ item.invoice.date|date:"d M Y" }}</td>
+                                        <td style="font-weight:600; color:#334155;">{{ item.invoice.vehicle.vehicle_number }}</td>
+                                        <td style="font-weight:600; color:#1e293b;">{{ currency_symbol }} {{ item.invoice.total|floatformat:2 }}</td>
+                                        <td style="font-weight:600; color:#059669;">{{ currency_symbol }} {{ item.invoice.amount_collected|floatformat:2 }}</td>
+                                        <td>
+                                            <span class="outstanding-badge">
+                                                {{ currency_symbol }} {{ item.outstanding|floatformat:2 }}
+                                            </span>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <button type="button" class="btn-collect"
+                                                    onclick="openCollectModal('{{ item.invoice.id }}', '{{ item.invoice.invoice_number }}', '{{ item.outstanding }}', '{{ item.invoice.customer.name|escapejs }}', '{{ item.invoice.vehicle.vehicle_number }}', '{{ item.invoice.total }}', '{{ item.invoice.amount_collected }}')">
+                                                <i class="ph ph-currency-circle-dollar"></i> Collect
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div style="text-align:center; padding: 60px 20px; color:#94a3b8;">
+                <i class="ph ph-check-circle" style="font-size:4rem; display:block; margin-bottom:12px; color:#22c55e;"></i>
+                <h4 style="color:#16a34a; font-weight:700; margin:0 0 6px 0;">All Clear!</h4>
+                <p style="margin:0; font-size:0.9rem;">No outstanding customer balances found.</p>
+            </div>
+        {% endif %}
+
+    {% else %}
+        <!-- VIEW MODE: FLAT INVOICE LIST TABLE -->
+        <div style="overflow-x:auto;">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Invoice #</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        {% if role_name == 'COMPANY_ADMIN' %}
+                        <th>Branch</th>
+                        {% endif %}
+                        <th>Total</th>
+                        <th>Collected</th>
+                        <th>Progress</th>
+                        <th>Outstanding Due</th>
+                        <th style="text-align:right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in page_obj %}
+                    <tr>
+                        <td style="color:#94a3b8; font-weight:500;">{{ forloop.counter }}</td>
+
+                        <td>
+                            <a href="{% url 'invoice_receipt' item.invoice.pk %}" class="invoice-chip" target="_blank" title="View Invoice">
+                                #{{ item.invoice.invoice_number }}
+                            </a>
+                        </td>
+
+                        <td style="white-space:nowrap; color:#64748b;">
+                            {{ item.invoice.date|date:"d M Y" }}
+                        </td>
+
+                        <td>
+                            <div style="font-weight:600; color:#1e293b;">{{ item.invoice.customer.name }}</div>
+                            <div style="font-size:0.8rem; color:#64748b; display:flex; align-items:center; gap:6px;">
+                                <span><i class="ph ph-phone"></i> {{ item.invoice.customer.phone }}</span>
+                                {% if item.invoice.customer.whatsapp_number %}
+                                <a href="https://wa.me/{{ item.invoice.customer.whatsapp_number }}" target="_blank" style="color:#10b981;" title="WhatsApp">
+                                    <i class="ph ph-whatsapp-logo"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <td>
+                            <span style="font-weight:600; color:#334155;">{{ item.invoice.vehicle.vehicle_number }}</span>
+                            {% if item.invoice.vehicle.vehicle_type_model %}
+                            <div style="font-size:0.75rem; color:#94a3b8;">{{ item.invoice.vehicle.vehicle_type_model.name }}</div>
+                            {% endif %}
+                        </td>
+
+                        {% if role_name == 'COMPANY_ADMIN' %}
+                        <td>
+                            <span style="font-weight:600; color:#475569;">{{ item.invoice.branch.name|default:"-" }}</span>
+                        </td>
+                        {% endif %}
+
+                        <td style="font-weight:600; color:#1e293b; white-space:nowrap;">
+                            {{ currency_symbol }} {{ item.invoice.total|floatformat:2 }}
+                        </td>
+
+                        <td style="font-weight:600; color:#059669; white-space:nowrap;">
+                            {{ currency_symbol }} {{ item.invoice.amount_collected|floatformat:2 }}
+                        </td>
+
+                        <td style="min-width: 100px;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#64748b; font-weight:600;">
+                                <span>{{ item.progress_percent }}%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill" style="width: {{ item.progress_percent }}%;"></div>
+                            </div>
+                        </td>
+
+                        <td>
+                            <span class="outstanding-badge">
+                                {{ currency_symbol }} {{ item.outstanding|floatformat:2 }}
+                            </span>
+                        </td>
+
+                        <td style="text-align:right;">
+                            <button type="button" class="btn-collect"
+                                    onclick="openCollectModal('{{ item.invoice.id }}', '{{ item.invoice.invoice_number }}', '{{ item.outstanding }}', '{{ item.invoice.customer.name|escapejs }}', '{{ item.invoice.vehicle.vehicle_number }}', '{{ item.invoice.total }}', '{{ item.invoice.amount_collected }}')">
+                                <i class="ph ph-currency-circle-dollar"></i> Collect
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if role_name == 'COMPANY_ADMIN' %}11{% else %}10{% endif %}"
+                            style="text-align:center; padding: 60px 20px; color:#94a3b8;">
+                            <i class="ph ph-check-circle" style="font-size:3.5rem; display:block; margin-bottom:12px; color:#22c55e;"></i>
+                            <p style="font-size:1.1rem; font-weight:700; color:#16a34a; margin:0 0 4px 0;">All Invoices Clear!</p>
+                            <p style="font-size:0.88rem; color:#64748b; margin:0;">No outstanding balances found matching your criteria.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination" style="margin-top: 24px;">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&from_date={{ from_date }}&to_date={{ to_date }}&branch_id={{ branch_id }}&view_mode={{ view_mode }}"
+               class="page-link">
+                &laquo; Previous
+            </a>
+            {% endif %}
+
+            <span>
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&from_date={{ from_date }}&to_date={{ to_date }}&branch_id={{ branch_id }}&view_mode={{ view_mode }}"
+               class="page-link">
+                Next &raquo;
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    {% endif %}
 </div>
 
-<!-- Collect Payment Modal -->
-<div id="collectModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; padding:20px;">
-    <div style="background:#fff; border-radius:16px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,.2);">
-        <div style="padding:20px 24px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+<!-- Collect Payment Modal (exact app-like design) -->
+<div class="modal-overlay" id="collectModal">
+    <div class="modal-box">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
             <div>
-                <div style="font-weight:700; font-size:1rem; color:#1e293b;">Collect Payment</div>
-                <div id="modalInvoiceLabel" style="font-size:.82rem; color:#64748b; margin-top:2px;"></div>
+                <h3 style="margin:0; font-size:1.2rem; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px;">
+                    <i class="ph-bold ph-hand-coins" style="color:#000080;"></i>
+                    Collect Payment
+                </h3>
+                <div id="modalInvoiceSubtitle" style="font-size:0.85rem; color:#64748b; margin-top:2px;"></div>
             </div>
-            <button onclick="closeCollect()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#94a3b8; line-height:1;">×</button>
+            <button type="button" onclick="closeCollectModal()" style="background:none; border:none; font-size:1.5rem; color:#94a3b8; cursor:pointer;">
+                &times;
+            </button>
         </div>
-        <form id="collectForm" method="POST" action="" style="padding:24px;">
+
+        <form id="collectForm" method="POST" action="">
             {% csrf_token %}
-            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:14px 16px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between;">
-                <span style="font-size:.85rem; color:#64748b; font-weight:600;">Outstanding Balance</span>
-                <span id="modalOutstanding" style="font-size:1.4rem; font-weight:900; color:#dc2626;"></span>
+
+            <!-- Customer & Vehicle Brief Box -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:0.85rem;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span style="color:#64748b;">Customer:</span>
+                    <strong id="modalCustomerName" style="color:#1e293b;"></strong>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:#64748b;">Vehicle:</span>
+                    <strong id="modalVehicleNumber" style="color:#1e293b;"></strong>
+                </div>
             </div>
-            <div style="margin-bottom:18px;">
-                <label style="font-size:.85rem; font-weight:600; color:#374151; display:block; margin-bottom:6px;">
-                    Amount to Collect ({{ request.user.profile.company.country.currency_symbol|default:'₹' }}) <span style="color:red;">*</span>
+
+            <!-- Outstanding Balance Highlight -->
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:14px 16px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#991b1b; text-transform:uppercase;">Outstanding Due</div>
+                    <div style="font-size:0.75rem; color:#ef4444;" id="modalBreakdown"></div>
+                </div>
+                <div id="modalOutstandingDisplay" style="font-size:1.5rem; font-weight:900; color:#dc2626;"></div>
+            </div>
+
+            <!-- Amount Input -->
+            <div class="form-group" style="margin-bottom:16px;">
+                <label style="font-size:0.85rem; font-weight:700; color:#374151; display:flex; justify-content:space-between;">
+                    <span>Amount to Collect ({{ currency_symbol }}) <span style="color:red;">*</span></span>
+                    <span style="font-size:0.78rem; color:#64748b; font-weight:normal;">Partial or full</span>
                 </label>
-                <input type="number" name="amount" id="collectAmount" required min="0.01" step="0.01"
-                    style="width:100%; box-sizing:border-box; padding:11px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem; font-weight:700; outline:none;">
-                <div style="font-size:.75rem; color:#94a3b8; margin-top:4px;">Enter partial or full outstanding amount</div>
+                <div style="position:relative; margin-top:6px;">
+                    <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); font-weight:700; color:#64748b;">
+                        {{ currency_symbol }}
+                    </span>
+                    <input type="number" step="0.01" min="0.01" name="amount" id="collectAmountInput" required
+                           style="width:100%; box-sizing:border-box; padding:12px 14px 12px 36px; border:2px solid #cbd5e1; border-radius:10px; font-size:1.15rem; font-weight:800; outline:none; color:#1e293b;"
+                           placeholder="0.00">
+                </div>
             </div>
+
+            <!-- Payment Mode -->
+            <div class="form-group" style="margin-bottom:16px;">
+                <label style="font-size:0.85rem; font-weight:700; color:#374151; margin-bottom:6px; display:block;">
+                    Payment Mode
+                </label>
+                <select name="payment_mode" class="filter-control" style="font-weight:600;">
+                    <option value="cash">Cash</option>
+                    <option value="card">Card / POS</option>
+                    <option value="upi">UPI / Online</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                </select>
+            </div>
+
+            <!-- Remarks -->
+            <div class="form-group" style="margin-bottom:24px;">
+                <label style="font-size:0.85rem; font-weight:600; color:#475569; margin-bottom:6px; display:block;">
+                    Remarks (Optional)
+                </label>
+                <input type="text" name="remarks" class="filter-control" placeholder="Optional reference or receipt note...">
+            </div>
+
             <div style="display:flex; gap:10px;">
-                <button type="button" onclick="closeCollect()"
-                    style="flex:1; padding:11px; border:1px solid #d1d5db; background:#f8fafc; border-radius:8px; font-weight:600; cursor:pointer; color:#64748b;">
+                <button type="button" class="btn-secondary" onclick="closeCollectModal()" style="flex:1; padding:12px; border-radius:10px; font-weight:600;">
                     Cancel
                 </button>
-                <button type="submit"
-                    style="flex:2; padding:11px; background:#000080; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:.95rem;">
+                <button type="submit" id="btnConfirmCollect"
+                        style="flex:2; padding:12px; background:#000080; color:#ffffff; border:none; border-radius:10px; font-size:0.95rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px;">
                     <i class="ph-bold ph-check"></i> Confirm Collection
                 </button>
             </div>
@@ -167,20 +697,83 @@
 </div>
 
 <script>
-function openCollect(invoiceId, invoiceNumber, outstanding) {
-    document.getElementById('collectModal').style.display = 'flex';
-    document.getElementById('modalInvoiceLabel').textContent = 'Invoice #' + invoiceNumber;
-    document.getElementById('modalOutstanding').textContent = '{{ request.user.profile.company.country.currency_symbol|default:'₹' }}' + parseFloat(outstanding).toFixed(2);
-    document.getElementById('collectAmount').value = parseFloat(outstanding).toFixed(2);
-    document.getElementById('collectAmount').max = parseFloat(outstanding).toFixed(2);
-    document.getElementById('collectForm').action = '/outstanding/collect/' + invoiceId + '/';
-}
-function closeCollect() {
-    document.getElementById('collectModal').style.display = 'none';
-}
-// Close on backdrop click
-document.getElementById('collectModal').addEventListener('click', function(e) {
-    if (e.target === this) closeCollect();
-});
+    function setDatePreset(type) {
+        const fromInput = document.getElementById('from_date_input');
+        const toInput = document.getElementById('to_date_input');
+        const form = document.getElementById('collectionFilterForm');
+        const now = new Date();
+
+        function formatDate(d) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        if (type === 'today') {
+            const todayStr = formatDate(now);
+            fromInput.value = todayStr;
+            toInput.value = todayStr;
+        } else if (type === 'yesterday') {
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yStr = formatDate(yesterday);
+            fromInput.value = yStr;
+            toInput.value = yStr;
+        } else if (type === 'this_week') {
+            const firstDay = new Date(now);
+            const day = firstDay.getDay() || 7;
+            firstDay.setDate(firstDay.getDate() - day + 1);
+            fromInput.value = formatDate(firstDay);
+            toInput.value = formatDate(now);
+        } else if (type === 'this_month') {
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            fromInput.value = formatDate(firstDay);
+            toInput.value = formatDate(now);
+        } else if (type === 'clear') {
+            fromInput.value = '';
+            toInput.value = '';
+        }
+
+        form.submit();
+    }
+
+    function openCollectModal(invoiceId, invoiceNumber, outstanding, customerName, vehicleNumber, total, collected) {
+        const modal = document.getElementById('collectModal');
+        const subtitle = document.getElementById('modalInvoiceSubtitle');
+        const custNameEl = document.getElementById('modalCustomerName');
+        const vehNumEl = document.getElementById('modalVehicleNumber');
+        const breakdownEl = document.getElementById('modalBreakdown');
+        const displayEl = document.getElementById('modalOutstandingDisplay');
+        const amountInput = document.getElementById('collectAmountInput');
+        const form = document.getElementById('collectForm');
+
+        const outVal = parseFloat(outstanding) || 0;
+        const totVal = parseFloat(total) || 0;
+        const colVal = parseFloat(collected) || 0;
+
+        subtitle.textContent = `Invoice #${invoiceNumber}`;
+        custNameEl.textContent = customerName || '-';
+        vehNumEl.textContent = vehicleNumber || '-';
+        breakdownEl.textContent = `Total: {{ currency_symbol }}${totVal.toFixed(2)} | Paid: {{ currency_symbol }}${colVal.toFixed(2)}`;
+        displayEl.textContent = `{{ currency_symbol }}${outVal.toFixed(2)}`;
+
+        amountInput.value = outVal.toFixed(2);
+        amountInput.max = outVal.toFixed(2);
+
+        form.action = `/outstanding/collect/${invoiceId}/`;
+
+        modal.style.display = 'flex';
+        setTimeout(() => amountInput.focus(), 100);
+    }
+
+    function closeCollectModal() {
+        document.getElementById('collectModal').style.display = 'none';
+    }
+
+    // Close on backdrop click
+    document.getElementById('collectModal').addEventListener('click', function(e) {
+        if (e.target === this) closeCollectModal();
+    });
 </script>
 {% endblock %}
