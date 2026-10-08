@@ -40,6 +40,9 @@ git pull origin main
 echo "🔄 Checking migrations..."
 /home/mobiz/webapps/car_wash/venv/bin/python manage.py migrate --noinput
 
+echo "🌍 Seeding countries..."
+/home/mobiz/webapps/car_wash/venv/bin/python seed_countries.py || true
+
 echo "🎨 Collecting static files..."
 /home/mobiz/webapps/car_wash/venv/bin/python manage.py collectstatic --noinput
 

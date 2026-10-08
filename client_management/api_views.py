@@ -99,11 +99,21 @@ def api_login(request):
             else:
                 display_name = branch_name if role == 'BRANCH_ADMIN' else company_name
 
-            currency_symbol = '₹'
-            if user.profile.company and user.profile.company.country and user.profile.company.country.currency_symbol:
-                currency_symbol = user.profile.company.country.currency_symbol
-
             company = user.profile.company
+            if not company and hasattr(user, 'staff_profile') and user.staff_profile and user.staff_profile.branch:
+                company = user.staff_profile.branch.company
+            if not company and hasattr(user, 'managed_branch') and user.managed_branch:
+                company = user.managed_branch.company
+
+            currency_symbol = '₹'
+            country_iso_code = 'IN'
+            if company and company.country:
+                c = company.country
+                if c.currency_symbol:
+                    currency_symbol = c.currency_symbol
+                if c.phone_iso_code:
+                    country_iso_code = c.phone_iso_code
+
             subscription_active = True
             subscription_days_left = 999
             subscription_end_date = None
@@ -161,6 +171,7 @@ def api_login(request):
                 'branch_name': branch_name,
                 'display_name': display_name,
                 'currency_symbol': currency_symbol,
+                'country_iso_code': country_iso_code,
                 'username': user.username,
                 'subscription_active': subscription_active,
                 'subscription_days_left': subscription_days_left,

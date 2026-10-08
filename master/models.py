@@ -6,6 +6,10 @@ class Country(BaseModel):
     name = models.CharField(max_length=100)
     currency_code = models.CharField(max_length=10, blank=True, null=True, help_text="e.g. INR, AED")
     currency_symbol = models.CharField(max_length=10, blank=True, null=True, help_text="e.g. ₹, AED")
+    phone_iso_code = models.CharField(max_length=5, blank=True, null=True, help_text="ISO 3166-1 alpha-2 code e.g. IN, SA, AE")
+    phone_dial_code = models.CharField(max_length=10, blank=True, null=True, help_text="Dial code e.g. +91, +966, +971")
+    flag = models.CharField(max_length=10, blank=True, null=True, help_text="Flag emoji e.g. 🇮🇳, 🇸🇦")
+    locale_tag = models.CharField(max_length=20, blank=True, null=True, help_text="BCP 47 locale tag e.g. en_IN, ar_SA")
 
     def __str__(self):
         return self.name
