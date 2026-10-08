@@ -256,20 +256,20 @@
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                         {% if quotation.branch and quotation.branch.company and quotation.branch.company.logo_color %}
-                        <td style="width: 60px; vertical-align: top; padding-right: 12px; padding-top: 2px;">
-                            <img src="{{ quotation.branch.company.logo_color.url }}" style="height: 36px; max-width: 80px; object-fit: contain;" />
+                        <td style="width: 100px; vertical-align: top; padding-right: 14px; padding-top: 2px;">
+                            <img src="{{ quotation.branch.company.logo_color.url }}" style="height: 65px; max-width: 120px; object-fit: contain;" />
                         </td>
                         {% elif quotation.branch and quotation.branch.company and quotation.branch.company.logo_bw %}
-                        <td style="width: 60px; vertical-align: top; padding-right: 12px; padding-top: 2px;">
-                            <img src="{{ quotation.branch.company.logo_bw.url }}" style="height: 36px; max-width: 80px; object-fit: contain;" />
+                        <td style="width: 100px; vertical-align: top; padding-right: 14px; padding-top: 2px;">
+                            <img src="{{ quotation.branch.company.logo_bw.url }}" style="height: 65px; max-width: 120px; object-fit: contain;" />
                         </td>
                         {% elif quotation.branch and quotation.branch.logo %}
-                        <td style="width: 60px; vertical-align: top; padding-right: 12px; padding-top: 2px;">
-                            <img src="{{ quotation.branch.logo.url }}" style="height: 36px; max-width: 80px; object-fit: contain;" />
+                        <td style="width: 100px; vertical-align: top; padding-right: 14px; padding-top: 2px;">
+                            <img src="{{ quotation.branch.logo.url }}" style="height: 65px; max-width: 120px; object-fit: contain;" />
                         </td>
                         {% elif quotation.customer and quotation.customer.company and quotation.customer.company.logo_color %}
-                        <td style="width: 60px; vertical-align: top; padding-right: 12px; padding-top: 2px;">
-                            <img src="{{ quotation.customer.company.logo_color.url }}" style="height: 36px; max-width: 80px; object-fit: contain;" />
+                        <td style="width: 100px; vertical-align: top; padding-right: 14px; padding-top: 2px;">
+                            <img src="{{ quotation.customer.company.logo_color.url }}" style="height: 65px; max-width: 120px; object-fit: contain;" />
                         </td>
                         {% endif %}
                         <td style="vertical-align: top;">
