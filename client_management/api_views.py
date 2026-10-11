@@ -8337,6 +8337,39 @@ def api_get_purchase_invoices(request):
 # Tally Integration APIs
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _resolve_tally_company(request, user=None):
+    """
+    Resolves company from request for Tally export APIs.
+    No authorization token required, but `client_id` is required:
+      - Supports query param: client_id (or company_id).
+      - Matches by UUID or company_name.
+      - Returns (company, error_response).
+    """
+    from client_management.models import Client
+
+    client_id_param = request.GET.get('client_id', '').strip() or request.GET.get('company_id', '').strip()
+
+    if not client_id_param:
+        # Fallback to authenticated user's company if token provided
+        if user and hasattr(user, 'profile') and user.profile.company:
+            return user.profile.company, None
+        return None, JsonResponse({'status': 'error', 'message': 'client_id is required'}, status=400)
+
+    company = None
+    try:
+        company = Client.objects.filter(id=client_id_param, is_deleted=False).first()
+    except Exception:
+        company = None
+    if not company:
+        company = Client.objects.filter(company_name__iexact=client_id_param, is_deleted=False).first()
+    if not company:
+        company = Client.objects.filter(company_name__icontains=client_id_param, is_deleted=False).first()
+    if not company:
+        return None, JsonResponse({'status': 'error', 'message': f'Company not found with client_id: {client_id_param}'}, status=404)
+
+    return company, None
+
+
 @csrf_exempt
 def api_tally_invoices(request):
     """
@@ -8345,42 +8378,29 @@ def api_tally_invoices(request):
     Returns sales invoices in a Tally-compatible structured format.
 
     Query Params:
-      - client_id   : (optional) UUID of the Client/Company to scope data.
-                      Defaults to the logged-in user's own company.
-      - branch_id   : (optional) UUID of a specific branch (for COMPANY_ADMIN).
+      - client_id   : (required) UUID or name of the Client/Company to scope data.
+      - branch_id   : (optional) UUID of a specific branch.
       - from_date   : (optional) Start date  DD-MM-YYYY or YYYY-MM-DD. Defaults to 1st of current month.
       - to_date     : (optional) End date    DD-MM-YYYY or YYYY-MM-DD. Defaults to today.
       - invoice_type: (optional) 'cashinvoice' | 'creditinvoice'. Returns all if omitted.
 
-    Auth: Bearer token (same as all other APIs).
+    Auth: None (Open API — client_id is required).
     """
     if request.method != 'GET':
         return JsonResponse({'status': 'error', 'message': 'Only GET method is allowed'}, status=405)
 
     user = get_user_from_token(request)
-    if not user:
-        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    company, err = _resolve_tally_company(request, user)
+    if err:
+        return err
 
     try:
         from finance_management.models import Invoice, InvoiceItem
         from client_management.models import Client, Branch
-        from django.db.models import Sum
+        from django.db.models import Sum, Q
 
         from_date, to_date = _parse_dates(request)
-
-        # ── Determine company scope ───────────────────────────────────────
-        client_id_param = request.GET.get('client_id', '').strip()
-        role = user.profile.role.name if user.profile.role else None
-
-        if client_id_param:
-            try:
-                company = Client.objects.get(id=client_id_param, is_deleted=False)
-            except (Client.DoesNotExist, Exception):
-                return JsonResponse({'status': 'error', 'message': 'Invalid client_id'}, status=400)
-        else:
-            company = user.profile.company
-            if not company:
-                return JsonResponse({'status': 'error', 'message': 'No company associated with this user'}, status=400)
+        role = user.profile.role.name if (user and hasattr(user, 'profile') and user.profile.role) else None
 
         # ── Determine branch scope ────────────────────────────────────────
         branch_id_param = request.GET.get('branch_id', '').strip()
@@ -8389,11 +8409,15 @@ def api_tally_invoices(request):
             branch_filter['branch'] = user.managed_branch
         elif branch_id_param:
             try:
-                branch_obj = Branch.objects.get(id=branch_id_param, company=company, is_deleted=False)
-                branch_filter['branch'] = branch_obj
-            except (Branch.DoesNotExist, Exception):
+                b_qs = Branch.objects.filter(id=branch_id_param, is_deleted=False)
+                if company:
+                    b_qs = b_qs.filter(company=company)
+                branch_obj = b_qs.first()
+                if branch_obj:
+                    branch_filter['branch'] = branch_obj
+            except Exception:
                 pass
-        else:
+        elif company:
             branch_filter['branch__company'] = company
 
         # ── Build invoice queryset ────────────────────────────────────────
@@ -8403,7 +8427,7 @@ def api_tally_invoices(request):
             date__lte=to_date,
             **branch_filter
         ).select_related(
-            'customer', 'vehicle', 'branch', 'branch__company', 'scheme'
+            'customer', 'customer__customer_type', 'vehicle', 'branch', 'branch__company', 'scheme'
         ).prefetch_related(
             'items', 'items__service', 'items__stock_item',
             'receipts'
@@ -8413,70 +8437,145 @@ def api_tally_invoices(request):
         if invoice_type_param in ('cashinvoice', 'creditinvoice'):
             qs = qs.filter(invoice_type=invoice_type_param)
 
+        payment_mode_param = request.GET.get('payment_mode', '').strip()
+        if payment_mode_param:
+            qs = qs.filter(receipts__payment_mode=payment_mode_param, receipts__is_deleted=False).distinct()
+
+        search_param = request.GET.get('search', '').strip()
+        if search_param:
+            qs = qs.filter(
+                Q(invoice_number__icontains=search_param) |
+                Q(customer__name__icontains=search_param) |
+                Q(customer__phone__icontains=search_param) |
+                Q(vehicle__vehicle_number__icontains=search_param)
+            )
+
         # ── Build response rows ───────────────────────────────────────────
         invoices_data = []
         for inv in qs:
+            taxable = max(0.0, float(inv.subtotal or 0) - float(inv.discount or 0))
+            tax_amt = float(inv.tax_amount or 0)
+            cgst_amt = round(tax_amt / 2.0, 2)
+            sgst_amt = round(tax_amt - cgst_amt, 2)
+            igst_amt = 0.0
+            balance_amt = max(0.0, round(float(inv.total or 0) - float(inv.amount_collected or 0), 2))
+            round_off = round(float(inv.total or 0) - (taxable + tax_amt), 2)
+
             # Line items
             items = []
-            for item in inv.items.filter(is_deleted=False):
+            for item in [it for it in inv.items.all() if not it.is_deleted]:
                 stock = item.stock_item
+                item_qty = float(item.qty or 1)
+                item_rate = float(item.rate or 0)
+                item_disc = float(item.discount or 0)
+                item_taxable = float(item.net_taxable_amount or max(0.0, (item_qty * item_rate) - item_disc))
+                if stock:
+                    item_cgst = float(stock.cgst_percent or 0)
+                    item_sgst = float(stock.sgst_percent or 0)
+                    item_igst = float(stock.igst_percent or 0)
+                else:
+                    item_cgst = 9.0
+                    item_sgst = 9.0
+                    item_igst = 0.0
+                item_tax_rate = round(item_cgst + item_sgst + item_igst, 2)
+                item_tax_amt = round(item_taxable * item_tax_rate / 100.0, 2) if item_tax_rate > 0 else 0.0
+                item_cgst_amt = round(item_taxable * item_cgst / 100.0, 2) if item_cgst > 0 else 0.0
+                item_sgst_amt = round(item_taxable * item_sgst / 100.0, 2) if item_sgst > 0 else 0.0
+                item_igst_amt = round(item_taxable * item_igst / 100.0, 2) if item_igst > 0 else 0.0
+
+                hsn_code = ''
+                if stock and stock.hsn_code:
+                    hsn_code = stock.hsn_code
+                elif item.service and hasattr(item.service, 'sac_code') and item.service.sac_code:
+                    hsn_code = item.service.sac_code
+
                 items.append({
                     'service_name': item.service_name,
-                    'hsn_sac_code': item.service.sac_code if item.service and item.service.sac_code else (stock.hsn_code if stock and stock.hsn_code else ''),
-                    'qty': float(item.qty),
-                    'rate': float(item.rate),
-                    'discount': float(item.discount),
-                    'net_taxable_amount': float(item.net_taxable_amount),
+                    'hsn_sac_code': hsn_code,
+                    'qty': item_qty,
+                    'rate': item_rate,
+                    'discount': item_disc,
+                    'net_taxable_amount': item_taxable,
                     'is_stock_item': bool(stock),
                     'stock_item_name': stock.item_name if stock else '',
-                    'unit': stock.get_unit_display() if stock else 'Nos',
+                    'stock_brand': stock.brand if stock and stock.brand else '',
+                    'stock_barcode': stock.barcode if stock and stock.barcode else '',
+                    'stock_unit': stock.unit if stock and stock.unit else 'Piece',
+                    'cgst_percent': item_cgst,
+                    'cgst_amount': item_cgst_amt,
+                    'sgst_percent': item_sgst,
+                    'sgst_amount': item_sgst_amt,
+                    'igst_percent': item_igst,
+                    'igst_amount': item_igst_amt,
+                    'total_tax_percent': item_tax_rate,
+                    'total_tax_amount': item_tax_amt,
+                    'total_amount': round(item_taxable + item_tax_amt, 2),
                 })
 
-            # Payment receipts for this invoice
-            receipt_amounts = {'cash': 0.0, 'card': 0.0, 'digital_payments': 0.0}
-            for rec in inv.receipts.all():
-                mode = rec.payment_mode
-                if mode in receipt_amounts:
-                    receipt_amounts[mode] += float(rec.amount)
+            # Receipts / Payments breakdown
+            receipts = []
+            for r in [rc for rc in inv.receipts.all() if not rc.is_deleted]:
+                receipts.append({
+                    'receipt_id': str(r.id),
+                    'receipt_no': r.receipt_number,
+                    'payment_mode': r.payment_mode,
+                    'payment_mode_display': r.get_payment_mode_display(),
+                    'amount': float(r.amount),
+                    'date': r.created_at.strftime('%d-%m-%Y'),
+                    'transaction_id': '',
+                    'cheque_number': r.cheque_no or '',
+                    'bank_name': r.bank_name or '',
+                })
+
+            # Ledger mapping for Tally
+            party_ledger_name = inv.customer.name if inv.customer else 'Cash Customer'
+            voucher_type = 'Sales'
+
+            inv_company = inv.branch.company if (inv.branch and inv.branch.company) else company
+            payment_modes = list({r['payment_mode'] for r in receipts})
 
             invoices_data.append({
-                # ── Identifiers ─────────────────────────────────────
                 'invoice_id': str(inv.id),
-                'invoice_number': inv.invoice_number,
+                'invoice_no': inv.invoice_number,
                 'date': inv.date.strftime('%d-%m-%Y'),
+                'voucher_type': voucher_type,
                 'invoice_type': inv.invoice_type,
-                'invoice_type_display': 'Cash Invoice' if inv.invoice_type == 'cashinvoice' else 'Credit Invoice',
+                'invoice_type_display': inv.get_invoice_type_display(),
 
                 # ── Company / Branch ─────────────────────────────────
-                'company_id': str(company.id),
-                'company_name': company.company_name,
-                'company_gst': company.gst_number or '',
+                'company_id': str(inv_company.id) if inv_company else '',
+                'company_name': inv_company.company_name if inv_company else '',
+                'branch_id': str(inv.branch.id) if inv.branch else '',
                 'branch_name': inv.branch.name if inv.branch else '',
-                'branch_gst': inv.branch.gst_number if inv.branch and inv.branch.gst_number else '',
 
-                # ── Party / Customer ─────────────────────────────────
-                'customer_name': inv.customer.name if inv.customer else '',
-                'customer_phone': inv.customer.phone if inv.customer else '',
-                'customer_address': inv.customer.address if inv.customer and inv.customer.address else '',
-                'customer_tax_number': inv.customer.tax_number if inv.customer and inv.customer.tax_number else '',
-                'customer_tin_number': inv.customer.tin_number if inv.customer and inv.customer.tin_number else '',
+                # ── Party Details (Sundry Debtors / Cash) ─────────────
+                'party_ledger_name': party_ledger_name,
+                'party_type': 'Sundry Debtors' if inv.customer else 'Cash-in-Hand',
+                'customer_id': str(inv.customer.id) if inv.customer else '',
+                'customer_name': inv.customer.name if inv.customer else 'Cash Customer',
+                'customer_phone': inv.customer.phone if (inv.customer and inv.customer.phone) else '',
+                'customer_address': inv.customer.address if (inv.customer and inv.customer.address) else '',
+                'customer_type': inv.customer.customer_type.name if (inv.customer and inv.customer.customer_type) else '',
+
+                # ── Vehicle Details ──────────────────────────────────
                 'vehicle_number': inv.vehicle.vehicle_number if inv.vehicle else '',
 
-                # ── Amounts ──────────────────────────────────────────
+                # ── Financial Totals ─────────────────────────────────
                 'subtotal': float(inv.subtotal),
                 'discount': float(inv.discount),
-                'tax_amount': float(inv.tax_amount),
+                'taxable_amount': taxable,
+                'cgst_amount': cgst_amt,
+                'sgst_amount': sgst_amt,
+                'igst_amount': igst_amt,
+                'total_tax': tax_amt,
+                'round_off': round_off,
                 'grand_total': float(inv.total),
                 'amount_collected': float(inv.amount_collected),
-                'balance_due': round(float(inv.total) - float(inv.amount_collected), 2),
+                'balance_due': balance_amt,
 
-                # ── Payment Breakdown ────────────────────────────────
-                'cash_collected': receipt_amounts['cash'],
-                'card_collected': receipt_amounts['card'],
-                'digital_collected': receipt_amounts['digital_payments'],
-
-                # ── Scheme ───────────────────────────────────────────
-                'scheme_name': inv.scheme.name if inv.scheme else '',
+                # ── Payment / Receipt info ───────────────────────────
+                'payment_mode': ', '.join(payment_modes) if payment_modes else '',
+                'receipts': receipts,
 
                 # ── Remarks ──────────────────────────────────────────
                 'remarks': inv.remarks or '',
@@ -8495,8 +8594,8 @@ def api_tally_invoices(request):
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id),
-            'company_name': company.company_name,
+            'client_id': str(company.id) if company else 'all',
+            'company_name': company.company_name if company else 'All Companies',
             'from_date': from_date.strftime('%d-%m-%Y'),
             'to_date': to_date.strftime('%d-%m-%Y'),
             'count': len(invoices_data),
@@ -8526,42 +8625,29 @@ def api_tally_receipts(request):
     Returns payment receipts in a Tally-compatible structured format.
 
     Query Params:
-      - client_id   : (optional) UUID of the Client/Company to scope data.
-                      Defaults to the logged-in user's own company.
-      - branch_id   : (optional) UUID of a specific branch (for COMPANY_ADMIN).
+      - client_id   : (required) UUID or name of the Client/Company to scope data.
+      - branch_id   : (optional) UUID of a specific branch.
       - from_date   : (optional) Start date  DD-MM-YYYY or YYYY-MM-DD. Defaults to 1st of current month.
       - to_date     : (optional) End date    DD-MM-YYYY or YYYY-MM-DD. Defaults to today.
       - payment_mode: (optional) 'cash' | 'card' | 'digital_payments'. Returns all if omitted.
 
-    Auth: Bearer token (same as all other APIs).
+    Auth: None (Open API — client_id is required).
     """
     if request.method != 'GET':
         return JsonResponse({'status': 'error', 'message': 'Only GET method is allowed'}, status=405)
 
     user = get_user_from_token(request)
-    if not user:
-        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    company, err = _resolve_tally_company(request, user)
+    if err:
+        return err
 
     try:
         from finance_management.models import Receipt
         from client_management.models import Client, Branch
-        from django.db.models import Sum
+        from django.db.models import Sum, Q
 
         from_date, to_date = _parse_dates(request)
-
-        # ── Determine company scope ───────────────────────────────────────
-        client_id_param = request.GET.get('client_id', '').strip()
-        role = user.profile.role.name if user.profile.role else None
-
-        if client_id_param:
-            try:
-                company = Client.objects.get(id=client_id_param, is_deleted=False)
-            except (Client.DoesNotExist, Exception):
-                return JsonResponse({'status': 'error', 'message': 'Invalid client_id'}, status=400)
-        else:
-            company = user.profile.company
-            if not company:
-                return JsonResponse({'status': 'error', 'message': 'No company associated with this user'}, status=400)
+        role = user.profile.role.name if (user and hasattr(user, 'profile') and user.profile.role) else None
 
         # ── Determine branch scope ────────────────────────────────────────
         branch_id_param = request.GET.get('branch_id', '').strip()
@@ -8570,11 +8656,15 @@ def api_tally_receipts(request):
             receipt_scope['invoice__branch'] = user.managed_branch
         elif branch_id_param:
             try:
-                branch_obj = Branch.objects.get(id=branch_id_param, company=company, is_deleted=False)
-                receipt_scope['invoice__branch'] = branch_obj
+                b_qs = Branch.objects.filter(id=branch_id_param, is_deleted=False)
+                if company:
+                    b_qs = b_qs.filter(company=company)
+                branch_obj = b_qs.first()
+                if branch_obj:
+                    receipt_scope['invoice__branch'] = branch_obj
             except (Branch.DoesNotExist, Exception):
                 pass
-        else:
+        elif company:
             receipt_scope['invoice__branch__company'] = company
 
         # ── Build receipt queryset ────────────────────────────────────────
@@ -8588,65 +8678,96 @@ def api_tally_receipts(request):
         ).order_by('created_at', 'auto_id')
 
         payment_mode_param = request.GET.get('payment_mode', '').strip()
-        VALID_MODES = {'cash', 'card', 'digital_payments'}
-        if payment_mode_param in VALID_MODES:
+        if payment_mode_param:
             qs = qs.filter(payment_mode=payment_mode_param)
+
+        search_param = request.GET.get('search', '').strip()
+        if search_param:
+            qs = qs.filter(
+                Q(receipt_number__icontains=search_param) |
+                Q(invoice__invoice_number__icontains=search_param) |
+                Q(invoice__customer__name__icontains=search_param) |
+                Q(invoice__customer__phone__icontains=search_param) |
+                Q(invoice__vehicle__vehicle_number__icontains=search_param) |
+                Q(cheque_no__icontains=search_param)
+            )
 
         PAYMENT_LABELS = dict(Receipt.PAYMENT_CHOICES)
 
-        # ── Build response rows ───────────────────────────────────────────
         receipts_data = []
-        for rec in qs:
-            inv = rec.invoice
-            receipts_data.append({
-                # ── Identifiers ─────────────────────────────────────
-                'receipt_id': str(rec.id),
-                'receipt_number': rec.receipt_number,
-                'date': rec.created_at.date().strftime('%d-%m-%Y'),
-                'time': rec.created_at.strftime('%H:%M:%S'),
+        for r in qs:
+            inv = r.invoice
+            cust = inv.customer if inv else None
+            rec_company = inv.branch.company if (inv and inv.branch and inv.branch.company) else company
 
-                # ── Linked Invoice ───────────────────────────────────
-                'invoice_id': str(inv.id) if inv else '',
-                'invoice_number': inv.invoice_number if inv else '',
-                'invoice_date': inv.date.strftime('%d-%m-%Y') if inv else '',
-                'invoice_type': inv.invoice_type if inv else '',
+            # Ledger names for Tally receipt voucher:
+            # Debit: Cash-in-Hand or Bank Account
+            # Credit: Party Ledger (Sundry Debtors)
+            if r.payment_mode == 'cash':
+                debit_ledger = 'Cash'
+                debit_group = 'Cash-in-Hand'
+            elif r.payment_mode == 'card':
+                debit_ledger = 'Bank / Card Account'
+                debit_group = 'Bank Accounts'
+            elif r.payment_mode == 'digital_payments':
+                debit_ledger = 'UPI / Digital Account'
+                debit_group = 'Bank Accounts'
+            else:
+                debit_ledger = 'Bank Account'
+                debit_group = 'Bank Accounts'
+
+            credit_ledger = cust.name if cust else 'Cash Customer'
+
+            inv_balance = max(0.0, round(float(inv.total or 0) - float(inv.amount_collected or 0), 2)) if inv else 0.0
+
+            receipts_data.append({
+                'receipt_id': str(r.id),
+                'receipt_no': r.receipt_number,
+                'date': r.created_at.strftime('%d-%m-%Y'),
+                'voucher_type': 'Receipt',
+                'amount': float(r.amount),
+                'payment_mode': r.payment_mode,
+                'payment_mode_display': PAYMENT_LABELS.get(r.payment_mode, r.payment_mode.title()),
 
                 # ── Company / Branch ─────────────────────────────────
-                'company_id': str(company.id),
-                'company_name': company.company_name,
-                'company_gst': company.gst_number or '',
+                'company_id': str(rec_company.id) if rec_company else '',
+                'company_name': rec_company.company_name if rec_company else '',
+                'branch_id': str(inv.branch.id) if (inv and inv.branch) else '',
                 'branch_name': inv.branch.name if (inv and inv.branch) else '',
-                'branch_gst': inv.branch.gst_number if (inv and inv.branch and inv.branch.gst_number) else '',
 
-                # ── Party / Customer ─────────────────────────────────
-                'customer_name': inv.customer.name if (inv and inv.customer) else '',
-                'customer_phone': inv.customer.phone if (inv and inv.customer) else '',
+                # ── Against Invoice Details ──────────────────────────
+                'against_invoice_id': str(inv.id) if inv else '',
+                'against_invoice_no': inv.invoice_number if inv else '',
+                'invoice_date': inv.date.strftime('%d-%m-%Y') if inv else '',
+                'invoice_grand_total': float(inv.total) if inv else 0.0,
+                'invoice_balance_remaining': inv_balance,
+
+                # ── Tally Ledger Mappings ─────────────────────────────
+                'debit_ledger': debit_ledger,
+                'debit_group': debit_group,
+                'credit_ledger': credit_ledger,
+                'credit_group': 'Sundry Debtors' if cust else 'Cash-in-Hand',
+
+                # ── Customer / Party Details ─────────────────────────
+                'customer_id': str(cust.id) if cust else '',
+                'customer_name': cust.name if cust else 'Cash Customer',
+                'customer_phone': cust.phone if (cust and cust.phone) else '',
+
+                # ── Vehicle Details ──────────────────────────────────
                 'vehicle_number': inv.vehicle.vehicle_number if (inv and inv.vehicle) else '',
 
-                # ── Receipt Amount ───────────────────────────────────
-                'amount': float(rec.amount),
-                'payment_mode': rec.payment_mode,
-                'payment_mode_display': PAYMENT_LABELS.get(rec.payment_mode, rec.payment_mode.title()),
-
                 # ── Cheque / Bank Details (for Tally bank entry) ─────
-                'cheque_no': rec.cheque_no or '',
-                'cheque_date': rec.cheque_date.strftime('%d-%m-%Y') if rec.cheque_date else '',
-                'bank_name': rec.bank_name or '',
-
-                # ── Remarks ──────────────────────────────────────────
-                'remarks': rec.remarks or '',
+                'transaction_id': '',
+                'cheque_number': r.cheque_no or '',
+                'bank_name': r.bank_name or '',
+                'notes': r.remarks or '',
             })
 
-        # ── Summary by payment mode (always shows all modes) ─────────────
-        summary_qs = Receipt.objects.filter(
-            created_at__date__gte=from_date,
-            created_at__date__lte=to_date,
-            **receipt_scope
-        ).values('payment_mode').annotate(total=Sum('amount')).order_by('-total')
-
+        # Summary grouped by payment_mode
+        mode_totals = qs.values('payment_mode').annotate(total=Sum('amount'))
         summary = []
         existing_modes = set()
-        for item in summary_qs:
+        for item in mode_totals:
             mode = item['payment_mode']
             existing_modes.add(mode)
             summary.append({
@@ -8662,8 +8783,8 @@ def api_tally_receipts(request):
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id),
-            'company_name': company.company_name,
+            'client_id': str(company.id) if company else 'all',
+            'company_name': company.company_name if company else 'All Companies',
             'from_date': from_date.strftime('%d-%m-%Y'),
             'to_date': to_date.strftime('%d-%m-%Y'),
             'count': len(receipts_data),
@@ -8685,49 +8806,44 @@ def api_tally_customers(request):
     Returns customer master records in a Tally-compatible format (Sundry Debtors).
 
     Query Params:
-      - client_id   : (optional) UUID of Client/Company.
+      - client_id   : (required) UUID or name of Client/Company.
       - branch_id   : (optional) UUID of specific Branch.
-      - from_date   : (optional) Start date DD-MM-YYYY or YYYY-MM-DD (created_at).
-      - to_date     : (optional) End date DD-MM-YYYY or YYYY-MM-DD (created_at).
+      - from_date   : (optional) Start date DD-MM-YYYY or YYYY-MM-DD.
+      - to_date     : (optional) End date DD-MM-YYYY or YYYY-MM-DD.
       - search      : (optional) Text search by name, phone, or whatsapp_number.
 
-    Auth: Bearer token
+    Auth: None (Open API — client_id is required).
     """
     if request.method != 'GET':
         return JsonResponse({'status': 'error', 'message': 'Only GET method is allowed'}, status=405)
 
     user = get_user_from_token(request)
-    if not user:
-        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    company, err = _resolve_tally_company(request, user)
+    if err:
+        return err
 
     try:
         from client_management.models import Customer, Client, Branch
         from django.db.models import Q
 
-        # ── Determine company scope ───────────────────────────────────────
-        client_id_param = request.GET.get('client_id', '').strip()
-        role = user.profile.role.name if user.profile.role else None
-
-        if client_id_param:
-            try:
-                company = Client.objects.get(id=client_id_param, is_deleted=False)
-            except (Client.DoesNotExist, Exception):
-                return JsonResponse({'status': 'error', 'message': 'Invalid client_id'}, status=400)
-        else:
-            company = user.profile.company
-            if not company:
-                return JsonResponse({'status': 'error', 'message': 'No company associated with this user'}, status=400)
+        role = user.profile.role.name if (user and hasattr(user, 'profile') and user.profile.role) else None
 
         # ── Determine branch scope ────────────────────────────────────────
         branch_id_param = request.GET.get('branch_id', '').strip()
-        cust_filter = {'company': company}
+        cust_filter = {}
+        if company:
+            cust_filter['company'] = company
 
         if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
             cust_filter['branch'] = user.managed_branch
         elif branch_id_param:
             try:
-                branch_obj = Branch.objects.get(id=branch_id_param, company=company, is_deleted=False)
-                cust_filter['branch'] = branch_obj
+                b_qs = Branch.objects.filter(id=branch_id_param, is_deleted=False)
+                if company:
+                    b_qs = b_qs.filter(company=company)
+                branch_obj = b_qs.first()
+                if branch_obj:
+                    cust_filter['branch'] = branch_obj
             except (Branch.DoesNotExist, Exception):
                 pass
 
@@ -8735,13 +8851,21 @@ def api_tally_customers(request):
         qs = Customer.objects.filter(
             is_deleted=False,
             **cust_filter
-        ).select_related('company', 'branch', 'customer_type').prefetch_related('vehicles').order_by('name')
+        ).select_related(
+            'company', 'branch', 'customer_type'
+        ).prefetch_related(
+            'vehicles', 'vehicles__vehicle_type_model', 'vehicles__vehicle_type'
+        ).order_by('name')
 
         from_date_str = request.GET.get('from_date', '').strip()
         to_date_str = request.GET.get('to_date', '').strip()
         if from_date_str or to_date_str:
             from_date, to_date = _parse_dates(request)
-            qs = qs.filter(created_at__date__gte=from_date, created_at__date__lte=to_date)
+            qs = qs.filter(date_added__date__gte=from_date, date_added__date__lte=to_date)
+
+        customer_type_param = request.GET.get('customer_type_id', '').strip()
+        if customer_type_param:
+            qs = qs.filter(customer_type_id=customer_type_param)
 
         search_param = request.GET.get('search', '').strip()
         if search_param:
@@ -8753,10 +8877,21 @@ def api_tally_customers(request):
 
         customers_data = []
         for cust in qs:
-            vehicles = [v.vehicle_number for v in cust.vehicles.filter(is_deleted=False)]
+            vehicles = [
+                {
+                    'vehicle_id': str(v.id),
+                    'vehicle_number': v.vehicle_number,
+                    'model': v.vehicle_type_model.name if v.vehicle_type_model else '',
+                    'type': v.vehicle_type.name if v.vehicle_type else '',
+                }
+                for v in [veh for veh in cust.vehicles.all() if not veh.is_deleted]
+            ]
+
+            cust_company = cust.company if cust.company else company
+
             customers_data.append({
                 'customer_id': str(cust.id),
-                'name': cust.name,
+                'ledger_name': cust.name,
                 'parent_group': 'Sundry Debtors',
                 'phone': cust.phone or '',
                 'whatsapp_number': cust.whatsapp_number or cust.phone or '',
@@ -8764,19 +8899,19 @@ def api_tally_customers(request):
                 'address': cust.address or '',
                 'pincode': cust.pincode or '',
                 'customer_type': cust.customer_type.name if cust.customer_type else '',
-                'company_id': str(company.id),
-                'company_name': company.company_name,
+                'company_id': str(cust_company.id) if cust_company else '',
+                'company_name': cust_company.company_name if cust_company else '',
                 'branch_id': str(cust.branch.id) if cust.branch else '',
                 'branch_name': cust.branch.name if cust.branch else '',
-                'created_at': cust.created_at.strftime('%d-%m-%Y') if cust.created_at else '',
+                'created_at': cust.date_added.strftime('%d-%m-%Y') if cust.date_added else '',
                 'vehicles_count': len(vehicles),
                 'vehicles': vehicles,
             })
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id),
-            'company_name': company.company_name,
+            'client_id': str(company.id) if company else 'all',
+            'company_name': company.company_name if company else 'All Companies',
             'count': len(customers_data),
             'customers': customers_data,
         })
@@ -8794,48 +8929,52 @@ def api_tally_stockitems(request):
     Returns stock item master dataset in a Tally-compatible format.
 
     Query Params:
-      - client_id : (optional) UUID of Client/Company.
-      - group_id  : (optional) UUID of StockGroup.
-      - search    : (optional) Text search by item_name, brand, barcode, or hsn_code.
+      - client_id   : (required) UUID or name of Client/Company.
+      - group_id    : (optional) UUID of StockGroup.
+      - search      : (optional) Text search by item_name, brand, barcode, or hsn_code.
 
-    Auth: Bearer token
+    Auth: None (Open API — client_id is required).
     """
     if request.method != 'GET':
         return JsonResponse({'status': 'error', 'message': 'Only GET method is allowed'}, status=405)
 
     user = get_user_from_token(request)
-    if not user:
-        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    company, err = _resolve_tally_company(request, user)
+    if err:
+        return err
 
     try:
         from client_management.models import Stock, Client
         from django.db.models import Q
 
-        # ── Determine company scope ───────────────────────────────────────
-        client_id_param = request.GET.get('client_id', '').strip()
-
-        if client_id_param:
-            try:
-                company = Client.objects.get(id=client_id_param, is_deleted=False)
-            except (Client.DoesNotExist, Exception):
-                return JsonResponse({'status': 'error', 'message': 'Invalid client_id'}, status=400)
-        else:
-            company = user.profile.company
-            if not company:
-                return JsonResponse({'status': 'error', 'message': 'No company associated with this user'}, status=400)
-
         # ── Build stock items queryset ───────────────────────────────────
-        qs = Stock.objects.filter(
-            is_deleted=False
-        ).filter(
-            Q(company=company) | Q(company__isnull=True)
-        ).select_related(
+        qs = Stock.objects.filter(is_deleted=False)
+        if company:
+            qs = qs.filter(Q(company=company) | Q(company__isnull=True))
+
+        qs = qs.select_related(
             'company', 'group', 'sub_group', 'expense_head'
         ).order_by('item_name')
 
         group_id_param = request.GET.get('group_id', '').strip()
         if group_id_param:
             qs = qs.filter(group_id=group_id_param)
+
+        sub_group_id_param = request.GET.get('sub_group_id', '').strip()
+        if sub_group_id_param:
+            qs = qs.filter(sub_group_id=sub_group_id_param)
+
+        is_trading_param = request.GET.get('is_trading', '').strip().lower()
+        if is_trading_param in ('true', '1', 'yes'):
+            qs = qs.filter(is_trading=True)
+        elif is_trading_param in ('false', '0', 'no'):
+            qs = qs.filter(is_trading=False)
+
+        is_operational_param = request.GET.get('is_operational', '').strip().lower()
+        if is_operational_param in ('true', '1', 'yes'):
+            qs = qs.filter(is_operational=True)
+        elif is_operational_param in ('false', '0', 'no'):
+            qs = qs.filter(is_operational=False)
 
         search_param = request.GET.get('search', '').strip()
         if search_param:
@@ -8851,12 +8990,12 @@ def api_tally_stockitems(request):
             cgst = float(stock.cgst_percent or 0)
             sgst = float(stock.sgst_percent or 0)
             igst = float(stock.igst_percent or 0)
+            stock_company = stock.company if stock.company else company
 
             stock_items_data.append({
-                'stock_id': str(stock.id),
+                'stock_item_id': str(stock.id),
                 'item_name': stock.item_name,
-                'parent_group': stock.group.name if stock.group else 'Stock Items',
-                'group_name': stock.group.name if stock.group else '',
+                'stock_group_name': stock.group.name if stock.group else 'Primary',
                 'sub_group_name': stock.sub_group.name if stock.sub_group else '',
                 'brand': stock.brand or '',
                 'hsn_code': stock.hsn_code or '',
@@ -8872,14 +9011,14 @@ def api_tally_stockitems(request):
                 'quantity': float(stock.quantity or 0),
                 'critical_level': float(stock.critical_level or 0),
                 'expense_head_name': stock.expense_head.name if stock.expense_head else '',
-                'company_id': str(company.id),
-                'company_name': company.company_name,
+                'company_id': str(stock_company.id) if stock_company else '',
+                'company_name': stock_company.company_name if stock_company else '',
             })
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id),
-            'company_name': company.company_name,
+            'client_id': str(company.id) if company else 'all',
+            'company_name': company.company_name if company else 'All Companies',
             'count': len(stock_items_data),
             'stock_items': stock_items_data,
         })
@@ -8897,21 +9036,22 @@ def api_tally_expenses(request):
     Returns expense entries in a Tally-compatible format (Payment/Expense Vouchers).
 
     Query Params:
-      - client_id       : (optional) UUID of Client/Company.
+      - client_id       : (required) UUID or name of Client/Company.
       - branch_id       : (optional) UUID of specific Branch.
       - from_date       : (optional) Start date DD-MM-YYYY or YYYY-MM-DD. Defaults to 1st of month.
       - to_date         : (optional) End date DD-MM-YYYY or YYYY-MM-DD. Defaults to today.
       - expense_head_id : (optional) UUID/ID of ExpenseHead.
       - search          : (optional) Text search by expense name, supplier, or remarks.
 
-    Auth: Bearer token
+    Auth: None (Open API — client_id is required).
     """
     if request.method != 'GET':
         return JsonResponse({'status': 'error', 'message': 'Only GET method is allowed'}, status=405)
 
     user = get_user_from_token(request)
-    if not user:
-        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    company, err = _resolve_tally_company(request, user)
+    if err:
+        return err
 
     try:
         from master.models import ExpenseEntry
@@ -8919,31 +9059,24 @@ def api_tally_expenses(request):
         from django.db.models import Sum, Q
 
         from_date, to_date = _parse_dates(request)
-
-        # ── Determine company scope ───────────────────────────────────────
-        client_id_param = request.GET.get('client_id', '').strip()
-        role = user.profile.role.name if user.profile.role else None
-
-        if client_id_param:
-            try:
-                company = Client.objects.get(id=client_id_param, is_deleted=False)
-            except (Client.DoesNotExist, Exception):
-                return JsonResponse({'status': 'error', 'message': 'Invalid client_id'}, status=400)
-        else:
-            company = user.profile.company
-            if not company:
-                return JsonResponse({'status': 'error', 'message': 'No company associated with this user'}, status=400)
+        role = user.profile.role.name if (user and hasattr(user, 'profile') and user.profile.role) else None
 
         # ── Determine branch scope ────────────────────────────────────────
         branch_id_param = request.GET.get('branch_id', '').strip()
-        exp_scope = {'company': company}
+        exp_scope = {}
+        if company:
+            exp_scope['company'] = company
 
         if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
             exp_scope['branch'] = user.managed_branch
         elif branch_id_param:
             try:
-                branch_obj = Branch.objects.get(id=branch_id_param, company=company, is_deleted=False)
-                exp_scope['branch'] = branch_obj
+                b_qs = Branch.objects.filter(id=branch_id_param, is_deleted=False)
+                if company:
+                    b_qs = b_qs.filter(company=company)
+                branch_obj = b_qs.first()
+                if branch_obj:
+                    exp_scope['branch'] = branch_obj
             except (Branch.DoesNotExist, Exception):
                 pass
 
@@ -8954,12 +9087,16 @@ def api_tally_expenses(request):
             expense_date__lte=to_date,
             **exp_scope
         ).select_related(
-            'company', 'branch', 'expense', 'expense__expense_head', 'supplier', 'stock_item'
+            'expense', 'expense__expense_head', 'branch', 'supplier', 'stock_item', 'company'
         ).order_by('expense_date', 'auto_id')
 
-        expense_head_id_param = request.GET.get('expense_head_id', '').strip()
-        if expense_head_id_param:
-            qs = qs.filter(expense__expense_head_id=expense_head_id_param)
+        expense_head_param = request.GET.get('expense_head_id', '').strip()
+        if expense_head_param:
+            qs = qs.filter(expense__expense_head_id=expense_head_param)
+
+        item_cat_param = request.GET.get('item_category', '').strip()
+        if item_cat_param:
+            qs = qs.filter(item_category__iexact=item_cat_param)
 
         search_param = request.GET.get('search', '').strip()
         if search_param:
@@ -8974,18 +9111,20 @@ def api_tally_expenses(request):
             amount = float(entry.amount or 0)
             paid_amount = float(entry.paid_amount or 0)
             balance_payable = round(amount - paid_amount, 2)
+            payment_status = 'paid' if balance_payable <= 0 else ('partial' if paid_amount > 0 else 'unpaid')
 
-            exp_head_name = entry.expense.expense_head.name if (entry.expense and entry.expense.expense_head) else 'General Expenses'
-            head_lower = exp_head_name.strip().lower()
+            exp_head = entry.expense.expense_head if (entry.expense and entry.expense.expense_head) else None
+            exp_head_name = exp_head.name if exp_head else (entry.expense.name if entry.expense else 'General Expense')
 
-            if 'purchase' in head_lower:
+            # Tally group: Direct Expenses or Indirect Expenses
+            if entry.item_category == 'purchase':
                 tally_group = 'Purchase Accounts'
-            elif head_lower in ['direct wages', 'labour', 'freight', 'carriage', 'direct expense', 'direct expenses']:
+            elif exp_head and getattr(exp_head, 'head_type', '') == 'direct':
                 tally_group = 'Direct Expenses'
             else:
                 tally_group = 'Indirect Expenses'
 
-            payment_status = 'PAID' if balance_payable <= 0 else ('PARTIAL' if paid_amount > 0 else 'UNPAID')
+            exp_company = entry.company if entry.company else company
 
             expenses_data.append({
                 'expense_entry_id': str(entry.id),
@@ -9003,8 +9142,8 @@ def api_tally_expenses(request):
                 'item_category': entry.item_category or '',
                 'stock_item_name': entry.stock_item.item_name if entry.stock_item else '',
                 'remarks': entry.remarks or '',
-                'company_id': str(company.id),
-                'company_name': company.company_name,
+                'company_id': str(exp_company.id) if exp_company else '',
+                'company_name': exp_company.company_name if exp_company else '',
                 'branch_id': str(entry.branch.id) if entry.branch else '',
                 'branch_name': entry.branch.name if entry.branch else '',
             })
@@ -9018,8 +9157,8 @@ def api_tally_expenses(request):
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id),
-            'company_name': company.company_name,
+            'client_id': str(company.id) if company else 'all',
+            'company_name': company.company_name if company else 'All Companies',
             'from_date': from_date.strftime('%d-%m-%Y'),
             'to_date': to_date.strftime('%d-%m-%Y'),
             'count': len(expenses_data),
@@ -9034,6 +9173,7 @@ def api_tally_expenses(request):
     except Exception as e:
         import traceback
         return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
