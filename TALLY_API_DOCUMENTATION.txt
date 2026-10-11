@@ -1,0 +1,511 @@
+================================================================================
+MOBIZ AUTO CARE PRO - TALLY INTEGRATION API DOCUMENTATION
+================================================================================
+Generated: 11-10-2026
+Base URL (Production) : http://68.183.94.11:78
+Base URL (Local)      : http://127.0.0.1:8000
+Authentication        : None (Open API — No Bearer token or login required)
+Mandatory Parameter   : client_id (Required on all endpoints)
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. General Overview & Authentication
+2. Resolving client_id
+3. Error Codes & Format
+4. API 1: Sales Invoices Export       (/api/tally/invoices/)
+5. API 2: Payment Receipts Export     (/api/tally/receipts/)
+6. API 3: Customers / Debtors Master  (/api/tally/customers/)
+7. API 4: Stock Items Master          (/api/tally/stockitems/)
+8. API 5: Expenses / Purchases Export (/api/tally/expenses/)
+9. Tally XML Mapping Guidelines
+
+================================================================================
+1. GENERAL OVERVIEW & AUTHENTICATION
+================================================================================
+All endpoints return standard application/json responses.
+No Authorization header (Bearer token) or session cookie is required.
+To isolate data between different corporate accounts / tenants, every request
+must specify which company's records are being queried via the "client_id" query
+parameter.
+
+================================================================================
+2. RESOLVING client_id
+================================================================================
+The "client_id" parameter can be:
+  a) The exact UUID of the Client / Company
+     Example: ?client_id=bf1345a8-777b-4ad0-9753-764ec6dd42cb
+
+  b) The Company Name (case-insensitive, exact or partial match)
+     Example: ?client_id=Mobiz%20Technologies
+     Example: ?client_id=Koda%20Car%20Spa
+
+Alternatively, "company_id" or "company_name" can also be used as query parameter
+names.
+
+================================================================================
+3. ERROR CODES & FORMAT
+================================================================================
+If client_id is missing:
+  HTTP Status: 400 Bad Request
+  {
+    "status": "error",
+    "message": "client_id is required"
+  }
+
+If client_id does not match any active company:
+  HTTP Status: 404 Not Found
+  {
+    "status": "error",
+    "message": "Company not found with client_id: <value>"
+  }
+
+If an invalid HTTP method is used (e.g. POST):
+  HTTP Status: 405 Method Not Allowed
+  {
+    "status": "error",
+    "message": "Only GET method is allowed"
+  }
+
+
+================================================================================
+4. API 1: SALES INVOICES EXPORT
+================================================================================
+URL     : /api/tally/invoices/
+Method  : GET
+Purpose : Exports Sales Invoices with line items, tax breakdowns (CGST/SGST/IGST),
+          and receipt settlement details for posting into Tally Sales Vouchers.
+
+QUERY PARAMETERS:
+-----------------
+Parameter     | Type    | Required? | Description & Format
+--------------+---------+-----------+--------------------------------------------
+client_id     | string  | YES       | Company UUID or Name (e.g. Mobiz Technologies)
+branch_id     | uuid    | No        | Filter by specific Branch UUID
+from_date     | string  | No        | Start date (DD-MM-YYYY or YYYY-MM-DD). Defaults to 1st of current month
+to_date       | string  | No        | End date (DD-MM-YYYY or YYYY-MM-DD). Defaults to current date
+invoice_type  | string  | No        | 'cashinvoice' or 'creditinvoice'
+payment_mode  | string  | No        | 'cash', 'card', or 'digital_payments'
+search        | string  | No        | Substring search in invoice_number, customer name, phone, or vehicle_number
+
+EXAMPLE REQUEST:
+----------------
+GET http://68.183.94.11:78/api/tally/invoices/?client_id=bf1345a8-777b-4ad0-9753-764ec6dd42cb&from_date=01-09-2026&to_date=11-10-2026&invoice_type=cashinvoice
+
+SAMPLE JSON RESPONSE:
+---------------------
+{
+  "status": "success",
+  "client_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+  "company_name": "Mobiz Technologies",
+  "from_date": "01-09-2026",
+  "to_date": "11-10-2026",
+  "count": 1,
+  "totals": {
+    "subtotal": 500.0,
+    "discount": 0.0,
+    "tax_amount": 90.0,
+    "grand_total": 590.0,
+    "amount_collected": 590.0
+  },
+  "invoices": [
+    {
+      "invoice_id": "893c5d79-242e-4b2a-89a3-5c0a373516f4",
+      "invoice_no": "INV-A1-192",
+      "date": "05-09-2026",
+      "voucher_type": "Sales",
+      "invoice_type": "cashinvoice",
+      "invoice_type_display": "Cash Invoice",
+      "company_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+      "company_name": "Mobiz Technologies",
+      "branch_id": "a02be802-e97c-4b7d-ba0e-0987eb68c106",
+      "branch_name": "Mobiz Auto Care Pro",
+      "party_ledger_name": "Anshid",
+      "party_type": "Sundry Debtors",
+      "customer_id": "5aa7bd89-5f81-4d09-b848-6a8699a89d5c",
+      "customer_name": "Anshid",
+      "customer_phone": "918089527101",
+      "customer_address": "Kozhikode",
+      "customer_type": "Individual",
+      "vehicle_number": "KL11AF9500",
+      "subtotal": 500.0,
+      "discount": 0.0,
+      "taxable_amount": 500.0,
+      "cgst_amount": 45.0,
+      "sgst_amount": 45.0,
+      "igst_amount": 0.0,
+      "total_tax": 90.0,
+      "round_off": 0.0,
+      "grand_total": 590.0,
+      "amount_collected": 590.0,
+      "balance_due": 0.0,
+      "payment_mode": "cash",
+      "receipts": [
+        {
+          "receipt_id": "76426462-2ca1-4ad9-bf95-94ac0b4e1837",
+          "receipt_no": "RCPT-02011",
+          "payment_mode": "cash",
+          "payment_mode_display": "Cash",
+          "amount": 590.0,
+          "date": "05-09-2026",
+          "transaction_id": "",
+          "cheque_number": "",
+          "bank_name": ""
+        }
+      ],
+      "remarks": "",
+      "items": [
+        {
+          "service_name": "Premium Foam Wash",
+          "hsn_sac_code": "998729",
+          "qty": 1.0,
+          "rate": 500.0,
+          "discount": 0.0,
+          "net_taxable_amount": 500.0,
+          "is_stock_item": false,
+          "stock_item_name": "",
+          "stock_brand": "",
+          "stock_barcode": "",
+          "stock_unit": "Piece",
+          "cgst_percent": 9.0,
+          "cgst_amount": 45.0,
+          "sgst_percent": 9.0,
+          "sgst_amount": 45.0,
+          "igst_percent": 0.0,
+          "igst_amount": 0.0,
+          "total_tax_percent": 18.0,
+          "total_tax_amount": 90.0,
+          "total_amount": 590.0
+        }
+      ]
+    }
+  ]
+}
+
+
+================================================================================
+5. API 2: PAYMENT RECEIPTS EXPORT
+================================================================================
+URL     : /api/tally/receipts/
+Method  : GET
+Purpose : Exports money receipts linked to Invoices with bank/cash accounts and
+          party ledgers for posting into Tally Receipt Vouchers.
+
+QUERY PARAMETERS:
+-----------------
+Parameter     | Type    | Required? | Description & Format
+--------------+---------+-----------+--------------------------------------------
+client_id     | string  | YES       | Company UUID or Name (e.g. Mobiz Technologies)
+branch_id     | uuid    | No        | Filter by specific Branch UUID
+from_date     | string  | No        | Start date (DD-MM-YYYY or YYYY-MM-DD). Defaults to 1st of current month
+to_date       | string  | No        | End date (DD-MM-YYYY or YYYY-MM-DD). Defaults to current date
+payment_mode  | string  | No        | 'cash', 'card', or 'digital_payments'
+search        | string  | No        | Substring search in receipt_number, against invoice_number, customer name/phone, vehicle_number, or cheque_no
+
+EXAMPLE REQUEST:
+----------------
+GET http://68.183.94.11:78/api/tally/receipts/?client_id=bf1345a8-777b-4ad0-9753-764ec6dd42cb&from_date=01-09-2026&to_date=11-10-2026&payment_mode=cash
+
+SAMPLE JSON RESPONSE:
+---------------------
+{
+  "status": "success",
+  "client_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+  "company_name": "Mobiz Technologies",
+  "from_date": "01-09-2026",
+  "to_date": "11-10-2026",
+  "count": 1,
+  "total_amount": 590.0,
+  "summary": [
+    {
+      "payment_mode": "cash",
+      "payment_mode_display": "Cash",
+      "total": 590.0
+    },
+    {
+      "payment_mode": "card",
+      "payment_mode_display": "Card",
+      "total": 0.0
+    },
+    {
+      "payment_mode": "digital_payments",
+      "payment_mode_display": "Digital payments",
+      "total": 0.0
+    }
+  ],
+  "receipts": [
+    {
+      "receipt_id": "76426462-2ca1-4ad9-bf95-94ac0b4e1837",
+      "receipt_no": "RCPT-02011",
+      "date": "05-09-2026",
+      "voucher_type": "Receipt",
+      "amount": 590.0,
+      "payment_mode": "cash",
+      "payment_mode_display": "Cash",
+      "company_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+      "company_name": "Mobiz Technologies",
+      "branch_id": "a02be802-e97c-4b7d-ba0e-0987eb68c106",
+      "branch_name": "Mobiz Auto Care Pro",
+      "against_invoice_id": "893c5d79-242e-4b2a-89a3-5c0a373516f4",
+      "against_invoice_no": "INV-A1-192",
+      "invoice_date": "05-09-2026",
+      "invoice_grand_total": 590.0,
+      "invoice_balance_remaining": 0.0,
+      "debit_ledger": "Cash",
+      "debit_group": "Cash-in-Hand",
+      "credit_ledger": "Anshid",
+      "credit_group": "Sundry Debtors",
+      "customer_id": "5aa7bd89-5f81-4d09-b848-6a8699a89d5c",
+      "customer_name": "Anshid",
+      "customer_phone": "918089527101",
+      "vehicle_number": "KL11AF9500",
+      "transaction_id": "",
+      "cheque_number": "",
+      "bank_name": "",
+      "notes": ""
+    }
+  ]
+}
+
+
+================================================================================
+6. API 3: CUSTOMERS / DEBTORS MASTER
+================================================================================
+URL     : /api/tally/customers/
+Method  : GET
+Purpose : Exports Customer master ledger list for synchronization into Tally's
+          Sundry Debtors group, along with vehicles registered.
+
+QUERY PARAMETERS:
+-----------------
+Parameter         | Type    | Required? | Description & Format
+------------------+---------+-----------+----------------------------------------
+client_id         | string  | YES       | Company UUID or Name (e.g. Mobiz Technologies)
+branch_id         | uuid    | No        | Filter by specific Branch UUID
+from_date         | string  | No        | Start date of customer creation (DD-MM-YYYY)
+to_date           | string  | No        | End date of customer creation (DD-MM-YYYY)
+customer_type_id  | uuid    | No        | Filter by specific CustomerType UUID
+search            | string  | No        | Substring search in name, phone, or whatsapp_number
+
+EXAMPLE REQUEST:
+----------------
+GET http://68.183.94.11:78/api/tally/customers/?client_id=bf1345a8-777b-4ad0-9753-764ec6dd42cb&search=Anshid
+
+SAMPLE JSON RESPONSE:
+---------------------
+{
+  "status": "success",
+  "client_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+  "company_name": "Mobiz Technologies",
+  "count": 1,
+  "customers": [
+    {
+      "customer_id": "5aa7bd89-5f81-4d09-b848-6a8699a89d5c",
+      "ledger_name": "Anshid",
+      "parent_group": "Sundry Debtors",
+      "phone": "918089527101",
+      "whatsapp_number": "918089527101",
+      "email": "",
+      "address": "Kozhikode",
+      "pincode": "",
+      "customer_type": "Individual",
+      "company_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+      "company_name": "Mobiz Technologies",
+      "branch_id": "a02be802-e97c-4b7d-ba0e-0987eb68c106",
+      "branch_name": "Mobiz Auto Care Pro",
+      "created_at": "10-09-2026",
+      "vehicles_count": 1,
+      "vehicles": [
+        {
+          "vehicle_id": "e69af9a2-f39f-48dd-b992-a03450c06b52",
+          "vehicle_number": "KL11AF9500",
+          "model": "Sedan",
+          "type": "Car/ Jeep"
+        }
+      ]
+    }
+  ]
+}
+
+
+================================================================================
+7. API 4: STOCK ITEMS MASTER
+================================================================================
+URL     : /api/tally/stockitems/
+Method  : GET
+Purpose : Exports Stock Item master records with HSN codes, Units, Tax Rates,
+          and Stock Groups for synchronization into Tally Stock Items.
+
+QUERY PARAMETERS:
+-----------------
+Parameter     | Type    | Required? | Description & Format
+--------------+---------+-----------+--------------------------------------------
+client_id     | string  | YES       | Company UUID or Name (e.g. Mobiz Technologies)
+group_id      | uuid    | No        | Filter by StockGroup UUID
+sub_group_id  | uuid    | No        | Filter by SubGroup UUID
+is_trading    | boolean | No        | true / false (Items for resale)
+is_operational| boolean | No        | true / false (Items for internal workshop consumption)
+search        | string  | No        | Substring search in item_name, brand, barcode, or hsn_code
+
+EXAMPLE REQUEST:
+----------------
+GET http://68.183.94.11:78/api/tally/stockitems/?client_id=bf1345a8-777b-4ad0-9753-764ec6dd42cb&is_trading=true
+
+SAMPLE JSON RESPONSE:
+---------------------
+{
+  "status": "success",
+  "client_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+  "company_name": "Mobiz Technologies",
+  "count": 1,
+  "stock_items": [
+    {
+      "stock_item_id": "1fb950d6-b4fd-4bd0-8204-d1729515681b",
+      "item_name": "Jk Tyre",
+      "stock_group_name": "Tyres & Wheels",
+      "sub_group_name": "Commercial Tyres",
+      "brand": "JK Tyre",
+      "hsn_code": "4011",
+      "barcode": "1234",
+      "unit": "Piece",
+      "unit_display": "Piece (Pcs)",
+      "is_trading": true,
+      "is_operational": false,
+      "cgst_percent": 9.0,
+      "sgst_percent": 9.0,
+      "igst_percent": 18.0,
+      "tax_rate": 36.0,
+      "quantity": 9.0,
+      "critical_level": 5.0,
+      "expense_head_name": "Purchase",
+      "company_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+      "company_name": "Mobiz Technologies"
+    }
+  ]
+}
+
+
+================================================================================
+8. API 5: EXPENSES / PURCHASES EXPORT
+================================================================================
+URL     : /api/tally/expenses/
+Method  : GET
+Purpose : Exports expenses and stock purchase entries for posting into Tally
+          Payment or Purchase / Journal vouchers.
+
+QUERY PARAMETERS:
+-----------------
+Parameter       | Type    | Required? | Description & Format
+----------------+---------+-----------+------------------------------------------
+client_id       | string  | YES       | Company UUID or Name (e.g. Mobiz Technologies)
+branch_id       | uuid    | No        | Filter by specific Branch UUID
+from_date       | string  | No        | Start date (DD-MM-YYYY or YYYY-MM-DD). Defaults to 1st of current month
+to_date         | string  | No        | End date (DD-MM-YYYY or YYYY-MM-DD). Defaults to current date
+expense_head_id | uuid    | No        | Filter by ExpenseHead UUID
+item_category   | string  | No        | 'purchase', 'GENERAL', 'OIL', 'TYRE', 'BATTERY', etc.
+search          | string  | No        | Substring search in expense name, supplier name, or remarks
+
+EXAMPLE REQUEST:
+----------------
+GET http://68.183.94.11:78/api/tally/expenses/?client_id=bf1345a8-777b-4ad0-9753-764ec6dd42cb&from_date=01-01-2024&to_date=11-10-2026
+
+SAMPLE JSON RESPONSE:
+---------------------
+{
+  "status": "success",
+  "client_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+  "company_name": "Mobiz Technologies",
+  "from_date": "01-01-2024",
+  "to_date": "11-10-2026",
+  "count": 1,
+  "totals": {
+    "total_amount": 1000.0,
+    "total_paid_amount": 1000.0,
+    "balance_payable": 0.0
+  },
+  "expenses": [
+    {
+      "expense_entry_id": "18eb4ebf-18c7-4389-9817-21789c0a6b7e",
+      "date": "15-08-2026",
+      "voucher_type": "Payment",
+      "expense_name": "Electricity Bill",
+      "expense_head_name": "Direct Expenses",
+      "tally_group": "Direct Expenses",
+      "amount": 1000.0,
+      "paid_amount": 1000.0,
+      "balance_payable": 0.0,
+      "supplier_name": "KSEB",
+      "supplier_gst": "",
+      "payment_status": "paid",
+      "item_category": "",
+      "stock_item_name": "",
+      "remarks": "August 2026 Bill",
+      "company_id": "bf1345a8-777b-4ad0-9753-764ec6dd42cb",
+      "company_name": "Mobiz Technologies",
+      "branch_id": "a02be802-e97c-4b7d-ba0e-0987eb68c106",
+      "branch_name": "Mobiz Auto Care Pro"
+    }
+  ]
+}
+
+
+================================================================================
+9. TALLY XML MAPPING GUIDELINES
+================================================================================
+When building XML payloads to post into Tally via Tally XML Request Port (e.g. port 9000):
+
+1. LEDGER CREATION (Debtors):
+   <TALLYMESSAGE xmlns:UDF="TallyUDF">
+     <LEDGER NAME="Anshid" ACTION="Create">
+       <PARENT>Sundry Debtors</PARENT>
+       <OPENINGBALANCE>0</OPENINGBALANCE>
+     </LEDGER>
+   </TALLYMESSAGE>
+
+2. SALES VOUCHER:
+   <VOUCHER VCHTYPE="Sales" ACTION="Create">
+     <DATE>20260905</DATE>
+     <VOUCHERNUMBER>INV-A1-192</VOUCHERNUMBER>
+     <PARTYLEDGERNAME>Anshid</PARTYLEDGERNAME>
+     <ALLLEDGERENTRIES.LIST>
+       <LEDGERNAME>Anshid</LEDGERNAME>
+       <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+       <AMOUNT>-590.00</AMOUNT>
+     </ALLLEDGERENTRIES.LIST>
+     <ALLLEDGERENTRIES.LIST>
+       <LEDGERNAME>Sales - Car Wash Services</LEDGERNAME>
+       <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+       <AMOUNT>500.00</AMOUNT>
+     </ALLLEDGERENTRIES.LIST>
+     <ALLLEDGERENTRIES.LIST>
+       <LEDGERNAME>Output CGST 9%</LEDGERNAME>
+       <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+       <AMOUNT>45.00</AMOUNT>
+     </ALLLEDGERENTRIES.LIST>
+     <ALLLEDGERENTRIES.LIST>
+       <LEDGERNAME>Output SGST 9%</LEDGERNAME>
+       <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+       <AMOUNT>45.00</AMOUNT>
+     </ALLLEDGERENTRIES.LIST>
+   </VOUCHER>
+
+3. RECEIPT VOUCHER:
+   <VOUCHER VCHTYPE="Receipt" ACTION="Create">
+     <DATE>20260905</DATE>
+     <VOUCHERNUMBER>RCPT-02011</VOUCHERNUMBER>
+     <PARTYLEDGERNAME>Anshid</PARTYLEDGERNAME>
+     <ALLLEDGERENTRIES.LIST>
+       <LEDGERNAME>Cash</LEDGERNAME>
+       <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+       <AMOUNT>-590.00</AMOUNT>
+     </ALLLEDGERENTRIES.LIST>
+     <ALLLEDGERENTRIES.LIST>
+       <LEDGERNAME>Anshid</LEDGERNAME>
+       <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+       <AMOUNT>590.00</AMOUNT>
+     </ALLLEDGERENTRIES.LIST>
+   </VOUCHER>
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
