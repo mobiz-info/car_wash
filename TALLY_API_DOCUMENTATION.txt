@@ -301,8 +301,7 @@ SAMPLE JSON RESPONSE:
   "customers": [
     {
       "customer_id": "5aa7bd89-5f81-4d09-b848-6a8699a89d5c",
-      "ledger_name": "Anshid",
-      "parent_group": "Sundry Debtors",
+      "customer_name": "Anshid",
       "phone": "918089527101",
       "whatsapp_number": "918089527101",
       "email": "",

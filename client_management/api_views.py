@@ -8891,8 +8891,7 @@ def api_tally_customers(request):
 
             customers_data.append({
                 'customer_id': str(cust.id),
-                'ledger_name': cust.name,
-                'parent_group': 'Sundry Debtors',
+                'customer_name': cust.name,
                 'phone': cust.phone or '',
                 'whatsapp_number': cust.whatsapp_number or cust.phone or '',
                 'email': cust.email or '',
