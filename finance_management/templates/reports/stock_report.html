@@ -484,8 +484,7 @@
                 <select name="group_id" class="filter-control">
                     <option value="">All Groups</option>
                     {% for g in groups %}
-                    <option value="{{ g.id }}" {% if group_id==g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}
-                    </option>
+                    <option value="{{ g.id }}" {% if group_id == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -495,8 +494,7 @@
                 <select name="sub_group_id" class="filter-control">
                     <option value="">All Sub-Groups</option>
                     {% for sg in sub_groups %}
-                    <option value="{{ sg.id }}" {% if sub_group_id==sg.id|stringformat:"s" %}selected{% endif %}>{{
-                        sg.name }}</option>
+                    <option value="{{ sg.id }}" {% if sub_group_id == sg.id|stringformat:"s" %}selected{% endif %}>{{ sg.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -504,23 +502,19 @@
             <div class="filter-group">
                 <label class="filter-label">Item Type</label>
                 <select name="item_type" class="filter-control">
-                    <option value="all" {% if item_type=='all' or not item_type %}selected{% endif %}>All Types</option>
-                    <option value="trading" {% if item_type=='trading' %}selected{% endif %}>Trading Only</option>
-                    <option value="operational" {% if item_type=='operational' %}selected{% endif %}>Operational Only
-                    </option>
+                    <option value="all" {% if item_type == 'all' or not item_type %}selected{% endif %}>All Types</option>
+                    <option value="trading" {% if item_type == 'trading' %}selected{% endif %}>Trading Only</option>
+                    <option value="operational" {% if item_type == 'operational' %}selected{% endif %}>Operational Only</option>
                 </select>
             </div>
 
             <div class="filter-group">
                 <label class="filter-label">Stock Health</label>
                 <select name="stock_status" class="filter-control">
-                    <option value="all" {% if stock_status=='all' or not stock_status %}selected{% endif %}>All Levels
-                    </option>
-                    <option value="in_stock" {% if stock_status=='in_stock' %}selected{% endif %}>In Stock</option>
-                    <option value="low_stock" {% if stock_status=='low_stock' %}selected{% endif %}>Low Stock Warning
-                    </option>
-                    <option value="out_of_stock" {% if stock_status=='out_of_stock' %}selected{% endif %}>Out of Stock
-                    </option>
+                    <option value="all" {% if stock_status == 'all' or not stock_status %}selected{% endif %}>All Levels</option>
+                    <option value="in_stock" {% if stock_status == 'in_stock' %}selected{% endif %}>In Stock</option>
+                    <option value="low_stock" {% if stock_status == 'low_stock' %}selected{% endif %}>Low Stock Warning</option>
+                    <option value="out_of_stock" {% if stock_status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
                 </select>
             </div>
 
@@ -530,8 +524,7 @@
                 <select name="company_id" class="filter-control">
                     <option value="">All Companies</option>
                     {% for c in companies %}
-                    <option value="{{ c.id }}" {% if company_id==c.id|stringformat:"s" %}selected{% endif %}>{{
-                        c.company_name }} ({{ c.display_client_id }})</option>
+                    <option value="{{ c.id }}" {% if company_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.company_name }} ({{ c.display_client_id }})</option>
                     {% endfor %}
                 </select>
             </div>
