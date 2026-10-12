@@ -1,0 +1,664 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock Report - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Stock Report{% endblock %}
+{% block breadcrumb_active %}Stock Report{% endblock %}
+
+{% block content %}
+
+<style>
+.stock-report-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Header Banner */
+.report-banner {
+    background: linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%);
+    border-radius: 20px;
+    padding: 28px 32px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(2, 132, 199, 0.2);
+}
+
+.report-banner::after {
+    content: '';
+    position: absolute;
+    width: 260px;
+    height: 260px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    right: -60px;
+    top: -60px;
+    pointer-events: none;
+}
+
+.banner-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.banner-title h2 {
+    margin: 0;
+    font-size: 1.85rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.banner-title p {
+    margin: 6px 0 0 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+}
+
+.banner-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.banner-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: none;
+}
+
+.banner-btn-white {
+    background: white;
+    color: #0f172a;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.banner-btn-white:hover {
+    background: #f8fafc;
+    color: #0284c7;
+    transform: translateY(-1px);
+}
+
+.banner-btn-outline {
+    background: rgba(255, 255, 255, 0.16);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(8px);
+}
+
+.banner-btn-outline:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* Metric Cards */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.metric-card {
+    background: white;
+    border-radius: 16px;
+    padding: 22px 24px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.metric-icon-box {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.metric-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.metric-val {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #0f172a;
+}
+
+.metric-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Filter Card */
+.filter-card {
+    background: white;
+    border-radius: 16px;
+    padding: 22px 26px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.filter-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.filter-control {
+    width: 100%;
+    padding: 9px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    font-size: 0.88rem;
+    color: #1e293b;
+    outline: none;
+    background: #f8fafc;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.filter-control:focus {
+    border-color: #0284c7;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.btn-filter {
+    background: #0284c7;
+    color: white;
+    padding: 9px 18px;
+    border-radius: 9px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.2s;
+}
+
+.btn-filter:hover {
+    background: #0369a1;
+}
+
+.btn-reset {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 9px 14px;
+    border-radius: 9px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: 1px solid #e2e8f0;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-reset:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+/* Data Table Card */
+.table-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+}
+
+.table-header-meta {
+    padding: 18px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fafafa;
+}
+
+.table-header-meta span {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.custom-table th {
+    background: #f8fafc;
+    padding: 14px 20px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.custom-table td {
+    padding: 16px 20px;
+    font-size: 0.9rem;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.custom-table tr:hover td {
+    background: #f8fafc;
+}
+
+/* Badges */
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.badge-in-stock {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.badge-low-stock {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.badge-out-stock {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.badge-type {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.badge-trading {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.badge-op {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.badge-both {
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
+.qty-pill {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: 800;
+    font-size: 0.92rem;
+    color: #0f172a;
+}
+
+.pagination-wrapper {
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #e2e8f0;
+    background: white;
+}
+
+.page-btn {
+    padding: 6px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    transition: all 0.2s;
+}
+
+.page-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+@media print {
+    .report-banner, .filter-card, .pagination-wrapper, aside, .top-banner, .banner-actions {
+        display: none !important;
+    }
+    .table-card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    body {
+        background: white !important;
+    }
+}
+</style>
+
+<div class="stock-report-wrapper">
+
+    <!-- Banner -->
+    <div class="report-banner">
+        <div class="banner-content">
+            <div class="banner-title">
+                <h2>Stock Report</h2>
+                <p>Real-time inventory levels, re-order thresholds, and consumption tracking</p>
+            </div>
+            <div class="banner-actions">
+                <a href="?export=csv{% if search %}&search={{ search }}{% endif %}{% if group_id %}&group_id={{ group_id }}{% endif %}{% if sub_group_id %}&sub_group_id={{ sub_group_id }}{% endif %}{% if item_type %}&item_type={{ item_type }}{% endif %}{% if stock_status %}&stock_status={{ stock_status }}{% endif %}{% if company_id %}&company_id={{ company_id }}{% endif %}" class="banner-btn banner-btn-white">
+                    <i class="ph-bold ph-file-csv" style="font-size: 1.1rem; color: #16a34a;"></i>
+                    Export CSV
+                </a>
+                <button onclick="window.print()" class="banner-btn banner-btn-outline">
+                    <i class="ph-bold ph-printer" style="font-size: 1.1rem;"></i>
+                    Print Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metric Cards -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon-box" style="background: #e0f2fe; color: #0284c7;">
+                <i class="ph ph-cube"></i>
+            </div>
+            <div class="metric-info">
+                <div class="metric-val">{{ summary.total_items }}</div>
+                <div class="metric-label">Total Stock Items</div>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon-box" style="background: #dcfce7; color: #16a34a;">
+                <i class="ph ph-stack"></i>
+            </div>
+            <div class="metric-info">
+                <div class="metric-val">{{ summary.total_current_qty }}</div>
+                <div class="metric-label">Stock On-Hand (Qty)</div>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon-box" style="background: #fef3c7; color: #d97706;">
+                <i class="ph ph-warning-circle"></i>
+            </div>
+            <div class="metric-info">
+                <div class="metric-val" style="color: #d97706;">{{ summary.low_stock_count }}</div>
+                <div class="metric-label">Low Stock Alerts</div>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon-box" style="background: #fee2e2; color: #dc2626;">
+                <i class="ph ph-x-circle"></i>
+            </div>
+            <div class="metric-info">
+                <div class="metric-val" style="color: #dc2626;">{{ summary.out_of_stock_count }}</div>
+                <div class="metric-label">Out of Stock</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Card -->
+    <div class="filter-card">
+        <form method="GET" action="" class="filter-grid">
+            <div class="filter-group" style="grid-column: span 2;">
+                <label class="filter-label">Search Item</label>
+                <input type="text" name="search" value="{{ search }}" placeholder="Search by item name, brand, barcode, HSN..." class="filter-control">
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Stock Group</label>
+                <select name="group_id" class="filter-control">
+                    <option value="">All Groups</option>
+                    {% for g in groups %}
+                    <option value="{{ g.id }}" {% if group_id == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Sub-Group</label>
+                <select name="sub_group_id" class="filter-control">
+                    <option value="">All Sub-Groups</option>
+                    {% for sg in sub_groups %}
+                    <option value="{{ sg.id }}" {% if sub_group_id == sg.id|stringformat:"s" %}selected{% endif %}>{{ sg.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Item Type</label>
+                <select name="item_type" class="filter-control">
+                    <option value="all" {% if item_type == 'all' or not item_type %}selected{% endif %}>All Types</option>
+                    <option value="trading" {% if item_type == 'trading' %}selected{% endif %}>Trading Only</option>
+                    <option value="operational" {% if item_type == 'operational' %}selected{% endif %}>Operational Only</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Stock Health</label>
+                <select name="stock_status" class="filter-control">
+                    <option value="all" {% if stock_status == 'all' or not stock_status %}selected{% endif %}>All Levels</option>
+                    <option value="in_stock" {% if stock_status == 'in_stock' %}selected{% endif %}>In Stock</option>
+                    <option value="low_stock" {% if stock_status == 'low_stock' %}selected{% endif %}>Low Stock Warning</option>
+                    <option value="out_of_stock" {% if stock_status == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+                </select>
+            </div>
+
+            {% if companies %}
+            <div class="filter-group">
+                <label class="filter-label">Company</label>
+                <select name="company_id" class="filter-control">
+                    <option value="">All Companies</option>
+                    {% for c in companies %}
+                    <option value="{{ c.id }}" {% if company_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.company_name }} ({{ c.display_client_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div style="display: flex; gap: 8px;">
+                <button type="submit" class="btn-filter" style="flex: 1;">
+                    <i class="ph-bold ph-funnel"></i> Filter
+                </button>
+                <a href="{% url 'stock_report' %}" class="btn-reset" title="Reset Filters">
+                    <i class="ph ph-arrow-counter-clockwise"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Data Table Card -->
+    <div class="table-card">
+        <div class="table-header-meta">
+            <span>Showing {{ page_obj.start_index|default:0 }} to {{ page_obj.end_index|default:0 }} of {{ page_obj.paginator.count|default:0 }} items</span>
+            <div style="display: flex; gap: 14px; font-size: 0.82rem; font-weight: 600;">
+                <span style="color: #16a34a;"><i class="ph-fill ph-circle" style="font-size: 0.65rem;"></i> In Stock</span>
+                <span style="color: #d97706;"><i class="ph-fill ph-circle" style="font-size: 0.65rem;"></i> Low Stock (≤ Alert Level)</span>
+                <span style="color: #dc2626;"><i class="ph-fill ph-circle" style="font-size: 0.65rem;"></i> Out of Stock</span>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Item Details</th>
+                        <th>Group / Category</th>
+                        <th>Type</th>
+                        <th>Unit</th>
+                        <th style="text-align: right;">Purchased (In)</th>
+                        <th style="text-align: right;">Consumed (Out)</th>
+                        <th style="text-align: right;">Current Stock</th>
+                        <th style="text-align: right;">Alert Level</th>
+                        <th style="text-align: center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in page_obj %}
+                    <tr>
+                        <td style="font-weight: 600; color: #94a3b8;">{{ forloop.counter0|add:page_obj.start_index }}</td>
+                        <td>
+                            <div style="font-weight: 700; color: #0f172a; font-size: 0.95rem;">
+                                {{ row.item_name }}
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center; margin-top: 3px; font-size: 0.78rem; color: #64748b;">
+                                {% if row.brand and row.brand != '-' %}
+                                <span>Brand: <strong style="color: #334155;">{{ row.brand }}</strong></span>
+                                {% endif %}
+                                {% if row.barcode %}
+                                <span style="font-family: monospace; background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">{{ row.barcode }}</span>
+                                {% endif %}
+                                {% if row.hsn_code %}
+                                <span>HSN: {{ row.hsn_code }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; color: #1e293b;">{{ row.group_name }}</div>
+                            {% if row.sub_group_name and row.sub_group_name != '-' %}
+                            <div style="font-size: 0.8rem; color: #64748b;">{{ row.sub_group_name }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.is_trading and row.is_operational %}
+                            <span class="badge-type badge-both">Trading & Op</span>
+                            {% elif row.is_operational %}
+                            <span class="badge-type badge-op">Operational</span>
+                            {% else %}
+                            <span class="badge-type badge-trading">Trading</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-weight: 600; color: #475569;">{{ row.unit }}</td>
+                        <td style="text-align: right; font-weight: 600; color: #0369a1;">
+                            {{ row.purchased_qty }}
+                        </td>
+                        <td style="text-align: right; font-weight: 600; color: #64748b;">
+                            {{ row.consumed_qty }}
+                        </td>
+                        <td style="text-align: right;">
+                            <span class="qty-pill" style="{% if row.status_code == 'OUT_OF_STOCK' %}color: #dc2626;{% elif row.status_code == 'LOW_STOCK' %}color: #d97706;{% else %}color: #16a34a;{% endif %}">
+                                {{ row.current_qty }}
+                            </span>
+                        </td>
+                        <td style="text-align: right; font-weight: 600; color: #94a3b8;">
+                            {{ row.critical_level }}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if row.status_code == 'IN_STOCK' %}
+                            <span class="badge-status badge-in-stock">
+                                <i class="ph-bold ph-check-circle"></i> In Stock
+                            </span>
+                            {% elif row.status_code == 'LOW_STOCK' %}
+                            <span class="badge-status badge-low-stock">
+                                <i class="ph-bold ph-warning"></i> Low Stock
+                            </span>
+                            {% else %}
+                            <span class="badge-status badge-out-stock">
+                                <i class="ph-bold ph-x-circle"></i> Out of Stock
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" style="text-align: center; padding: 48px 20px; color: #94a3b8;">
+                            <i class="ph ph-package" style="font-size: 3rem; color: #cbd5e1; display: block; margin-bottom: 12px;"></i>
+                            <div style="font-weight: 600; font-size: 1.1rem; color: #475569;">No stock items found</div>
+                            <div style="font-size: 0.88rem; margin-top: 4px;">Try adjusting your search query or filter selections.</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="pagination-wrapper">
+            <span style="font-size: 0.85rem; color: #64748b;">
+                Page <strong>{{ page_obj.number }}</strong> of <strong>{{ page_obj.paginator.num_pages }}</strong>
+            </span>
+            <div style="display: flex; gap: 8px;">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if group_id %}&group_id={{ group_id }}{% endif %}{% if sub_group_id %}&sub_group_id={{ sub_group_id }}{% endif %}{% if item_type %}&item_type={{ item_type }}{% endif %}{% if stock_status %}&stock_status={{ stock_status }}{% endif %}{% if company_id %}&company_id={{ company_id }}{% endif %}" class="page-btn">
+                    <i class="ph ph-caret-left"></i> Previous
+                </a>
+                {% endif %}
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if group_id %}&group_id={{ group_id }}{% endif %}{% if sub_group_id %}&sub_group_id={{ sub_group_id }}{% endif %}{% if item_type %}&item_type={{ item_type }}{% endif %}{% if stock_status %}&stock_status={{ stock_status }}{% endif %}{% if company_id %}&company_id={{ company_id }}{% endif %}" class="page-btn">
+                    Next <i class="ph ph-caret-right"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+{% endblock %}

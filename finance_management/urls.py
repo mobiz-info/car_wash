@@ -43,5 +43,7 @@ urlpatterns = [
     path('tax-report/', views.tax_report),
     path('reports/outstanding-report/', views.outstanding_report, name='outstanding_report'),
     path('outstanding-report/', views.outstanding_report),
+    path('reports/stock-report/', views.stock_report, name='stock_report'),
+    path('stock-report/', views.stock_report),
 ]
 

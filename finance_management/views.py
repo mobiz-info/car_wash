@@ -3113,3 +3113,252 @@ def outstanding_report(request):
         'title': 'Outstanding Report',
     }
     return render(request, 'reports/outstanding_report.html', context)
+
+
+@login_required
+def stock_report(request):
+    """
+    Comprehensive Stock & Inventory Report
+    ────────────────────────────────────────
+    Displays stock levels, trading vs operational status, purchase vs consumption metrics,
+    low stock alerts, group & sub-group filtering, and CSV export.
+    """
+    from client_management.models import Stock, Client
+    from master.models import StockGroup, StockSubGroup, PurchaseInvoiceItem
+    from finance_management.models import InvoiceItem
+    from django.db.models import Sum, Q
+    from django.core.paginator import Paginator
+    import csv
+
+    user = request.user
+    role = None
+    if hasattr(user, 'profile') and user.profile.role:
+        role = user.profile.role.name
+
+    company = None
+    if role == 'COMPANY_ADMIN':
+        if hasattr(user, 'profile') and user.profile.company:
+            company = user.profile.company
+    elif role == 'BRANCH_ADMIN':
+        if hasattr(user, 'managed_branch') and user.managed_branch and user.managed_branch.company:
+            company = user.managed_branch.company
+        elif hasattr(user, 'profile') and user.profile.company:
+            company = user.profile.company
+
+    # Base Stock Queryset
+    stocks = Stock.objects.filter(is_deleted=False).select_related(
+        'group', 'sub_group', 'company', 'expense_head'
+    ).order_by('item_name')
+
+    # Company Scope
+    company_id_param = request.GET.get('company_id', '').strip()
+    if company:
+        stocks = stocks.filter(Q(company=company) | Q(company__isnull=True))
+    elif user.is_superuser and company_id_param:
+        stocks = stocks.filter(company_id=company_id_param)
+
+    # Filter Options
+    groups = StockGroup.objects.filter(is_deleted=False)
+    sub_groups = StockSubGroup.objects.filter(is_deleted=False)
+    if company:
+        groups = groups.filter(Q(company=company) | Q(company__isnull=True))
+        sub_groups = sub_groups.filter(Q(company=company) | Q(company__isnull=True))
+    groups = groups.order_by('name')
+    sub_groups = sub_groups.order_by('name')
+
+    companies = Client.objects.filter(is_deleted=False).order_by('company_name') if user.is_superuser else []
+
+    # Get Filter Parameters
+    search = request.GET.get('search', '').strip()
+    group_id = request.GET.get('group_id', '').strip()
+    sub_group_id = request.GET.get('sub_group_id', '').strip()
+    item_type = request.GET.get('item_type', 'all').strip().lower()
+    stock_status = request.GET.get('stock_status', 'all').strip().lower()
+
+    if search:
+        stocks = stocks.filter(
+            Q(item_name__icontains=search) |
+            Q(brand__icontains=search) |
+            Q(barcode__icontains=search) |
+            Q(hsn_code__icontains=search)
+        )
+
+    if group_id:
+        stocks = stocks.filter(group_id=group_id)
+
+    if sub_group_id:
+        stocks = stocks.filter(sub_group_id=sub_group_id)
+
+    if item_type == 'trading':
+        stocks = stocks.filter(is_trading=True, is_operational=False)
+    elif item_type == 'operational':
+        stocks = stocks.filter(is_operational=True)
+
+    # Pre-fetch or aggregate purchase and consumption quantities efficiently
+    stock_ids = [s.id for s in stocks]
+
+    # Purchase aggregations
+    purchases_map = {}
+    if stock_ids:
+        p_qs = PurchaseInvoiceItem.objects.filter(stock_item_id__in=stock_ids, is_deleted=False)
+        if company:
+            p_qs = p_qs.filter(purchase_invoice__company=company)
+        p_agg = p_qs.values('stock_item_id').annotate(
+            total_qty=Sum('quantity'),
+            total_val=Sum('total_including_tax')
+        )
+        for item in p_agg:
+            purchases_map[item['stock_item_id']] = {
+                'qty': float(item['total_qty'] or 0),
+                'val': float(item['total_val'] or 0),
+            }
+
+    # Invoice Consumption aggregations
+    consumptions_map = {}
+    if stock_ids:
+        c_qs = InvoiceItem.objects.filter(stock_item_id__in=stock_ids, is_deleted=False, invoice__is_deleted=False)
+        if company:
+            c_qs = c_qs.filter(invoice__branch__company=company)
+        c_agg = c_qs.values('stock_item_id').annotate(
+            total_qty=Sum('qty'),
+            total_val=Sum('net_taxable_amount')
+        )
+        for item in c_agg:
+            consumptions_map[item['stock_item_id']] = {
+                'qty': float(item['total_qty'] or 0),
+                'val': float(item['total_val'] or 0),
+            }
+
+    rows = []
+    total_items = 0
+    total_current_qty = 0
+    total_purchased_qty = 0
+    total_consumed_qty = 0
+    low_stock_count = 0
+    out_of_stock_count = 0
+
+    for stock in stocks:
+        current_qty = float(stock.quantity or 0)
+        crit_level = float(stock.critical_level or 0)
+
+        # Status check
+        if current_qty <= 0:
+            status_code = 'OUT_OF_STOCK'
+            status_label = 'Out of Stock'
+            status_badge = 'badge-danger'
+        elif current_qty <= crit_level:
+            status_code = 'LOW_STOCK'
+            status_label = 'Low Stock'
+            status_badge = 'badge-warning'
+        else:
+            status_code = 'IN_STOCK'
+            status_label = 'In Stock'
+            status_badge = 'badge-success'
+
+        # Filter by stock_status if requested
+        if stock_status == 'in_stock' and status_code != 'IN_STOCK':
+            continue
+        elif stock_status == 'low_stock' and status_code != 'LOW_STOCK':
+            continue
+        elif stock_status == 'out_of_stock' and status_code != 'OUT_OF_STOCK':
+            continue
+
+        p_info = purchases_map.get(stock.id, {'qty': 0, 'val': 0})
+        c_info = consumptions_map.get(stock.id, {'qty': 0, 'val': 0})
+
+        purchased_qty = p_info['qty']
+        consumed_qty = c_info['qty']
+
+        total_items += 1
+        total_current_qty += current_qty
+        total_purchased_qty += purchased_qty
+        total_consumed_qty += consumed_qty
+
+        if status_code == 'OUT_OF_STOCK':
+            out_of_stock_count += 1
+        elif status_code == 'LOW_STOCK':
+            low_stock_count += 1
+
+        cgst = float(stock.cgst_percent or 0)
+        sgst = float(stock.sgst_percent or 0)
+        igst = float(stock.igst_percent or 0)
+        tax_rate = round(cgst + sgst + igst, 2)
+
+        unit_name = stock.get_unit_display() if hasattr(stock, 'get_unit_display') else (stock.unit or 'Piece')
+
+        rows.append({
+            'stock': stock,
+            'item_name': stock.item_name,
+            'brand': stock.brand or '-',
+            'barcode': stock.barcode or '',
+            'hsn_code': stock.hsn_code or '',
+            'group_name': stock.group.name if stock.group else 'General',
+            'sub_group_name': stock.sub_group.name if stock.sub_group else '-',
+            'unit': unit_name,
+            'is_trading': stock.is_trading,
+            'is_operational': stock.is_operational,
+            'critical_level': crit_level,
+            'current_qty': current_qty,
+            'purchased_qty': purchased_qty,
+            'consumed_qty': consumed_qty,
+            'tax_rate': tax_rate,
+            'status_code': status_code,
+            'status_label': status_label,
+            'status_badge': status_badge,
+            'company_name': stock.company.company_name if stock.company else 'Global',
+            'client_code': stock.company.display_client_id if stock.company else 'GLOBAL',
+        })
+
+    # CSV Export
+    if request.GET.get('export') == 'csv':
+        from django.http import HttpResponse
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="Stock_Report.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            'SL No', 'Item Name', 'Brand', 'Barcode', 'HSN Code',
+            'Group', 'Sub-Group', 'Unit', 'Type', 'Critical Level',
+            'Purchased Qty', 'Consumed Qty', 'Current Stock', 'Status'
+        ])
+        for idx, r in enumerate(rows, 1):
+            if r['is_trading'] and r['is_operational']:
+                item_type_str = 'Trading & Operational'
+            elif r['is_operational']:
+                item_type_str = 'Operational'
+            else:
+                item_type_str = 'Trading'
+            writer.writerow([
+                idx, r['item_name'], r['brand'], r['barcode'], r['hsn_code'],
+                r['group_name'], r['sub_group_name'], r['unit'], item_type_str,
+                r['critical_level'], r['purchased_qty'], r['consumed_qty'],
+                r['current_qty'], r['status_label']
+            ])
+        return response
+
+    paginator = Paginator(rows, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    summary = {
+        'total_items': total_items,
+        'total_current_qty': round(total_current_qty, 2),
+        'total_purchased_qty': round(total_purchased_qty, 2),
+        'total_consumed_qty': round(total_consumed_qty, 2),
+        'low_stock_count': low_stock_count,
+        'out_of_stock_count': out_of_stock_count,
+    }
+
+    return render(request, 'reports/stock_report.html', {
+        'page_obj': page_obj,
+        'summary': summary,
+        'groups': groups,
+        'sub_groups': sub_groups,
+        'companies': companies,
+        'search': search,
+        'group_id': group_id,
+        'sub_group_id': sub_group_id,
+        'item_type': item_type,
+        'stock_status': stock_status,
+        'company_id': company_id_param,
+        'title': 'Stock Report',
+    })

@@ -709,6 +709,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'sales_report' %}">Sales</a>
                 <a href="{% url 'collection_report' %}">Collection Report</a>
+                <a href="{% url 'stock_report' %}">Stock Report</a>
                 <a href="{% url 'receipt_list' %}">Receipt</a>
                 <a href="{% url 'outstanding_report' %}">Outstanding Report</a>
                 <a href="{% url 'job_report' %}">Job Report</a>
@@ -927,6 +928,7 @@
             <div class="nav-submenu">
                 <a href="{% url 'sales_report' %}">Sales Report</a>
                 <a href="{% url 'collection_report' %}">Collection Report</a>
+                <a href="{% url 'stock_report' %}">Stock Report</a>
                 <a href="{% url 'receipt_list' %}">Receipts</a>
                 <a href="{% url 'job_report' %}">Job Report</a>
                 <a href="{% url 'outstanding_report' %}">Outstanding Report</a>
@@ -1110,6 +1112,24 @@
             <div class="nav-submenu">
                 <a href="{% url 'stock_group_list' %}" class="nav-item submenu-item">Stock Groups</a>
                 <a href="{% url 'stock_subgroup_list' %}" class="nav-item submenu-item">Stock Sub-Groups</a>
+            </div>
+
+            <!-- Reports -->
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-chart-line-up"></i>
+                    Reports
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'sales_report' %}" class="nav-item submenu-item">Sales Report</a>
+                <a href="{% url 'collection_report' %}" class="nav-item submenu-item">Collection Report</a>
+                <a href="{% url 'stock_report' %}" class="nav-item submenu-item">Stock Report</a>
+                <a href="{% url 'outstanding_report' %}" class="nav-item submenu-item">Outstanding Report</a>
+                <a href="{% url 'profit_report' %}" class="nav-item submenu-item">Profit Report</a>
+                <a href="{% url 'expense_report' %}" class="nav-item submenu-item">Expense Report</a>
+                <a href="{% url 'tax_report' %}" class="nav-item submenu-item">Tax Report</a>
             </div>
 
             {% comment %} <div class="nav-section-title">OPERATIONS</div>
