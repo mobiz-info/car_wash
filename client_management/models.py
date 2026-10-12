@@ -13,6 +13,7 @@ def validate_image_dimensions(image):
     
     
 class Client(BaseModel):
+    client_code = models.CharField(max_length=50, blank=True, null=True, unique=True, verbose_name="Client ID / Code")
     company_name = models.CharField(max_length=200)
     owner_name = models.CharField(max_length=200)
     email = models.EmailField(blank=True, null=True)
@@ -55,9 +56,29 @@ class Client(BaseModel):
         blank=True,
         null=True
     )
+
+    @property
+    def display_client_id(self):
+        if self.client_code:
+            return self.client_code
+        if self.auto_id:
+            return f"CL-{self.auto_id:03d}"
+        return f"CL-{str(self.id)[:6].upper()}"
+
+    def save(self, *args, **kwargs):
+        from core.functions import get_auto_id
+        if not self.auto_id:
+            self.auto_id = get_auto_id(Client)
+        if self.client_code:
+            self.client_code = self.client_code.strip().upper()
+            if not self.client_code:
+                self.client_code = None
+        if not self.client_code and self.auto_id:
+            self.client_code = f"CL-{self.auto_id:03d}"
+        super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"{self.company_name} ({self.owner_name})"
+        return f"[{self.display_client_id}] {self.company_name} ({self.owner_name})"
 
 
 class Subscription(BaseModel):

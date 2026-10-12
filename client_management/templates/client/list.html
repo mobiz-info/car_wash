@@ -145,7 +145,7 @@
     <div class="list-header">
         <form method="GET" class="search-wrapper">
             <i class="ph ph-magnifying-glass search-icon"></i>
-            <input type="text" name="search" value="{{search}}" placeholder="Search by company, owner, or phone..." class="search-input">
+            <input type="text" name="search" value="{{search}}" placeholder="Search by Client ID (e.g. CL-001), company, owner..." class="search-input">
             {% if search %}
             <a href="{% url 'client_list' %}" style="position: absolute; right: 12px; color: #94a3b8; text-decoration: none;" title="Clear search">
                 <i class="ph ph-x-circle" style="font-size: 1.1rem;"></i>
@@ -164,7 +164,8 @@
         <table class="premium-table">
             <thead>
                 <tr>
-                    <th style="width: 60px;">#</th>
+                    <th style="width: 50px;">#</th>
+                    <th style="width: 130px;">Client ID</th>
                     <th>Company Name</th>
                     <th>Owner Name</th>
                     <th>Phone</th>
@@ -177,6 +178,12 @@
                 {% for obj in page_obj %}
                 <tr>
                     <td style="font-weight: 500; color: #94a3b8;">{{ forloop.counter }}</td>
+                    <td>
+                        <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 0.85rem; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 8px; border-radius: 6px; letter-spacing: 0.04em; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="ph ph-identification-badge" style="font-size: 1rem; color: #3b82f6;"></i>
+                            {{ obj.display_client_id }}
+                        </span>
+                    </td>
                     <td style="font-weight: 600; color: #1e293b;">
                         <div style="display: flex; align-items: center; gap: 14px;">
                             <div style="width: 48px; height: 48px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #64748b; overflow: hidden; border: 1.5px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.06); flex-shrink: 0;">

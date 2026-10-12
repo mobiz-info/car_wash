@@ -8342,7 +8342,7 @@ def _resolve_tally_company(request, user=None):
     Resolves company from request for Tally export APIs.
     No authorization token required, but `client_id` is required:
       - Supports query param: client_id (or company_id).
-      - Matches by UUID or company_name.
+      - Matches by client_code (e.g. CL-001), auto_id (e.g. 1, 2, CL-1), UUID, or company_name.
       - Returns (company, error_response).
     """
     from client_management.models import Client
@@ -8356,14 +8356,33 @@ def _resolve_tally_company(request, user=None):
         return None, JsonResponse({'status': 'error', 'message': 'client_id is required'}, status=400)
 
     company = None
-    try:
-        company = Client.objects.filter(id=client_id_param, is_deleted=False).first()
-    except Exception:
-        company = None
+
+    # 1. Match by exact client_code
+    company = Client.objects.filter(client_code__iexact=client_id_param, is_deleted=False).first()
+
+    # 2. Match by CL- prefix or numeric auto_id
+    if not company:
+        numeric_str = client_id_param
+        if client_id_param.upper().startswith('CL-'):
+            numeric_str = client_id_param[3:]
+        elif client_id_param.upper().startswith('CL'):
+            numeric_str = client_id_param[2:]
+        if numeric_str.isdigit():
+            company = Client.objects.filter(auto_id=int(numeric_str), is_deleted=False).first()
+
+    # 3. Match by UUID
+    if not company:
+        try:
+            company = Client.objects.filter(id=client_id_param, is_deleted=False).first()
+        except Exception:
+            company = None
+
+    # 4. Match by company name
     if not company:
         company = Client.objects.filter(company_name__iexact=client_id_param, is_deleted=False).first()
     if not company:
         company = Client.objects.filter(company_name__icontains=client_id_param, is_deleted=False).first()
+
     if not company:
         return None, JsonResponse({'status': 'error', 'message': f'Company not found with client_id: {client_id_param}'}, status=404)
 
@@ -8544,6 +8563,7 @@ def api_tally_invoices(request):
 
                 # ── Company / Branch ─────────────────────────────────
                 'company_id': str(inv_company.id) if inv_company else '',
+                'client_code': inv_company.display_client_id if inv_company else '',
                 'company_name': inv_company.company_name if inv_company else '',
                 'branch_id': str(inv.branch.id) if inv.branch else '',
                 'branch_name': inv.branch.name if inv.branch else '',
@@ -8594,7 +8614,9 @@ def api_tally_invoices(request):
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id) if company else 'all',
+            'client_id': company.display_client_id if company else 'all',
+            'client_code': company.display_client_id if company else '',
+            'company_id': str(company.id) if company else 'all',
             'company_name': company.company_name if company else 'All Companies',
             'from_date': from_date.strftime('%d-%m-%Y'),
             'to_date': to_date.strftime('%d-%m-%Y'),
@@ -8731,6 +8753,7 @@ def api_tally_receipts(request):
 
                 # ── Company / Branch ─────────────────────────────────
                 'company_id': str(rec_company.id) if rec_company else '',
+                'client_code': rec_company.display_client_id if rec_company else '',
                 'company_name': rec_company.company_name if rec_company else '',
                 'branch_id': str(inv.branch.id) if (inv and inv.branch) else '',
                 'branch_name': inv.branch.name if (inv and inv.branch) else '',
@@ -8783,7 +8806,9 @@ def api_tally_receipts(request):
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id) if company else 'all',
+            'client_id': company.display_client_id if company else 'all',
+            'client_code': company.display_client_id if company else '',
+            'company_id': str(company.id) if company else 'all',
             'company_name': company.company_name if company else 'All Companies',
             'from_date': from_date.strftime('%d-%m-%Y'),
             'to_date': to_date.strftime('%d-%m-%Y'),
@@ -8899,6 +8924,7 @@ def api_tally_customers(request):
                 'pincode': cust.pincode or '',
                 'customer_type': cust.customer_type.name if cust.customer_type else '',
                 'company_id': str(cust_company.id) if cust_company else '',
+                'client_code': cust_company.display_client_id if cust_company else '',
                 'company_name': cust_company.company_name if cust_company else '',
                 'branch_id': str(cust.branch.id) if cust.branch else '',
                 'branch_name': cust.branch.name if cust.branch else '',
@@ -8909,7 +8935,9 @@ def api_tally_customers(request):
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id) if company else 'all',
+            'client_id': company.display_client_id if company else 'all',
+            'client_code': company.display_client_id if company else '',
+            'company_id': str(company.id) if company else 'all',
             'company_name': company.company_name if company else 'All Companies',
             'count': len(customers_data),
             'customers': customers_data,
@@ -9011,12 +9039,15 @@ def api_tally_stockitems(request):
                 'critical_level': float(stock.critical_level or 0),
                 'expense_head_name': stock.expense_head.name if stock.expense_head else '',
                 'company_id': str(stock_company.id) if stock_company else '',
+                'client_code': stock_company.display_client_id if stock_company else '',
                 'company_name': stock_company.company_name if stock_company else '',
             })
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id) if company else 'all',
+            'client_id': company.display_client_id if company else 'all',
+            'client_code': company.display_client_id if company else '',
+            'company_id': str(company.id) if company else 'all',
             'company_name': company.company_name if company else 'All Companies',
             'count': len(stock_items_data),
             'stock_items': stock_items_data,
@@ -9142,6 +9173,7 @@ def api_tally_expenses(request):
                 'stock_item_name': entry.stock_item.item_name if entry.stock_item else '',
                 'remarks': entry.remarks or '',
                 'company_id': str(exp_company.id) if exp_company else '',
+                'client_code': exp_company.display_client_id if exp_company else '',
                 'company_name': exp_company.company_name if exp_company else '',
                 'branch_id': str(entry.branch.id) if entry.branch else '',
                 'branch_name': entry.branch.name if entry.branch else '',
@@ -9156,7 +9188,9 @@ def api_tally_expenses(request):
 
         return JsonResponse({
             'status': 'success',
-            'client_id': str(company.id) if company else 'all',
+            'client_id': company.display_client_id if company else 'all',
+            'client_code': company.display_client_id if company else '',
+            'company_id': str(company.id) if company else 'all',
             'company_name': company.company_name if company else 'All Companies',
             'from_date': from_date.strftime('%d-%m-%Y'),
             'to_date': to_date.strftime('%d-%m-%Y'),

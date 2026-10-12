@@ -61,12 +61,20 @@ def client_list(request):
     search = request.GET.get('search', '').strip()
     queryset = Client.objects.filter(is_deleted=False)
     if search:
-        queryset = queryset.filter(
+        search_filter = (
             Q(company_name__icontains=search) |
             Q(owner_name__icontains=search) |
             Q(phone__icontains=search) |
-            Q(email__icontains=search)
+            Q(email__icontains=search) |
+            Q(client_code__icontains=search)
         )
+        if search.isdigit():
+            search_filter |= Q(auto_id=int(search))
+        elif search.upper().startswith('CL-') and search[3:].isdigit():
+            search_filter |= Q(auto_id=int(search[3:]))
+        elif search.upper().startswith('CL') and search[2:].isdigit():
+            search_filter |= Q(auto_id=int(search[2:]))
+        queryset = queryset.filter(search_filter)
     paginator = Paginator(queryset.order_by('-date_added'), 10)
     page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'client/list.html', {
@@ -196,6 +204,9 @@ def client_create(request):
         if form.is_valid():
             instance = form.save(commit=False)   
             instance.auto_id = get_auto_id(Client)
+            if not instance.client_code:
+                instance.client_code = f"CL-{instance.auto_id:03d}"
+            instance.creator = request.user
             instance.save()
             form.save_m2m()
             
@@ -252,6 +263,8 @@ def client_edit(request, id):
     if request.method == 'POST':
         if form.is_valid():
             instance = form.save(commit=False)
+            if not instance.client_code and instance.auto_id:
+                instance.client_code = f"CL-{instance.auto_id:03d}"
             instance.updater = request.user
             instance.save()
             form.save_m2m()

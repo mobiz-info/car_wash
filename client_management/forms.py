@@ -13,6 +13,7 @@ class ClientForm(forms.ModelForm):
     class Meta:
         model = Client
         fields = [
+            'client_code',
             'company_name', 'business_name', 'owner_name',
             'email', 'phone', 'address',
             'gst_number', 'tin_pan_no', 'reference',
@@ -25,6 +26,7 @@ class ClientForm(forms.ModelForm):
             'status', 'logo_color', 'logo_bw', 'company_seal'
         ]
         labels = {
+            'client_code': 'Client ID / Code',
             'tin_pan_no': 'TIN No / PAN No',
             'reference': 'Reference',
         }
@@ -34,8 +36,24 @@ class ClientForm(forms.ModelForm):
             'company_seal': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*', 'id': 'id_company_seal'}),
         }
 
+    def clean_client_code(self):
+        code = self.cleaned_data.get('client_code')
+        if code:
+            code = code.strip().upper()
+            qs = Client.objects.filter(client_code__iexact=code, is_deleted=False)
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError(f"Client ID '{code}' is already in use by another client.")
+            return code
+        return None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if 'client_code' in self.fields:
+            self.fields['client_code'].required = False
+            self.fields['client_code'].help_text = "Leave blank to auto-generate (e.g. CL-001)"
+            self.fields['client_code'].widget.attrs['placeholder'] = "e.g. CL-001 (leave blank for auto)"
         # Populate state, district, and area querysets (for POST submission or edit instance)
         country_id = self.data.get('country') or (self.instance.country_id if self.instance.pk else None)
         if country_id:

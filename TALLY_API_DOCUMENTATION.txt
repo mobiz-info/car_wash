@@ -33,12 +33,17 @@ parameter.
 2. RESOLVING client_id
 ================================================================================
 The "client_id" parameter can be:
-  a) The exact UUID of the Client / Company
-     Example: ?client_id=bf1345a8-777b-4ad0-9753-764ec6dd42cb
+  a) The Simple Client ID (shown in Clients list: CL-001, CL-002, etc.)
+     Example: ?client_id=CL-001
+     Example: ?client_id=CL-002
+     (Numeric values like ?client_id=1 or custom codes like ?client_id=MW-01 are also accepted)
 
   b) The Company Name (case-insensitive, exact or partial match)
      Example: ?client_id=Mobiz%20Technologies
      Example: ?client_id=Koda%20Car%20Spa
+
+  c) The exact UUID of the Client / Company
+     Example: ?client_id=bf1345a8-777b-4ad0-9753-764ec6dd42cb
 
 Alternatively, "company_id" or "company_name" can also be used as query parameter
 names.
