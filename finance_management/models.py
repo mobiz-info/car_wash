@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from core.models import BaseModel
 from client_management.models import Customer, CustomerVehicle, Branch
 from service_management.models import Service
@@ -18,6 +19,7 @@ class Invoice(BaseModel):
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     amount_collected = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    credit_note_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     invoice_type = models.CharField(
         max_length=20, 
         choices=[('cashinvoice', 'Cash Invoice'), ('creditinvoice', 'Credit Invoice')], 
@@ -224,4 +226,34 @@ class BranchInvoiceCustomisation(BaseModel):
 
     def __str__(self):
         return f"Invoice Customisation - {self.branch.name}"
+
+
+class CreditNote(BaseModel):
+    credit_note_number = models.CharField(max_length=60, unique=True, db_index=True)
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='credit_notes')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='credit_notes')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='credit_notes')
+    date = models.DateField(default=timezone.now)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    reason = models.CharField(max_length=255, blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.credit_note_number} - {self.customer.name} ({self.total})"
+
+
+class CreditNoteItem(BaseModel):
+    credit_note = models.ForeignKey(CreditNote, on_delete=models.CASCADE, related_name='items')
+    invoice_item = models.ForeignKey(InvoiceItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='credit_items')
+    service_name = models.CharField(max_length=150)
+    qty = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
+    def __str__(self):
+        return f"{self.credit_note.credit_note_number} - {self.service_name} ({self.total})"
+
 

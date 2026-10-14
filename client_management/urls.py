@@ -291,7 +291,11 @@ urlpatterns = [
     path('api/api/master/vehicle-makes/', api_views.api_vehicle_makes, name='api_api_vehicle_makes'),
     path('api/api/master/vehicle-brand-models/', api_views.api_vehicle_brand_models, name='api_api_vehicle_brand_models'),
     path('api/api/master/vehicle-types/', api_views.api_vehicle_types_list, name='api_api_vehicle_types_list'),
-    path('api/api/master/vehicle-makes-by-type/', api_views.api_vehicle_makes_by_type, name='api_api_vehicle_makes_by_type'),
+    # Credit Note APIs
+    path('api/credit-notes/info/', api_views.api_credit_note_info, name='api_credit_note_info'),
+    path('api/credit-notes/create/', api_views.api_create_credit_note, name='api_create_credit_note'),
+    path('api/api/credit-notes/info/', api_views.api_credit_note_info, name='api_api_credit_note_info'),
+    path('api/api/credit-notes/create/', api_views.api_create_credit_note, name='api_api_create_credit_note'),
 ]
 
 

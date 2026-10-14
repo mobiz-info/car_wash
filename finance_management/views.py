@@ -459,6 +459,17 @@ def api_list_invoices(request):
             'tax_amount': str(inv.tax_amount),
             'total': str(inv.total),
             'amount_collected': str(inv.amount_collected),
+            'credit_note_amount': str(inv.credit_note_amount or 0),
+            'credit_notes': [
+                {
+                    'id': str(cn.id),
+                    'credit_note_number': cn.credit_note_number,
+                    'date': str(cn.date),
+                    'total': str(cn.total),
+                    'reason': cn.reason or '',
+                }
+                for cn in inv.credit_notes.filter(is_deleted=False).order_by('-date_added')
+            ],
             'invoice_type': inv.invoice_type,
             'remarks': inv.remarks or '',
             'show_warranty_in_pdf': inv.show_warranty_in_pdf,

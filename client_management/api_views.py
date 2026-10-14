@@ -10123,3 +10123,182 @@ def api_leads_reminders(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+
+def generate_credit_note_number(branch, date=None):
+    from django.utils import timezone
+    from finance_management.models import CreditNote
+    if date is None:
+        date = timezone.now().date()
+
+    yy = date.strftime('%y')
+    prefix = _resolve_branch_invoice_prefix(branch)
+    branch_identity = f"{prefix}{branch.auto_id}"
+
+    base_prefix = f"CN-{branch_identity}-{yy}/"
+
+    last_cn = CreditNote.objects.filter(
+        credit_note_number__startswith=base_prefix
+    ).order_by('-auto_id').first()
+
+    next_seq = 1
+    if last_cn:
+        try:
+            seq_part = last_cn.credit_note_number[len(base_prefix):]
+            next_seq = int(seq_part) + 1
+        except (ValueError, TypeError):
+            next_seq = CreditNote.objects.filter(
+                credit_note_number__startswith=base_prefix
+            ).count() + 1
+
+    candidate = f"{base_prefix}{next_seq}"
+    while CreditNote.objects.filter(credit_note_number=candidate).exists():
+        next_seq += 1
+        candidate = f"{base_prefix}{next_seq}"
+
+    return candidate
+
+
+@csrf_exempt
+def api_credit_note_info(request):
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    invoice_id = request.GET.get('invoice_id')
+    if not invoice_id:
+        return JsonResponse({'success': False, 'message': 'invoice_id is required'}, status=400)
+
+    from finance_management.models import Invoice, CreditNote
+    from decimal import Decimal
+    try:
+        invoice = Invoice.objects.filter(id=invoice_id, is_deleted=False).first()
+        if not invoice:
+            return JsonResponse({'success': False, 'message': 'Invoice not found'}, status=404)
+
+        next_number = generate_credit_note_number(invoice.branch)
+        credited_so_far = invoice.credit_note_amount or Decimal('0.00')
+        max_creditable = max(Decimal('0.00'), invoice.total - credited_so_far)
+        current_outstanding = max(Decimal('0.00'), invoice.total - invoice.amount_collected - credited_so_far)
+
+        items_data = []
+        for item in invoice.items.all():
+            if not item.is_operational:
+                items_data.append({
+                    'id': str(item.id),
+                    'service_name': item.service_name,
+                    'qty': float(item.qty),
+                    'rate': str(item.rate),
+                    'tax_amount': str(item.net_taxable_amount or '0.00'),
+                    'total': str(item.qty * item.rate),
+                })
+
+        return JsonResponse({
+            'success': True,
+            'next_credit_note_number': next_number,
+            'invoice': {
+                'id': str(invoice.id),
+                'invoice_number': invoice.invoice_number,
+                'customer_name': invoice.customer.name,
+                'total': str(invoice.total),
+                'amount_collected': str(invoice.amount_collected),
+                'credit_note_amount': str(credited_so_far),
+                'max_creditable': str(max_creditable),
+                'current_outstanding': str(current_outstanding),
+                'items': items_data,
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_create_credit_note(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        invoice_id = data.get('invoice_id')
+        if not invoice_id:
+            return JsonResponse({'success': False, 'message': 'invoice_id is required'}, status=400)
+
+        from finance_management.models import Invoice, CreditNote, CreditNoteItem, InvoiceItem
+        from master.functions import get_auto_id
+        from decimal import Decimal
+
+        invoice = Invoice.objects.filter(id=invoice_id, is_deleted=False).first()
+        if not invoice:
+            return JsonResponse({'success': False, 'message': 'Invoice not found'}, status=404)
+
+        credited_so_far = invoice.credit_note_amount or Decimal('0.00')
+        max_creditable = max(Decimal('0.00'), invoice.total - credited_so_far)
+
+        credit_amount = Decimal(str(data.get('credit_amount') or 0))
+        if credit_amount <= 0:
+            return JsonResponse({'success': False, 'message': 'Credit amount must be greater than zero'}, status=400)
+
+        if credit_amount > max_creditable:
+            return JsonResponse({'success': False, 'message': f'Credit amount cannot exceed max creditable {max_creditable}'}, status=400)
+
+        reason = (data.get('reason') or '').strip()
+        remarks = (data.get('remarks') or '').strip()
+
+        cn_number = generate_credit_note_number(invoice.branch)
+
+        subtotal = Decimal(str(data.get('subtotal', credit_amount)))
+        tax_amount = Decimal(str(data.get('tax_amount', 0)))
+
+        cn = CreditNote.objects.create(
+            auto_id=get_auto_id(CreditNote),
+            creator=user,
+            credit_note_number=cn_number,
+            invoice=invoice,
+            branch=invoice.branch,
+            customer=invoice.customer,
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            total=credit_amount,
+            reason=reason,
+            remarks=remarks,
+        )
+
+        items_input = data.get('items', [])
+        for item_data in items_input:
+            inv_item_id = item_data.get('invoice_item_id')
+            inv_item = InvoiceItem.objects.filter(id=inv_item_id).first() if inv_item_id else None
+            CreditNoteItem.objects.create(
+                auto_id=get_auto_id(CreditNoteItem),
+                creator=user,
+                credit_note=cn,
+                invoice_item=inv_item,
+                service_name=item_data.get('service_name', 'Credit adjustment'),
+                qty=Decimal(str(item_data.get('qty', 1))),
+                rate=Decimal(str(item_data.get('rate', credit_amount))),
+                tax_amount=Decimal(str(item_data.get('tax_amount', 0))),
+                total=Decimal(str(item_data.get('total', credit_amount))),
+            )
+
+        # Update invoice credit_note_amount
+        all_cn_total = CreditNote.objects.filter(invoice=invoice, is_deleted=False).aggregate(t=models.Sum('total'))['t'] or Decimal('0.00')
+        invoice.credit_note_amount = all_cn_total
+        invoice.save(update_fields=['credit_note_amount'])
+
+        new_outstanding = max(Decimal('0.00'), invoice.total - invoice.amount_collected - invoice.credit_note_amount)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Credit Note {cn.credit_note_number} created successfully.',
+            'credit_note_number': cn.credit_note_number,
+            'credit_note_id': str(cn.id),
+            'total': str(cn.total),
+            'new_outstanding': str(new_outstanding),
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
