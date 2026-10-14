@@ -3524,3 +3524,202 @@ def invoice_customisation_manage(request, branch_id):
         'title': f'Invoice Customisation — {branch.name}',
     })
 
+
+@login_required
+def credit_note_report(request):
+    import csv
+    from django.http import HttpResponse
+    from django.shortcuts import render
+    from django.db.models import Sum, Q
+    from decimal import Decimal
+    from datetime import datetime
+    from django.utils import timezone
+    from finance_management.models import CreditNote
+    from client_management.models import Branch
+
+    user = request.user
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    today = timezone.localdate() if hasattr(timezone, 'localdate') else timezone.now().date()
+    today_str = today.strftime('%Y-%m-%d')
+
+    from_date_param = request.GET.get('from_date') or request.GET.get('fromdate')
+    to_date_param = request.GET.get('to_date') or request.GET.get('todate')
+
+    if from_date_param:
+        from_date = from_date_param.strip()
+    else:
+        from_date = today.replace(day=1).strftime('%Y-%m-%d')
+
+    if to_date_param:
+        to_date = to_date_param.strip()
+    else:
+        to_date = today_str
+
+    credit_notes = CreditNote.objects.filter(is_deleted=False).select_related(
+        'invoice', 'invoice__customer', 'invoice__vehicle', 'customer', 'branch', 'creator'
+    ).order_by('-date_added')
+
+    branches = None
+    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
+        credit_notes = credit_notes.filter(branch__company=user.profile.company)
+        branches = Branch.objects.filter(company=user.profile.company, is_deleted=False)
+    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        credit_notes = credit_notes.filter(branch=user.managed_branch)
+    elif role == 'SUPER_ADMIN':
+        branches = Branch.objects.filter(is_deleted=False)
+
+    branch_id = request.GET.get('branch_id') or request.GET.get('branch')
+    if branch_id:
+        credit_notes = credit_notes.filter(branch_id=branch_id)
+
+    # Date filter
+    if from_date:
+        try:
+            parsed_from = datetime.strptime(from_date, '%Y-%m-%d').date()
+            credit_notes = credit_notes.filter(date__gte=parsed_from)
+        except ValueError:
+            credit_notes = credit_notes.filter(date__gte=from_date)
+
+    if to_date:
+        try:
+            parsed_to = datetime.strptime(to_date, '%Y-%m-%d').date()
+            credit_notes = credit_notes.filter(date__lte=parsed_to)
+        except ValueError:
+            credit_notes = credit_notes.filter(date__lte=to_date)
+
+    # Search filter
+    search = request.GET.get('search', '').strip()
+    if search:
+        credit_notes = credit_notes.filter(
+            Q(credit_note_number__icontains=search) |
+            Q(invoice__invoice_number__icontains=search) |
+            Q(customer__name__icontains=search) |
+            Q(customer__phone__icontains=search) |
+            Q(invoice__vehicle__vehicle_number__icontains=search) |
+            Q(reason__icontains=search)
+        )
+
+    # Reason filter
+    reason = request.GET.get('reason', '').strip()
+    if reason:
+        credit_notes = credit_notes.filter(reason=reason)
+
+    # CSV Export
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="Credit_Note_Report_{from_date}_to_{to_date}.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            'SL No', 'Credit Note No', 'Date', 'Invoice No', 'Customer Name', 'Phone',
+            'Vehicle No', 'Branch', 'Reason', 'Remarks', 'Subtotal', 'Tax Amount', 'Total Amount', 'Created By'
+        ])
+        for idx, cn in enumerate(credit_notes, 1):
+            writer.writerow([
+                idx,
+                cn.credit_note_number,
+                cn.date.strftime('%Y-%m-%d') if cn.date else '',
+                cn.invoice.invoice_number if cn.invoice else '',
+                cn.customer.name if cn.customer else '',
+                cn.customer.phone if cn.customer else '',
+                cn.invoice.vehicle.vehicle_number if cn.invoice and cn.invoice.vehicle else '',
+                cn.branch.name if cn.branch else '',
+                cn.reason or '',
+                cn.remarks or '',
+                f"{cn.subtotal:.2f}",
+                f"{cn.tax_amount:.2f}",
+                f"{cn.total:.2f}",
+                cn.creator.username if cn.creator else '',
+            ])
+        return response
+
+    # Metrics
+    total_count = credit_notes.count()
+    aggregates = credit_notes.aggregate(
+        total_amount=Sum('total'),
+        total_subtotal=Sum('subtotal'),
+        total_tax=Sum('tax_amount')
+    )
+    total_amount = aggregates['total_amount'] or Decimal('0.00')
+    total_subtotal = aggregates['total_subtotal'] or Decimal('0.00')
+    total_tax = aggregates['total_tax'] or Decimal('0.00')
+    avg_amount = (total_amount / total_count) if total_count > 0 else Decimal('0.00')
+
+    distinct_reasons = CreditNote.objects.filter(is_deleted=False).exclude(reason__isnull=True).exclude(reason='').values_list('reason', flat=True).distinct()
+
+    context = {
+        'credit_notes': credit_notes,
+        'total_count': total_count,
+        'total_amount': total_amount,
+        'total_subtotal': total_subtotal,
+        'total_tax': total_tax,
+        'avg_amount': avg_amount,
+        'from_date': from_date,
+        'to_date': to_date,
+        'branch_id': branch_id,
+        'branches': branches,
+        'search': search,
+        'reason': reason,
+        'distinct_reasons': distinct_reasons,
+        'title': 'Credit Note Report',
+    }
+    return render(request, 'reports/credit_note_report.html', context)
+
+
+@csrf_exempt
+def api_credit_note_report(request):
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    role = user.profile.role.name if hasattr(user, 'profile') and user.profile.role else None
+
+    from finance_management.models import CreditNote
+    from django.db.models import Sum, Q
+    from decimal import Decimal
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    branch_id = request.GET.get('branch_id')
+
+    credit_notes = CreditNote.objects.filter(is_deleted=False).select_related(
+        'invoice', 'customer', 'branch'
+    ).order_by('-date_added')
+
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+        credit_notes = credit_notes.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company'):
+        credit_notes = credit_notes.filter(branch__company=user.profile.company)
+
+    if branch_id:
+        credit_notes = credit_notes.filter(branch_id=branch_id)
+    if from_date:
+        credit_notes = credit_notes.filter(date__gte=from_date)
+    if to_date:
+        credit_notes = credit_notes.filter(date__lte=to_date)
+
+    items = []
+    for cn in credit_notes:
+        items.append({
+            'id': str(cn.id),
+            'credit_note_number': cn.credit_note_number,
+            'invoice_number': cn.invoice.invoice_number if cn.invoice else '',
+            'customer_name': cn.customer.name if cn.customer else '',
+            'customer_phone': cn.customer.phone if cn.customer else '',
+            'date': str(cn.date),
+            'total': str(cn.total),
+            'reason': cn.reason or '',
+            'remarks': cn.remarks or '',
+            'branch_name': cn.branch.name if cn.branch else '',
+        })
+
+    total_amount = credit_notes.aggregate(t=Sum('total'))['t'] or Decimal('0.00')
+
+    return JsonResponse({
+        'success': True,
+        'credit_notes': items,
+        'total_count': len(items),
+        'total_amount': str(total_amount),
+    })
+
+

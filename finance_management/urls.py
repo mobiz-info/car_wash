@@ -42,9 +42,11 @@ urlpatterns = [
     path('reports/tax-report/', views.tax_report, name='tax_report'),
     path('tax-report/', views.tax_report),
     path('reports/outstanding-report/', views.outstanding_report, name='outstanding_report'),
-    path('outstanding-report/', views.outstanding_report),
     path('reports/stock-report/', views.stock_report, name='stock_report'),
     path('stock-report/', views.stock_report),
+    path('reports/credit-note-report/', views.credit_note_report, name='credit_note_report'),
+    path('credit-note-report/', views.credit_note_report),
+    path('api/reports/credit-note-report/', views.api_credit_note_report, name='api_credit_note_report'),
 
     # Invoice Customisation
     path('customisation/invoice/', views.invoice_customisation_redirect, name='invoice_customisation_redirect'),

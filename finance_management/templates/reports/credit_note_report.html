@@ -1,0 +1,674 @@
+{% extends 'base.html' %}
+
+{% block title %}Credit Note Report - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Credit Note Report{% endblock %}
+{% block breadcrumb_active %}Credit Note Report{% endblock %}
+
+{% block content %}
+
+<style>
+.report-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Header */
+.report-header {
+    background: linear-gradient(135deg, #1e1b4b, #312e81, #4338ca);
+    border-radius: 22px;
+    padding: 30px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(49, 46, 129, 0.22);
+}
+
+.report-header::after {
+    content: '';
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 50%;
+    right: -80px;
+    top: -80px;
+}
+
+.report-title {
+    position: relative;
+    z-index: 2;
+}
+
+.report-title h2 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.report-title p {
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.95rem;
+}
+
+.period-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-top: 12px;
+}
+
+/* Filter Card */
+.filter-card {
+    background: white;
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+
+.filter-group {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-input {
+    width: 100%;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    padding: 0 16px 0 40px;
+    font-size: 0.9rem;
+    transition: 0.3s;
+}
+
+.search-input:focus {
+    background: white;
+    border-color: #4338ca;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.12);
+}
+
+.filter-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+}
+
+.date-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.date-input {
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    padding: 0 14px;
+    font-size: 0.88rem;
+    color: #1e293b;
+    outline: none;
+    transition: 0.3s;
+}
+
+.date-input:focus {
+    background: white;
+    border-color: #4338ca;
+}
+
+.select-input {
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    padding: 0 14px;
+    font-size: 0.88rem;
+    color: #1e293b;
+    outline: none;
+    transition: 0.3s;
+}
+
+.select-input:focus {
+    background: white;
+    border-color: #4338ca;
+}
+
+.btn-filter {
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 12px;
+    background: #4338ca;
+    color: white;
+    border: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.3s;
+}
+
+.btn-filter:hover {
+    background: #3730a3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(67, 56, 202, 0.28);
+}
+
+.btn-secondary {
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: 0.3s;
+}
+
+.btn-secondary:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.btn-export {
+    background: #0284c7;
+    color: white;
+    border: none;
+}
+
+.btn-export:hover {
+    background: #0369a1;
+    color: white;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+}
+
+.btn-print {
+    background: #0f172a;
+    color: white;
+    border: none;
+}
+
+.btn-print:hover {
+    background: #1e293b;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+
+/* Summary Grid */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 20px;
+}
+
+.summary-card {
+    background: white;
+    border-radius: 18px;
+    padding: 22px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+    transition: 0.3s;
+}
+
+.summary-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 100%;
+}
+
+.summary-card.total::before { background: #dc2626; }
+.summary-card.count::before { background: #4338ca; }
+.summary-card.subtotal::before { background: #d97706; }
+.summary-card.tax::before { background: #059669; }
+.summary-card.avg::before { background: #7c3aed; }
+
+.summary-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-label {
+    color: #64748b;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.summary-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.summary-card.total .summary-icon { background: #fee2e2; color: #dc2626; }
+.summary-card.count .summary-icon { background: #e0e7ff; color: #4338ca; }
+.summary-card.subtotal .summary-icon { background: #fef3c7; color: #d97706; }
+.summary-card.tax .summary-icon { background: #d1fae5; color: #059669; }
+.summary-card.avg .summary-icon { background: #ede9fe; color: #7c3aed; }
+
+.summary-value {
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-top: 14px;
+}
+
+.summary-subtext {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+/* Table Card */
+.table-card {
+    background: white;
+    border-radius: 18px;
+    padding: 24px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.custom-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.custom-table th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 14px 16px;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.custom-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.88rem;
+    vertical-align: middle;
+}
+
+.custom-table tbody tr:hover td {
+    background: #f8fafc;
+}
+
+.cn-badge {
+    font-family: monospace;
+    font-weight: 700;
+    color: #b45309;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    display: inline-block;
+}
+
+.invoice-badge {
+    font-family: monospace;
+    font-weight: 600;
+    color: #2563eb;
+    background: #eff6ff;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.80rem;
+    text-decoration: none;
+}
+
+.invoice-badge:hover {
+    background: #dbeafe;
+    text-decoration: underline;
+}
+
+.reason-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+}
+
+.amount-text {
+    font-weight: 800;
+    color: #dc2626;
+    font-size: 0.95rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-state i {
+    font-size: 3.5rem;
+    color: #cbd5e1;
+    margin-bottom: 12px;
+}
+
+.empty-state h4 {
+    margin: 0;
+    color: #334155;
+    font-size: 1.15rem;
+}
+
+.empty-state p {
+    color: #94a3b8;
+    font-size: 0.88rem;
+    margin-top: 6px;
+}
+
+/* Print Styles */
+@media print {
+    .sidebar, .top-navbar, .filter-card, .btn-print, .btn-secondary, .btn-filter, .btn-export, .nav-item, .navbar-left, .navbar-right {
+        display: none !important;
+    }
+    .report-wrapper {
+        gap: 16px;
+    }
+    .report-header {
+        background: #1e1b4b !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        box-shadow: none;
+        padding: 20px;
+    }
+    .summary-card {
+        box-shadow: none;
+        border: 1px solid #cbd5e1;
+    }
+    .table-card {
+        box-shadow: none;
+        border: 1px solid #cbd5e1;
+    }
+}
+</style>
+
+<div class="report-wrapper">
+
+    <!-- Header -->
+    <div class="report-header">
+        <div class="report-title">
+            <h2>Credit Note Report</h2>
+            <p>Detailed log of issued credit notes, customer balance write-offs, and service adjustments.</p>
+            <div class="period-pill">
+                <i class="ph ph-calendar"></i>
+                <span>Period: {{ from_date }} &nbsp;to&nbsp; {{ to_date }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="filter-card">
+        <form method="get" action="{% url 'credit_note_report' %}" class="filter-form">
+            <!-- Search -->
+            <div class="filter-group">
+                <i class="ph ph-magnifying-glass filter-icon"></i>
+                <input type="text" name="search" class="search-input" placeholder="Search CN #, Invoice #, Customer, Vehicle..." value="{{ search }}">
+            </div>
+
+            <!-- Date Range -->
+            <div class="date-group">
+                <input type="date" name="from_date" class="date-input" value="{{ from_date }}" title="From Date">
+                <span style="color: #94a3b8;">to</span>
+                <input type="date" name="to_date" class="date-input" value="{{ to_date }}" title="To Date">
+            </div>
+
+            <!-- Branch Dropdown -->
+            {% if branches %}
+            <div>
+                <select name="branch_id" class="select-input">
+                    <option value="">All Branches</option>
+                    {% for b in branches %}
+                        <option value="{{ b.id }}" {% if branch_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- Reason Dropdown -->
+            <div>
+                <select name="reason" class="select-input">
+                    <option value="">All Reasons</option>
+                    <option value="Defective / Unsatisfactory Service" {% if reason == "Defective / Unsatisfactory Service" %}selected{% endif %}>Defective Service</option>
+                    <option value="Billing / Rate Correction" {% if reason == "Billing / Rate Correction" %}selected{% endif %}>Billing Correction</option>
+                    <option value="Cancellation of Service" {% if reason == "Cancellation of Service" %}selected{% endif %}>Service Cancellation</option>
+                    <option value="Customer Goodwill / Discount" {% if reason == "Customer Goodwill / Discount" %}selected{% endif %}>Customer Goodwill</option>
+                    <option value="Other" {% if reason == "Other" %}selected{% endif %}>Other</option>
+                    {% for r in distinct_reasons %}
+                        {% if r != "Defective / Unsatisfactory Service" and r != "Billing / Rate Correction" and r != "Cancellation of Service" and r != "Customer Goodwill / Discount" and r != "Other" %}
+                            <option value="{{ r }}" {% if reason == r %}selected{% endif %}>{{ r }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Buttons -->
+            <button type="submit" class="btn-filter">
+                <i class="ph ph-funnel"></i> Apply Filter
+            </button>
+
+            <a href="{% url 'credit_note_report' %}" class="btn-secondary" title="Reset Filters">
+                <i class="ph ph-arrow-counter-clockwise"></i> Reset
+            </a>
+
+            <a href="?from_date={{ from_date }}&to_date={{ to_date }}&branch_id={{ branch_id|default:'' }}&reason={{ reason|default:'' }}&search={{ search|default:'' }}&export=csv" class="btn-secondary btn-export" title="Export to CSV">
+                <i class="ph ph-file-csv"></i> Export CSV
+            </a>
+
+            <button type="button" class="btn-secondary btn-print" onclick="window.print()" title="Print Report">
+                <i class="ph ph-printer"></i> Print
+            </button>
+        </form>
+    </div>
+
+    <!-- Summary KPI Cards -->
+    <div class="summary-grid">
+        <div class="summary-card total">
+            <div class="summary-top">
+                <span class="summary-label">TOTAL CREDITED</span>
+                <div class="summary-icon"><i class="ph ph-money"></i></div>
+            </div>
+            <div class="summary-value">{{ total_amount|floatformat:2 }}</div>
+            <div class="summary-subtext">Sum of all approved credit notes</div>
+        </div>
+
+        <div class="summary-card count">
+            <div class="summary-top">
+                <span class="summary-label">CREDIT NOTES COUNT</span>
+                <div class="summary-icon"><i class="ph ph-receipt"></i></div>
+            </div>
+            <div class="summary-value">{{ total_count }}</div>
+            <div class="summary-subtext">Total credit notes issued</div>
+        </div>
+
+        <div class="summary-card subtotal">
+            <div class="summary-top">
+                <span class="summary-label">SUBTOTAL CREDITED</span>
+                <div class="summary-icon"><i class="ph ph-tag"></i></div>
+            </div>
+            <div class="summary-value">{{ total_subtotal|floatformat:2 }}</div>
+            <div class="summary-subtext">Before taxes & adjustments</div>
+        </div>
+
+        <div class="summary-card tax">
+            <div class="summary-top">
+                <span class="summary-label">TAX REVERSED</span>
+                <div class="summary-icon"><i class="ph ph-percent"></i></div>
+            </div>
+            <div class="summary-value">{{ total_tax|floatformat:2 }}</div>
+            <div class="summary-subtext">VAT / GST amount adjusted</div>
+        </div>
+
+        <div class="summary-card avg">
+            <div class="summary-top">
+                <span class="summary-label">AVG CREDIT VALUE</span>
+                <div class="summary-icon"><i class="ph ph-chart-pie-slice"></i></div>
+            </div>
+            <div class="summary-value">{{ avg_amount|floatformat:2 }}</div>
+            <div class="summary-subtext">Average credit per invoice</div>
+        </div>
+    </div>
+
+    <!-- Data Table Card -->
+    <div class="table-card">
+        {% if credit_notes %}
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Date</th>
+                        <th>Credit Note #</th>
+                        <th>Invoice #</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Branch</th>
+                        <th>Reason</th>
+                        <th>Remarks</th>
+                        <th style="text-align: right;">Subtotal</th>
+                        <th style="text-align: right;">Tax</th>
+                        <th style="text-align: right;">Total Amount</th>
+                        <th>Issued By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cn in credit_notes %}
+                    <tr>
+                        <td style="color: #94a3b8; font-size: 0.8rem;">{{ forloop.counter }}</td>
+                        <td style="white-space: nowrap;">
+                            <strong>{{ cn.date|date:"d M Y" }}</strong>
+                            <div style="font-size: 0.75rem; color: #94a3b8;">{{ cn.created_at|date:"h:i A" }}</div>
+                        </td>
+                        <td>
+                            <span class="cn-badge">{{ cn.credit_note_number }}</span>
+                        </td>
+                        <td>
+                            {% if cn.invoice %}
+                                <a href="{% url 'invoice_receipt' cn.invoice.id %}" target="_blank" class="invoice-badge">
+                                    {{ cn.invoice.invoice_number }}
+                                </a>
+                            {% else %}
+                                <span style="color: #94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="customer-name">{{ cn.customer.name|default:"—" }}</div>
+                            <div class="customer-phone">{{ cn.customer.phone|default:"" }}</div>
+                        </td>
+                        <td>
+                            {% if cn.invoice and cn.invoice.vehicle %}
+                                <div style="font-weight: 600; color: #1e293b;">{{ cn.invoice.vehicle.vehicle_number }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ cn.invoice.vehicle.brand_model.name|default:cn.invoice.vehicle.vehicle_type_model.name }}</div>
+                            {% else %}
+                                <span style="color: #94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span style="font-weight: 600; color: #4338ca;">{{ cn.branch.name|default:"—" }}</span>
+                        </td>
+                        <td>
+                            {% if cn.reason %}
+                                <span class="reason-badge">{{ cn.reason }}</span>
+                            {% else %}
+                                <span style="color: #94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ cn.remarks|default:"—" }}
+                        </td>
+                        <td style="text-align: right; color: #475569;">{{ cn.subtotal|floatformat:2 }}</td>
+                        <td style="text-align: right; color: #475569;">{{ cn.tax_amount|floatformat:2 }}</td>
+                        <td style="text-align: right;">
+                            <span class="amount-text">-{{ cn.total|floatformat:2 }}</span>
+                        </td>
+                        <td>
+                            <span style="font-size: 0.82rem; color: #64748b;">
+                                {{ cn.creator.username|default:cn.creator.get_full_name|default:"Staff" }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: #f8fafc; font-weight: 800; border-top: 2px solid #cbd5e1;">
+                        <td colspan="9" style="text-align: right; padding: 16px; font-size: 0.95rem; color: #1e293b;">
+                            TOTAL ({{ total_count }} Credit Notes):
+                        </td>
+                        <td style="text-align: right; padding: 16px; color: #1e293b; font-size: 0.95rem;">
+                            {{ total_subtotal|floatformat:2 }}
+                        </td>
+                        <td style="text-align: right; padding: 16px; color: #1e293b; font-size: 0.95rem;">
+                            {{ total_tax|floatformat:2 }}
+                        </td>
+                        <td style="text-align: right; padding: 16px; color: #dc2626; font-size: 1.05rem;">
+                            -{{ total_amount|floatformat:2 }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="ph ph-receipt-x"></i>
+            <h4>No Credit Notes Found</h4>
+            <p>No credit notes match your selected date range or filter criteria.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+{% endblock %}
