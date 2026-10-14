@@ -45,5 +45,9 @@ urlpatterns = [
     path('outstanding-report/', views.outstanding_report),
     path('reports/stock-report/', views.stock_report, name='stock_report'),
     path('stock-report/', views.stock_report),
+
+    # Invoice Customisation
+    path('customisation/invoice/', views.invoice_customisation_redirect, name='invoice_customisation_redirect'),
+    path('customisation/invoice/<uuid:branch_id>/', views.invoice_customisation_manage, name='invoice_customisation_manage'),
 ]
 

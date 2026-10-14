@@ -1,0 +1,439 @@
+{% extends 'base.html' %}
+{% block title %}Invoice Customisation - {{ branch.name }}{% endblock %}
+{% block page_title %}Invoice Customisation{% endblock %}
+{% block breadcrumb_active %}{{ branch.name }} — Invoice Customisation{% endblock %}
+
+{% block content %}
+<style>
+    .customise-container {
+        max-width: 980px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 30px 36px;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        border: 1px solid #f1f5f9;
+    }
+
+    .customise-header-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1e293b;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 22px;
+    }
+
+    .customise-header-title i {
+        font-size: 1.5rem;
+        color: #7c3aed;
+        background: #ede9fe;
+        padding: 8px;
+        border-radius: 10px;
+    }
+
+    .branch-select-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .branch-select-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .branch-select-input {
+        width: 100%;
+        max-width: 320px;
+        padding: 9px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1e293b;
+        outline: none;
+        background: #ffffff;
+        transition: all 0.2s;
+    }
+
+    .branch-select-input:focus {
+        border-color: #7c3aed;
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    }
+
+    .section-block {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 22px 24px;
+        margin-bottom: 24px;
+    }
+
+    .section-title-wrap {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .section-step-badge {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #7c3aed, #6366f1);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(124, 58, 237, 0.3);
+    }
+
+    .section-heading {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .section-desc {
+        margin: 4px 0 0 0;
+        font-size: 0.82rem;
+        color: #64748b;
+        line-height: 1.45;
+    }
+
+    .section-highlight {
+        color: #6366f1;
+        font-weight: 600;
+    }
+
+    /* Radio cards */
+    .radio-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+    }
+
+    .radio-card {
+        display: block;
+        position: relative;
+        cursor: pointer;
+        background: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px 18px;
+        transition: all 0.2s ease;
+    }
+
+    .radio-card:hover {
+        border-color: #cbd5e1;
+        transform: translateY(-1px);
+    }
+
+    .radio-card.active {
+        border-color: #7c3aed;
+        background: #faf5ff;
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.08);
+    }
+
+    .radio-card input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .radio-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+    }
+
+    .radio-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s;
+    }
+
+    .radio-card.active .radio-dot {
+        border-color: #7c3aed;
+    }
+
+    .radio-dot-inner {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: transparent;
+        transition: background 0.2s;
+    }
+
+    .radio-card.active .radio-dot-inner {
+        background: #7c3aed;
+    }
+
+    .radio-title-text {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .radio-card.active .radio-title-text {
+        color: #7c3aed;
+    }
+
+    .radio-sub-text {
+        margin: 0;
+        font-size: 0.78rem;
+        color: #64748b;
+        padding-left: 28px;
+    }
+
+    /* Checkbox grid */
+    .checkbox-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 12px;
+    }
+
+    .checkbox-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: all 0.18s;
+        user-select: none;
+    }
+
+    .checkbox-card:hover {
+        border-color: #7c3aed;
+        background: #fdfaff;
+    }
+
+    .checkbox-card input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: #7c3aed;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .checkbox-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .checkbox-label-text {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .checkbox-sub-label {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    /* Actions bar */
+    .form-actions-bar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 12px;
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid #f1f5f9;
+    }
+
+    .btn-save-custom {
+        background: linear-gradient(135deg, #7c3aed, #6366f1);
+        color: #ffffff;
+        padding: 11px 26px;
+        border-radius: 8px;
+        border: none;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+        transition: all 0.2s;
+    }
+
+    .btn-save-custom:hover {
+        opacity: 0.95;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(124, 58, 237, 0.32);
+    }
+</style>
+
+<div class="customise-container">
+    <div class="customise-header-title">
+        <i class="ph ph-sliders"></i>
+        <span>Invoice Customisation — {{ branch.name }}</span>
+    </div>
+
+    {% if company_branches and company_branches|length > 1 %}
+    <div class="branch-select-row">
+        <label class="branch-select-label">
+            <i class="ph ph-buildings"></i> BRANCH
+        </label>
+        <select class="branch-select-input" onchange="window.location.href=this.value">
+            {% for b in company_branches %}
+            <option value="{% url 'invoice_customisation_manage' b.id %}" {% if b.id == branch.id %}selected{% endif %}>
+                {{ b.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <hr style="border:none; border-top:1px solid #f1f5f9; margin-bottom:24px;">
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <!-- Section 1: Invoice Title -->
+        <div class="section-block">
+            <div class="section-title-wrap">
+                <div class="section-step-badge">1</div>
+                <div>
+                    <h4 class="section-heading">Invoice Title</h4>
+                    <p class="section-desc">
+                        Choose the default title printed when invoice has 0.00 tax.
+                        <span class="section-highlight">(When tax amount is greater than 0, it will automatically show "TAX INVOICE")</span>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="radio-cards-grid">
+                <label class="radio-card {% if customisation.non_tax_title == 'INVOICE' %}active{% endif %}" onclick="selectTitleRadio(this)">
+                    <input type="radio" name="non_tax_title" value="INVOICE" {% if customisation.non_tax_title == 'INVOICE' %}checked{% endif %}>
+                    <div class="radio-card-header">
+                        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+                        <span class="radio-title-text">INVOICE</span>
+                    </div>
+                    <p class="radio-sub-text">Display standard "INVOICE" heading on non-tax invoices.</p>
+                </label>
+
+                <label class="radio-card {% if customisation.non_tax_title == 'PROFORMA INVOICE' %}active{% endif %}" onclick="selectTitleRadio(this)">
+                    <input type="radio" name="non_tax_title" value="PROFORMA INVOICE" {% if customisation.non_tax_title == 'PROFORMA INVOICE' %}checked{% endif %}>
+                    <div class="radio-card-header">
+                        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+                        <span class="radio-title-text">PROFORMA INVOICE</span>
+                    </div>
+                    <p class="radio-sub-text">Display "PROFORMA INVOICE" heading on non-tax invoices.</p>
+                </label>
+            </div>
+        </div>
+
+        <!-- Section 2: Vehicle Details -->
+        <div class="section-block">
+            <div class="section-title-wrap">
+                <div class="section-step-badge">2</div>
+                <div>
+                    <h4 class="section-heading">Vehicle Details in PDF</h4>
+                    <p class="section-desc">
+                        Toggle which vehicle details appear on the printed &amp; PDF invoice for this branch. (Checked = visible).
+                    </p>
+                </div>
+            </div>
+
+            <div class="checkbox-grid">
+                <label class="checkbox-card">
+                    <input type="checkbox" name="show_vehicle_number" {% if customisation.show_vehicle_number %}checked{% endif %}>
+                    <div class="checkbox-info">
+                        <span class="checkbox-label-text">Vehicle Number</span>
+                        <span class="checkbox-sub-label">Registration / Plate No (e.g. KL 48 A 9133)</span>
+                    </div>
+                </label>
+
+                <label class="checkbox-card">
+                    <input type="checkbox" name="show_vehicle_make" {% if customisation.show_vehicle_make %}checked{% endif %}>
+                    <div class="checkbox-info">
+                        <span class="checkbox-label-text">Vehicle Make</span>
+                        <span class="checkbox-sub-label">Manufacturer (e.g. Toyota, Honda, BMW)</span>
+                    </div>
+                </label>
+
+                <label class="checkbox-card">
+                    <input type="checkbox" name="show_vehicle_model" {% if customisation.show_vehicle_model %}checked{% endif %}>
+                    <div class="checkbox-info">
+                        <span class="checkbox-label-text">Vehicle Model / Segment</span>
+                        <span class="checkbox-sub-label">Model or Segment (e.g. Fortuner, Civic, SUV)</span>
+                    </div>
+                </label>
+
+                <label class="checkbox-card">
+                    <input type="checkbox" name="show_vehicle_type" {% if customisation.show_vehicle_type %}checked{% endif %}>
+                    <div class="checkbox-info">
+                        <span class="checkbox-label-text">Vehicle Category / Type</span>
+                        <span class="checkbox-sub-label">Category (e.g. 4 Wheeler, 2 Wheeler, Heavy)</span>
+                    </div>
+                </label>
+
+                <label class="checkbox-card">
+                    <input type="checkbox" name="show_vehicle_color" {% if customisation.show_vehicle_color %}checked{% endif %}>
+                    <div class="checkbox-info">
+                        <span class="checkbox-label-text">Vehicle Color</span>
+                        <span class="checkbox-sub-label">Color appearance (e.g. White, Black, Silver)</span>
+                    </div>
+                </label>
+
+                <label class="checkbox-card">
+                    <input type="checkbox" name="show_vehicle_odometer" {% if customisation.show_vehicle_odometer %}checked{% endif %}>
+                    <div class="checkbox-info">
+                        <span class="checkbox-label-text">Odometer Reading</span>
+                        <span class="checkbox-sub-label">Recorded km reading at service</span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-actions-bar">
+            <button type="submit" class="btn-save-custom">
+                <i class="ph ph-floppy-disk" style="font-size: 1.1rem;"></i>
+                Save Customisation
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function selectTitleRadio(clickedLabel) {
+        document.querySelectorAll('.radio-card').forEach(function(card) {
+            card.classList.remove('active');
+        });
+        clickedLabel.classList.add('active');
+        const input = clickedLabel.querySelector('input[type="radio"]');
+        if (input) {
+            input.checked = true;
+        }
+    }
+</script>
+{% endblock %}

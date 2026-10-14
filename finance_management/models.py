@@ -195,3 +195,29 @@ class InvoiceServiceDetail(BaseModel):
 
     def __str__(self):
         return f"{self.get_service_category_display()} — {self.invoice_item.invoice.invoice_number}"
+
+
+class BranchInvoiceCustomisation(BaseModel):
+    branch = models.OneToOneField(Branch, on_delete=models.CASCADE, related_name='invoice_customisation')
+
+    # Invoice Title customization (INVOICE or PROFORMA INVOICE) when not a tax invoice
+    non_tax_title = models.CharField(
+        max_length=30,
+        choices=[
+            ('INVOICE', 'INVOICE'),
+            ('PROFORMA INVOICE', 'PROFORMA INVOICE'),
+        ],
+        default='PROFORMA INVOICE'
+    )
+
+    # Vehicle details show/hide checkboxes (all true initially)
+    show_vehicle_number = models.BooleanField(default=True)
+    show_vehicle_make = models.BooleanField(default=True)
+    show_vehicle_model = models.BooleanField(default=True)
+    show_vehicle_type = models.BooleanField(default=True)
+    show_vehicle_color = models.BooleanField(default=True)
+    show_vehicle_odometer = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Invoice Customisation - {self.branch.name}"
+

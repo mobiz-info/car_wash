@@ -24,7 +24,7 @@ from weasyprint import HTML
 
 from core.functions import get_auto_id, log_activity
 from client_management.api_views import get_user_from_token
-from .models import Invoice, Receipt, InvoiceItem
+from .models import Invoice, Receipt, InvoiceItem, BranchInvoiceCustomisation
 from booking_management.models import Booking
 from client_management.models import Branch
 from service_management.models import ServiceType
@@ -514,6 +514,15 @@ def api_list_invoices(request):
             ],
             'reminders': reminders_data,
             'custom_reminders': custom_reminders_data,
+            'customisation': {
+                'non_tax_title': inv.branch.invoice_customisation.non_tax_title if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else 'PROFORMA INVOICE',
+                'show_vehicle_number': inv.branch.invoice_customisation.show_vehicle_number if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_make': inv.branch.invoice_customisation.show_vehicle_make if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_model': inv.branch.invoice_customisation.show_vehicle_model if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_type': inv.branch.invoice_customisation.show_vehicle_type if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_color': inv.branch.invoice_customisation.show_vehicle_color if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_odometer': inv.branch.invoice_customisation.show_vehicle_odometer if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+            },
         })
 
     return JsonResponse({'success': True, 'invoices': results})
@@ -2198,12 +2207,17 @@ def generate_invoice_pdf_file(invoice, base_url):
     elif invoice.customer and invoice.customer.company:
         company_trn = invoice.customer.company.gst_number or invoice.customer.company.tin_pan_no or ''
 
+    customisation = None
+    if invoice.branch and hasattr(invoice.branch, 'invoice_customisation'):
+        customisation = invoice.branch.invoice_customisation
+
     context = {
         'invoice': invoice,
         'balance': balance,
         'currency': currency,
         'payment_mode': payment_mode,
         'company_trn': company_trn,
+        'customisation': customisation,
     }
     
     html_string = render_to_string('invoice/invoice_pdf.html', context)
@@ -3394,3 +3408,90 @@ def stock_report(request):
         'company_id': company_id_param,
         'title': 'Stock Report',
     })
+
+
+@login_required
+def invoice_customisation_redirect(request):
+    """Redirect to the first branch invoice customisation page."""
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        first_branch = Branch.objects.filter(company=company, is_deleted=False).order_by('name').first()
+        if first_branch:
+            return redirect('invoice_customisation_manage', branch_id=first_branch.id)
+        messages.warning(request, "No branches found for your company.")
+        return redirect('dashboard')
+    elif role_name == 'BRANCH_ADMIN':
+        branch = getattr(request.user, 'managed_branch', None)
+        if branch:
+            return redirect('invoice_customisation_manage', branch_id=branch.id)
+        messages.warning(request, "No managed branch found.")
+        return redirect('dashboard')
+    else:
+        first_branch = Branch.objects.filter(is_deleted=False).order_by('name').first()
+        if first_branch:
+            return redirect('invoice_customisation_manage', branch_id=first_branch.id)
+        return redirect('dashboard')
+
+
+@login_required
+def invoice_customisation_manage(request, branch_id):
+    branch = get_object_or_404(Branch, id=branch_id, is_deleted=False)
+    role = getattr(getattr(request.user, 'profile', None), 'role', None)
+    role_name = role.name if role else None
+
+    company_branches = []
+    if role_name == 'COMPANY_ADMIN':
+        company = getattr(request.user.profile, 'company', None)
+        if company:
+            company_branches = Branch.objects.filter(company=company, is_deleted=False).order_by('name')
+    elif role_name == 'BRANCH_ADMIN':
+        if getattr(request.user, 'managed_branch', None) != branch:
+            messages.error(request, "Access denied.")
+            return redirect('dashboard')
+        company_branches = [branch]
+    else:
+        company_branches = Branch.objects.filter(is_deleted=False).order_by('name')
+
+    customisation, _ = BranchInvoiceCustomisation.objects.get_or_create(
+        branch=branch,
+        defaults={
+            'auto_id': get_auto_id(BranchInvoiceCustomisation),
+            'creator': request.user,
+            'non_tax_title': 'PROFORMA INVOICE',
+            'show_vehicle_number': True,
+            'show_vehicle_make': True,
+            'show_vehicle_model': True,
+            'show_vehicle_type': True,
+            'show_vehicle_color': True,
+            'show_vehicle_odometer': True,
+        }
+    )
+
+    if request.method == 'POST':
+        non_tax_title = request.POST.get('non_tax_title', 'PROFORMA INVOICE').strip()
+        if non_tax_title not in ['INVOICE', 'PROFORMA INVOICE']:
+            non_tax_title = 'PROFORMA INVOICE'
+
+        customisation.non_tax_title = non_tax_title
+        customisation.show_vehicle_number = (request.POST.get('show_vehicle_number') == 'on')
+        customisation.show_vehicle_make = (request.POST.get('show_vehicle_make') == 'on')
+        customisation.show_vehicle_model = (request.POST.get('show_vehicle_model') == 'on')
+        customisation.show_vehicle_type = (request.POST.get('show_vehicle_type') == 'on')
+        customisation.show_vehicle_color = (request.POST.get('show_vehicle_color') == 'on')
+        customisation.show_vehicle_odometer = (request.POST.get('show_vehicle_odometer') == 'on')
+        customisation.save()
+
+        messages.success(request, f"Invoice customisation for {branch.name} saved successfully.")
+        return redirect('invoice_customisation_manage', branch_id=branch.id)
+
+    return render(request, 'invoice/invoice_customisation.html', {
+        'branch': branch,
+        'company_branches': company_branches,
+        'customisation': customisation,
+        'role_name': role_name,
+        'title': f'Invoice Customisation — {branch.name}',
+    })
+
