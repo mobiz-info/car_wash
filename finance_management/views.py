@@ -476,8 +476,14 @@ def api_list_invoices(request):
             'vehicle': {
                 'id': str(inv.vehicle.id) if inv.vehicle else '',
                 'number': inv.vehicle.vehicle_number if inv.vehicle else '',
-                'model': inv.vehicle.vehicle_type_model.name if inv.vehicle and inv.vehicle.vehicle_type_model else '',
-                'type': inv.vehicle.vehicle_type_model.vehicle_type.name if inv.vehicle and inv.vehicle.vehicle_type_model and inv.vehicle.vehicle_type_model.vehicle_type else '',
+                'make': inv.vehicle.make.name if inv.vehicle and inv.vehicle.make else '',
+                'model': inv.vehicle.brand_model.name if inv.vehicle and inv.vehicle.brand_model else (inv.vehicle.vehicle_type_model.name if inv.vehicle and inv.vehicle.vehicle_type_model else ''),
+                'segment': inv.vehicle.vehicle_type_model.name if inv.vehicle and inv.vehicle.vehicle_type_model else '',
+                'type': inv.vehicle.vehicle_type.name if inv.vehicle and inv.vehicle.vehicle_type else (inv.vehicle.vehicle_type_model.vehicle_type.name if inv.vehicle and inv.vehicle.vehicle_type_model and inv.vehicle.vehicle_type_model.vehicle_type else ''),
+                'color': inv.vehicle.color.name if inv.vehicle and inv.vehicle.color else '',
+                'fuel_type': inv.vehicle.get_fuel_type_display() if inv.vehicle and inv.vehicle.fuel_type else '',
+                'wheel_type': inv.vehicle.get_wheel_type_display() if inv.vehicle and inv.vehicle.wheel_type else '',
+                'emission_standard': inv.vehicle.emission_standard.name if inv.vehicle and inv.vehicle.emission_standard else '',
             },
             'branch': inv.branch.name if inv.branch else '',
             'branch_address': inv.branch.address if inv.branch and hasattr(inv.branch, 'address') else '',
@@ -519,8 +525,12 @@ def api_list_invoices(request):
                 'show_vehicle_number': inv.branch.invoice_customisation.show_vehicle_number if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
                 'show_vehicle_make': inv.branch.invoice_customisation.show_vehicle_make if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
                 'show_vehicle_model': inv.branch.invoice_customisation.show_vehicle_model if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_segment': inv.branch.invoice_customisation.show_vehicle_segment if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
                 'show_vehicle_type': inv.branch.invoice_customisation.show_vehicle_type if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
                 'show_vehicle_color': inv.branch.invoice_customisation.show_vehicle_color if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_fuel_type': inv.branch.invoice_customisation.show_vehicle_fuel_type if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_wheel_type': inv.branch.invoice_customisation.show_vehicle_wheel_type if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
+                'show_vehicle_emission_std': inv.branch.invoice_customisation.show_vehicle_emission_std if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
                 'show_vehicle_odometer': inv.branch.invoice_customisation.show_vehicle_odometer if inv.branch and hasattr(inv.branch, 'invoice_customisation') and inv.branch.invoice_customisation else True,
             },
         })
@@ -3464,8 +3474,12 @@ def invoice_customisation_manage(request, branch_id):
             'show_vehicle_number': True,
             'show_vehicle_make': True,
             'show_vehicle_model': True,
+            'show_vehicle_segment': True,
             'show_vehicle_type': True,
             'show_vehicle_color': True,
+            'show_vehicle_fuel_type': True,
+            'show_vehicle_wheel_type': True,
+            'show_vehicle_emission_std': True,
             'show_vehicle_odometer': True,
         }
     )
@@ -3479,8 +3493,12 @@ def invoice_customisation_manage(request, branch_id):
         customisation.show_vehicle_number = (request.POST.get('show_vehicle_number') == 'on')
         customisation.show_vehicle_make = (request.POST.get('show_vehicle_make') == 'on')
         customisation.show_vehicle_model = (request.POST.get('show_vehicle_model') == 'on')
+        customisation.show_vehicle_segment = (request.POST.get('show_vehicle_segment') == 'on')
         customisation.show_vehicle_type = (request.POST.get('show_vehicle_type') == 'on')
         customisation.show_vehicle_color = (request.POST.get('show_vehicle_color') == 'on')
+        customisation.show_vehicle_fuel_type = (request.POST.get('show_vehicle_fuel_type') == 'on')
+        customisation.show_vehicle_wheel_type = (request.POST.get('show_vehicle_wheel_type') == 'on')
+        customisation.show_vehicle_emission_std = (request.POST.get('show_vehicle_emission_std') == 'on')
         customisation.show_vehicle_odometer = (request.POST.get('show_vehicle_odometer') == 'on')
         customisation.save()
 

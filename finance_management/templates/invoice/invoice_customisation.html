@@ -235,6 +235,11 @@
             </label>
 
             <label class="custom-check-item">
+                <input type="checkbox" name="show_vehicle_segment" {% if customisation.show_vehicle_segment %}checked{% endif %}>
+                <span>Segment</span>
+            </label>
+
+            <label class="custom-check-item">
                 <input type="checkbox" name="show_vehicle_type" {% if customisation.show_vehicle_type %}checked{% endif %}>
                 <span>Vehicle Type</span>
             </label>
@@ -242,6 +247,21 @@
             <label class="custom-check-item">
                 <input type="checkbox" name="show_vehicle_color" {% if customisation.show_vehicle_color %}checked{% endif %}>
                 <span>Vehicle Color</span>
+            </label>
+
+            <label class="custom-check-item">
+                <input type="checkbox" name="show_vehicle_fuel_type" {% if customisation.show_vehicle_fuel_type %}checked{% endif %}>
+                <span>Fuel Type</span>
+            </label>
+
+            <label class="custom-check-item">
+                <input type="checkbox" name="show_vehicle_wheel_type" {% if customisation.show_vehicle_wheel_type %}checked{% endif %}>
+                <span>Wheel Type</span>
+            </label>
+
+            <label class="custom-check-item">
+                <input type="checkbox" name="show_vehicle_emission_std" {% if customisation.show_vehicle_emission_std %}checked{% endif %}>
+                <span>Emission Std</span>
             </label>
 
             <label class="custom-check-item">

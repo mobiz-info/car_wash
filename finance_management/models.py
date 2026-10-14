@@ -214,8 +214,12 @@ class BranchInvoiceCustomisation(BaseModel):
     show_vehicle_number = models.BooleanField(default=True)
     show_vehicle_make = models.BooleanField(default=True)
     show_vehicle_model = models.BooleanField(default=True)
+    show_vehicle_segment = models.BooleanField(default=True)
     show_vehicle_type = models.BooleanField(default=True)
     show_vehicle_color = models.BooleanField(default=True)
+    show_vehicle_fuel_type = models.BooleanField(default=True)
+    show_vehicle_wheel_type = models.BooleanField(default=True)
+    show_vehicle_emission_std = models.BooleanField(default=True)
     show_vehicle_odometer = models.BooleanField(default=True)
 
     def __str__(self):

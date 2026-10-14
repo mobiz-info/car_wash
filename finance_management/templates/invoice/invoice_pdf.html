@@ -442,7 +442,7 @@
                         </tr>
                         {% endif %}
                         {% endif %}
-                        {% if not customisation or customisation.show_vehicle_model %}
+                        {% if not customisation or customisation.show_vehicle_segment %}
                         {% if invoice.vehicle.vehicle_type_model %}
                         <tr>
                             <td class="info-label">Segment:</td>
@@ -458,23 +458,37 @@
                         </tr>
                         {% endif %}
                         {% endif %}
+                        {% if not customisation or customisation.show_vehicle_fuel_type %}
                         {% if invoice.vehicle.fuel_type %}
                         <tr>
                             <td class="info-label">Fuel Type:</td>
                             <td class="info-val">{{ invoice.vehicle.get_fuel_type_display }}</td>
                         </tr>
                         {% endif %}
+                        {% endif %}
+                        {% if not customisation or customisation.show_vehicle_wheel_type %}
                         {% if invoice.vehicle.wheel_type %}
                         <tr>
                             <td class="info-label">Wheel Type:</td>
                             <td class="info-val">{{ invoice.vehicle.get_wheel_type_display }}</td>
                         </tr>
                         {% endif %}
+                        {% endif %}
+                        {% if not customisation or customisation.show_vehicle_emission_std %}
                         {% if invoice.vehicle.emission_standard %}
                         <tr>
                             <td class="info-label">Emission Std:</td>
                             <td class="info-val">{{ invoice.vehicle.emission_standard.name }}</td>
                         </tr>
+                        {% endif %}
+                        {% endif %}
+                        {% if not customisation or customisation.show_vehicle_odometer %}
+                        {% if invoice.vehicle.current_odometer_km %}
+                        <tr>
+                            <td class="info-label">Odometer:</td>
+                            <td class="info-val">{{ invoice.vehicle.current_odometer_km }} km</td>
+                        </tr>
+                        {% endif %}
                         {% endif %}
                     </table>
                 </div>
