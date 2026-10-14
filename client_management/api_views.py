@@ -1664,6 +1664,15 @@ def api_create_invoice(request):
         company_logo = request.build_absolute_uri(invoice.branch.company.logo_color.url) if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color else ''
         company_seal = request.build_absolute_uri(invoice.branch.company.company_seal.url) if invoice.branch and invoice.branch.company and getattr(invoice.branch.company, 'company_seal', None) else ''
         branch_logo = request.build_absolute_uri(invoice.branch.logo.url) if invoice.branch and invoice.branch.logo else ''
+        company_trn = (invoice.branch.gst_number if invoice.branch and invoice.branch.gst_number else (invoice.branch.company.gst_number or invoice.branch.company.tin_pan_no if invoice.branch and invoice.branch.company else '')) or ''
+
+        from finance_management.models import Receipt
+        receipt_obj = invoice.receipts.filter(is_deleted=False).order_by('-date_added').first()
+        payment_mode = (
+            dict(Receipt.PAYMENT_CHOICES).get(receipt_obj.payment_mode, receipt_obj.payment_mode.replace('_', ' ').title())
+            if receipt_obj
+            else ('Credit' if invoice.invoice_type == 'creditinvoice' else 'Cash')
+        )
 
         return JsonResponse({
             'success': True,
@@ -1674,6 +1683,12 @@ def api_create_invoice(request):
             'company_seal': company_seal,
             'branch_logo': branch_logo,
             'branch': invoice.branch.name if invoice.branch else '',
+            'branch_address': invoice.branch.address if invoice.branch and hasattr(invoice.branch, 'address') else '',
+            'branch_phone': invoice.branch.phone if invoice.branch and hasattr(invoice.branch, 'phone') else '',
+            'branch_email': invoice.branch.email if invoice.branch and hasattr(invoice.branch, 'email') else '',
+            'branch_gst': invoice.branch.gst_number if invoice.branch and hasattr(invoice.branch, 'gst_number') else '',
+            'company_trn': company_trn,
+            'payment_mode': payment_mode,
         })
         
     except Exception as e:
@@ -1914,6 +1929,15 @@ def api_update_invoice(request):
             company_logo = request.build_absolute_uri(invoice.branch.company.logo_color.url) if invoice.branch and invoice.branch.company and invoice.branch.company.logo_color else ''
             company_seal = request.build_absolute_uri(invoice.branch.company.company_seal.url) if invoice.branch and invoice.branch.company and getattr(invoice.branch.company, 'company_seal', None) else ''
             branch_logo = request.build_absolute_uri(invoice.branch.logo.url) if invoice.branch and invoice.branch.logo else ''
+            company_trn = (invoice.branch.gst_number if invoice.branch and invoice.branch.gst_number else (invoice.branch.company.gst_number or invoice.branch.company.tin_pan_no if invoice.branch and invoice.branch.company else '')) or ''
+
+            from finance_management.models import Receipt
+            receipt_obj = invoice.receipts.filter(is_deleted=False).order_by('-date_added').first()
+            payment_mode = (
+                dict(Receipt.PAYMENT_CHOICES).get(receipt_obj.payment_mode, receipt_obj.payment_mode.replace('_', ' ').title())
+                if receipt_obj
+                else ('Credit' if invoice.invoice_type == 'creditinvoice' else 'Cash')
+            )
 
         # Regenerate invoice PDF file with newly updated items and totals
         pdf_url = ''
@@ -1937,6 +1961,12 @@ def api_update_invoice(request):
             'company_seal': company_seal,
             'branch_logo': branch_logo,
             'branch': invoice.branch.name if invoice.branch else '',
+            'branch_address': invoice.branch.address if invoice.branch and hasattr(invoice.branch, 'address') else '',
+            'branch_phone': invoice.branch.phone if invoice.branch and hasattr(invoice.branch, 'phone') else '',
+            'branch_email': invoice.branch.email if invoice.branch and hasattr(invoice.branch, 'email') else '',
+            'branch_gst': invoice.branch.gst_number if invoice.branch and hasattr(invoice.branch, 'gst_number') else '',
+            'company_trn': company_trn,
+            'payment_mode': payment_mode,
         })
 
     except Invoice.DoesNotExist:
@@ -7642,6 +7672,8 @@ def api_create_quotation(request):
             tax_percentage=Decimal(str(data.get('tax_percentage', 0))),
             tax_amount=Decimal(str(data.get('tax_amount', 0))),
             discount=Decimal(str(data.get('discount', 0))),
+            discount_type=str(data.get('discount_type', 'amount')),
+            discount_percentage=Decimal(str(data.get('discount_percentage', 0))),
             grand_total=Decimal(str(data.get('grand_total', 0))),
             is_grand_total=bool(data.get('is_grand_total', True)),
             auto_id=get_auto_id(Quotation),
@@ -7843,6 +7875,8 @@ def api_get_quotation_detail(request, quotation_id=None):
                 'tax_percentage': float(quotation.tax_percentage) if quotation.tax_percentage is not None else 0.0,
                 'tax_amount': float(quotation.tax_amount) if quotation.tax_amount is not None else 0.0,
                 'discount': float(quotation.discount) if quotation.discount is not None else 0.0,
+                'discount_type': getattr(quotation, 'discount_type', 'amount') or 'amount',
+                'discount_percentage': float(getattr(quotation, 'discount_percentage', 0)) if getattr(quotation, 'discount_percentage', None) is not None else 0.0,
                 'grand_total': float(quotation.grand_total) if quotation.grand_total is not None else 0.0,
                 'is_grand_total': getattr(quotation, 'is_grand_total', True),
                 'date': quotation.date_added.strftime('%d-%m-%Y %H:%M') if quotation.date_added else '',
@@ -7885,6 +7919,10 @@ def api_update_quotation(request, quotation_id=None):
         quotation.tax_percentage = Decimal(str(data.get('tax_percentage', quotation.tax_percentage)))
         quotation.tax_amount = Decimal(str(data.get('tax_amount', quotation.tax_amount)))
         quotation.discount = Decimal(str(data.get('discount', quotation.discount)))
+        if 'discount_type' in data:
+            quotation.discount_type = str(data.get('discount_type', quotation.discount_type))
+        if 'discount_percentage' in data:
+            quotation.discount_percentage = Decimal(str(data.get('discount_percentage', quotation.discount_percentage)))
         quotation.grand_total = Decimal(str(data.get('grand_total', quotation.grand_total)))
         if 'is_grand_total' in data:
             quotation.is_grand_total = bool(data.get('is_grand_total'))

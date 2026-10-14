@@ -620,6 +620,8 @@ class Quotation(BaseModel):
     tax_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_type = models.CharField(max_length=20, default='amount')
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     is_grand_total = models.BooleanField(default=True)
 

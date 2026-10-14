@@ -480,6 +480,18 @@ def api_list_invoices(request):
                 'type': inv.vehicle.vehicle_type_model.vehicle_type.name if inv.vehicle and inv.vehicle.vehicle_type_model and inv.vehicle.vehicle_type_model.vehicle_type else '',
             },
             'branch': inv.branch.name if inv.branch else '',
+            'branch_address': inv.branch.address if inv.branch and hasattr(inv.branch, 'address') else '',
+            'branch_phone': inv.branch.phone if inv.branch and hasattr(inv.branch, 'phone') else '',
+            'branch_email': inv.branch.email if inv.branch and hasattr(inv.branch, 'email') else '',
+            'branch_gst': inv.branch.gst_number if inv.branch and hasattr(inv.branch, 'gst_number') else '',
+            'company_trn': (inv.branch.gst_number if inv.branch and inv.branch.gst_number else (inv.branch.company.gst_number or inv.branch.company.tin_pan_no if inv.branch and inv.branch.company else '')) or '',
+            'payment_mode': (
+                dict(Receipt.PAYMENT_CHOICES).get(
+                    inv.receipts.filter(is_deleted=False).order_by('-date_added').first().payment_mode,
+                    inv.receipts.filter(is_deleted=False).order_by('-date_added').first().payment_mode.replace('_', ' ').title()
+                ) if inv.receipts.filter(is_deleted=False).exists()
+                else ('Credit' if inv.invoice_type == 'creditinvoice' else 'Cash')
+            ),
             'branch_logo': request.build_absolute_uri(inv.branch.logo.url) if inv.branch and inv.branch.logo else '',
             'company_logo': request.build_absolute_uri(inv.branch.company.logo_color.url) if inv.branch and inv.branch.company and inv.branch.company.logo_color else '',
             'company_seal': request.build_absolute_uri(inv.branch.company.company_seal.url) if inv.branch and inv.branch.company and getattr(inv.branch.company, 'company_seal', None) else '',
@@ -2168,10 +2180,30 @@ def generate_invoice_pdf_file(invoice, base_url):
     if invoice.branch and invoice.branch.company and invoice.branch.company.country:
         currency = getattr(invoice.branch.company.country, 'currency_symbol', '₹') or '₹'
         
+    receipt = invoice.receipts.filter(is_deleted=False).order_by('-date_added').first()
+    payment_mode = ''
+    if receipt:
+        payment_mode = dict(Receipt.PAYMENT_CHOICES).get(receipt.payment_mode, receipt.payment_mode.replace('_', ' ').title())
+    elif invoice.invoice_type == 'creditinvoice':
+        payment_mode = 'Credit'
+    elif invoice.invoice_type == 'cashinvoice':
+        payment_mode = 'Cash'
+
+    company_trn = ''
+    if invoice.branch:
+        if invoice.branch.gst_number:
+            company_trn = invoice.branch.gst_number
+        elif invoice.branch.company:
+            company_trn = invoice.branch.company.gst_number or invoice.branch.company.tin_pan_no or ''
+    elif invoice.customer and invoice.customer.company:
+        company_trn = invoice.customer.company.gst_number or invoice.customer.company.tin_pan_no or ''
+
     context = {
         'invoice': invoice,
         'balance': balance,
         'currency': currency,
+        'payment_mode': payment_mode,
+        'company_trn': company_trn,
     }
     
     html_string = render_to_string('invoice/invoice_pdf.html', context)
