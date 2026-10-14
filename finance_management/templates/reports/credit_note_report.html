@@ -519,8 +519,7 @@
                 <select name="branch_id" class="select-input">
                     <option value="">All Branches</option>
                     {% for b in branches %}
-                    <option value="{{ b.id }}" {% if branch_id==b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}
-                    </option>
+                    <option value="{{ b.id }}" {% if branch_id == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -530,19 +529,14 @@
             <div>
                 <select name="reason" class="select-input">
                     <option value="">All Reasons</option>
-                    <option value="Defective / Unsatisfactory Service" {% if
-                        reason=="Defective / Unsatisfactory Service" %}selected{% endif %}>Defective Service</option>
-                    <option value="Billing / Rate Correction" {% if reason=="Billing / Rate Correction" %}selected{%
-                        endif %}>Billing Correction</option>
-                    <option value="Cancellation of Service" {% if reason=="Cancellation of Service" %}selected{% endif
-                        %}>Service Cancellation</option>
-                    <option value="Customer Goodwill / Discount" {% if reason=="Customer Goodwill / Discount"
-                        %}selected{% endif %}>Customer Goodwill</option>
-                    <option value="Other" {% if reason=="Other" %}selected{% endif %}>Other</option>
+                    <option value="Defective / Unsatisfactory Service" {% if reason == "Defective / Unsatisfactory Service" %}selected{% endif %}>Defective Service</option>
+                    <option value="Billing / Rate Correction" {% if reason == "Billing / Rate Correction" %}selected{% endif %}>Billing Correction</option>
+                    <option value="Cancellation of Service" {% if reason == "Cancellation of Service" %}selected{% endif %}>Service Cancellation</option>
+                    <option value="Customer Goodwill / Discount" {% if reason == "Customer Goodwill / Discount" %}selected{% endif %}>Customer Goodwill</option>
+                    <option value="Other" {% if reason == "Other" %}selected{% endif %}>Other</option>
                     {% for r in distinct_reasons %}
-                    {% if r != "Defective / Unsatisfactory Service" and r != "Billing / Rate Correction" and r !=
-                    "Cancellation of Service" and r != "Customer Goodwill / Discount" and r != "Other" %}
-                    <option value="{{ r }}" {% if reason==r %}selected{% endif %}>{{ r }}</option>
+                    {% if r != "Defective / Unsatisfactory Service" and r != "Billing / Rate Correction" and r != "Cancellation of Service" and r != "Customer Goodwill / Discount" and r != "Other" %}
+                    <option value="{{ r }}" {% if reason == r %}selected{% endif %}>{{ r }}</option>
                     {% endif %}
                     {% endfor %}
                 </select>
