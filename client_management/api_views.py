@@ -10227,8 +10227,9 @@ def api_create_credit_note(request):
             return JsonResponse({'success': False, 'message': 'invoice_id is required'}, status=400)
 
         from finance_management.models import Invoice, CreditNote, CreditNoteItem, InvoiceItem
-        from master.functions import get_auto_id
+        from core.functions import get_auto_id
         from decimal import Decimal
+        from django.db.models import Sum
 
         invoice = Invoice.objects.filter(id=invoice_id, is_deleted=False).first()
         if not invoice:
@@ -10283,7 +10284,7 @@ def api_create_credit_note(request):
             )
 
         # Update invoice credit_note_amount
-        all_cn_total = CreditNote.objects.filter(invoice=invoice, is_deleted=False).aggregate(t=models.Sum('total'))['t'] or Decimal('0.00')
+        all_cn_total = CreditNote.objects.filter(invoice=invoice, is_deleted=False).aggregate(t=Sum('total'))['t'] or Decimal('0.00')
         invoice.credit_note_amount = all_cn_total
         invoice.save(update_fields=['credit_note_amount'])
 
