@@ -7223,17 +7223,37 @@ def api_vehicle_service_history(request, vehicle_id):
             ]
 
             assigned_staff_names = [s.name for s in inv.assigned_staffs.all() if hasattr(s, 'name')]
-            invoice_items_summary = [
-                {
-                    'service_name': it.service_name,
+
+            services_summary = []
+            stock_items_summary = []
+            extras_summary = []
+            all_items_summary = []
+
+            for it in inv.items.filter(is_deleted=False).select_related('service', 'stock_item', 'extra'):
+                line_total = float(it.net_taxable_amount) if it.net_taxable_amount is not None else (float(it.rate or 0) * float(it.qty or 1) - float(it.discount or 0))
+                item_info = {
+                    'name': it.service_name,
                     'qty': float(it.qty or 1),
                     'rate': float(it.rate or 0),
                     'discount': float(it.discount or 0),
-                    'net_taxable_amount': float(it.net_taxable_amount or 0),
+                    'total': line_total,
                     'remarks': it.remarks or '',
+                    'is_operational': bool(getattr(it, 'is_operational', False)),
                 }
-                for it in inv.items.filter(is_deleted=False)
-            ]
+
+                if getattr(it, 'stock_item', None):
+                    item_info['stock_item_name'] = it.stock_item.item_name if it.stock_item else it.service_name
+                    item_info['item_type'] = 'stock_item'
+                    stock_items_summary.append(item_info)
+                elif getattr(it, 'extra', None):
+                    item_info['extra_name'] = it.extra.name if it.extra else it.service_name
+                    item_info['item_type'] = 'extra'
+                    extras_summary.append(item_info)
+                else:
+                    item_info['item_type'] = 'service'
+                    services_summary.append(item_info)
+
+                all_items_summary.append(item_info)
 
             for item in inv.items.all():
                 entry = {
@@ -7259,7 +7279,10 @@ def api_vehicle_service_history(request, vehicle_id):
                     'amount_collected': float(inv.amount_collected or 0),
                     'invoice_type': inv.invoice_type,
                     'invoice_remarks': inv.remarks or '',
-                    'all_items': invoice_items_summary,
+                    'services': services_summary,
+                    'stock_items': stock_items_summary,
+                    'extras': extras_summary,
+                    'all_items': all_items_summary,
                     'reminders': inv_reminders,
                 }
                 sd = None
