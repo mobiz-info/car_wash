@@ -7196,7 +7196,14 @@ def api_vehicle_service_history(request, vehicle_id):
         from finance_management.models import Invoice, InvoiceServiceDetail
         invoices = Invoice.objects.filter(
             vehicle=vehicle, is_deleted=False
-        ).order_by('-date', '-date_added', '-auto_id').prefetch_related('items')
+        ).order_by('-date', '-date_added', '-auto_id').prefetch_related('items', 'items__service_detail', 'assigned_staffs')
+
+        from_date_str = request.GET.get('from_date')
+        to_date_str = request.GET.get('to_date')
+        if from_date_str:
+            invoices = invoices.filter(date__gte=from_date_str)
+        if to_date_str:
+            invoices = invoices.filter(date__lte=to_date_str)
 
         from booking_management.models import ReminderPlan
         from datetime import timedelta
@@ -7215,13 +7222,44 @@ def api_vehicle_service_history(request, vehicle_id):
                 for p in plans
             ]
 
+            assigned_staff_names = [s.name for s in inv.assigned_staffs.all() if hasattr(s, 'name')]
+            invoice_items_summary = [
+                {
+                    'service_name': it.service_name,
+                    'qty': float(it.qty or 1),
+                    'rate': float(it.rate or 0),
+                    'discount': float(it.discount or 0),
+                    'net_taxable_amount': float(it.net_taxable_amount or 0),
+                    'remarks': it.remarks or '',
+                }
+                for it in inv.items.filter(is_deleted=False)
+            ]
+
             for item in inv.items.all():
                 entry = {
+                    'invoice_id': str(inv.id),
                     'invoice_number': inv.invoice_number,
                     'date': str(inv.date),
+                    'created_at': inv.date_added.strftime('%d-%m-%Y %H:%M') if inv.date_added else '',
                     'service_name': item.service_name,
                     'category': 'washing',
                     'rate': float(item.rate),
+                    'qty': float(item.qty or 1),
+                    'item_discount': float(item.discount or 0),
+                    'net_taxable_amount': float(item.net_taxable_amount or 0),
+                    'remarks': item.remarks or '',
+                    'branch_name': inv.branch.name if inv.branch else '',
+                    'customer_name': inv.customer.name if inv.customer else '',
+                    'customer_phone': inv.customer.phone if inv.customer else '',
+                    'assigned_staffs': assigned_staff_names,
+                    'invoice_subtotal': float(inv.subtotal or 0),
+                    'invoice_discount': float(inv.discount or 0),
+                    'invoice_tax': float(inv.tax_amount or 0),
+                    'invoice_total': float(inv.total or 0),
+                    'amount_collected': float(inv.amount_collected or 0),
+                    'invoice_type': inv.invoice_type,
+                    'invoice_remarks': inv.remarks or '',
+                    'all_items': invoice_items_summary,
                     'reminders': inv_reminders,
                 }
                 sd = None
@@ -7236,6 +7274,8 @@ def api_vehicle_service_history(request, vehicle_id):
                         entry['oil_product'] = sd.oil_product.display_name if sd.oil_product else ''
                         entry['oil_litres'] = float(sd.oil_litres_used) if sd.oil_litres_used else 0
                         entry['oil_filter_changed'] = sd.oil_filter_changed
+                        entry['oil_filter_name'] = sd.oil_filter.name if sd.oil_filter else ''
+                        entry['oil_filter_price'] = float(sd.oil_filter_price or 0)
                         entry['odometer'] = sd.odometer_at_service
                         entry['next_oil_change_km'] = sd.next_oil_change_km
                         entry['next_oil_change_date'] = str(sd.next_oil_change_date) if sd.next_oil_change_date else None
@@ -7270,7 +7310,15 @@ def api_vehicle_service_history(request, vehicle_id):
 
                 history.append(entry)
 
+        vehicle_model_name = ''
+        if hasattr(vehicle, 'vehicle_type_model') and vehicle.vehicle_type_model:
+            vehicle_model_name = getattr(vehicle.vehicle_type_model, 'name', '')
+        elif hasattr(vehicle, 'brand_model') and vehicle.brand_model:
+            vehicle_model_name = getattr(vehicle.brand_model, 'name', '')
+
         next_service = {
+            'vehicle_number': vehicle.vehicle_number,
+            'vehicle_model': vehicle_model_name,
             'current_odometer_km': vehicle.current_odometer_km,
             'next_oil_change_km': vehicle.next_oil_change_km,
             'next_tyre_change_km': vehicle.next_tyre_change_km,
