@@ -7701,11 +7701,32 @@ def api_create_quotation(request):
             )
 
         for ex in extras:
+            price = Decimal(str(ex.get('price', 0) or 0))
+            quantity = Decimal(str(ex.get('quantity', ex.get('qty', 1)) or 1))
+            disc_type = str(ex.get('discount_type', 'amount') or 'amount')
+            disc_pct = Decimal(str(ex.get('discount_percentage', 0) or 0))
+            disc_val = Decimal(str(ex.get('discount', 0) or 0))
+
+            line_sub = price * quantity
+            if disc_type == 'percentage':
+                calc_discount = (line_sub * disc_pct) / Decimal('100')
+            else:
+                calc_discount = disc_val
+            tot = ex.get('total')
+            if tot is not None:
+                line_total = Decimal(str(tot))
+            else:
+                line_total = max(Decimal('0'), line_sub - calc_discount)
+
             QuotationExtra.objects.create(
                 quotation=quotation,
                 name=ex.get('name', ''),
-                price=Decimal(str(ex.get('price', 0))),
-                quantity=Decimal(str(ex.get('quantity', ex.get('qty', 1)) or 1)),
+                price=price,
+                quantity=quantity,
+                discount=calc_discount,
+                discount_type=disc_type,
+                discount_percentage=disc_pct,
+                total=line_total,
                 remarks=ex.get('remarks', ex.get('description', '')),
                 auto_id=get_auto_id(QuotationExtra),
                 creator=user
@@ -7839,6 +7860,10 @@ def api_get_quotation_detail(request, quotation_id=None):
             'price': float(ex.price) if ex.price is not None else 0.0,
             'quantity': float(getattr(ex, 'quantity', 1) or 1),
             'qty': float(getattr(ex, 'quantity', 1) or 1),
+            'discount': float(getattr(ex, 'discount', 0) or 0),
+            'discount_type': getattr(ex, 'discount_type', 'amount') or 'amount',
+            'discount_percentage': float(getattr(ex, 'discount_percentage', 0) or 0),
+            'total': float(getattr(ex, 'total', 0) or 0) if getattr(ex, 'total', None) is not None else max(0.0, (float(ex.price or 0) * float(getattr(ex, 'quantity', 1) or 1) - float(getattr(ex, 'discount', 0) or 0))),
             'remarks': getattr(ex, 'remarks', '') or '',
         } for ex in quotation.extras.filter(is_deleted=False)]
 
@@ -7952,11 +7977,32 @@ def api_update_quotation(request, quotation_id=None):
             )
 
         for ex in extras:
+            price = Decimal(str(ex.get('price', 0) or 0))
+            quantity = Decimal(str(ex.get('quantity', ex.get('qty', 1)) or 1))
+            disc_type = str(ex.get('discount_type', 'amount') or 'amount')
+            disc_pct = Decimal(str(ex.get('discount_percentage', 0) or 0))
+            disc_val = Decimal(str(ex.get('discount', 0) or 0))
+
+            line_sub = price * quantity
+            if disc_type == 'percentage':
+                calc_discount = (line_sub * disc_pct) / Decimal('100')
+            else:
+                calc_discount = disc_val
+            tot = ex.get('total')
+            if tot is not None:
+                line_total = Decimal(str(tot))
+            else:
+                line_total = max(Decimal('0'), line_sub - calc_discount)
+
             QuotationExtra.objects.create(
                 quotation=quotation,
                 name=ex.get('name', ''),
-                price=Decimal(str(ex.get('price', 0))),
-                quantity=Decimal(str(ex.get('quantity', ex.get('qty', 1)) or 1)),
+                price=price,
+                quantity=quantity,
+                discount=calc_discount,
+                discount_type=disc_type,
+                discount_percentage=disc_pct,
+                total=line_total,
                 remarks=ex.get('remarks', ex.get('description', '')),
                 auto_id=get_auto_id(QuotationExtra),
                 creator=user

@@ -417,6 +417,54 @@
         </tbody>
     </table>
 
+    <!-- Particulars Table -->
+    {% if quotation.extras.all %}
+    <div style="margin-top: 15px; margin-bottom: 5px; font-weight: 700; color: #1e3a8a; font-size: 10pt;">
+        PARTICULARS
+    </div>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 8%;" class="align-center">#</th>
+                <th style="width: 42%;">Particular Description</th>
+                <th style="width: 10%;" class="align-center">Qty</th>
+                <th style="width: 14%;" class="align-right">Rate</th>
+                <th style="width: 12%;" class="align-right">Discount</th>
+                <th style="width: 14%;" class="align-right">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for extra in quotation.extras.all %}
+                {% if not extra.is_deleted %}
+                <tr>
+                    <td class="align-center">{{ forloop.counter }}</td>
+                    <td>
+                        <div style="font-weight: 600;">{{ extra.name }}</div>
+                        {% if extra.remarks %}
+                            <div style="font-size: 8.5pt; color: #64748b;">{{ extra.remarks }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="align-center">{{ extra.quantity|floatformat:"-2" }}</td>
+                    <td class="align-right">{{ currency }}{{ extra.price }}</td>
+                    <td class="align-right">
+                        {% if extra.discount > 0 %}
+                            {% if extra.discount_type == 'percentage' %}
+                                {{ extra.discount_percentage|floatformat:"-2" }}% ({{ currency }}{{ extra.discount }})
+                            {% else %}
+                                {{ currency }}{{ extra.discount }}
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="align-right">{{ currency }}{{ extra.total }}</td>
+                </tr>
+                {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
     <!-- Additional Services Notes -->
     {% if quotation.additional_services %}
         <div style="margin-top: 15px; margin-bottom: 15px; padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
