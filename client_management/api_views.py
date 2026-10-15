@@ -7846,6 +7846,13 @@ def api_get_quotation_list(request):
         elif company:
             quotations = quotations.filter(branch__company=company)
 
+        from_date_str = request.GET.get('from_date')
+        to_date_str = request.GET.get('to_date')
+        if from_date_str:
+            quotations = quotations.filter(date_added__date__gte=from_date_str)
+        if to_date_str:
+            quotations = quotations.filter(date_added__date__lte=to_date_str)
+
         result = []
         for q in quotations:
             customer_name = q.customer.name if q.customer else ''
@@ -7854,6 +7861,7 @@ def api_get_quotation_list(request):
             branch_name = q.branch.name if q.branch else ''
             grand_total = float(q.grand_total) if q.grand_total is not None else 0.0
             created_at = q.date_added.strftime('%Y-%m-%d %H:%M') if q.date_added else ''
+            date_str = q.date_added.strftime('%Y-%m-%d') if q.date_added else ''
 
             result.append({
                 'id': str(q.id),
@@ -7864,6 +7872,7 @@ def api_get_quotation_list(request):
                 'branch_name': branch_name,
                 'grand_total': grand_total,
                 'created_at': created_at,
+                'date': date_str,
             })
 
         return JsonResponse({'success': True, 'quotations': result})
