@@ -2573,7 +2573,7 @@ def invoice_create(request):
         response = api_create_invoice(request)
         return response
 
-    from client_management.models import Customer, Stock, Scheme, Extras
+    from client_management.models import Customer, Stock, Scheme, Extra
     from tax_management.models import CompanyTax
     from service_management.models import Service
     from master.models import OilProduct, OilFilter, TyreBrand, Tyre
@@ -2581,7 +2581,7 @@ def invoice_create(request):
     customer_qs = Customer.objects.filter(is_deleted=False).order_by('name')
     service_qs = Service.objects.filter(is_deleted=False).order_by('name')
     stock_qs = Stock.objects.filter(is_deleted=False).order_by('item_name')
-    extras_qs = Extras.objects.filter(is_deleted=False).order_by('name')
+    extras_qs = Extra.objects.filter(is_deleted=False).order_by('name')
     scheme_qs = Scheme.objects.filter(is_deleted=False).order_by('name')
     
     if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
