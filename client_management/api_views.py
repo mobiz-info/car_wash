@@ -449,11 +449,16 @@ def api_customer_search_list(request):
     if not q or len(q) < 3:
         return JsonResponse({'success': True, 'customers': []})
         
-    company = user.profile.company
-    customers = Customer.objects.filter(is_deleted=False, company=company)
+    company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
+    branch_id = request.GET.get('branch_id', '').strip()
     
-    if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+    customers = Customer.objects.filter(is_deleted=False)
+    if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
         customers = customers.filter(branch=user.managed_branch)
+    elif branch_id:
+        customers = customers.filter(branch_id=branch_id)
+    elif company:
+        customers = customers.filter(company=company)
         
     from django.db.models import Q
     customers = customers.filter(
@@ -487,41 +492,66 @@ def api_customer_search(request):
         
     mobile = request.GET.get('mobile', '').strip()
     vehicle_number = request.GET.get('vehicle_number', '').strip().upper()
+    branch_id = request.GET.get('branch_id', '').strip()
+
     if not mobile and not vehicle_number:
         return JsonResponse({'success': False, 'message': 'Mobile number or Vehicle number is required'}, status=400)
         
     # Get user scope
-    company = user.profile.company
+    company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
     
     # Filter customers by scope
-    customers = Customer.objects.filter(is_deleted=False, company=company)
-    
-    if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
+    customers = Customer.objects.filter(is_deleted=False)
+    if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
         customers = customers.filter(branch=user.managed_branch)
+    elif branch_id:
+        # Check within selected branch or company of branch
+        from client_management.models import Branch
+        b_target = Branch.objects.filter(id=branch_id, is_deleted=False).first()
+        if b_target and b_target.company:
+            customers = customers.filter(company=b_target.company)
+        elif company:
+            customers = customers.filter(company=company)
+    elif company:
+        customers = customers.filter(company=company)
         
     customer = None
     if mobile:
-        # Search by phone or whatsapp
-        customer = customers.filter(phone=mobile).first()
-        if not customer:
-            customer = customers.filter(whatsapp_number=mobile).first()
+        from django.db.models import Q
+        clean_m = mobile.replace(' ', '').replace('-', '').lstrip('+')
+        customer = customers.filter(
+            Q(phone=mobile) | Q(phone=clean_m) | Q(whatsapp_number=mobile) | Q(whatsapp_number=clean_m)
+        ).first()
+        if not customer and len(clean_m) >= 7:
+            last_digits = clean_m[-10:] if len(clean_m) >= 10 else clean_m[-7:]
+            customer = customers.filter(
+                Q(phone__endswith=last_digits) | Q(whatsapp_number__endswith=last_digits)
+            ).first()
     elif vehicle_number:
         from django.db.models.functions import Replace
         from django.db.models import Value
-        clean_v_num = vehicle_number.replace(' ', '')
+        clean_v_num = vehicle_number.replace(' ', '').replace('-', '')
         
         # Find vehicle within scope
-        vehicle = CustomerVehicle.objects.annotate(
-            clean_vnum=Replace('vehicle_number', Value(' '), Value(''))
+        vehicle_qs = CustomerVehicle.objects.annotate(
+            clean_vnum=Replace(Replace('vehicle_number', Value(' '), Value('')), Value('-'), Value(''))
         ).filter(
             clean_vnum__iexact=clean_v_num,
-            customer__company=company,
             is_deleted=False
         )
-        if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch'):
-            vehicle = vehicle.filter(customer__branch=user.managed_branch)
+        if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+            vehicle_qs = vehicle_qs.filter(customer__branch=user.managed_branch)
+        elif branch_id:
+            from client_management.models import Branch
+            b_target = Branch.objects.filter(id=branch_id, is_deleted=False).first()
+            if b_target and b_target.company:
+                vehicle_qs = vehicle_qs.filter(customer__company=b_target.company)
+            elif company:
+                vehicle_qs = vehicle_qs.filter(customer__company=company)
+        elif company:
+            vehicle_qs = vehicle_qs.filter(customer__company=company)
             
-        vehicle = vehicle.first()
+        vehicle = vehicle_qs.first()
         if vehicle:
             customer = vehicle.customer
         
@@ -590,6 +620,8 @@ def api_customer_search(request):
             'address': customer.address or '',
             'tax_number': customer.tax_number or '',
             'tin_number': customer.tin_number or '',
+            'branch_id': str(customer.branch.id) if customer.branch else '',
+            'branch_name': customer.branch.name if customer.branch else '',
             'vehicles': vehicles_data
         }
     }
@@ -634,11 +666,23 @@ def api_get_services(request):
                 auto_id=get_auto_id(CustomerVehicle),
             )
         
-        branch = customer.branch
+        branch_id = request.GET.get('branch_id')
+        branch = None
+        if branch_id:
+            from client_management.models import Branch
+            branch = Branch.objects.filter(id=branch_id, is_deleted=False).first()
+        if not branch:
+            branch = customer.branch
+        if not branch:
+            if hasattr(user, 'managed_branch') and user.managed_branch:
+                branch = user.managed_branch
+            elif hasattr(user, 'profile') and user.profile.company:
+                branch = user.profile.company.branches.filter(is_deleted=False).first()
+        
         vehicle_type = vehicle.vehicle_type_model.vehicle_type if (vehicle and vehicle.vehicle_type_model) else None
         
         if not branch:
-            return JsonResponse({'success': False, 'message': 'Customer branch is missing'}, status=400)
+            return JsonResponse({'success': False, 'message': 'Branch is required'}, status=400)
 
         # ── Get branch-enabled service CATEGORIES ─────────────────────────────
         from service_management.models import ServiceType
@@ -1400,7 +1444,15 @@ def api_create_invoice(request):
             )
         
         # Generate invoice number using a unique branch-specific prefix and sequence.
-        branch = user.managed_branch if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') else customer.branch
+        branch_id = data.get('branch_id')
+        branch = None
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+            branch = user.managed_branch
+        elif branch_id:
+            from client_management.models import Branch
+            branch = Branch.objects.filter(id=branch_id, is_deleted=False).first()
+        if not branch:
+            branch = customer.branch
         prefix = _resolve_branch_invoice_prefix(branch)
 
         prefix_base = f"INV-{prefix}{branch.auto_id}-"

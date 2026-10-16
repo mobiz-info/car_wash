@@ -2573,40 +2573,91 @@ def invoice_create(request):
         response = api_create_invoice(request)
         return response
 
-    from client_management.models import Customer, Stock, Scheme, Extra
+    from client_management.models import Customer, Stock, Scheme, Extra, Branch, CustomerType, Staff
     from tax_management.models import CompanyTax
     from service_management.models import Service
-    from master.models import OilProduct, OilFilter, TyreBrand, Tyre
+    from master.models import OilProduct, OilFilter, TyreBrand, Tyre, Battery, VehicleTypeModel
+    from django.db.models import Q
+
+    company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
+    managed_branch = getattr(user, 'managed_branch', None)
+
+    branches_qs = Branch.objects.filter(is_deleted=False)
+    if role == 'COMPANY_ADMIN' and company:
+        branches_qs = branches_qs.filter(company=company).order_by('name')
+    elif role == 'BRANCH_ADMIN' and managed_branch:
+        branches_qs = branches_qs.filter(id=managed_branch.id)
+    elif company:
+        branches_qs = branches_qs.filter(company=company).order_by('name')
+    else:
+        branches_qs = branches_qs.order_by('name')
+
+    selected_branch_id = request.GET.get('branch_id', '')
+    if not selected_branch_id:
+        if role == 'BRANCH_ADMIN' and managed_branch:
+            selected_branch_id = str(managed_branch.id)
+        elif branches_qs.exists():
+            selected_branch_id = str(branches_qs.first().id)
+
+    selected_customer_id = request.GET.get('customer_id', '')
+    selected_vehicle_id = request.GET.get('vehicle_id', '')
 
     customer_qs = Customer.objects.filter(is_deleted=False).order_by('name')
     service_qs = Service.objects.filter(is_deleted=False).order_by('name')
     stock_qs = Stock.objects.filter(is_deleted=False).order_by('item_name')
     extras_qs = Extra.objects.filter(is_deleted=False).order_by('name')
     scheme_qs = Scheme.objects.filter(is_deleted=False).order_by('name')
-    
-    if role == 'COMPANY_ADMIN' and hasattr(user.profile, 'company') and user.profile.company:
-        customer_qs = customer_qs.filter(company=user.profile.company)
-        service_qs = service_qs.filter(company=user.profile.company)
-        stock_qs = stock_qs.filter(company=user.profile.company)
-        extras_qs = extras_qs.filter(company=user.profile.company)
-        scheme_qs = scheme_qs.filter(company=user.profile.company)
-    elif role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
-        customer_qs = customer_qs.filter(branch=user.managed_branch)
-        service_qs = service_qs.filter(company=user.managed_branch.company)
-        stock_qs = stock_qs.filter(company=user.managed_branch.company)
-        extras_qs = extras_qs.filter(company=user.managed_branch.company)
-        scheme_qs = scheme_qs.filter(company=user.managed_branch.company)
+    staff_qs = Staff.objects.filter(is_deleted=False).order_by('name')
+    customer_types = CustomerType.objects.filter(is_deleted=False).order_by('name')
+    vehicle_models = VehicleTypeModel.objects.filter(is_deleted=False).select_related('vehicle_type').order_by('name')
+
+    if role == 'COMPANY_ADMIN' and company:
+        customer_qs = customer_qs.filter(company=company)
+        service_qs = service_qs.filter(
+            company_service_entries__company=company,
+            company_service_entries__is_enabled=True,
+        ).distinct()
+        stock_qs = stock_qs.filter(company=company)
+        extras_qs = extras_qs.filter(company=company)
+        scheme_qs = scheme_qs.filter(company=company)
+        staff_qs = staff_qs.filter(company=company)
+        customer_types = customer_types.filter(company=company)
+    elif role == 'BRANCH_ADMIN' and managed_branch:
+        customer_qs = customer_qs.filter(branch=managed_branch)
+        service_qs = service_qs.filter(
+            service_branches__branch=managed_branch,
+            service_branches__is_enabled=True,
+        ).distinct()
+        stock_qs = stock_qs.filter(company=managed_branch.company)
+        extras_qs = extras_qs.filter(company=managed_branch.company)
+        scheme_qs = scheme_qs.filter(company=managed_branch.company)
+        staff_qs = staff_qs.filter(branch=managed_branch)
+        customer_types = customer_types.filter(company=managed_branch.company)
 
     oil_products = OilProduct.objects.filter(is_deleted=False).order_by('name')
     oil_filters = OilFilter.objects.filter(is_deleted=False).order_by('name')
     tyre_brands = TyreBrand.objects.filter(is_deleted=False).order_by('brand')
-    tyres = Tyre.objects.filter(is_deleted=False).select_related('brand').order_by('name')
+    tyres = Tyre.objects.filter(is_deleted=False).select_related('tyre_brand').order_by('name')
+
+    battery_qs = Battery.objects.filter(is_deleted=False, is_active=True).select_related('make', 'ampere', 'segment').order_by('make__name')
+    if company:
+        battery_qs = battery_qs.filter(Q(company=company) | Q(company__isnull=True))
     
     company_taxes = []
-    if hasattr(user.profile, 'company') and user.profile.company:
-        company_taxes = CompanyTax.objects.filter(company=user.profile.company, is_deleted=False)
+    if company:
+        company_taxes = CompanyTax.objects.filter(company=company, is_deleted=False)
+
+    currency_symbol = '₹'
+    if company and getattr(company, 'country', None) and getattr(company.country, 'currency_symbol', None):
+        currency_symbol = company.country.currency_symbol
 
     context = {
+        'branches': branches_qs,
+        'selected_branch_id': selected_branch_id,
+        'selected_customer_id': selected_customer_id,
+        'selected_vehicle_id': selected_vehicle_id,
+        'user_role': role,
+        'currency_symbol': currency_symbol,
         'customers': customer_qs,
         'services': service_qs,
         'stock_items': stock_qs,
@@ -2616,6 +2667,10 @@ def invoice_create(request):
         'oil_filters': oil_filters,
         'tyre_brands': tyre_brands,
         'tyres': tyres,
+        'batteries': battery_qs,
+        'staff_members': staff_qs,
+        'customer_types': customer_types,
+        'vehicle_models': vehicle_models,
         'company_taxes': company_taxes,
         'title': 'Create Invoice',
     }
