@@ -2621,7 +2621,6 @@ def invoice_create(request):
         extras_qs = extras_qs.filter(company=company)
         scheme_qs = scheme_qs.filter(company=company)
         staff_qs = staff_qs.filter(company=company)
-        customer_types = customer_types.filter(company=company)
     elif role == 'BRANCH_ADMIN' and managed_branch:
         customer_qs = customer_qs.filter(branch=managed_branch)
         service_qs = service_qs.filter(
@@ -2632,7 +2631,6 @@ def invoice_create(request):
         extras_qs = extras_qs.filter(company=managed_branch.company)
         scheme_qs = scheme_qs.filter(company=managed_branch.company)
         staff_qs = staff_qs.filter(branch=managed_branch)
-        customer_types = customer_types.filter(company=managed_branch.company)
 
     oil_products = OilProduct.objects.filter(is_deleted=False).order_by('name')
     oil_filters = OilFilter.objects.filter(is_deleted=False).order_by('name')
