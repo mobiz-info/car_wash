@@ -24,10 +24,11 @@
         border-radius: 14px;
         padding: 16px 24px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
         border: 1px solid var(--border-color);
         gap: 16px;
     }
+
     .stepper-step {
         display: flex;
         align-items: center;
@@ -40,13 +41,16 @@
         border-radius: 10px;
         transition: all 0.2s;
     }
+
     .stepper-step.active {
         color: var(--primary-navy);
         background: var(--primary-light);
     }
+
     .stepper-step.completed {
         color: #10b981;
     }
+
     .step-circle {
         width: 28px;
         height: 28px;
@@ -59,14 +63,17 @@
         font-size: 0.85rem;
         font-weight: 700;
     }
+
     .stepper-step.active .step-circle {
         background: var(--primary-navy);
         color: #ffffff;
     }
+
     .stepper-step.completed .step-circle {
         background: #10b981;
         color: #ffffff;
     }
+
     .stepper-divider {
         flex: 1;
         height: 2px;
@@ -82,6 +89,7 @@
         padding: 20px;
         margin-bottom: 18px;
     }
+
     .app-card-header {
         display: flex;
         justify-content: space-between;
@@ -90,6 +98,7 @@
         padding-bottom: 12px;
         border-bottom: 1px solid #f1f5f9;
     }
+
     .app-card-title {
         font-size: 1rem;
         font-weight: 700;
@@ -98,6 +107,7 @@
         align-items: center;
         gap: 8px;
     }
+
     .app-card-title i {
         color: var(--primary-navy);
         font-size: 1.25rem;
@@ -108,16 +118,19 @@
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 16px;
     }
+
     .form-group {
         display: flex;
         flex-direction: column;
         gap: 6px;
     }
+
     .form-group label {
         font-size: 0.82rem;
         font-weight: 600;
         color: #475569;
     }
+
     .form-control {
         padding: 9px 13px;
         border: 1px solid #cbd5e1;
@@ -129,6 +142,7 @@
         width: 100%;
         background-color: #ffffff;
     }
+
     .form-control:focus {
         border-color: var(--primary-navy);
         box-shadow: 0 0 0 3px rgba(0, 0, 128, 0.08);
@@ -142,6 +156,7 @@
         border-radius: 10px;
         border: 1px solid #e2e8f0;
     }
+
     .search-type-pill {
         padding: 7px 16px;
         border-radius: 8px;
@@ -154,6 +169,7 @@
         gap: 6px;
         transition: all 0.2s;
     }
+
     .search-type-pill.active {
         background: var(--primary-navy);
         color: #ffffff;
@@ -164,6 +180,7 @@
         gap: 10px;
         position: relative;
     }
+
     .search-btn {
         background: var(--primary-navy);
         color: #ffffff;
@@ -177,6 +194,7 @@
         gap: 8px;
         transition: background 0.2s;
     }
+
     .search-btn:hover {
         background: var(--primary-hover);
     }
@@ -190,13 +208,14 @@
         background: #ffffff;
         border: 1px solid #cbd5e1;
         border-radius: 10px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         z-index: 1000;
         margin-top: 4px;
         max-height: 240px;
         overflow-y: auto;
         display: none;
     }
+
     .autocomplete-item {
         padding: 10px 16px;
         cursor: pointer;
@@ -206,6 +225,7 @@
         align-items: center;
         font-size: 0.88rem;
     }
+
     .autocomplete-item:hover {
         background: var(--primary-light);
         color: var(--primary-navy);
@@ -221,15 +241,17 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
         flex-wrap: wrap;
         gap: 14px;
     }
+
     .customer-info-left {
         display: flex;
         align-items: center;
         gap: 16px;
     }
+
     .customer-avatar-icon {
         width: 48px;
         height: 48px;
@@ -242,12 +264,14 @@
         font-size: 1.6rem;
         flex-shrink: 0;
     }
+
     .customer-text-meta h3 {
         font-size: 1.15rem;
         font-weight: 800;
         color: var(--text-dark);
         margin: 0 0 4px 0;
     }
+
     .customer-text-meta div {
         font-size: 0.85rem;
         color: var(--text-muted);
@@ -264,6 +288,7 @@
         gap: 16px;
         margin-top: 14px;
     }
+
     .vehicle-card {
         background: #ffffff;
         border: 1.5px solid #e2e8f0;
@@ -275,16 +300,19 @@
         flex-direction: column;
         justify-content: space-between;
     }
+
     .vehicle-card:hover {
         border-color: var(--primary-navy);
         box-shadow: 0 6px 18px rgba(0, 0, 128, 0.08);
     }
+
     .vehicle-plate-text {
         font-size: 1.25rem;
         font-weight: 800;
         color: var(--primary-navy);
         letter-spacing: 0.5px;
     }
+
     .badge-subtle {
         background: rgba(0, 0, 128, 0.07);
         color: var(--primary-navy);
@@ -303,12 +331,14 @@
         margin-bottom: 14px;
         position: relative;
     }
+
     .service-row-top {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 14px;
     }
+
     .service-rate-badge {
         background: #e2e8f0;
         color: #334155;
@@ -317,6 +347,7 @@
         font-size: 0.85rem;
         font-weight: 700;
     }
+
     .btn-remove-row {
         background: #fee2e2;
         color: #ef4444;
@@ -354,6 +385,7 @@
         padding-bottom: 14px;
         border-bottom: 1px dashed var(--border-color);
     }
+
     .category-pill {
         padding: 6px 14px;
         border-radius: 20px;
@@ -368,6 +400,7 @@
         align-items: center;
         gap: 6px;
     }
+
     .category-pill:hover {
         background: rgba(0, 0, 128, 0.08);
         color: var(--primary-navy);
@@ -379,6 +412,7 @@
         grid-template-columns: 1.2fr 1.8fr 1fr 1fr;
         gap: 14px;
     }
+
     @media (max-width: 768px) {
         .service-form-grid {
             grid-template-columns: 1fr;
@@ -393,6 +427,7 @@
         padding: 16px;
         margin-top: 14px;
     }
+
     .category-box-title {
         font-size: 0.85rem;
         font-weight: 700;
@@ -413,6 +448,7 @@
         position: sticky;
         top: 20px;
     }
+
     .bill-summary-title {
         font-size: 1.1rem;
         font-weight: 800;
@@ -424,6 +460,7 @@
         align-items: center;
         gap: 8px;
     }
+
     .summary-line {
         display: flex;
         justify-content: space-between;
@@ -431,9 +468,11 @@
         font-size: 0.9rem;
         color: #475569;
     }
+
     .summary-line strong {
         color: #1e293b;
     }
+
     .summary-total-line {
         display: flex;
         justify-content: space-between;
@@ -462,6 +501,7 @@
         gap: 8px;
         transition: background 0.2s;
     }
+
     .btn-submit-app:hover {
         background: #059669;
     }
@@ -490,6 +530,7 @@
         z-index: 9999;
         backdrop-filter: blur(2px);
     }
+
     .modal-dialog {
         background: #ffffff;
         border-radius: 14px;
@@ -498,6 +539,7 @@
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
         overflow: hidden;
     }
+
     .modal-header {
         background: #f8fafc;
         padding: 16px 22px;
@@ -506,12 +548,14 @@
         justify-content: space-between;
         align-items: center;
     }
+
     .modal-header h4 {
         margin: 0;
         font-weight: 700;
         color: #0f172a;
         font-size: 1.05rem;
     }
+
     .modal-close {
         background: transparent;
         border: none;
@@ -519,6 +563,7 @@
         cursor: pointer;
         color: #64748b;
     }
+
     .modal-body {
         padding: 22px;
     }
@@ -552,11 +597,11 @@
                 <label>Select Branch *</label>
                 <select id="branch_select" class="form-control" onchange="onBranchChange()">
                     {% for b in branches %}
-                        <option value="{{ b.id }}" {% if selected_branch_id == b.id|stringformat:"s" %}selected{% endif %}>
-                            {{ b.name }}
-                        </option>
+                    <option value="{{ b.id }}" {% if selected_branch_id==b.id|stringformat:"s" %}selected{% endif %}>
+                        {{ b.name }}
+                    </option>
                     {% empty %}
-                        <option value="">No branch available</option>
+                    <option value="">No branch available</option>
                     {% endfor %}
                 </select>
             </div>
@@ -580,34 +625,39 @@
             <label id="search_label">Enter Vehicle Number *</label>
             <div class="search-input-wrapper">
                 <div style="flex: 1; position: relative;">
-                    <input type="text" id="lookup_input" class="form-control" placeholder="e.g. KL 10 AZ 1234" autocomplete="off" oninput="onLookupInput()" onkeydown="onLookupKeyDown(event)">
+                    <input type="text" id="lookup_input" class="form-control" placeholder="e.g. KL 10 AZ 1234"
+                        autocomplete="off" oninput="onLookupInput()" onkeydown="onLookupKeyDown(event)">
                     <div id="autocomplete_dropdown" class="autocomplete-list"></div>
                 </div>
                 <button type="button" class="search-btn" onclick="executeLookup()">
                     <i class="ph ph-magnifying-glass"></i> Search
                 </button>
             </div>
-            <small style="color: #64748b; margin-top: 4px;">Type 2 or more characters for live suggestions, or press Enter.</small>
+            <!-- <small style="color: #64748b; margin-top: 4px;">Type 2 or more characters for live suggestions, or press Enter.</small> -->
         </div>
     </div>
 
     <!-- Search Status / Spinner -->
     <div id="search_loading" style="display: none; text-align: center; padding: 40px;">
-        <i class="ph ph-spinner-gap" style="font-size: 2.2rem; color: var(--primary-navy); animation: spin 1s linear infinite;"></i>
+        <i class="ph ph-spinner-gap"
+            style="font-size: 2.2rem; color: var(--primary-navy); animation: spin 1s linear infinite;"></i>
         <div style="margin-top: 10px; font-weight: 600; color: #475569;">Searching customer & vehicle records...</div>
     </div>
 
     <!-- Not Found State -->
     <div id="search_not_found" style="display: none;" class="app-card">
         <div style="text-align: center; padding: 24px;">
-            <div style="width: 56px; height: 56px; border-radius: 50%; background: #fff7ed; color: #ea580c; display: inline-flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 12px;">
+            <div
+                style="width: 56px; height: 56px; border-radius: 50%; background: #fff7ed; color: #ea580c; display: inline-flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 12px;">
                 <i class="ph ph-warning-circle"></i>
             </div>
-            <h3 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-bottom: 6px;">No Customer or Vehicle Found</h3>
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-bottom: 6px;">No Customer or Vehicle
+                Found</h3>
             <p style="color: #64748b; max-width: 400px; margin: 0 auto 18px auto; font-size: 0.88rem;">
                 No matching record found in this branch/company. You can add a new customer and vehicle right now.
             </p>
-            <button type="button" class="search-btn" style="display: inline-flex; margin: 0 auto;" onclick="openAddCustomerModal()">
+            <button type="button" class="search-btn" style="display: inline-flex; margin: 0 auto;"
+                onclick="openAddCustomerModal()">
                 <i class="ph ph-user-plus"></i> Add New Customer & Vehicle
             </button>
         </div>
@@ -627,11 +677,13 @@
                         <span><i class="ph ph-phone"></i> <strong id="res_cust_phone">-</strong></span>
                         <span>•</span>
                         <span>Type: <strong id="res_cust_type">Regular</strong></span>
-                        <span id="res_cust_branch_span" style="display:none;">• Branch: <strong id="res_cust_branch">-</strong></span>
+                        <span id="res_cust_branch_span" style="display:none;">• Branch: <strong
+                                id="res_cust_branch">-</strong></span>
                     </div>
                 </div>
             </div>
-            <button type="button" class="search-btn" style="padding: 8px 16px; font-size: 0.85rem;" onclick="openAddVehicleModal()">
+            <button type="button" class="search-btn" style="padding: 8px 16px; font-size: 0.85rem;"
+                onclick="openAddVehicleModal()">
                 <i class="ph ph-plus-circle"></i> Add Vehicle
             </button>
         </div>
@@ -639,8 +691,10 @@
         <!-- Customer Vehicles List -->
         <div style="margin-top: 18px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-                    <i class="ph ph-car" style="color: var(--primary-navy);"></i> Customer Vehicles (<span id="res_vehicle_count">0</span>)
+                <h3
+                    style="font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <i class="ph ph-car" style="color: var(--primary-navy);"></i> Customer Vehicles (<span
+                        id="res_vehicle_count">0</span>)
                 </h3>
             </div>
             <div id="res_vehicles_grid" class="vehicle-cards-grid">
@@ -689,7 +743,8 @@
                         <div class="app-card-title">
                             <i class="ph ph-wrench"></i> Services & Packages
                         </div>
-                        <button type="button" class="search-btn" style="padding: 6px 14px; font-size: 0.82rem;" onclick="addServiceRow()">
+                        <button type="button" class="search-btn" style="padding: 6px 14px; font-size: 0.82rem;"
+                            onclick="addServiceRow()">
                             <i class="ph ph-plus-circle"></i> Add Service
                         </button>
                     </div>
@@ -708,7 +763,9 @@
                         <div class="app-card-title">
                             <i class="ph ph-package"></i> Trading / Spare Parts
                         </div>
-                        <button type="button" class="search-btn" style="padding: 6px 14px; font-size: 0.82rem; background:#475569;" onclick="addTradingRow()">
+                        <button type="button" class="search-btn"
+                            style="padding: 6px 14px; font-size: 0.82rem; background:#475569;"
+                            onclick="addTradingRow()">
                             <i class="ph ph-plus-circle"></i> Add Spare Item
                         </button>
                     </div>
@@ -721,10 +778,13 @@
                 <div class="app-card">
                     <div class="app-card-header">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
-                            <input type="checkbox" id="add_extras_checkbox" style="width: 18px; height: 18px;" onchange="toggleExtrasCard(this)">
+                            <input type="checkbox" id="add_extras_checkbox" style="width: 18px; height: 18px;"
+                                onchange="toggleExtrasCard(this)">
                             <span class="app-card-title" style="margin: 0;"><i class="ph ph-tag"></i> Add Extras</span>
                         </label>
-                        <button type="button" id="btn_add_extra_row" class="search-btn" style="display: none; padding: 6px 14px; font-size: 0.82rem; background:#475569;" onclick="addExtraRow()">
+                        <button type="button" id="btn_add_extra_row" class="search-btn"
+                            style="display: none; padding: 6px 14px; font-size: 0.82rem; background:#475569;"
+                            onclick="addExtraRow()">
                             <i class="ph ph-plus-circle"></i> Add Extra
                         </button>
                     </div>
@@ -737,12 +797,15 @@
                 <div class="app-card" id="reminders_card">
                     <div class="app-card-header">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
-                            <input type="checkbox" id="add_custom_reminders_checkbox" style="width: 18px; height: 18px;" onchange="toggleCustomRemindersCard(this)">
+                            <input type="checkbox" id="add_custom_reminders_checkbox" style="width: 18px; height: 18px;"
+                                onchange="toggleCustomRemindersCard(this)">
                             <span class="app-card-title" style="margin: 0;">
                                 <i class="ph ph-bell"></i> Add Custom Reminders
                             </span>
                         </label>
-                        <button type="button" id="btn_add_reminder_row" class="search-btn" style="display: none; padding: 6px 14px; font-size: 0.82rem; background:#475569;" onclick="addReminderRow()">
+                        <button type="button" id="btn_add_reminder_row" class="search-btn"
+                            style="display: none; padding: 6px 14px; font-size: 0.82rem; background:#475569;"
+                            onclick="addReminderRow()">
                             <i class="ph ph-plus-circle"></i> Add Reminder
                         </button>
                     </div>
@@ -754,7 +817,8 @@
                 <!-- Detailing Warranty PDF Card -->
                 <div class="app-card" id="warranty_pdf_group" style="display: none;">
                     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 9px; padding: 14px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #1e3a8a; font-weight: 600; margin: 0;">
+                        <label
+                            style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #1e3a8a; font-weight: 600; margin: 0;">
                             <input type="checkbox" id="show_warranty_in_pdf" style="width: 18px; height: 18px;">
                             <span>Include Warranty & Free Top-Up Schedule in Invoice PDF</span>
                         </label>
@@ -769,7 +833,8 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <textarea id="remarks_input" class="form-control" rows="2" placeholder="Recommendations, notes for next visit..."></textarea>
+                        <textarea id="remarks_input" class="form-control" rows="2"
+                            placeholder="Recommendations, notes for next visit..."></textarea>
                     </div>
                 </div>
             </div>
@@ -780,19 +845,23 @@
                 <div class="app-card">
                     <div class="app-card-header">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
-                            <input type="checkbox" id="apply_tax_checkbox" style="width: 18px; height: 18px;" onchange="toggleTaxSection(this)">
+                            <input type="checkbox" id="apply_tax_checkbox" style="width: 18px; height: 18px;"
+                                onchange="toggleTaxSection(this)">
                             <span class="app-card-title" style="margin: 0;"><i class="ph ph-percent"></i> TAX</span>
                         </label>
                     </div>
                     <div id="tax_sub_section" style="display: none;">
                         <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 4px;">
                             {% for tax in company_taxes %}
-                                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
-                                    <input type="checkbox" class="tax-checkbox" value="{{ tax.tax.id }}" data-percent="{{ tax.tax.percent }}" data-name="{{ tax.tax.name }}" onchange="calculateTotals()">
-                                    <span>{{ tax.tax.name }} ({{ tax.tax.percent }}%)</span>
-                                </label>
+                            <label
+                                style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                                <input type="checkbox" class="tax-checkbox" value="{{ tax.tax.id }}"
+                                    data-percent="{{ tax.tax.percent }}" data-name="{{ tax.tax.name }}"
+                                    onchange="calculateTotals()">
+                                <span>{{ tax.tax.name }} ({{ tax.tax.percent }}%)</span>
+                            </label>
                             {% empty %}
-                                <div style="color: #64748b; font-size: 0.85rem;">No company taxes configured.</div>
+                            <div style="color: #64748b; font-size: 0.85rem;">No company taxes configured.</div>
                             {% endfor %}
                         </div>
                     </div>
@@ -814,8 +883,10 @@
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label>Additional Discount</label>
                         <div style="display: flex; gap: 8px;">
-                            <input type="number" step="0.01" id="additional_discount_input" value="0" class="form-control" oninput="calculateTotals()">
-                            <select id="discount_type_select" class="form-control" style="width: 110px;" onchange="calculateTotals()">
+                            <input type="number" step="0.01" id="additional_discount_input" value="0"
+                                class="form-control" oninput="calculateTotals()">
+                            <select id="discount_type_select" class="form-control" style="width: 110px;"
+                                onchange="calculateTotals()">
                                 <option value="amount">Amt ({{ currency_symbol }})</option>
                                 <option value="percent">%</option>
                             </select>
@@ -841,7 +912,8 @@
 
                     <div class="form-group" style="margin-bottom: 8px;">
                         <label>Amount Collected ({{ currency_symbol }})</label>
-                        <input type="number" step="0.01" id="amount_collected_input" value="0" class="form-control" oninput="calculateTotals()">
+                        <input type="number" step="0.01" id="amount_collected_input" value="0" class="form-control"
+                            oninput="calculateTotals()">
                     </div>
                 </div>
 
@@ -915,20 +987,21 @@
                     <label>Customer Type *</label>
                     <select id="qc_type" class="form-control" required>
                         {% for ct in customer_types %}
-                            <option value="{{ ct.id }}">{{ ct.name }}</option>
+                        <option value="{{ ct.id }}">{{ ct.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="form-group" style="margin-bottom:12px;">
                     <label>Vehicle Number *</label>
-                    <input type="text" id="qc_vehicle_no" class="form-control" required placeholder="e.g. KL 10 AZ 1234" style="text-transform:uppercase;">
+                    <input type="text" id="qc_vehicle_no" class="form-control" required placeholder="e.g. KL 10 AZ 1234"
+                        style="text-transform:uppercase;">
                 </div>
                 <div class="form-group" style="margin-bottom:16px;">
                     <label>Vehicle Model *</label>
                     <select id="qc_vehicle_model" class="form-control" required>
                         <option value="">-- Select Model --</option>
                         {% for vm in vehicle_models %}
-                            <option value="{{ vm.id }}">{{ vm.name }} ({{ vm.vehicle_type.name }})</option>
+                        <option value="{{ vm.id }}">{{ vm.name }} ({{ vm.vehicle_type.name }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -951,14 +1024,15 @@
             <form id="quickVehicleForm" onsubmit="submitQuickVehicle(event)">
                 <div class="form-group" style="margin-bottom:12px;">
                     <label>Vehicle Plate Number *</label>
-                    <input type="text" id="qv_number" class="form-control" required placeholder="e.g. KL 10 AZ 1234" style="text-transform:uppercase;">
+                    <input type="text" id="qv_number" class="form-control" required placeholder="e.g. KL 10 AZ 1234"
+                        style="text-transform:uppercase;">
                 </div>
                 <div class="form-group" style="margin-bottom:12px;">
                     <label>Vehicle Model *</label>
                     <select id="qv_model" class="form-control" required>
                         <option value="">-- Select Model --</option>
                         {% for vm in vehicle_models %}
-                            <option value="{{ vm.id }}">{{ vm.name }} ({{ vm.vehicle_type.name }})</option>
+                        <option value="{{ vm.id }}">{{ vm.name }} ({{ vm.vehicle_type.name }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -987,44 +1061,44 @@
     // Master arrays from Django
     const oilProducts = [
         {% for op in oil_products %}
-        { id: "{{ op.id }}", name: "{{ op.name|escapejs }}", price: parseFloat("{{ op.price|default:0 }}") || 0, brand: "{{ op.oil_brand.name|default:''|escapejs }}", grade: "{{ op.oil_grade.name|default:''|escapejs }}" },
-        {% endfor %}
+    { id: "{{ op.id }}", name: "{{ op.name|escapejs }}", price: parseFloat("{{ op.price|default:0 }}") || 0, brand: "{{ op.oil_brand.name|default:''|escapejs }}", grade: "{{ op.oil_grade.name|default:''|escapejs }}" },
+    {% endfor %}
     ];
 
     const oilFilters = [
         {% for of in oil_filters %}
-        { id: "{{ of.id }}", name: "{{ of.name|escapejs }}", brand_name: "{{ of.brand.name|default:''|escapejs }}", price: parseFloat("{{ of.price|default:0 }}") || 0 },
-        {% endfor %}
+    { id: "{{ of.id }}", name: "{{ of.name|escapejs }}", brand_name: "{{ of.brand.name|default:''|escapejs }}", price: parseFloat("{{ of.price|default:0 }}") || 0 },
+    {% endfor %}
     ];
 
     const tyreBrands = [
         {% for tb in tyre_brands %}
-        { id: "{{ tb.id }}", brand: "{{ tb.brand|escapejs }}" },
-        {% endfor %}
+    { id: "{{ tb.id }}", brand: "{{ tb.brand|escapejs }}" },
+    {% endfor %}
     ];
 
     const tyres = [
         {% for t in tyres %}
-        { id: "{{ t.id }}", name: "{{ t.name|escapejs }}", brand_id: "{{ t.tyre_brand.id }}", price: parseFloat("{{ t.price|default:0 }}") || 0, size: "{{ t.size|default:'' }}" },
-        {% endfor %}
+    { id: "{{ t.id }}", name: "{{ t.name|escapejs }}", brand_id: "{{ t.tyre_brand.id }}", price: parseFloat("{{ t.price|default:0 }}") || 0, size: "{{ t.size|default:'' }}" },
+    {% endfor %}
     ];
 
     const batteries = [
         {% for b in batteries %}
-        { id: "{{ b.id }}", name: "{{ b.make.name|escapejs }} {{ b.ampere.name|escapejs }} ({{ b.segment.name|escapejs }})", price: parseFloat("{{ b.price|default:0 }}") || 0, warranty: parseFloat("{{ b.warranty_years|default:1 }}") || 1 },
-        {% endfor %}
+    { id: "{{ b.id }}", name: "{{ b.make.name|escapejs }} {{ b.ampere.name|escapejs }} ({{ b.segment.name|escapejs }})", price: parseFloat("{{ b.price|default:0 }}") || 0, warranty: parseFloat("{{ b.warranty_years|default:1 }}") || 1 },
+    {% endfor %}
     ];
 
     const stockItems = [
         {% for s in stock_items %}
-        { id: "{{ s.id }}", name: "{{ s.item_name|escapejs }}", rate: parseFloat("{{ s.rate|default:0 }}") || 0, stock: parseFloat("{{ s.quantity|default:0 }}") || 0 },
-        {% endfor %}
+    { id: "{{ s.id }}", name: "{{ s.item_name|escapejs }}", rate: parseFloat("{{ s.rate|default:0 }}") || 0, stock: parseFloat("{{ s.quantity|default:0 }}") || 0 },
+    {% endfor %}
     ];
 
     const extras = [
         {% for e in extras %}
-        { id: "{{ e.id }}", name: "{{ e.name|escapejs }}", rate: parseFloat("{{ e.rate|default:0 }}") || 0 },
-        {% endfor %}
+    { id: "{{ e.id }}", name: "{{ e.name|escapejs }}", rate: parseFloat("{{ e.rate|default:0 }}") || 0 },
+    {% endfor %}
     ];
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -1095,7 +1169,7 @@
 
     function fetchSuggestions(query) {
         const branchId = document.getElementById('branch_select').value;
-        const url = searchType === 'vehicle' 
+        const url = searchType === 'vehicle'
             ? `/api/vehicle/search-list/?q=${encodeURIComponent(query)}&branch_id=${branchId}`
             : `/api/customer/search-list/?q=${encodeURIComponent(query)}&branch_id=${branchId}`;
 
@@ -1106,7 +1180,7 @@
                     renderAutocomplete(data.vehicles || data.customers || []);
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
     }
 
     function renderAutocomplete(items) {
@@ -1258,7 +1332,7 @@
                     selectVehicleAndProceed(vehicleId);
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
     }
 
     function goToStep(step) {
@@ -2288,26 +2362,26 @@
             },
             body: JSON.stringify(payload)
         })
-        .then(res => res.json())
-        .then(data => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="ph ph-check-circle"></i> Create & Finalize Invoice';
-            if (data.success) {
-                alert(`Invoice ${data.invoice_number || ''} created successfully!`);
-                if (data.invoice_id) {
-                    window.location.href = `/invoice-receipt/${data.invoice_id}/`;
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-check-circle"></i> Create & Finalize Invoice';
+                if (data.success) {
+                    alert(`Invoice ${data.invoice_number || ''} created successfully!`);
+                    if (data.invoice_id) {
+                        window.location.href = `/invoice-receipt/${data.invoice_id}/`;
+                    } else {
+                        window.location.href = '/invoices/';
+                    }
                 } else {
-                    window.location.href = '/invoices/';
+                    alert(`Failed to create invoice: ${data.message || 'Unknown error'}`);
                 }
-            } else {
-                alert(`Failed to create invoice: ${data.message || 'Unknown error'}`);
-            }
-        })
-        .catch(err => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="ph ph-check-circle"></i> Create & Finalize Invoice';
-            alert(`Error: ${err.message || 'Server error occurred'}`);
-        });
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-check-circle"></i> Create & Finalize Invoice';
+                alert(`Error: ${err.message || 'Server error occurred'}`);
+            });
     }
 
     // ── Quick Add Modals ──
@@ -2363,17 +2437,17 @@
             },
             body: JSON.stringify(payload)
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                closeModal('addCustomerModal');
-                document.getElementById('lookup_input').value = vNo || phone;
-                executeLookup();
-            } else {
-                alert(`Error: ${data.message || 'Could not add customer'}`);
-            }
-        })
-        .catch(err => alert(`Error: ${err.message}`));
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal('addCustomerModal');
+                    document.getElementById('lookup_input').value = vNo || phone;
+                    executeLookup();
+                } else {
+                    alert(`Error: ${data.message || 'Could not add customer'}`);
+                }
+            })
+            .catch(err => alert(`Error: ${err.message}`));
     }
 
     function submitQuickVehicle(e) {
@@ -2395,23 +2469,28 @@
             method: 'POST',
             body: formData
         })
-        .then(() => {
-            closeModal('addVehicleModal');
-            document.getElementById('lookup_input').value = currentCustomer.phone;
-            setSearchType('mobile');
-            executeLookup();
-        })
-        .catch(() => {
-            closeModal('addVehicleModal');
-            executeLookup();
-        });
+            .then(() => {
+                closeModal('addVehicleModal');
+                document.getElementById('lookup_input').value = currentCustomer.phone;
+                setSearchType('mobile');
+                executeLookup();
+            })
+            .catch(() => {
+                closeModal('addVehicleModal');
+                executeLookup();
+            });
     }
 </script>
 
 <style>
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
 </style>
 {% endblock %}
