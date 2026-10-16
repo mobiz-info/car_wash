@@ -597,7 +597,7 @@
                 <label>Select Branch *</label>
                 <select id="branch_select" class="form-control" onchange="onBranchChange()">
                     {% for b in branches %}
-                    <option value="{{ b.id }}" {% if selected_branch_id==b.id|stringformat:"s" %}selected{% endif %}>
+                    <option value="{{ b.id }}" {% if selected_branch_id == b.id|stringformat:"s" %}selected{% endif %}>
                         {{ b.name }}
                     </option>
                     {% empty %}
