@@ -1051,8 +1051,8 @@
     function fetchSuggestions(query) {
         const branchId = document.getElementById('branch_select').value;
         const url = searchType === 'vehicle' 
-            ? `/client/api/vehicle/search-list/?q=${encodeURIComponent(query)}&branch_id=${branchId}`
-            : `/client/api/customer/search-list/?q=${encodeURIComponent(query)}&branch_id=${branchId}`;
+            ? `/api/vehicle/search-list/?q=${encodeURIComponent(query)}&branch_id=${branchId}`
+            : `/api/customer/search-list/?q=${encodeURIComponent(query)}&branch_id=${branchId}`;
 
         fetch(url)
             .then(res => res.json())
@@ -1114,7 +1114,7 @@
         document.getElementById('search_not_found').style.display = 'none';
         document.getElementById('search_result_container').style.display = 'none';
 
-        let url = `/client/api/customer/search/?branch_id=${branchId}&`;
+        let url = `/api/customer/search/?branch_id=${branchId}&`;
         if (searchType === 'vehicle') {
             url += `vehicle_number=${encodeURIComponent(query)}`;
         } else {
@@ -1213,7 +1213,7 @@
 
     function loadDirectCustomerAndVehicle(customerId, vehicleId, branchId) {
         let bId = branchId || document.getElementById('branch_select').value;
-        fetch(`/client/api/customer/search/?customer_id=${customerId}&vehicle_id=${vehicleId}&branch_id=${bId}`)
+        fetch(`/api/customer/search/?customer_id=${customerId}&vehicle_id=${vehicleId}&branch_id=${bId}`)
             .then(res => res.json())
             .then(data => {
                 if (data.success && data.customer) {
@@ -1250,7 +1250,7 @@
         const sContainer = document.getElementById('service_rows_container');
         sContainer.innerHTML = '<div style="padding:20px; color:#64748b;"><i class="ph ph-spinner-gap"></i> Loading services for this vehicle...</div>';
 
-        fetch(`/client/api/invoice/services/?customer_id=${customerId}&vehicle_id=${vehicleId}&branch_id=${branchId}`)
+        fetch(`/api/invoice/services/?customer_id=${customerId}&vehicle_id=${vehicleId}&branch_id=${branchId}`)
             .then(res => res.json())
             .then(data => {
                 sContainer.innerHTML = '';
@@ -1927,7 +1927,7 @@
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-        fetch('/client/api/customer/add/', {
+        fetch('/api/customer/add/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1964,7 +1964,7 @@
         formData.append('wheel_type', wheel);
         formData.append('csrfmiddlewaretoken', csrfToken);
 
-        fetch('/client/customer-vehicle/create/', {
+        fetch('/customer-vehicle/create/', {
             method: 'POST',
             body: formData
         })

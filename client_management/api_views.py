@@ -446,7 +446,7 @@ def api_customer_search_list(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized or invalid token'}, status=401)
         
     q = request.GET.get('q', '').strip()
-    if not q or len(q) < 3:
+    if not q or len(q) < 2:
         return JsonResponse({'success': True, 'customers': []})
         
     company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
@@ -455,10 +455,13 @@ def api_customer_search_list(request):
     customers = Customer.objects.filter(is_deleted=False)
     if user.profile.role.name == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
         customers = customers.filter(branch=user.managed_branch)
-    elif branch_id:
-        customers = customers.filter(branch_id=branch_id)
     elif company:
         customers = customers.filter(company=company)
+    elif branch_id:
+        from client_management.models import Branch
+        b_target = Branch.objects.filter(id=branch_id, is_deleted=False).first()
+        if b_target and b_target.company:
+            customers = customers.filter(company=b_target.company)
         
     from django.db.models import Q
     customers = customers.filter(
