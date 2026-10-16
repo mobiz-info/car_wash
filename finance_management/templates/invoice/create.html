@@ -11,18 +11,20 @@
         --primary-hover: #000066;
         --primary-light: #f0f4ff;
         --border-color: #e2e8f0;
-        --text-dark: #0f172a;
+        --text-dark: #1e293b;
         --text-muted: #64748b;
+        --card-bg: #ffffff;
     }
 
+    /* Stepper Navigation */
     .stepper-header {
         display: flex;
         align-items: center;
-        background: #ffffff;
+        background: var(--card-bg);
         border-radius: 14px;
         padding: 16px 24px;
-        margin-bottom: 24px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
         border: 1px solid var(--border-color);
         gap: 16px;
     }
@@ -46,8 +48,8 @@
         color: #10b981;
     }
     .step-circle {
-        width: 30px;
-        height: 30px;
+        width: 28px;
+        height: 28px;
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -71,33 +73,39 @@
         background: #e2e8f0;
     }
 
-    .inv-card {
+    /* Cards - Clean White Matching App _card */
+    .app-card {
         background: #ffffff;
         border-radius: 14px;
         border: 1px solid var(--border-color);
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
-        padding: 24px;
-        margin-bottom: 24px;
-    }
-    .inv-card-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--text-dark);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        padding: 20px;
         margin-bottom: 18px;
+    }
+    .app-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .app-card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--primary-navy);
         display: flex;
         align-items: center;
-        gap: 10px;
-        border-bottom: 1px solid #f1f5f9;
-        padding-bottom: 14px;
+        gap: 8px;
     }
-    .inv-card-title i {
+    .app-card-title i {
         color: var(--primary-navy);
-        font-size: 1.3rem;
+        font-size: 1.25rem;
     }
 
     .form-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 16px;
     }
     .form-group {
@@ -106,14 +114,14 @@
         gap: 6px;
     }
     .form-group label {
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         font-weight: 600;
         color: #475569;
     }
     .form-control {
-        padding: 10px 14px;
+        padding: 9px 13px;
         border: 1px solid #cbd5e1;
-        border-radius: 10px;
+        border-radius: 9px;
         font-size: 0.9rem;
         color: #1e293b;
         outline: none;
@@ -123,37 +131,34 @@
     }
     .form-control:focus {
         border-color: var(--primary-navy);
-        box-shadow: 0 0 0 3px rgba(0, 0, 128, 0.1);
+        box-shadow: 0 0 0 3px rgba(0, 0, 128, 0.08);
     }
 
-    /* Radio Search Type Pill Switch */
+    /* Search Type Pills */
     .search-type-pill-group {
         display: inline-flex;
         background: #f1f5f9;
         padding: 4px;
-        border-radius: 12px;
+        border-radius: 10px;
         border: 1px solid #e2e8f0;
-        margin-bottom: 14px;
     }
     .search-type-pill {
-        padding: 8px 18px;
+        padding: 7px 16px;
         border-radius: 8px;
-        font-size: 0.88rem;
+        font-size: 0.85rem;
         font-weight: 600;
         color: #64748b;
         cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         transition: all 0.2s;
     }
     .search-type-pill.active {
         background: var(--primary-navy);
         color: #ffffff;
-        box-shadow: 0 2px 6px rgba(0,0,128,0.2);
     }
 
-    /* Search input row */
     .search-input-wrapper {
         display: flex;
         gap: 10px;
@@ -163,8 +168,8 @@
         background: var(--primary-navy);
         color: #ffffff;
         border: none;
-        padding: 0 24px;
-        border-radius: 10px;
+        padding: 0 22px;
+        border-radius: 9px;
         font-weight: 600;
         cursor: pointer;
         display: flex;
@@ -176,7 +181,7 @@
         background: var(--primary-hover);
     }
 
-    /* Autocomplete dropdown list */
+    /* Autocomplete Dropdown */
     .autocomplete-list {
         position: absolute;
         top: 100%;
@@ -199,54 +204,60 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 0.9rem;
+        font-size: 0.88rem;
     }
     .autocomplete-item:hover {
         background: var(--primary-light);
         color: var(--primary-navy);
     }
 
-    /* Customer details card */
-    .customer-profile-card {
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border: 1px solid #e2e8f0;
+    /* Customer Info Header Card (Clean White) */
+    .customer-info-header {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
         border-radius: 14px;
-        padding: 20px;
+        padding: 18px 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+    .customer-info-left {
         display: flex;
         align-items: center;
-        gap: 18px;
-        margin-top: 20px;
+        gap: 16px;
     }
-    .customer-avatar {
-        width: 56px;
-        height: 56px;
+    .customer-avatar-icon {
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
-        background: rgba(0, 0, 128, 0.1);
+        background: rgba(0, 0, 128, 0.08);
         color: var(--primary-navy);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.8rem;
+        font-size: 1.6rem;
         flex-shrink: 0;
     }
-    .customer-meta {
-        flex: 1;
-    }
-    .customer-name {
-        font-size: 1.25rem;
-        font-weight: 700;
+    .customer-text-meta h3 {
+        font-size: 1.15rem;
+        font-weight: 800;
         color: var(--text-dark);
-        margin-bottom: 4px;
+        margin: 0 0 4px 0;
     }
-    .customer-subtext {
-        font-size: 0.88rem;
+    .customer-text-meta div {
+        font-size: 0.85rem;
         color: var(--text-muted);
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
+        align-items: center;
     }
 
-    /* Vehicle list cards */
+    /* Vehicle Cards */
     .vehicle-cards-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -255,129 +266,36 @@
     }
     .vehicle-card {
         background: #ffffff;
-        border: 2px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 20px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 18px;
         cursor: pointer;
-        transition: all 0.25s ease;
-        position: relative;
+        transition: all 0.2s ease;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
     }
     .vehicle-card:hover {
         border-color: var(--primary-navy);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0, 0, 128, 0.08);
+        box-shadow: 0 6px 18px rgba(0, 0, 128, 0.08);
     }
-    .vehicle-card-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 12px;
-    }
-    .vehicle-number-plate {
+    .vehicle-plate-text {
         font-size: 1.25rem;
         font-weight: 800;
         color: var(--primary-navy);
         letter-spacing: 0.5px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
     }
-    .vehicle-model-badge {
-        background: rgba(0, 0, 128, 0.08);
+    .badge-subtle {
+        background: rgba(0, 0, 128, 0.07);
         color: var(--primary-navy);
-        padding: 4px 10px;
-        border-radius: 8px;
-        font-size: 0.8rem;
+        padding: 4px 9px;
+        border-radius: 7px;
+        font-size: 0.78rem;
         font-weight: 600;
-        border: 1px solid rgba(0, 0, 128, 0.15);
-    }
-    .vehicle-card-body {
-        font-size: 0.85rem;
-        color: #475569;
-        margin-bottom: 16px;
-        border-top: 1px solid #f1f5f9;
-        padding-top: 10px;
-    }
-    .vehicle-card-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: auto;
-    }
-    .btn-select-vehicle {
-        flex: 1;
-        background: var(--primary-navy);
-        color: #ffffff;
-        border: none;
-        padding: 10px 14px;
-        border-radius: 10px;
-        font-weight: 700;
-        font-size: 0.88rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        transition: background 0.2s;
-    }
-    .btn-select-vehicle:hover {
-        background: var(--primary-hover);
     }
 
-    /* Selected vehicle banner at Step 2 top */
-    .selected-job-banner {
-        background: #0f172a;
-        color: #ffffff;
-        border-radius: 14px;
-        padding: 16px 22px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 24px;
-        flex-wrap: wrap;
-        gap: 14px;
-    }
-    .selected-job-info {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-    }
-    .selected-job-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.92rem;
-    }
-    .selected-job-item i {
-        color: #38bdf8;
-        font-size: 1.2rem;
-    }
-    .selected-job-item strong {
-        color: #f8fafc;
-    }
-    .btn-change-job {
-        background: rgba(255, 255, 255, 0.15);
-        color: #ffffff;
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        transition: all 0.2s;
-    }
-    .btn-change-job:hover {
-        background: rgba(255, 255, 255, 0.25);
-    }
-
-    /* Step 2 Form Rows & Category Boxes */
-    .item-row {
+    /* Service / Item Rows */
+    .service-row-card {
         background: #f8fafc;
         border: 1px solid var(--border-color);
         border-radius: 12px;
@@ -385,17 +303,25 @@
         margin-bottom: 14px;
         position: relative;
     }
-    .item-row-header {
+    .service-row-top {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 14px;
     }
+    .service-rate-badge {
+        background: #e2e8f0;
+        color: #334155;
+        padding: 4px 10px;
+        border-radius: 7px;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
     .btn-remove-row {
         background: #fee2e2;
         color: #ef4444;
         border: none;
-        padding: 6px 12px;
+        padding: 5px 11px;
         border-radius: 6px;
         cursor: pointer;
         font-size: 0.8rem;
@@ -404,15 +330,71 @@
         align-items: center;
         gap: 4px;
     }
-    .category-detail-box {
+
+    /* Line Total Display */
+    .line-total-badge {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.92rem;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Category Quick Selection Pills */
+    .category-pills-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px dashed var(--border-color);
+    }
+    .category-pill {
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: #f8fafc;
+        color: #334155;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .category-pill:hover {
+        background: rgba(0, 0, 128, 0.08);
+        color: var(--primary-navy);
+        border-color: var(--primary-navy);
+    }
+
+    .service-form-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1.8fr 1fr 1fr;
+        gap: 14px;
+    }
+    @media (max-width: 768px) {
+        .service-form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Category Boxes */
+    .category-box {
         background: #ffffff;
         border: 1px dashed #cbd5e1;
         border-radius: 10px;
         padding: 16px;
         margin-top: 14px;
     }
-    .category-detail-title {
-        font-size: 0.88rem;
+    .category-box-title {
+        font-size: 0.85rem;
         font-weight: 700;
         color: var(--primary-navy);
         margin-bottom: 12px;
@@ -421,54 +403,87 @@
         gap: 6px;
     }
 
-    .summary-card {
-        background: #0f172a;
-        color: #ffffff;
+    /* Bill Summary (Clean White Matching App) */
+    .bill-summary-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
         border-radius: 14px;
-        padding: 24px;
+        padding: 22px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
         position: sticky;
         top: 20px;
     }
-    .summary-row {
+    .bill-summary-title {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1.5px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .summary-line {
         display: flex;
         justify-content: space-between;
-        padding: 10px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        font-size: 0.92rem;
+        padding: 7px 0;
+        font-size: 0.9rem;
+        color: #475569;
     }
-    .summary-row.total-row {
-        border-bottom: none;
-        font-size: 1.35rem;
+    .summary-line strong {
+        color: #1e293b;
+    }
+    .summary-total-line {
+        display: flex;
+        justify-content: space-between;
+        padding: 14px 0 6px 0;
+        margin-top: 10px;
+        border-top: 2px solid #e2e8f0;
+        font-size: 1.3rem;
         font-weight: 800;
-        color: #38bdf8;
-        padding-top: 16px;
+        color: var(--primary-navy);
     }
-    .btn-submit-invoice {
+
+    .btn-submit-app {
         background: #10b981;
         color: white;
         border: none;
-        padding: 14px 24px;
+        padding: 13px 20px;
         border-radius: 10px;
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 700;
         cursor: pointer;
         width: 100%;
-        margin-top: 18px;
+        margin-top: 16px;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
         transition: background 0.2s;
     }
-    .btn-submit-invoice:hover {
+    .btn-submit-app:hover {
         background: #059669;
+    }
+
+    /* Custom Reminders Pill */
+    .reminder-pill-row {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 9px;
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        gap: 12px;
     }
 
     /* Modal styling */
     .modal-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.45);
         display: none;
         align-items: center;
         justify-content: center;
@@ -477,15 +492,15 @@
     }
     .modal-dialog {
         background: #ffffff;
-        border-radius: 16px;
+        border-radius: 14px;
         width: 90%;
-        max-width: 520px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        max-width: 500px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
         overflow: hidden;
     }
     .modal-header {
         background: #f8fafc;
-        padding: 18px 24px;
+        padding: 16px 22px;
         border-bottom: 1px solid #e2e8f0;
         display: flex;
         justify-content: space-between;
@@ -495,7 +510,7 @@
         margin: 0;
         font-weight: 700;
         color: #0f172a;
-        font-size: 1.1rem;
+        font-size: 1.05rem;
     }
     .modal-close {
         background: transparent;
@@ -505,11 +520,11 @@
         color: #64748b;
     }
     .modal-body {
-        padding: 24px;
+        padding: 22px;
     }
 </style>
 
-<!-- Stepper Bar -->
+<!-- Stepper Navigation -->
 <div class="stepper-header">
     <div id="step1_indicator" class="stepper-step active" onclick="goToStep(1)">
         <div class="step-circle">1</div>
@@ -524,9 +539,11 @@
 
 <!-- ================= STEP 1: Branch Select & Vehicle/Customer Search ================= -->
 <div id="step1_container">
-    <div class="inv-card">
-        <div class="inv-card-title">
-            <i class="ph ph-magnifying-glass"></i> Branch & Vehicle Lookup
+    <div class="app-card">
+        <div class="app-card-header">
+            <div class="app-card-title">
+                <i class="ph ph-magnifying-glass"></i> New Job - Customer & Vehicle Search
+            </div>
         </div>
 
         <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
@@ -570,25 +587,25 @@
                     <i class="ph ph-magnifying-glass"></i> Search
                 </button>
             </div>
-            <small style="color: #64748b; margin-top: 4px;">Type at least 2 characters for live suggestions, or press Enter to search.</small>
+            <small style="color: #64748b; margin-top: 4px;">Type 2 or more characters for live suggestions, or press Enter.</small>
         </div>
     </div>
 
     <!-- Search Status / Spinner -->
     <div id="search_loading" style="display: none; text-align: center; padding: 40px;">
-        <i class="ph ph-spinner-gap" style="font-size: 2.5rem; color: var(--primary-navy); animation: spin 1s linear infinite;"></i>
-        <div style="margin-top: 12px; font-weight: 600; color: #475569;">Searching customer & vehicle records...</div>
+        <i class="ph ph-spinner-gap" style="font-size: 2.2rem; color: var(--primary-navy); animation: spin 1s linear infinite;"></i>
+        <div style="margin-top: 10px; font-weight: 600; color: #475569;">Searching customer & vehicle records...</div>
     </div>
 
     <!-- Not Found State -->
-    <div id="search_not_found" style="display: none;" class="inv-card">
-        <div style="text-align: center; padding: 30px;">
-            <div style="width: 64px; height: 64px; border-radius: 50%; background: #fff7ed; color: #ea580c; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 16px;">
+    <div id="search_not_found" style="display: none;" class="app-card">
+        <div style="text-align: center; padding: 24px;">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: #fff7ed; color: #ea580c; display: inline-flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 12px;">
                 <i class="ph ph-warning-circle"></i>
             </div>
-            <h3 style="font-size: 1.2rem; font-weight: 700; color: #1e293b; margin-bottom: 6px;">No Customer or Vehicle Found</h3>
-            <p style="color: #64748b; max-width: 420px; margin: 0 auto 20px auto; font-size: 0.9rem;">
-                We couldn't find any existing record matching your search query. You can quickly add a new customer and vehicle right now.
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-bottom: 6px;">No Customer or Vehicle Found</h3>
+            <p style="color: #64748b; max-width: 400px; margin: 0 auto 18px auto; font-size: 0.88rem;">
+                No matching record found in this branch/company. You can add a new customer and vehicle right now.
             </p>
             <button type="button" class="search-btn" style="display: inline-flex; margin: 0 auto;" onclick="openAddCustomerModal()">
                 <i class="ph ph-user-plus"></i> Add New Customer & Vehicle
@@ -599,29 +616,31 @@
     <!-- Found Customer & Vehicles Section -->
     <div id="search_result_container" style="display: none;">
         <!-- Customer Profile Card -->
-        <div class="customer-profile-card">
-            <div class="customer-avatar">
-                <i class="ph ph-user"></i>
-            </div>
-            <div class="customer-meta">
-                <div class="customer-name" id="res_cust_name">-</div>
-                <div class="customer-subtext">
-                    <span><i class="ph ph-phone"></i> <strong id="res_cust_phone">-</strong></span>
-                    <span>•</span>
-                    <span>Type: <strong id="res_cust_type">Regular</strong></span>
-                    <span id="res_cust_branch_span" style="display:none;">• Branch: <strong id="res_cust_branch">-</strong></span>
+        <div class="customer-info-header">
+            <div class="customer-info-left">
+                <div class="customer-avatar-icon">
+                    <i class="ph ph-user"></i>
+                </div>
+                <div class="customer-text-meta">
+                    <h3 id="res_cust_name">-</h3>
+                    <div>
+                        <span><i class="ph ph-phone"></i> <strong id="res_cust_phone">-</strong></span>
+                        <span>•</span>
+                        <span>Type: <strong id="res_cust_type">Regular</strong></span>
+                        <span id="res_cust_branch_span" style="display:none;">• Branch: <strong id="res_cust_branch">-</strong></span>
+                    </div>
                 </div>
             </div>
-            <button type="button" class="btn-change-job" style="background:#000080; border:none;" onclick="openAddVehicleModal()">
+            <button type="button" class="search-btn" style="padding: 8px 16px; font-size: 0.85rem;" onclick="openAddVehicleModal()">
                 <i class="ph ph-plus-circle"></i> Add Vehicle
             </button>
         </div>
 
         <!-- Customer Vehicles List -->
-        <div style="margin-top: 24px;">
+        <div style="margin-top: 18px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h3 style="font-size: 1.15rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
-                    <i class="ph ph-car" style="color: var(--primary-navy);"></i> Registered Vehicles (<span id="res_vehicle_count">0</span>)
+                <h3 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <i class="ph ph-car" style="color: var(--primary-navy);"></i> Customer Vehicles (<span id="res_vehicle_count">0</span>)
                 </h3>
             </div>
             <div id="res_vehicles_grid" class="vehicle-cards-grid">
@@ -633,26 +652,24 @@
 
 <!-- ================= STEP 2: Create Invoice Screen ================= -->
 <div id="step2_container" style="display: none;">
-    <!-- Active Customer & Vehicle Header Banner -->
-    <div class="selected-job-banner">
-        <div class="selected-job-info">
-            <div class="selected-job-item">
-                <i class="ph ph-buildings"></i>
-                <span>Branch: <strong id="active_branch_label">-</strong></span>
-            </div>
-            <div class="selected-job-item">
-                <i class="ph ph-user"></i>
-                <span>Customer: <strong id="active_customer_label">-</strong></span>
-            </div>
-            <div class="selected-job-item">
+    <!-- Selected Customer & Vehicle Summary (Clean White Matching App) -->
+    <div class="customer-info-header">
+        <div class="customer-info-left">
+            <div class="customer-avatar-icon">
                 <i class="ph ph-car"></i>
-                <span>Vehicle: <strong id="active_vehicle_label">-</strong></span>
             </div>
-            <div class="selected-job-item" id="active_model_badge_item">
-                <span class="vehicle-model-badge" id="active_model_badge" style="background: rgba(255,255,255,0.2); color:#fff; border-color:rgba(255,255,255,0.3);">-</span>
+            <div class="customer-text-meta">
+                <h3 id="active_vehicle_label">-</h3>
+                <div>
+                    <span><i class="ph ph-user"></i> <strong id="active_customer_label">-</strong></span>
+                    <span>•</span>
+                    <span class="badge-subtle" id="active_model_badge">-</span>
+                    <span>•</span>
+                    <span><i class="ph ph-buildings"></i> <strong id="active_branch_label">-</strong></span>
+                </div>
             </div>
         </div>
-        <button type="button" class="btn-change-job" onclick="goToStep(1)">
+        <button type="button" class="search-btn" style="background:#475569;" onclick="goToStep(1)">
             <i class="ph ph-arrow-left"></i> Change Customer / Vehicle
         </button>
     </div>
@@ -663,32 +680,35 @@
         <input type="hidden" id="selected_vehicle_id" value="">
         <input type="hidden" id="selected_branch_id_hidden" value="">
 
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
-            <!-- Left Column: Services, Category Details, Items -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start;">
+            <!-- Left Column: Services, Parts, Extras, Reminders -->
             <div>
-                <!-- Section 1: Services -->
-                <div class="inv-card">
-                    <div class="inv-card-title" style="justify-content: space-between;">
-                        <div style="display:flex; align-items:center; gap:8px;">
+                <!-- Service Selection Card -->
+                <div class="app-card">
+                    <div class="app-card-header">
+                        <div class="app-card-title">
                             <i class="ph ph-wrench"></i> Services & Packages
                         </div>
-                        <button type="button" class="btn-select-vehicle" style="flex:none; padding:6px 14px; font-size:0.82rem;" onclick="addServiceRow()">
+                        <button type="button" class="search-btn" style="padding: 6px 14px; font-size: 0.82rem;" onclick="addServiceRow()">
                             <i class="ph ph-plus-circle"></i> Add Service
                         </button>
                     </div>
+
+                    <!-- Category Quick Filter / Select Bar -->
+                    <div id="service_category_chips_container" class="category-pills-bar" style="display: none;"></div>
 
                     <div id="service_rows_container">
                         <!-- Dynamic service rows -->
                     </div>
                 </div>
 
-                <!-- Section 2: Trading / Inventory Stock Items -->
-                <div class="inv-card">
-                    <div class="inv-card-title" style="justify-content: space-between;">
-                        <div style="display:flex; align-items:center; gap:8px;">
+                <!-- Trading / Spare Parts Card -->
+                <div class="app-card">
+                    <div class="app-card-header">
+                        <div class="app-card-title">
                             <i class="ph ph-package"></i> Trading / Spare Parts
                         </div>
-                        <button type="button" class="btn-select-vehicle" style="flex:none; padding:6px 14px; font-size:0.82rem; background:#475569;" onclick="addTradingRow()">
+                        <button type="button" class="search-btn" style="padding: 6px 14px; font-size: 0.82rem; background:#475569;" onclick="addTradingRow()">
                             <i class="ph ph-plus-circle"></i> Add Spare Item
                         </button>
                     </div>
@@ -697,55 +717,93 @@
                     </div>
                 </div>
 
-                <!-- Section 3: Extras / Miscellaneous -->
-                <div class="inv-card">
-                    <div class="inv-card-title" style="justify-content: space-between;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <i class="ph ph-tag"></i> Extra Charges
-                        </div>
-                        <button type="button" class="btn-select-vehicle" style="flex:none; padding:6px 14px; font-size:0.82rem; background:#475569;" onclick="addExtraRow()">
+                <!-- Add Extras Card (Matching App with Checkbox, Rate, Qty, Remarks, and Line Total) -->
+                <div class="app-card">
+                    <div class="app-card-header">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                            <input type="checkbox" id="add_extras_checkbox" style="width: 18px; height: 18px;" onchange="toggleExtrasCard(this)">
+                            <span class="app-card-title" style="margin: 0;"><i class="ph ph-tag"></i> Add Extras</span>
+                        </label>
+                        <button type="button" id="btn_add_extra_row" class="search-btn" style="display: none; padding: 6px 14px; font-size: 0.82rem; background:#475569;" onclick="addExtraRow()">
                             <i class="ph ph-plus-circle"></i> Add Extra
                         </button>
                     </div>
-                    <div id="extra_rows_container">
-                        <!-- Dynamic extra rows -->
+                    <div id="extra_rows_container" style="display: none;">
+                        <!-- Dynamic extra rows with remarks and line total -->
                     </div>
                 </div>
 
-                <!-- Section 4: Remarks & Automated WhatsApp Reminders -->
-                <div class="inv-card">
-                    <div class="inv-card-title">
-                        <i class="ph ph-chat-circle-dots"></i> Remarks & WhatsApp Reminders
+                <!-- Custom WhatsApp Reminders Card (Matching App _customRemindersCard) -->
+                <div class="app-card" id="reminders_card">
+                    <div class="app-card-header">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                            <input type="checkbox" id="add_custom_reminders_checkbox" style="width: 18px; height: 18px;" onchange="toggleCustomRemindersCard(this)">
+                            <span class="app-card-title" style="margin: 0;">
+                                <i class="ph ph-bell"></i> Add Custom Reminders
+                            </span>
+                        </label>
+                        <button type="button" id="btn_add_reminder_row" class="search-btn" style="display: none; padding: 6px 14px; font-size: 0.82rem; background:#475569;" onclick="addReminderRow()">
+                            <i class="ph ph-plus-circle"></i> Add Reminder
+                        </button>
                     </div>
-                    <div class="form-grid">
-                        <div class="form-group" style="grid-column: span 2;">
-                            <label>Customer Remarks / Notes</label>
-                            <textarea id="remarks_input" class="form-control" rows="2" placeholder="Recommendations, notes for next service..."></textarea>
+                    <div id="reminders_container" style="display: none;">
+                        <!-- Dynamic reminder day rows -->
+                    </div>
+                </div>
+
+                <!-- Detailing Warranty PDF Card -->
+                <div class="app-card" id="warranty_pdf_group" style="display: none;">
+                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 9px; padding: 14px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #1e3a8a; font-weight: 600; margin: 0;">
+                            <input type="checkbox" id="show_warranty_in_pdf" style="width: 18px; height: 18px;">
+                            <span>Include Warranty & Free Top-Up Schedule in Invoice PDF</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Remarks Card -->
+                <div class="app-card">
+                    <div class="app-card-header">
+                        <div class="app-card-title">
+                            <i class="ph ph-notepad"></i> Invoice Remarks
                         </div>
-                        <div class="form-group">
-                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                                <input type="checkbox" id="reminders_enabled_chk" checked style="width:18px; height:18px;">
-                                <span>Enable Automated WhatsApp Reminders</span>
-                            </label>
-                            <small style="color: #64748b;">Scheduled reminders for Oil Change, Alignment, and Inspection.</small>
-                        </div>
-                        <div class="form-group" id="warranty_pdf_group" style="display: none; grid-column: span 2;">
-                            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 16px;">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #1e3a8a; font-weight: 600;">
-                                    <input type="checkbox" id="show_warranty_in_pdf" style="width: 18px; height: 18px;">
-                                    <span>Include Warranty & Free Top-Up Schedule in Invoice PDF</span>
-                                </label>
-                            </div>
-                        </div>
+                    </div>
+                    <div class="form-group">
+                        <textarea id="remarks_input" class="form-control" rows="2" placeholder="Recommendations, notes for next visit..."></textarea>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Column: Payment, Summary & Checkout -->
+            <!-- Right Column: Tax, Payment, Bill Summary -->
             <div>
-                <div class="inv-card" style="padding: 20px;">
-                    <div class="inv-card-title">
-                        <i class="ph ph-credit-card"></i> Payment & Tax Settings
+                <!-- Tax Section (Matching App _taxSelectionSection) -->
+                <div class="app-card">
+                    <div class="app-card-header">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                            <input type="checkbox" id="apply_tax_checkbox" style="width: 18px; height: 18px;" onchange="toggleTaxSection(this)">
+                            <span class="app-card-title" style="margin: 0;"><i class="ph ph-percent"></i> TAX</span>
+                        </label>
+                    </div>
+                    <div id="tax_sub_section" style="display: none;">
+                        <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 4px;">
+                            {% for tax in company_taxes %}
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                                    <input type="checkbox" class="tax-checkbox" value="{{ tax.tax.id }}" data-percent="{{ tax.tax.percent }}" data-name="{{ tax.tax.name }}" onchange="calculateTotals()">
+                                    <span>{{ tax.tax.name }} ({{ tax.tax.percent }}%)</span>
+                                </label>
+                            {% empty %}
+                                <div style="color: #64748b; font-size: 0.85rem;">No company taxes configured.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Details Card -->
+                <div class="app-card">
+                    <div class="app-card-header">
+                        <div class="app-card-title">
+                            <i class="ph ph-credit-card"></i> Payment Details
+                        </div>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 12px;">
@@ -758,25 +816,11 @@
                         <div style="display: flex; gap: 8px;">
                             <input type="number" step="0.01" id="additional_discount_input" value="0" class="form-control" oninput="calculateTotals()">
                             <select id="discount_type_select" class="form-control" style="width: 110px;" onchange="calculateTotals()">
-                                <option value="amount">Amount ({{ currency_symbol }})</option>
+                                <option value="amount">Amt ({{ currency_symbol }})</option>
                                 <option value="percent">%</option>
                             </select>
                         </div>
                     </div>
-
-                    {% if company_taxes %}
-                    <div class="form-group" style="margin-bottom: 12px;">
-                        <label>Applicable Taxes (GST)</label>
-                        <div style="display:flex; flex-direction:column; gap:6px;">
-                            {% for tax in company_taxes %}
-                                <label style="display:flex; align-items:center; gap:8px; font-size:0.88rem;">
-                                    <input type="checkbox" class="tax-checkbox" value="{{ tax.tax.id }}" data-percent="{{ tax.tax.percent }}" onchange="calculateTotals()">
-                                    {{ tax.tax.name }} ({{ tax.tax.percent }}%)
-                                </label>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
 
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label>Sales Type *</label>
@@ -795,48 +839,53 @@
                         </select>
                     </div>
 
-                    <div class="form-group" style="margin-bottom: 12px;">
-                        <label>Amount Collected Now ({{ currency_symbol }})</label>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>Amount Collected ({{ currency_symbol }})</label>
                         <input type="number" step="0.01" id="amount_collected_input" value="0" class="form-control" oninput="calculateTotals()">
                     </div>
                 </div>
 
-                <!-- Sticky Summary Card -->
-                <div class="summary-card">
-                    <div style="font-size:1.15rem; font-weight:700; margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:12px;">
-                        Invoice Summary
+                <!-- Bill Summary Card (Clean White Matching App _billSummary) -->
+                <div class="bill-summary-card">
+                    <div class="bill-summary-title">
+                        <i class="ph ph-receipt" style="color: var(--primary-navy);"></i> Bill Summary
                     </div>
-                    <div class="summary-row">
-                        <span>Services Subtotal</span>
-                        <span id="summary_services">{{ currency_symbol }}0.00</span>
+
+                    <!-- Itemized summary lines -->
+                    <div id="bill_summary_items_list">
+                        <!-- Dynamic service, part, extra breakdown lines -->
                     </div>
-                    <div class="summary-row">
-                        <span>Trading / Spare Parts</span>
-                        <span id="summary_trading">{{ currency_symbol }}0.00</span>
+
+                    <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
+                        <div class="summary-line">
+                            <span>Subtotal</span>
+                            <span id="summary_subtotal"><strong>{{ currency_symbol }}0.00</strong></span>
+                        </div>
+                        <div class="summary-line" style="color: #10b981;">
+                            <span>Total Discount</span>
+                            <span id="summary_discount"><strong>-{{ currency_symbol }}0.00</strong></span>
+                        </div>
+                        <div id="summary_taxes_container">
+                            <!-- Dynamic tax breakdown lines -->
+                        </div>
                     </div>
-                    <div class="summary-row">
-                        <span>Extra Charges</span>
-                        <span id="summary_extras">{{ currency_symbol }}0.00</span>
-                    </div>
-                    <div class="summary-row" style="color: #f87171;">
-                        <span>Total Discount</span>
-                        <span id="summary_discount">-{{ currency_symbol }}0.00</span>
-                    </div>
-                    <div class="summary-row" style="color: #94a3b8;">
-                        <span>Tax / GST</span>
-                        <span id="summary_tax">{{ currency_symbol }}0.00</span>
-                    </div>
-                    <div class="summary-row total-row">
+
+                    <div class="summary-total-line">
                         <span>Grand Total</span>
                         <span id="summary_grand_total">{{ currency_symbol }}0.00</span>
                     </div>
-                    <div class="summary-row" style="font-size:0.95rem; color:#cbd5e1; border-top:1px dashed rgba(255,255,255,0.2); margin-top:8px; padding-top:10px;">
+
+                    <div class="summary-line" style="color: #64748b; margin-top: 4px;">
+                        <span>Amount Collected</span>
+                        <span id="summary_collected">{{ currency_symbol }}0.00</span>
+                    </div>
+                    <div class="summary-line" style="color: #ef4444; font-weight: 700;">
                         <span>Balance Due</span>
                         <span id="summary_balance_due">{{ currency_symbol }}0.00</span>
                     </div>
 
-                    <button type="submit" class="btn-submit-invoice" id="btn_submit">
-                        <i class="ph ph-receipt"></i> Create & Finalize Invoice
+                    <button type="submit" class="btn-submit-app" id="btn_submit">
+                        <i class="ph ph-check-circle"></i> Create & Finalize Invoice
                     </button>
                 </div>
             </div>
@@ -883,7 +932,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <button type="submit" class="btn-select-vehicle" style="width:100%; padding:12px;">
+                <button type="submit" class="search-btn" style="width:100%; padding:12px; justify-content:center;">
                     Save Customer & Vehicle
                 </button>
             </form>
@@ -920,7 +969,7 @@
                         <option value="alloy_wheel">Alloy Wheel</option>
                     </select>
                 </div>
-                <button type="submit" class="btn-select-vehicle" style="width:100%; padding:12px;">
+                <button type="submit" class="search-btn" style="width:100%; padding:12px; justify-content:center;">
                     Add Vehicle
                 </button>
             </form>
@@ -933,19 +982,18 @@
     let searchType = 'vehicle';
     let currentCustomer = null;
     let availableServices = [];
-    let availableTaxes = [];
     let debounceTimer = null;
 
-    // Master arrays passed from Django context
+    // Master arrays from Django
     const oilProducts = [
         {% for op in oil_products %}
-        { id: "{{ op.id }}", name: "{{ op.name|escapejs }}", price: parseFloat("{{ op.price|default:0 }}") || 0, group_key: "{{ op.oil_brand|default:'' }}" },
+        { id: "{{ op.id }}", name: "{{ op.name|escapejs }}", price: parseFloat("{{ op.price|default:0 }}") || 0, brand: "{{ op.oil_brand.name|default:''|escapejs }}", grade: "{{ op.oil_grade.name|default:''|escapejs }}" },
         {% endfor %}
     ];
 
     const oilFilters = [
         {% for of in oil_filters %}
-        { id: "{{ of.id }}", name: "{{ of.name|escapejs }}", price: parseFloat("{{ of.price|default:0 }}") || 0 },
+        { id: "{{ of.id }}", name: "{{ of.name|escapejs }}", brand_name: "{{ of.brand.name|default:''|escapejs }}", price: parseFloat("{{ of.price|default:0 }}") || 0 },
         {% endfor %}
     ];
 
@@ -979,7 +1027,6 @@
         {% endfor %}
     ];
 
-    // Initialize Page
     document.addEventListener("DOMContentLoaded", () => {
         const urlParams = new URLSearchParams(window.location.search);
         const paramBranch = urlParams.get('branch_id');
@@ -992,7 +1039,6 @@
         }
 
         if (paramCust && paramVeh) {
-            // Fetch directly and load Step 2
             loadDirectCustomerAndVehicle(paramCust, paramVeh, paramBranch);
         }
     });
@@ -1021,7 +1067,6 @@
     }
 
     function onBranchChange() {
-        // Clear previous customer results when branch changes
         document.getElementById('search_result_container').style.display = 'none';
         document.getElementById('search_not_found').style.display = 'none';
         currentCustomer = null;
@@ -1037,7 +1082,7 @@
 
         debounceTimer = setTimeout(() => {
             fetchSuggestions(query);
-        }, 300);
+        }, 250);
     }
 
     function onLookupKeyDown(e) {
@@ -1132,7 +1177,7 @@
                     document.getElementById('search_not_found').style.display = 'block';
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 document.getElementById('search_loading').style.display = 'none';
                 document.getElementById('search_not_found').style.display = 'block';
             });
@@ -1161,22 +1206,18 @@
                 card.className = 'vehicle-card';
                 card.innerHTML = `
                     <div>
-                        <div class="vehicle-card-top">
-                            <div class="vehicle-number-plate">
-                                <i class="ph ph-identification-card"></i> ${v.no}
-                            </div>
-                            <span class="vehicle-model-badge">${v.vehicle_type ? v.vehicle_type + ' - ' : ''}${v.type}</span>
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                            <span class="vehicle-plate-text">${v.no}</span>
+                            <span class="badge-subtle">${v.vehicle_type ? v.vehicle_type + ' - ' : ''}${v.type}</span>
                         </div>
-                        <div class="vehicle-card-body">
+                        <div style="font-size:0.85rem; color:#475569; margin-bottom:14px; border-top:1px solid #f1f5f9; padding-top:8px;">
                             <div><strong>Visits:</strong> ${v.visits || 0} visits completed</div>
-                            <div><strong>Wheel:</strong> ${v.wheel_type === 'alloy_wheel' ? 'Alloy Wheel' : 'Normal Wheel'} • <strong>Fuel:</strong> ${v.fuel_type_display || v.fuel_type || 'N/A'}</div>
+                            <div><strong>Wheel:</strong> ${v.wheel_type === 'alloy_wheel' ? 'Alloy Wheel' : 'Normal Wheel'}</div>
                         </div>
                     </div>
-                    <div class="vehicle-card-actions">
-                        <button type="button" class="btn-select-vehicle" onclick="selectVehicleAndProceed('${v.id}')">
-                            <span>Select & Create Invoice</span> <i class="ph ph-arrow-right"></i>
-                        </button>
-                    </div>
+                    <button type="button" class="search-btn" style="justify-content:center; padding:10px;" onclick="selectVehicleAndProceed('${v.id}')">
+                        <span>Select & Create Invoice</span> <i class="ph ph-arrow-right"></i>
+                    </button>
                 `;
                 grid.appendChild(card);
             });
@@ -1194,7 +1235,6 @@
         const branchId = branchSelect.value;
         const branchName = branchSelect.options[branchSelect.selectedIndex]?.text || '';
 
-        // Set active job header labels
         document.getElementById('active_branch_label').innerText = branchName;
         document.getElementById('active_customer_label').innerText = `${currentCustomer.name} (${currentCustomer.phone})`;
         document.getElementById('active_vehicle_label').innerText = vehicle.no;
@@ -1204,10 +1244,7 @@
         document.getElementById('selected_vehicle_id').value = vehicle.id;
         document.getElementById('selected_branch_id_hidden').value = branchId;
 
-        // Switch to Step 2
         goToStep(2);
-
-        // Fetch services & rates configured for this vehicle & branch
         fetchInvoiceServices(currentCustomer.id, vehicle.id, branchId);
     }
 
@@ -1248,7 +1285,9 @@
     // ── STEP 2: Service & Pricing Fetching ──
     function fetchInvoiceServices(customerId, vehicleId, branchId) {
         const sContainer = document.getElementById('service_rows_container');
-        sContainer.innerHTML = '<div style="padding:20px; color:#64748b;"><i class="ph ph-spinner-gap"></i> Loading services for this vehicle...</div>';
+        const chipContainer = document.getElementById('service_category_chips_container');
+        if (chipContainer) chipContainer.style.display = 'none';
+        sContainer.innerHTML = '<div style="padding:16px; color:#64748b;"><i class="ph ph-spinner-gap"></i> Loading services for this vehicle...</div>';
 
         fetch(`/api/invoice/services/?customer_id=${customerId}&vehicle_id=${vehicleId}&branch_id=${branchId}`)
             .then(res => res.json())
@@ -1256,71 +1295,210 @@
                 sContainer.innerHTML = '';
                 if (data.success) {
                     availableServices = data.services || [];
-                    availableTaxes = data.taxes || [];
-                    // Add first service row by default
+                    renderCategoryChips();
                     addServiceRow();
                 } else {
                     sContainer.innerHTML = `<div style="padding:16px; color:#ef4444;">${data.message || 'Failed to load services'}</div>`;
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 sContainer.innerHTML = '<div style="padding:16px; color:#ef4444;">Error fetching services.</div>';
             });
     }
 
+    function getAvailableCategories() {
+        const catsMap = new Map();
+        availableServices.forEach(s => {
+            const slug = s.service_type_slug || 'other';
+            let name = s.service_type;
+            if (!name) {
+                if (slug === 'washing') name = 'Washing';
+                else if (slug === 'oil_change') name = 'Oil Change';
+                else if (slug === 'tyre_change') name = 'Tyre Change';
+                else if (slug === 'wheel_alignment') name = 'Wheel Alignment';
+                else if (slug === 'battery_change' || slug === 'battery') name = 'Battery Change';
+                else if (slug === 'detailing') name = 'Detailing / Coating';
+                else name = slug.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+            if (!catsMap.has(slug)) {
+                catsMap.set(slug, name);
+            }
+        });
+        return Array.from(catsMap.entries()).map(([slug, name]) => ({ slug, name }));
+    }
+
+    function renderCategoryChips() {
+        const chipContainer = document.getElementById('service_category_chips_container');
+        if (!chipContainer) return;
+        const cats = getAvailableCategories();
+        if (cats.length <= 1) {
+            chipContainer.style.display = 'none';
+            return;
+        }
+        chipContainer.style.display = 'flex';
+        chipContainer.innerHTML = cats.map(c => `
+            <button type="button" class="category-pill" onclick="addServiceRow('${c.slug}')">
+                <i class="ph ph-plus-circle"></i> ${c.name}
+            </button>
+        `).join('');
+    }
+
+    // ── Service Rows & Line Totals (Category First -> Service, No Qty) ──
     let serviceRowCounter = 0;
-    function addServiceRow() {
+    function addServiceRow(defaultCatSlug = '') {
         serviceRowCounter++;
         const rowId = `srow_${serviceRowCounter}`;
         const container = document.getElementById('service_rows_container');
 
-        let serviceOptions = `<option value="">-- Choose Service --</option>`;
-        availableServices.forEach(s => {
-            serviceOptions += `<option value="${s.id}" data-rate="${s.rate}" data-slug="${s.service_type_slug || ''}">${s.name} - ${CURRENCY}${s.rate}</option>`;
+        const categories = getAvailableCategories();
+        let catOptions = `<option value="">-- Select Category --</option>`;
+        categories.forEach(c => {
+            const isSelected = (defaultCatSlug && c.slug === defaultCatSlug) ? 'selected' : '';
+            catOptions += `<option value="${c.slug}" ${isSelected}>${c.name}</option>`;
         });
 
         const row = document.createElement('div');
-        row.className = 'item-row';
+        row.className = 'service-row-card';
         row.id = rowId;
         row.innerHTML = `
-            <div class="item-row-header">
-                <strong style="color:var(--primary-navy); font-size:0.92rem;"><i class="ph ph-wrench"></i> Service #${serviceRowCounter}</strong>
-                <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
-                    <i class="ph ph-trash"></i> Remove
-                </button>
+            <div class="service-row-top">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph ph-wrench" style="color:var(--primary-navy); font-size:1.1rem;"></i>
+                    <strong style="color:var(--text-dark); font-size:0.95rem;">Service #${serviceRowCounter}</strong>
+                    <span class="service-rate-badge" id="${rowId}_rate_badge">${CURRENCY}0.00</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="line-total-badge" id="${rowId}_line_total_badge">
+                        <span>Line Total:</span>
+                        <strong id="${rowId}_line_total">${CURRENCY}0.00</strong>
+                    </div>
+                    <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
             </div>
-            <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+
+            <div class="service-form-grid">
+                <div class="form-group">
+                    <label>Select Category *</label>
+                    <select class="form-control category-select" onchange="onCategoryChanged('${rowId}')" required>
+                        ${catOptions}
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>Select Service *</label>
-                    <select class="form-control service-select" onchange="onServiceSelected('${rowId}')" required>
-                        ${serviceOptions}
+                    <select class="form-control service-select" onchange="onServiceSelected('${rowId}')" required ${defaultCatSlug ? '' : 'disabled'}>
+                        <option value="">${defaultCatSlug ? '-- Choose Service --' : '-- Select Category First --'}</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Rate (${CURRENCY})</label>
-                    <input type="number" step="0.01" class="form-control service-rate" value="0.00" oninput="calculateTotals()">
-                </div>
-                <div class="form-group">
-                    <label>Quantity</label>
-                    <input type="number" step="1" class="form-control service-qty" value="1" min="1" oninput="calculateTotals()">
+                    <input type="number" step="0.01" class="form-control service-rate" value="0.00" oninput="calculateRowLineTotal('${rowId}')">
                 </div>
                 <div class="form-group">
                     <label>Discount (${CURRENCY})</label>
-                    <input type="number" step="0.01" class="form-control service-discount" value="0.00" oninput="calculateTotals()">
+                    <input type="number" step="0.01" class="form-control service-discount" value="0.00" oninput="calculateRowLineTotal('${rowId}')">
                 </div>
             </div>
 
-            <!-- Dynamic Category Details Injection Box -->
-            <div class="category-detail-box" id="${rowId}_category_box" style="display:none;"></div>
+            <!-- Dynamic Category Details Box -->
+            <div class="category-box" id="${rowId}_category_box" style="display:none;"></div>
         `;
         container.appendChild(row);
+
+        if (defaultCatSlug) {
+            onCategoryChanged(rowId, defaultCatSlug);
+        } else {
+            calculateRowLineTotal(rowId);
+        }
+    }
+
+    function onCategoryChanged(rowId, forceSlug = null) {
+        const row = document.getElementById(rowId);
+        if (!row) return;
+
+        const catSel = row.querySelector('.category-select');
+        const catSlug = forceSlug || catSel.value;
+        const sSel = row.querySelector('.service-select');
+        const rateInput = row.querySelector('.service-rate');
+        const catBox = document.getElementById(`${rowId}_category_box`);
+
+        if (forceSlug && catSel.value !== forceSlug) {
+            catSel.value = forceSlug;
+        }
+
+        if (!catSlug) {
+            sSel.innerHTML = '<option value="">-- Select Category First --</option>';
+            sSel.disabled = true;
+            rateInput.value = '0.00';
+            if (catBox) {
+                catBox.innerHTML = '';
+                catBox.style.display = 'none';
+            }
+            calculateRowLineTotal(rowId);
+            return;
+        }
+
+        // Filter services belonging to this category
+        const matching = availableServices.filter(s => (s.service_type_slug || 'other') === catSlug || (s.service_type && s.service_type.toLowerCase() === catSlug.toLowerCase()));
+
+        let options = '<option value="">-- Choose Service --</option>';
+        matching.forEach(s => {
+            options += `<option value="${s.id}" data-rate="${s.rate}" data-slug="${s.service_type_slug || ''}">${s.name} (${CURRENCY}${s.rate})</option>`;
+        });
+
+        sSel.innerHTML = options;
+        sSel.disabled = false;
+
+        rateInput.value = '0.00';
+        if (catBox) {
+            catBox.innerHTML = '';
+            catBox.style.display = 'none';
+        }
+
+        if (matching.length === 1) {
+            sSel.value = matching[0].id;
+            onServiceSelected(rowId);
+        } else {
+            calculateRowLineTotal(rowId);
+        }
+    }
+
+    function calculateRowLineTotal(rowId) {
+        const row = document.getElementById(rowId);
+        if (!row) return;
+
+        const rate = parseFloat(row.querySelector('.service-rate')?.value) || 0;
+        const discount = parseFloat(row.querySelector('.service-discount')?.value) || 0;
+
+        const lineTotal = Math.max(0, rate - discount);
+        const ltEl = document.getElementById(`${rowId}_line_total`);
+        if (ltEl) ltEl.innerText = `${CURRENCY}${lineTotal.toFixed(2)}`;
+
+        const rateBadge = document.getElementById(`${rowId}_rate_badge`);
+        if (rateBadge) rateBadge.innerText = `${CURRENCY}${rate.toFixed(2)}`;
+
         calculateTotals();
     }
 
     function onServiceSelected(rowId) {
         const row = document.getElementById(rowId);
+        if (!row) return;
         const sel = row.querySelector('.service-select');
+        if (!sel || sel.selectedIndex < 0) return;
+
         const opt = sel.options[sel.selectedIndex];
+        if (!opt || !sel.value) {
+            row.querySelector('.service-rate').value = '0.00';
+            const catBox = document.getElementById(`${rowId}_category_box`);
+            if (catBox) {
+                catBox.innerHTML = '';
+                catBox.style.display = 'none';
+            }
+            calculateRowLineTotal(rowId);
+            return;
+        }
+
         const rate = parseFloat(opt.getAttribute('data-rate')) || 0;
         const slug = (opt.getAttribute('data-slug') || '').toLowerCase();
         const sName = sel.options[sel.selectedIndex].text.toLowerCase();
@@ -1328,20 +1506,26 @@
         row.querySelector('.service-rate').value = rate.toFixed(2);
 
         const catBox = document.getElementById(`${rowId}_category_box`);
-        catBox.innerHTML = '';
-        catBox.style.display = 'none';
+        if (catBox) {
+            catBox.innerHTML = '';
+            catBox.style.display = 'none';
 
-        if (slug === 'oil_change' || sName.includes('oil')) {
-            renderOilCategory(rowId, catBox);
-        } else if (slug === 'tyre_change' || sName.includes('tyre')) {
-            renderTyreCategory(rowId, catBox);
-        } else if (slug === 'battery_change' || slug === 'battery' || sName.includes('battery')) {
-            renderBatteryCategory(rowId, catBox);
-        } else if (slug === 'detailing' || sName.includes('detailing') || sName.includes('ceramic') || sName.includes('coating')) {
-            renderDetailingCategory(rowId, catBox);
+            if (slug === 'oil_change' || sName.includes('oil')) {
+                renderOilCategory(rowId, catBox);
+                autoCheckReminderIfLocked();
+            } else if (slug === 'tyre_change' || sName.includes('tyre')) {
+                renderTyreCategory(rowId, catBox);
+            } else if (slug === 'wheel_alignment' || sName.includes('alignment')) {
+                autoCheckReminderIfLocked();
+            } else if (slug === 'battery_change' || slug === 'battery' || sName.includes('battery')) {
+                renderBatteryCategory(rowId, catBox);
+            } else if (slug === 'detailing' || sName.includes('detailing') || sName.includes('ceramic') || sName.includes('coating')) {
+                renderDetailingCategory(rowId, catBox);
+                autoCheckReminderIfLocked();
+            }
         }
 
-        calculateTotals();
+        calculateRowLineTotal(rowId);
     }
 
     function renderOilCategory(rowId, box) {
@@ -1356,8 +1540,8 @@
         });
 
         box.innerHTML = `
-            <div class="category-detail-title"><i class="ph ph-drop"></i> Oil Change Configuration</div>
-            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            <div class="category-box-title"><i class="ph ph-drop"></i> Oil Change Configuration</div>
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
                 <div class="form-group">
                     <label>Oil Product</label>
                     <select class="form-control oil-product-select" onchange="calculateOilPrice('${rowId}')">${opOpts}</select>
@@ -1395,7 +1579,7 @@
         if (totalOilCharge > 0) {
             row.querySelector('.service-rate').value = totalOilCharge.toFixed(2);
         }
-        calculateTotals();
+        calculateRowLineTotal(rowId);
     }
 
     function renderTyreCategory(rowId, box) {
@@ -1405,7 +1589,7 @@
         });
 
         box.innerHTML = `
-            <div class="category-detail-title"><i class="ph ph-circle"></i> Tyre Replacement Configuration</div>
+            <div class="category-box-title"><i class="ph ph-circle"></i> Tyre Replacement Configuration</div>
             <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
                 <div class="form-group">
                     <label>Tyre Brand</label>
@@ -1454,7 +1638,7 @@
 
         if (size) row.querySelector('.tyre-size').value = size;
         if (price > 0) row.querySelector('.service-rate').value = price.toFixed(2);
-        calculateTotals();
+        calculateRowLineTotal(rowId);
     }
 
     function renderBatteryCategory(rowId, box) {
@@ -1464,7 +1648,7 @@
         });
 
         box.innerHTML = `
-            <div class="category-detail-title"><i class="ph ph-lightning"></i> Battery Replacement Configuration</div>
+            <div class="category-box-title"><i class="ph ph-lightning"></i> Battery Replacement Configuration</div>
             <div class="form-grid" style="grid-template-columns: 2fr 1fr;">
                 <div class="form-group">
                     <label>Battery Specification</label>
@@ -1488,13 +1672,13 @@
 
         row.querySelector('.battery-warranty').value = warranty;
         if (price > 0) row.querySelector('.service-rate').value = price.toFixed(2);
-        calculateTotals();
+        calculateRowLineTotal(rowId);
     }
 
     function renderDetailingCategory(rowId, box) {
         document.getElementById('warranty_pdf_group').style.display = 'block';
         box.innerHTML = `
-            <div class="category-detail-title"><i class="ph ph-sparkle"></i> Detailing & Coating Warranty Details</div>
+            <div class="category-box-title"><i class="ph ph-sparkle"></i> Detailing & Coating Warranty Details</div>
             <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="form-group">
                     <label>Warranty Period (Years)</label>
@@ -1516,7 +1700,7 @@
         }
     }
 
-    // ── STEP 2: Trading / Spare Items Rows ──
+    // ── Trading / Spare Parts Rows with Line Total ──
     let tradingRowCounter = 0;
     function addTradingRow() {
         tradingRowCounter++;
@@ -1529,14 +1713,23 @@
         });
 
         const row = document.createElement('div');
-        row.className = 'item-row';
+        row.className = 'service-row-card';
         row.id = rowId;
         row.innerHTML = `
-            <div class="item-row-header">
-                <strong style="color:#475569; font-size:0.9rem;"><i class="ph ph-package"></i> Spare Item #${tradingRowCounter}</strong>
-                <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
-                    <i class="ph ph-trash"></i> Remove
-                </button>
+            <div class="service-row-top">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph ph-package" style="color:#475569; font-size:1.1rem;"></i>
+                    <strong style="color:var(--text-dark); font-size:0.95rem;">Spare Item #${tradingRowCounter}</strong>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="line-total-badge" id="${rowId}_line_total_badge">
+                        <span>Line Total:</span>
+                        <strong id="${rowId}_line_total">${CURRENCY}0.00</strong>
+                    </div>
+                    <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
             </div>
             <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr auto;">
                 <div class="form-group">
@@ -1545,26 +1738,26 @@
                 </div>
                 <div class="form-group">
                     <label>Rate (${CURRENCY})</label>
-                    <input type="number" step="0.01" class="form-control trading-rate" value="0.00" oninput="calculateTotals()">
+                    <input type="number" step="0.01" class="form-control trading-rate" value="0.00" oninput="calculateTradingLineTotal('${rowId}')">
                 </div>
                 <div class="form-group">
                     <label>Qty</label>
-                    <input type="number" step="1" class="form-control trading-qty" value="1" min="1" oninput="calculateTotals()">
+                    <input type="number" step="1" class="form-control trading-qty" value="1" min="1" oninput="calculateTradingLineTotal('${rowId}')">
                 </div>
                 <div class="form-group">
                     <label>Discount (${CURRENCY})</label>
-                    <input type="number" step="0.01" class="form-control trading-discount" value="0.00" oninput="calculateTotals()">
+                    <input type="number" step="0.01" class="form-control trading-discount" value="0.00" oninput="calculateTradingLineTotal('${rowId}')">
                 </div>
                 <div class="form-group" style="justify-content:center;">
-                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:20px;">
-                        <input type="checkbox" class="trading-op-chk" onchange="calculateTotals()">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:20px; font-size:0.82rem;">
+                        <input type="checkbox" class="trading-op-chk" onchange="calculateTradingLineTotal('${rowId}')">
                         <span>Operational (0 Rate)</span>
                     </label>
                 </div>
             </div>
         `;
         container.appendChild(row);
-        calculateTotals();
+        calculateTradingLineTotal(rowId);
     }
 
     function onTradingSelected(rowId) {
@@ -1572,10 +1765,42 @@
         const sel = row.querySelector('.trading-select');
         const rate = parseFloat(sel.options[sel.selectedIndex]?.getAttribute('data-rate')) || 0;
         row.querySelector('.trading-rate').value = rate.toFixed(2);
+        calculateTradingLineTotal(rowId);
+    }
+
+    function calculateTradingLineTotal(rowId) {
+        const row = document.getElementById(rowId);
+        if (!row) return;
+
+        const isOp = row.querySelector('.trading-op-chk')?.checked;
+        const rate = isOp ? 0 : (parseFloat(row.querySelector('.trading-rate')?.value) || 0);
+        const qty = parseFloat(row.querySelector('.trading-qty')?.value) || 1;
+        const discount = isOp ? 0 : (parseFloat(row.querySelector('.trading-discount')?.value) || 0);
+
+        const lineTotal = Math.max(0, (rate * qty) - discount);
+        const ltEl = document.getElementById(`${rowId}_line_total`);
+        if (ltEl) ltEl.innerText = `${CURRENCY}${lineTotal.toFixed(2)}`;
+
         calculateTotals();
     }
 
-    // ── STEP 2: Extra Charges Rows ──
+    // ── Extras Section with Remarks & Line Total (Matching App _extrasCard) ──
+    function toggleExtrasCard(checkbox) {
+        const container = document.getElementById('extra_rows_container');
+        const addBtn = document.getElementById('btn_add_extra_row');
+        if (checkbox.checked) {
+            container.style.display = 'block';
+            addBtn.style.display = 'inline-flex';
+            if (container.children.length === 0) {
+                addExtraRow();
+            }
+        } else {
+            container.style.display = 'none';
+            addBtn.style.display = 'none';
+        }
+        calculateTotals();
+    }
+
     let extraRowCounter = 0;
     function addExtraRow() {
         extraRowCounter++;
@@ -1588,32 +1813,46 @@
         });
 
         const row = document.createElement('div');
-        row.className = 'item-row';
+        row.className = 'service-row-card';
         row.id = rowId;
         row.innerHTML = `
-            <div class="item-row-header">
-                <strong style="color:#475569; font-size:0.9rem;"><i class="ph ph-tag"></i> Extra Charge #${extraRowCounter}</strong>
-                <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
-                    <i class="ph ph-trash"></i> Remove
-                </button>
+            <div class="service-row-top">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="ph ph-tag" style="color:#475569; font-size:1.1rem;"></i>
+                    <strong style="color:var(--text-dark); font-size:0.95rem;">Extra Charge #${extraRowCounter}</strong>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="line-total-badge" id="${rowId}_line_total_badge">
+                        <span>Line Total:</span>
+                        <strong id="${rowId}_line_total">${CURRENCY}0.00</strong>
+                    </div>
+                    <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
             </div>
-            <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr;">
+
+            <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 2fr;">
                 <div class="form-group">
                     <label>Extra Name *</label>
                     <select class="form-control extra-select" onchange="onExtraSelected('${rowId}')" required>${eOpts}</select>
                 </div>
                 <div class="form-group">
                     <label>Rate (${CURRENCY})</label>
-                    <input type="number" step="0.01" class="form-control extra-rate" value="0.00" oninput="calculateTotals()">
+                    <input type="number" step="0.01" class="form-control extra-rate" value="0.00" oninput="calculateExtraLineTotal('${rowId}')">
                 </div>
                 <div class="form-group">
                     <label>Qty</label>
-                    <input type="number" step="1" class="form-control extra-qty" value="1" min="1" oninput="calculateTotals()">
+                    <input type="number" step="1" class="form-control extra-qty" value="1" min="1" oninput="calculateExtraLineTotal('${rowId}')">
+                </div>
+                <div class="form-group">
+                    <label>Remarks / Notes</label>
+                    <input type="text" class="form-control extra-remark" placeholder="Extra note..." oninput="calculateTotals()">
                 </div>
             </div>
         `;
         container.appendChild(row);
-        calculateTotals();
+        calculateExtraLineTotal(rowId);
     }
 
     function onExtraSelected(rowId) {
@@ -1621,6 +1860,100 @@
         const sel = row.querySelector('.extra-select');
         const rate = parseFloat(sel.options[sel.selectedIndex]?.getAttribute('data-rate')) || 0;
         row.querySelector('.extra-rate').value = rate.toFixed(2);
+        calculateExtraLineTotal(rowId);
+    }
+
+    function calculateExtraLineTotal(rowId) {
+        const row = document.getElementById(rowId);
+        if (!row) return;
+
+        const rate = parseFloat(row.querySelector('.extra-rate')?.value) || 0;
+        const qty = parseFloat(row.querySelector('.extra-qty')?.value) || 1;
+
+        const lineTotal = rate * qty;
+        const ltEl = document.getElementById(`${rowId}_line_total`);
+        if (ltEl) ltEl.innerText = `${CURRENCY}${lineTotal.toFixed(2)}`;
+
+        calculateTotals();
+    }
+
+    // ── Custom WhatsApp Reminders (Matching App _customRemindersCard) ──
+    function toggleCustomRemindersCard(checkbox) {
+        const container = document.getElementById('reminders_container');
+        const addBtn = document.getElementById('btn_add_reminder_row');
+        if (checkbox.checked) {
+            container.style.display = 'block';
+            addBtn.style.display = 'inline-flex';
+            if (container.children.length === 0) {
+                addReminderRow(60);
+            }
+        } else {
+            container.style.display = 'none';
+            addBtn.style.display = 'none';
+        }
+    }
+
+    function autoCheckReminderIfLocked() {
+        const chk = document.getElementById('add_custom_reminders_checkbox');
+        if (!chk.checked) {
+            chk.checked = true;
+            toggleCustomRemindersCard(chk);
+        }
+    }
+
+    let reminderCounter = 0;
+    function addReminderRow(defaultDays = 90) {
+        reminderCounter++;
+        const rowId = `rem_${reminderCounter}`;
+        const container = document.getElementById('reminders_container');
+
+        const row = document.createElement('div');
+        row.className = 'reminder-pill-row';
+        row.id = rowId;
+        row.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="ph ph-bell" style="color:var(--primary-navy); font-size:1.2rem;"></i>
+                <label style="font-size:0.85rem; font-weight:700; color:#1e3a8a; margin:0;">Reminder Days:</label>
+                <input type="number" class="form-control reminder-days-input" value="${defaultDays}" style="width:90px; padding:6px 10px;" oninput="updateReminderPreview('${rowId}')">
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span id="${rowId}_preview" style="font-size:0.85rem; font-weight:700; color:#1e40af;">Calculating date...</span>
+                <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
+                    <i class="ph ph-trash"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(row);
+        updateReminderPreview(rowId);
+    }
+
+    function updateReminderPreview(rowId) {
+        const row = document.getElementById(rowId);
+        if (!row) return;
+
+        const days = parseInt(row.querySelector('.reminder-days-input')?.value) || 0;
+        const prevEl = document.getElementById(`${rowId}_preview`);
+        if (days > 0) {
+            const targetDate = new Date();
+            targetDate.setDate(targetDate.getDate() + days);
+            const formatted = targetDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            prevEl.innerText = `Scheduled: ${formatted} (+${days} days)`;
+        } else {
+            prevEl.innerText = 'Enter valid days';
+        }
+    }
+
+    // ── Tax Section Toggle (Matching App _taxSelectionSection) ──
+    function toggleTaxSection(checkbox) {
+        const sub = document.getElementById('tax_sub_section');
+        if (checkbox.checked) {
+            sub.style.display = 'block';
+            // Check all taxes by default when TAX is checked
+            sub.querySelectorAll('.tax-checkbox').forEach(cb => cb.checked = true);
+        } else {
+            sub.style.display = 'none';
+            sub.querySelectorAll('.tax-checkbox').forEach(cb => cb.checked = false);
+        }
         calculateTotals();
     }
 
@@ -1641,38 +1974,99 @@
         calculateTotals();
     }
 
-    // ── Totals Calculation ──
+    // ── Real-Time Bill Summary Calculation (Matching App _billSummary) ──
     function calculateTotals() {
         let subtotalServices = 0;
         let servicesDiscount = 0;
+        const summaryItemsList = document.getElementById('bill_summary_items_list');
+        summaryItemsList.innerHTML = '';
 
-        document.querySelectorAll('#service_rows_container .item-row').forEach(row => {
+        // 1. Process Services
+        document.querySelectorAll('#service_rows_container .service-row-card').forEach(row => {
+            const sel = row.querySelector('.service-select');
+            const sName = sel.options[sel.selectedIndex]?.text.split(' (')[0] || '';
             const rate = parseFloat(row.querySelector('.service-rate')?.value) || 0;
-            const qty = parseFloat(row.querySelector('.service-qty')?.value) || 1;
             const disc = parseFloat(row.querySelector('.service-discount')?.value) || 0;
-            subtotalServices += (rate * qty);
-            servicesDiscount += disc;
-        });
 
-        let subtotalTrading = 0;
-        let tradingDiscount = 0;
-        document.querySelectorAll('#trading_rows_container .item-row').forEach(row => {
-            const isOp = row.querySelector('.trading-op-chk')?.checked;
-            if (!isOp) {
-                const rate = parseFloat(row.querySelector('.trading-rate')?.value) || 0;
-                const qty = parseFloat(row.querySelector('.trading-qty')?.value) || 1;
-                const disc = parseFloat(row.querySelector('.trading-discount')?.value) || 0;
-                subtotalTrading += (rate * qty);
-                tradingDiscount += disc;
+            if (sel.value) {
+                const sLineGross = rate;
+                subtotalServices += sLineGross;
+                servicesDiscount += disc;
+
+                // Add itemized row to summary
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'summary-line';
+                itemDiv.innerHTML = `
+                    <span>${sName}</span>
+                    <span>${CURRENCY}${sLineGross.toFixed(2)}</span>
+                `;
+                summaryItemsList.appendChild(itemDiv);
+
+                if (disc > 0) {
+                    const discDiv = document.createElement('div');
+                    discDiv.className = 'summary-line';
+                    discDiv.style.color = '#10b981';
+                    discDiv.innerHTML = `
+                        <span style="padding-left:10px;">↳ Discount (${sName})</span>
+                        <span>-${CURRENCY}${disc.toFixed(2)}</span>
+                    `;
+                    summaryItemsList.appendChild(discDiv);
+                }
             }
         });
 
-        let subtotalExtras = 0;
-        document.querySelectorAll('#extra_rows_container .item-row').forEach(row => {
-            const rate = parseFloat(row.querySelector('.extra-rate')?.value) || 0;
-            const qty = parseFloat(row.querySelector('.extra-qty')?.value) || 1;
-            subtotalExtras += (rate * qty);
+        // 2. Process Spare Parts
+        let subtotalTrading = 0;
+        let tradingDiscount = 0;
+        document.querySelectorAll('#trading_rows_container .service-row-card').forEach(row => {
+            const sel = row.querySelector('.trading-select');
+            const isOp = row.querySelector('.trading-op-chk')?.checked;
+            const tName = sel.options[sel.selectedIndex]?.text.split(' (Stock:')[0] || '';
+            const rate = isOp ? 0 : (parseFloat(row.querySelector('.trading-rate')?.value) || 0);
+            const qty = parseFloat(row.querySelector('.trading-qty')?.value) || 1;
+            const disc = isOp ? 0 : (parseFloat(row.querySelector('.trading-discount')?.value) || 0);
+
+            if (sel.value) {
+                const tLineGross = rate * qty;
+                if (!isOp) {
+                    subtotalTrading += tLineGross;
+                    tradingDiscount += disc;
+                }
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'summary-line';
+                itemDiv.innerHTML = `
+                    <span>${tName} (x${qty}) ${isOp ? '<em style="color:#64748b;">(Operational)</em>' : ''}</span>
+                    <span>${CURRENCY}${tLineGross.toFixed(2)}</span>
+                `;
+                summaryItemsList.appendChild(itemDiv);
+            }
         });
+
+        // 3. Process Extras
+        let subtotalExtras = 0;
+        if (document.getElementById('add_extras_checkbox').checked) {
+            document.querySelectorAll('#extra_rows_container .service-row-card').forEach(row => {
+                const sel = row.querySelector('.extra-select');
+                const eName = sel.options[sel.selectedIndex]?.text.split(' (')[0] || '';
+                const rate = parseFloat(row.querySelector('.extra-rate')?.value) || 0;
+                const qty = parseFloat(row.querySelector('.extra-qty')?.value) || 1;
+                const remark = row.querySelector('.extra-remark')?.value.trim() || '';
+
+                if (sel.value) {
+                    const eLineTotal = rate * qty;
+                    subtotalExtras += eLineTotal;
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'summary-line';
+                    itemDiv.innerHTML = `
+                        <span>+ Extra: ${eName} (${qty} × ${CURRENCY}${rate.toFixed(2)})${remark ? ` - <em>${remark}</em>` : ''}</span>
+                        <span>${CURRENCY}${eLineTotal.toFixed(2)}</span>
+                    `;
+                    summaryItemsList.appendChild(itemDiv);
+                }
+            });
+        }
 
         const grossSubtotal = subtotalServices + subtotalTrading + subtotalExtras;
 
@@ -1686,28 +2080,42 @@
         const totalDiscount = servicesDiscount + tradingDiscount + addDiscount;
         const netTaxable = Math.max(0, grossSubtotal - totalDiscount);
 
-        // Taxes
-        let taxPercentSum = 0;
-        document.querySelectorAll('.tax-checkbox:checked').forEach(cb => {
-            taxPercentSum += parseFloat(cb.getAttribute('data-percent')) || 0;
-        });
-        const taxAmount = netTaxable * (taxPercentSum / 100);
-        const grandTotal = netTaxable + taxAmount;
+        // Taxes breakdown
+        let totalTaxAmount = 0;
+        const taxesContainer = document.getElementById('summary_taxes_container');
+        taxesContainer.innerHTML = '';
 
+        if (document.getElementById('apply_tax_checkbox').checked) {
+            document.querySelectorAll('.tax-checkbox:checked').forEach(cb => {
+                const pct = parseFloat(cb.getAttribute('data-percent')) || 0;
+                const tName = cb.getAttribute('data-name') || 'Tax';
+                const tAmt = netTaxable * (pct / 100);
+                totalTaxAmount += tAmt;
+
+                const taxLine = document.createElement('div');
+                taxLine.className = 'summary-line';
+                taxLine.style.color = '#64748b';
+                taxLine.innerHTML = `
+                    <span>+ ${tName} (${pct.toFixed(1)}%)</span>
+                    <span>${CURRENCY}${tAmt.toFixed(2)}</span>
+                `;
+                taxesContainer.appendChild(taxLine);
+            });
+        }
+
+        const grandTotal = netTaxable + totalTaxAmount;
         const collected = parseFloat(document.getElementById('amount_collected_input').value) || 0;
         const balanceDue = Math.max(0, grandTotal - collected);
 
-        // Update UI
-        document.getElementById('summary_services').innerText = `${CURRENCY}${subtotalServices.toFixed(2)}`;
-        document.getElementById('summary_trading').innerText = `${CURRENCY}${subtotalTrading.toFixed(2)}`;
-        document.getElementById('summary_extras').innerText = `${CURRENCY}${subtotalExtras.toFixed(2)}`;
+        // Update Summary Elements
+        document.getElementById('summary_subtotal').innerText = `${CURRENCY}${grossSubtotal.toFixed(2)}`;
         document.getElementById('summary_discount').innerText = `-${CURRENCY}${totalDiscount.toFixed(2)}`;
-        document.getElementById('summary_tax').innerText = `${CURRENCY}${taxAmount.toFixed(2)}`;
         document.getElementById('summary_grand_total').innerText = `${CURRENCY}${grandTotal.toFixed(2)}`;
+        document.getElementById('summary_collected').innerText = `${CURRENCY}${collected.toFixed(2)}`;
         document.getElementById('summary_balance_due').innerText = `${CURRENCY}${balanceDue.toFixed(2)}`;
     }
 
-    // ── Form Submission ──
+    // ── Submit Invoice ──
     function submitInvoice(e) {
         e.preventDefault();
 
@@ -1721,9 +2129,9 @@
             return;
         }
 
-        const serviceRows = document.querySelectorAll('#service_rows_container .item-row');
+        const serviceRows = document.querySelectorAll('#service_rows_container .service-row-card');
         if (serviceRows.length === 0) {
-            alert('Please add at least one service to the invoice.');
+            alert('Please add at least one service.');
             return;
         }
 
@@ -1733,20 +2141,18 @@
         serviceRows.forEach(row => {
             const sel = row.querySelector('.service-select');
             const svcId = sel.value;
-            const svcName = sel.options[sel.selectedIndex]?.text.split(' - ')[0] || '';
+            const svcName = sel.options[sel.selectedIndex]?.text.split(' (')[0] || '';
             const rate = parseFloat(row.querySelector('.service-rate').value) || 0;
-            const qty = parseFloat(row.querySelector('.service-qty').value) || 1;
             const discount = parseFloat(row.querySelector('.service-discount').value) || 0;
 
             const svcItem = {
                 id: svcId,
                 name: svcName,
                 rate: rate,
-                qty: qty,
+                qty: 1,
                 discount: discount
             };
 
-            // Category detail payloads
             const oilP = row.querySelector('.oil-product-select');
             if (oilP && oilP.value) {
                 svcItem.service_detail = {
@@ -1792,9 +2198,9 @@
             servicesPayload.push(svcItem);
         });
 
-        // Trading stock payload
+        // Spare parts
         const tradingPayload = [];
-        document.querySelectorAll('#trading_rows_container .item-row').forEach(row => {
+        document.querySelectorAll('#trading_rows_container .service-row-card').forEach(row => {
             const sel = row.querySelector('.trading-select');
             if (sel.value) {
                 tradingPayload.push({
@@ -1808,26 +2214,47 @@
             }
         });
 
-        // Extras payload
-        document.querySelectorAll('#extra_rows_container .item-row').forEach(row => {
-            const sel = row.querySelector('.extra-select');
-            if (sel.value) {
-                servicesPayload.push({
-                    id: sel.value,
-                    name: sel.options[sel.selectedIndex]?.text.split(' (')[0] || 'Extra',
-                    rate: parseFloat(row.querySelector('.extra-rate').value) || 0,
-                    qty: parseFloat(row.querySelector('.extra-qty').value) || 1,
-                    discount: 0
-                });
-            }
-        });
+        // Extras with remarks
+        if (document.getElementById('add_extras_checkbox').checked) {
+            document.querySelectorAll('#extra_rows_container .service-row-card').forEach(row => {
+                const sel = row.querySelector('.extra-select');
+                if (sel.value) {
+                    servicesPayload.push({
+                        id: sel.value,
+                        name: sel.options[sel.selectedIndex]?.text.split(' (')[0] || 'Extra',
+                        rate: parseFloat(row.querySelector('.extra-rate').value) || 0,
+                        qty: parseFloat(row.querySelector('.extra-qty').value) || 1,
+                        discount: 0,
+                        remarks: row.querySelector('.extra-remark')?.value.trim() || ''
+                    });
+                }
+            });
+        }
+
+        // Custom reminders payload
+        const remindersPayload = [];
+        if (document.getElementById('add_custom_reminders_checkbox').checked) {
+            document.querySelectorAll('#reminders_container .reminder-days-input').forEach(input => {
+                const days = parseInt(input.value) || 0;
+                if (days > 0) {
+                    const targetDate = new Date();
+                    targetDate.setDate(targetDate.getDate() + days);
+                    const y = targetDate.getFullYear();
+                    const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+                    const d = String(targetDate.getDate()).padStart(2, '0');
+                    remindersPayload.push({
+                        days_after: days,
+                        scheduled_date: `${y}-${m}-${d}`
+                    });
+                }
+            });
+        }
 
         const invoiceDate = document.getElementById('invoice_date_input').value;
         const salesType = document.getElementById('sales_type_select').value;
         const paymentMode = salesType === 'cash' ? document.getElementById('payment_mode_select').value : null;
         const amountCollected = parseFloat(document.getElementById('amount_collected_input').value) || 0;
         const remarks = document.getElementById('remarks_input').value.trim();
-        const remindersEnabled = document.getElementById('reminders_enabled_chk').checked;
         const showWarranty = hasDetailing && document.getElementById('show_warranty_in_pdf').checked;
 
         const btn = document.getElementById('btn_submit');
@@ -1844,7 +2271,8 @@
             payment_mode: paymentMode,
             amount_collected: amountCollected,
             remarks: remarks,
-            reminders_enabled: remindersEnabled,
+            reminders_enabled: remindersPayload.length > 0,
+            reminders: remindersPayload,
             show_warranty_in_pdf: showWarranty,
             services: servicesPayload,
             trading_items: tradingPayload
@@ -1863,7 +2291,7 @@
         .then(res => res.json())
         .then(data => {
             btn.disabled = false;
-            btn.innerHTML = '<i class="ph ph-receipt"></i> Create & Finalize Invoice';
+            btn.innerHTML = '<i class="ph ph-check-circle"></i> Create & Finalize Invoice';
             if (data.success) {
                 alert(`Invoice ${data.invoice_number || ''} created successfully!`);
                 if (data.invoice_id) {
@@ -1877,7 +2305,7 @@
         })
         .catch(err => {
             btn.disabled = false;
-            btn.innerHTML = '<i class="ph ph-receipt"></i> Create & Finalize Invoice';
+            btn.innerHTML = '<i class="ph ph-check-circle"></i> Create & Finalize Invoice';
             alert(`Error: ${err.message || 'Server error occurred'}`);
         });
     }
@@ -1955,7 +2383,6 @@
         const vModelId = document.getElementById('qv_model').value;
         const wheel = document.getElementById('qv_wheel').value;
 
-        // Add vehicle via customer vehicle creation
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         const formData = new FormData();
         formData.append('customer', currentCustomer.id);
@@ -1968,9 +2395,8 @@
             method: 'POST',
             body: formData
         })
-        .then(res => {
+        .then(() => {
             closeModal('addVehicleModal');
-            // Re-fetch customer profile
             document.getElementById('lookup_input').value = currentCustomer.phone;
             setSearchType('mobile');
             executeLookup();
