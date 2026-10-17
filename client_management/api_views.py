@@ -608,7 +608,8 @@ def api_customer_search(request):
             'paid_visits': paid_visits,
             'free_visits': free_visits,
             'visits': visits_count,
-            'is_eligible': is_eligible
+            'is_eligible': is_eligible,
+            'current_odometer_km': getattr(v, 'current_odometer_km', None) or 0
         })
         
     data = {
@@ -803,12 +804,15 @@ def api_get_services(request):
                     'percent': float(ct.tax.percent),
                 })
 
+        eff_es = getattr(vehicle, 'emission_standard', None) or (vehicle.vehicle_type_model.emission_standard if (vehicle and vehicle.vehicle_type_model) else None)
         return JsonResponse({
             'success': True,
             'services': services_data,
             'taxes': taxes_data,
             'vehicle_type': vehicle_type.name if vehicle_type else '',
             'wheel_type': vehicle.wheel_type if hasattr(vehicle, 'wheel_type') else 'normal_wheel',
+            'current_odometer_km': getattr(vehicle, 'current_odometer_km', None) or 0 if vehicle else 0,
+            'emission_standard': eff_es.name if eff_es else '',
             'enabled_categories': enabled_category_slugs,  # ← branch-level category filter
         })
         
@@ -1196,7 +1200,7 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
     from django.utils import timezone
     from decimal import Decimal
 
-    category = detail_data.get('service_category', '')
+    category = detail_data.get('service_category') or detail_data.get('type') or ''
 
     detail = InvoiceServiceDetail(
         invoice_item=item,
@@ -1361,7 +1365,13 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
 
         vehicle.last_smoke_test_date = invoice.date
         vehicle.next_smoke_test_date = next_date
-        vehicle.save(update_fields=['last_smoke_test_date', 'next_smoke_test_date'])
+        update_fields = ['last_smoke_test_date', 'next_smoke_test_date']
+        odometer = detail_data.get('odometer_at_service') or detail_data.get('odometer')
+        if odometer:
+            detail.odometer_at_service = odometer
+            vehicle.current_odometer_km = odometer
+            update_fields.append('current_odometer_km')
+        vehicle.save(update_fields=update_fields)
 
     elif category in (InvoiceServiceDetail.CATEGORY_INSURANCE, 'insurance'):
         expiry_value = detail_data.get('insurance_expiry_date')
@@ -1394,15 +1404,18 @@ def _save_invoice_service_detail(item, detail_data, invoice, vehicle, user):
     detail.save()
 
     # Log odometer reading for ALL service categories (if odometer provided)
-    odometer_km = detail_data.get('odometer_at_service')
+    odometer_km = detail_data.get('odometer_at_service') or detail_data.get('odometer')
     if odometer_km:
-        VehicleOdometerLog.objects.create(
-            vehicle=vehicle,
-            invoice=invoice,
-            odometer_km=int(odometer_km),
-            auto_id=get_auto_id(VehicleOdometerLog),
-            creator=user,
-        )
+        try:
+            VehicleOdometerLog.objects.create(
+                vehicle=vehicle,
+                invoice=invoice,
+                odometer_km=int(odometer_km),
+                auto_id=get_auto_id(VehicleOdometerLog),
+                creator=user,
+            )
+        except Exception:
+            pass
 
 
 @csrf_exempt

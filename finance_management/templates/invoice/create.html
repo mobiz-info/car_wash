@@ -1055,6 +1055,7 @@
     const CURRENCY = "{{ currency_symbol }}";
     let searchType = 'vehicle';
     let currentCustomer = null;
+    let currentVehicleData = null;
     let availableServices = [];
     let debounceTimer = null;
 
@@ -1304,6 +1305,7 @@
         if (!currentCustomer) return;
         const vehicle = (currentCustomer.vehicles || []).find(v => String(v.id) === String(vehicleId));
         if (!vehicle) return;
+        currentVehicleData = vehicle;
 
         const branchSelect = document.getElementById('branch_select');
         const branchId = branchSelect.value;
@@ -1369,6 +1371,10 @@
                 sContainer.innerHTML = '';
                 if (data.success) {
                     availableServices = data.services || [];
+                    if (currentVehicleData) {
+                        if (data.current_odometer_km) currentVehicleData.current_odometer_km = data.current_odometer_km;
+                        if (data.emission_standard) currentVehicleData.emission_standard = data.emission_standard;
+                    }
                     renderCategoryChips();
                     addServiceRow();
                 } else {
@@ -1590,6 +1596,10 @@
             } else if (slug === 'tyre_change' || sName.includes('tyre')) {
                 renderTyreCategory(rowId, catBox);
             } else if (slug === 'wheel_alignment' || sName.includes('alignment')) {
+                renderAlignmentCategory(rowId, catBox);
+                autoCheckReminderIfLocked();
+            } else if (slug === 'smoke_test' || slug === 'pollution_test' || sName.includes('smoke') || sName.includes('pollution')) {
+                renderSmokeTestCategory(rowId, catBox);
                 autoCheckReminderIfLocked();
             } else if (slug === 'battery_change' || slug === 'battery' || sName.includes('battery')) {
                 renderBatteryCategory(rowId, catBox);
@@ -1613,6 +1623,9 @@
             ofOpts += `<option value="${f.id}" data-price="${f.price}">${f.name} (${CURRENCY}${f.price})</option>`;
         });
 
+        const currOdo = (currentVehicleData && currentVehicleData.current_odometer_km) ? currentVehicleData.current_odometer_km : '';
+        const nextKm = currOdo ? (parseInt(currOdo) + 5000) : '';
+
         box.innerHTML = `
             <div class="category-box-title"><i class="ph ph-drop"></i> Oil Change Configuration</div>
             <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
@@ -1629,12 +1642,12 @@
                     <select class="form-control oil-filter-select" onchange="calculateOilPrice('${rowId}')">${ofOpts}</select>
                 </div>
                 <div class="form-group">
-                    <label>Current Odometer (km)</label>
-                    <input type="number" class="form-control oil-odometer" placeholder="e.g. 45000" oninput="updateNextKm(this, '${rowId}_next_km', 5000)">
+                    <label>Current Odometer (km) *</label>
+                    <input type="number" class="form-control oil-odometer" value="${currOdo}" placeholder="e.g. 45000" oninput="updateNextKm(this, '${rowId}_next_km', 5000)">
                 </div>
                 <div class="form-group">
-                    <label>Next Oil Change (km)</label>
-                    <input type="number" id="${rowId}_next_km" class="form-control oil-next-km" placeholder="e.g. 50000">
+                    <label>Next Oil Change (km) *</label>
+                    <input type="number" id="${rowId}_next_km" class="form-control oil-next-km" value="${nextKm}" placeholder="e.g. 50000">
                 </div>
             </div>
         `;
@@ -1656,11 +1669,100 @@
         calculateRowLineTotal(rowId);
     }
 
+    function renderAlignmentCategory(rowId, box) {
+        const currOdo = (currentVehicleData && currentVehicleData.current_odometer_km) ? currentVehicleData.current_odometer_km : '';
+        const nextKm = currOdo ? (parseInt(currOdo) + 5000) : '';
+
+        box.innerHTML = `
+            <div class="category-box-title" style="color:var(--primary-navy);"><i class="ph ph-arrows-clockwise"></i> Wheel Alignment & Balancing Details</div>
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                <div class="form-group">
+                    <label>Current Odometer (km) *</label>
+                    <input type="number" class="form-control alignment-odometer" value="${currOdo}" placeholder="e.g. 45000" oninput="updateNextKm(this, '${rowId}_next_alignment_km', 5000)">
+                </div>
+                <div class="form-group">
+                    <label>Next Alignment Due (km) *</label>
+                    <input type="number" id="${rowId}_next_alignment_km" class="form-control alignment-next-km" value="${nextKm}" placeholder="e.g. 50000">
+                </div>
+                <div class="form-group" style="justify-content: flex-end;">
+                    <label>Operations Performed</label>
+                    <div style="display:flex; gap:16px; align-items:center; height:38px;">
+                        <label style="display:inline-flex; align-items:center; gap:6px; font-weight:600; cursor:pointer; margin:0;">
+                            <input type="checkbox" class="alignment-done-chk" checked style="width:16px; height:16px;"> Alignment
+                        </label>
+                        <label style="display:inline-flex; align-items:center; gap:6px; font-weight:600; cursor:pointer; margin:0;">
+                            <input type="checkbox" class="balancing-done-chk" checked style="width:16px; height:16px;"> Balancing
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Alignment Notes (Optional)</label>
+                    <input type="text" class="form-control alignment-notes" placeholder="Notes e.g. front camber adjusted">
+                </div>
+            </div>
+        `;
+        box.style.display = 'block';
+    }
+
+    function renderSmokeTestCategory(rowId, box) {
+        const currOdo = (currentVehicleData && currentVehicleData.current_odometer_km) ? currentVehicleData.current_odometer_km : '';
+
+        let defaultMonths = 12;
+        if (currentVehicleData) {
+            const model = (currentVehicleData.type || '').toUpperCase();
+            const es = (currentVehicleData.emission_standard || '').toUpperCase();
+            const combined = `${model} ${es}`;
+            const bs3Keywords = ['BS-1', 'BS-2', 'BS-3', 'BS 1', 'BS 2', 'BS 3', 'BS1', 'BS2', 'BS3', 'BS -1', 'BS -2', 'BS -3'];
+            if (bs3Keywords.some(k => combined.includes(k))) {
+                defaultMonths = 6;
+            }
+        }
+
+        box.innerHTML = `
+            <div class="category-box-title" style="color:#7e22ce;"><i class="ph ph-wind"></i> Smoke / Pollution Test Details</div>
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="form-group">
+                    <label>Current Odometer (km)</label>
+                    <input type="number" class="form-control smoke-odometer" value="${currOdo}" placeholder="e.g. 45000">
+                </div>
+                <div class="form-group">
+                    <label>Renewal Validity *</label>
+                    <select class="form-control smoke-validity-select" onchange="updateSmokeTestPreview('${rowId}')">
+                        <option value="6" ${defaultMonths === 6 ? 'selected' : ''}>6 Months (BS-1/2/3)</option>
+                        <option value="12" ${defaultMonths === 12 ? 'selected' : ''}>1 Year (BS-4/6)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Next Renewal Date</label>
+                    <input type="text" id="${rowId}_smoke_next_date" class="form-control" readonly style="background:#f8fafc; font-weight:700; color:#7e22ce;">
+                </div>
+            </div>
+        `;
+        box.style.display = 'block';
+        updateSmokeTestPreview(rowId);
+    }
+
+    function updateSmokeTestPreview(rowId) {
+        const row = document.getElementById(rowId);
+        if (!row) return;
+        const sel = row.querySelector('.smoke-validity-select');
+        const months = parseInt(sel?.value) || 12;
+        const days = months === 6 ? 180 : 365;
+        const d = new Date();
+        d.setDate(d.getDate() + days);
+        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const target = document.getElementById(`${rowId}_smoke_next_date`);
+        if (target) target.value = dateStr;
+    }
+
     function renderTyreCategory(rowId, box) {
         let bOpts = '<option value="">-- Select Tyre Brand --</option>';
         tyreBrands.forEach(b => {
             bOpts += `<option value="${b.id}">${b.brand}</option>`;
         });
+
+        const currOdo = (currentVehicleData && currentVehicleData.current_odometer_km) ? currentVehicleData.current_odometer_km : '';
+        const nextKm = currOdo ? (parseInt(currOdo) + 40000) : '';
 
         box.innerHTML = `
             <div class="category-box-title"><i class="ph ph-circle"></i> Tyre Replacement Configuration</div>
@@ -1681,11 +1783,11 @@
                 </div>
                 <div class="form-group">
                     <label>Odometer (km)</label>
-                    <input type="number" class="form-control tyre-odometer" placeholder="e.g. 45000" oninput="updateNextKm(this, '${rowId}_tyre_next_km', 40000)">
+                    <input type="number" class="form-control tyre-odometer" value="${currOdo}" placeholder="e.g. 45000" oninput="updateNextKm(this, '${rowId}_tyre_next_km', 40000)">
                 </div>
                 <div class="form-group">
                     <label>Next Replacement (km)</label>
-                    <input type="number" id="${rowId}_tyre_next_km" class="form-control tyre-next-km" placeholder="e.g. 85000">
+                    <input type="number" id="${rowId}_tyre_next_km" class="form-control tyre-next-km" value="${nextKm}" placeholder="e.g. 85000">
                 </div>
             </div>
         `;
@@ -2229,30 +2331,65 @@
 
             const oilP = row.querySelector('.oil-product-select');
             if (oilP && oilP.value) {
+                const odoVal = parseInt(row.querySelector('.oil-odometer')?.value) || 0;
                 svcItem.service_detail = {
+                    service_category: 'oil_change',
                     type: 'oil_change',
                     oil_product_id: oilP.value,
-                    oil_litres: parseFloat(row.querySelector('.oil-litres')?.value) || 0,
+                    oil_litres_used: parseFloat(row.querySelector('.oil-litres')?.value) || 0,
                     oil_filter_id: row.querySelector('.oil-filter-select')?.value || null,
-                    odometer: parseInt(row.querySelector('.oil-odometer')?.value) || 0,
+                    odometer_at_service: odoVal,
+                    odometer: odoVal,
                     next_oil_change_km: parseInt(row.querySelector('.oil-next-km')?.value) || 0
                 };
             }
 
             const tyreP = row.querySelector('.tyre-select');
             if (tyreP && tyreP.value) {
+                const odoVal = parseInt(row.querySelector('.tyre-odometer')?.value) || 0;
                 svcItem.service_detail = {
+                    service_category: 'tyre_change',
                     type: 'tyre_change',
                     tyre_id: tyreP.value,
                     size: row.querySelector('.tyre-size')?.value || '',
-                    odometer: parseInt(row.querySelector('.tyre-odometer')?.value) || 0,
+                    odometer_at_service: odoVal,
+                    odometer: odoVal,
                     next_tyre_change_km: parseInt(row.querySelector('.tyre-next-km')?.value) || 0
+                };
+            }
+
+            const alignOdo = row.querySelector('.alignment-odometer');
+            if (alignOdo) {
+                const odoVal = parseInt(alignOdo.value) || 0;
+                svcItem.service_detail = {
+                    service_category: 'wheel_alignment',
+                    type: 'wheel_alignment',
+                    alignment_done: row.querySelector('.alignment-done-chk')?.checked ?? true,
+                    balancing_done: row.querySelector('.balancing-done-chk')?.checked ?? true,
+                    alignment_notes: row.querySelector('.alignment-notes')?.value || '',
+                    odometer_at_service: odoVal,
+                    odometer: odoVal,
+                    next_alignment_km: parseInt(row.querySelector('.alignment-next-km')?.value) || 0
+                };
+            }
+
+            const smokeOdo = row.querySelector('.smoke-odometer');
+            const smokeValidity = row.querySelector('.smoke-validity-select');
+            if (smokeOdo || smokeValidity) {
+                const odoVal = parseInt(smokeOdo?.value) || 0;
+                svcItem.service_detail = {
+                    service_category: 'smoke_test',
+                    type: 'smoke_test',
+                    smoke_test_period_months: parseInt(smokeValidity?.value) || 12,
+                    odometer_at_service: odoVal,
+                    odometer: odoVal
                 };
             }
 
             const battP = row.querySelector('.battery-select');
             if (battP && battP.value) {
                 svcItem.service_detail = {
+                    service_category: 'battery_change',
                     type: 'battery_change',
                     battery_id: battP.value,
                     warranty: parseFloat(row.querySelector('.battery-warranty')?.value) || 1.0
@@ -2263,6 +2400,7 @@
             if (detailWarranty) {
                 hasDetailing = true;
                 svcItem.service_detail = {
+                    service_category: 'detailing',
                     type: 'detailing',
                     warranty_years: parseFloat(detailWarranty.value) || 3.0,
                     top_up_visits: parseInt(row.querySelector('.detailing-topups')?.value) || 2
