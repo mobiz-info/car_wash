@@ -2643,7 +2643,7 @@ def invoice_create(request):
     
     company_taxes = []
     if company:
-        company_taxes = CompanyTax.objects.filter(company=company, is_deleted=False)
+        company_taxes = CompanyTax.objects.filter(company=company, is_deleted=False, is_enabled=True).select_related('tax')
 
     currency_symbol = '₹'
     if company and getattr(company, 'country', None) and getattr(company.country, 'currency_symbol', None):
