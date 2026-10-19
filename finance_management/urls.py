@@ -14,6 +14,8 @@ urlpatterns = [
     # Sales & receipts (upstream)
     path('sales-report/', views.sales_report, name='sales_report'),
     path('invoice-receipt/<uuid:pk>/', views.invoice_receipt, name='invoice_receipt'),
+    path('invoices/<uuid:pk>/whatsapp-share/', views.invoice_whatsapp_share, name='invoice_whatsapp_share'),
+    path('invoices/<uuid:pk>/pdf/', views.invoice_pdf_view, name='invoice_pdf_view'),
     path('receipt-list/', views.receipt_list, name='receipt_list'),
     path('receipt-create/', views.receipt_create, name='receipt_create'),
 
@@ -47,6 +49,9 @@ urlpatterns = [
     path('reports/credit-note-report/', views.credit_note_report, name='credit_note_report'),
     path('credit-note-report/', views.credit_note_report),
     path('api/reports/credit-note-report/', views.api_credit_note_report, name='api_credit_note_report'),
+    path('credit-notes/<uuid:pk>/receipt/', views.credit_note_receipt, name='credit_note_receipt'),
+    path('credit-notes/<uuid:pk>/pdf/', views.credit_note_pdf_view, name='credit_note_pdf_view'),
+    path('credit-notes/<uuid:pk>/whatsapp-share/', views.credit_note_whatsapp_share, name='credit_note_whatsapp_share'),
 
     # Invoice Customisation
     path('customisation/invoice/', views.invoice_customisation_redirect, name='invoice_customisation_redirect'),

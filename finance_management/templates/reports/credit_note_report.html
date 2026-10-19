@@ -559,6 +559,10 @@
             <button type="button" class="btn-secondary btn-print" onclick="window.print()" title="Print Report">
                 <i class="ph ph-printer"></i> Print
             </button>
+
+            <button type="button" class="btn-filter" style="background:#be185d; margin-left:auto;" onclick="openCreditNoteModal()" title="Issue New Credit Note">
+                <i class="ph-bold ph-plus-circle"></i> Issue Credit Note
+            </button>
         </form>
     </div>
 
@@ -630,6 +634,7 @@
                         <th style="text-align: right;">Tax</th>
                         <th style="text-align: right;">Total Amount</th>
                         <th>Issued By</th>
+                        <th style="text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -689,6 +694,25 @@
                                 {{ cn.creator.username|default:cn.creator.get_full_name|default:"Staff" }}
                             </span>
                         </td>
+                        <td style="text-align: center; white-space: nowrap;">
+                            <div style="display:inline-flex; gap:6px; align-items:center;">
+                                <a href="{% url 'credit_note_whatsapp_share' cn.id %}" target="_blank"
+                                   style="background:#d1fae5; color:#065f46; text-decoration:none; padding:6px 9px; border-radius:7px; font-size:0.95rem; display:inline-flex; align-items:center;"
+                                   title="Share on WhatsApp">
+                                    <i class="ph-bold ph-whatsapp-logo"></i>
+                                </a>
+                                <a href="{% url 'credit_note_receipt' cn.id %}"
+                                   style="background:#eff6ff; color:#1d4ed8; text-decoration:none; padding:6px 9px; border-radius:7px; font-size:0.9rem; display:inline-flex; align-items:center;"
+                                   title="View Receipt">
+                                    <i class="ph ph-receipt"></i>
+                                </a>
+                                <a href="{% url 'credit_note_pdf_view' cn.id %}" target="_blank"
+                                   style="background:#f1f5f9; color:#475569; text-decoration:none; padding:6px 9px; border-radius:7px; font-size:0.9rem; display:inline-flex; align-items:center;"
+                                   title="Download PDF">
+                                    <i class="ph ph-file-pdf"></i>
+                                </a>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -706,7 +730,7 @@
                         <td style="text-align: right; padding: 16px; color: #dc2626; font-size: 1.05rem;">
                             -{{ total_amount|floatformat:2 }}
                         </td>
-                        <td></td>
+                        <td colspan="2"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -722,4 +746,5 @@
 
 </div>
 
+{% include 'credit_note/credit_note_modal.html' %}
 {% endblock %}

@@ -1,0 +1,599 @@
+<!-- Reusable Credit Note Modal (Matching App Credit Note Experience) -->
+<style>
+    .cn-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.65);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 16px;
+    }
+
+    .cn-modal-card {
+        background: #ffffff;
+        border-radius: 20px;
+        max-width: 650px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        border: 1px solid #e2e8f0;
+        animation: cnModalFadeIn 0.2s ease-out;
+    }
+
+    @keyframes cnModalFadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.96) translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .cn-modal-header {
+        padding: 20px 24px;
+        background: linear-gradient(135deg, #1e1b4b, #312e81);
+        color: white;
+        border-radius: 19px 19px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .cn-modal-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .cn-modal-close {
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        transition: 0.2s;
+    }
+
+    .cn-modal-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .cn-modal-body {
+        padding: 24px;
+    }
+
+    .cn-invoice-summary-box {
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+
+    .cn-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .cn-stat-pill {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 10px 14px;
+    }
+
+    .cn-stat-label {
+        font-size: 0.75rem;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .cn-stat-val {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 2px;
+    }
+
+    .cn-quick-pill {
+        background: #e0e7ff;
+        color: #3730a3;
+        border: 1px solid #c7d2fe;
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .cn-quick-pill:hover {
+        background: #c7d2fe;
+    }
+
+    .cn-item-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.88rem;
+    }
+
+    .cn-item-row:last-child {
+        border-bottom: none;
+    }
+
+    .cn-btn-submit {
+        background: #4338ca;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 14px rgba(67, 56, 202, 0.3);
+        transition: 0.2s;
+    }
+
+    .cn-btn-submit:hover {
+        background: #3730a3;
+        transform: translateY(-1px);
+    }
+
+    .cn-btn-submit:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+</style>
+
+<div id="creditNoteModalOverlay" class="cn-modal-overlay">
+    <div class="cn-modal-card">
+        <!-- Header -->
+        <div class="cn-modal-header">
+            <div class="cn-modal-title">
+                <i class="ph-bold ph-receipt-x"></i>
+                <span>Issue Credit Note</span>
+                <span id="cnModalNumberBadge" style="background: rgba(255,255,255,0.2); font-size: 0.8rem; padding: 3px 10px; border-radius: 20px; font-weight: 600;"></span>
+            </div>
+            <button type="button" class="cn-modal-close" onclick="closeCreditNoteModal()">&times;</button>
+        </div>
+
+        <!-- Body -->
+        <div class="cn-modal-body">
+            <!-- Loading Spinner State -->
+            <div id="cnModalLoading" style="text-align: center; padding: 40px 20px;">
+                <i class="ph ph-spinner-gap" style="font-size: 2.2rem; color: #4338ca; animation: spin 1s linear infinite;"></i>
+                <div style="margin-top: 10px; color: #64748b; font-weight: 600;">Loading invoice details...</div>
+            </div>
+
+            <!-- Invoice Search Bar (Shown if no invoice ID was passed directly) -->
+            <div id="cnModalSearchBox" style="display: none; margin-bottom: 20px;">
+                <label style="font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Search Invoice to Credit *</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="cnModalSearchInput" class="form-control" placeholder="Enter invoice number (e.g. INV-A1-171)..." onkeydown="if(event.key==='Enter'){event.preventDefault();cnSearchInvoice();}">
+                    <button type="button" class="btn btn-primary" onclick="cnSearchInvoice()" style="background: #4338ca; border: none; padding: 0 16px; border-radius: 8px; color: white; font-weight: 600;">Search</button>
+                </div>
+            </div>
+
+            <!-- Form Content -->
+            <div id="cnModalContent" style="display: none;">
+                <!-- Invoice Summary Card -->
+                <div class="cn-invoice-summary-box">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                        <div>
+                            <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a;" id="cnSummaryInvNo"></span>
+                            <div style="font-size: 0.82rem; color: #64748b; margin-top: 2px;">
+                                Customer: <strong id="cnSummaryCustomer" style="color: #1e293b;"></strong>
+                            </div>
+                        </div>
+                        <span class="badge" style="background: #dbeafe; color: #1e40af; font-size: 0.82rem; padding: 4px 10px; border-radius: 6px; font-weight: 600;" id="cnSummaryVehicle"></span>
+                    </div>
+
+                    <div class="cn-grid-2">
+                        <div class="cn-stat-pill">
+                            <div class="cn-stat-label">Total Invoiced</div>
+                            <div class="cn-stat-val" id="cnSummaryTotal">₹0.00</div>
+                        </div>
+                        <div class="cn-stat-pill">
+                            <div class="cn-stat-label">Amount Collected</div>
+                            <div class="cn-stat-val" style="color: #16a34a;" id="cnSummaryCollected">₹0.00</div>
+                        </div>
+                        <div class="cn-stat-pill">
+                            <div class="cn-stat-label">Current Outstanding</div>
+                            <div class="cn-stat-val" style="color: #dc2626;" id="cnSummaryOutstanding">₹0.00</div>
+                        </div>
+                        <div class="cn-stat-pill" style="border-color: #cbd5e1; background: #eff6ff;">
+                            <div class="cn-stat-label" style="color: #1e40af;">Max Creditable</div>
+                            <div class="cn-stat-val" style="color: #1e40af;" id="cnSummaryMaxCreditable">₹0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Credit Note Form -->
+                <form id="cnIssueForm" onsubmit="submitCreditNote(event)">
+                    {% csrf_token %}
+                    <input type="hidden" id="cnFormInvoiceId">
+
+                    <!-- Credit Amount Input -->
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label style="font-weight: 600; font-size: 0.9rem; color: #1e293b; margin: 0;">Credit Amount *</label>
+                            <div style="display: flex; gap: 6px;">
+                                <span class="cn-quick-pill" onclick="cnSetAmount('outstanding')">Full Balance</span>
+                                <span class="cn-quick-pill" onclick="cnSetAmount('max')">Max Creditable</span>
+                            </div>
+                        </div>
+                        <input type="number" id="cnAmountInput" class="form-control" step="0.01" min="0.01" required style="font-size: 1.15rem; font-weight: 700; height: 44px; color: #b91c1c;" oninput="cnOnAmountChange()">
+                        <small id="cnAmountWarning" style="color: #dc2626; font-size: 0.8rem; margin-top: 4px; display: none; font-weight: 600;">Amount exceeds maximum creditable limit!</small>
+                    </div>
+
+                    <!-- Reason Dropdown (Matching App) -->
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label style="font-weight: 600; font-size: 0.9rem; color: #1e293b; margin-bottom: 6px; display: block;">Credit Reason *</label>
+                        <select id="cnReasonSelect" class="form-control" required style="height: 42px;">
+                            <option value="">-- Select Reason --</option>
+                            <option value="Service Dissatisfaction / Rework">Service Dissatisfaction / Rework</option>
+                            <option value="Billing / Pricing Error">Billing / Pricing Error</option>
+                            <option value="Order / Service Cancellation">Order / Service Cancellation</option>
+                            <option value="Goodwill / Special Discount">Goodwill / Special Discount</option>
+                            <option value="Customer Return">Customer Return</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Remarks Textarea -->
+                    <div class="form-group" style="margin-bottom: 18px;">
+                        <label style="font-weight: 600; font-size: 0.9rem; color: #1e293b; margin-bottom: 6px; display: block;">Remarks / Notes (Optional)</label>
+                        <textarea id="cnRemarksInput" class="form-control" rows="2" placeholder="Explain the reason for this credit adjustment..."></textarea>
+                    </div>
+
+                    <!-- Items Breakdown (Collapsible) -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 6px 0;" onclick="cnToggleItemsBreakdown()">
+                            <span style="font-size: 0.85rem; font-weight: 600; color: #4338ca;"><i class="ph ph-list"></i> Invoice Services Breakdown (<span id="cnItemsCount">0</span>)</span>
+                            <i id="cnItemsToggleIcon" class="ph ph-caret-down" style="color: #4338ca;"></i>
+                        </div>
+                        <div id="cnItemsListContainer" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; margin-top: 8px; max-height: 160px; overflow-y: auto;">
+                            <!-- Dynamic items list -->
+                        </div>
+                    </div>
+
+                    <!-- Impact Preview Box -->
+                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.88rem; color: #1e3a8a; font-weight: 600;">New Outstanding Balance:</span>
+                        <strong id="cnNewOutstandingPreview" style="font-size: 1.1rem; color: #1e3a8a;">₹0.00</strong>
+                    </div>
+
+                    <!-- Modal Actions -->
+                    <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                        <button type="button" class="btn" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer;" onclick="closeCreditNoteModal()">Cancel</button>
+                        <button type="submit" id="btnSubmitCreditNote" class="cn-btn-submit">
+                            <i class="ph ph-check-circle"></i> Issue Credit Note
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Success State -->
+            <div id="cnModalSuccess" style="display: none; text-align: center; padding: 30px 10px;">
+                <div style="width: 64px; height: 64px; background: #d1fae5; color: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 16px;">
+                    <i class="ph-bold ph-check"></i>
+                </div>
+                <h3 style="font-size: 1.4rem; color: #0f172a; margin: 0 0 6px; font-weight: 800;">Credit Note Issued Successfully!</h3>
+                <p style="color: #64748b; font-size: 0.95rem; margin-bottom: 8px;">Credit Note: <strong style="color: #4338ca;" id="cnSuccessNumber"></strong></p>
+                <p style="color: #475569; font-size: 0.9rem; margin-bottom: 24px;">New Outstanding Balance: <strong style="color: #dc2626;" id="cnSuccessOutstanding"></strong></p>
+
+                <div style="display: flex; flex-direction: column; gap: 10px; max-width: 360px; margin: 0 auto;">
+                    <a id="btnCnSuccessReceipt" href="#" target="_blank" style="background: #4338ca; color: white; text-decoration: none; padding: 12px; border-radius: 9px; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="ph ph-receipt"></i> View Credit Note Receipt
+                    </a>
+                    <a id="btnCnSuccessWhatsApp" href="#" target="_blank" style="background: #10b981; color: white; text-decoration: none; padding: 12px; border-radius: 9px; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="ph-bold ph-whatsapp-logo"></i> Share on WhatsApp
+                    </a>
+                    <button type="button" onclick="closeCreditNoteModal(true)" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 4px;">
+                        Done & Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentCnInvoiceData = null;
+
+    function openCreditNoteModal(invoiceId) {
+        const modal = document.getElementById('creditNoteModalOverlay');
+        const loading = document.getElementById('cnModalLoading');
+        const content = document.getElementById('cnModalContent');
+        const success = document.getElementById('cnModalSuccess');
+        const searchBox = document.getElementById('cnModalSearchBox');
+
+        modal.style.display = 'flex';
+        success.style.display = 'none';
+
+        if (invoiceId) {
+            searchBox.style.display = 'none';
+            loading.style.display = 'block';
+            content.style.display = 'none';
+            fetchCreditNoteInfo(invoiceId);
+        } else {
+            // General open without preset invoice
+            loading.style.display = 'none';
+            content.style.display = 'none';
+            searchBox.style.display = 'block';
+            document.getElementById('cnModalSearchInput').value = '';
+            document.getElementById('cnModalNumberBadge').innerText = '';
+        }
+    }
+
+    function closeCreditNoteModal(shouldReload = false) {
+        document.getElementById('creditNoteModalOverlay').style.display = 'none';
+        if (shouldReload) {
+            window.location.reload();
+        }
+    }
+
+    function cnSearchInvoice() {
+        const query = document.getElementById('cnModalSearchInput').value.trim();
+        if (!query) {
+            alert('Please enter an invoice number to search.');
+            return;
+        }
+
+        const loading = document.getElementById('cnModalLoading');
+        loading.style.display = 'block';
+        document.getElementById('cnModalContent').style.display = 'none';
+
+        // Fetch invoice by number or ID
+        fetch(`/api/invoice/list/?search=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(data => {
+                const invoices = data.invoices || [];
+                const found = invoices.find(inv => (inv.invoice_number || '').toLowerCase() === query.toLowerCase()) || invoices[0];
+                if (found && found.id) {
+                    fetchCreditNoteInfo(found.id);
+                } else {
+                    loading.style.display = 'none';
+                    alert(`No invoice found matching "${query}".`);
+                }
+            })
+            .catch(err => {
+                loading.style.display = 'none';
+                alert('Error searching for invoice.');
+            });
+    }
+
+    function fetchCreditNoteInfo(invoiceId) {
+        const loading = document.getElementById('cnModalLoading');
+        const content = document.getElementById('cnModalContent');
+
+        fetch(`/api/credit-notes/info/?invoice_id=${invoiceId}`)
+            .then(res => res.json())
+            .then(data => {
+                loading.style.display = 'none';
+                if (data.success) {
+                    currentCnInvoiceData = data;
+                    renderCreditNoteModal(data);
+                    content.style.display = 'block';
+                } else {
+                    alert(data.message || 'Failed to load credit note details.');
+                    closeCreditNoteModal();
+                }
+            })
+            .catch(err => {
+                loading.style.display = 'none';
+                alert('Network error loading credit note details.');
+                closeCreditNoteModal();
+            });
+    }
+
+    function renderCreditNoteModal(data) {
+        const inv = data.invoice;
+        document.getElementById('cnModalNumberBadge').innerText = data.next_credit_note_number || 'Auto';
+        document.getElementById('cnFormInvoiceId').value = inv.id;
+        document.getElementById('cnSummaryInvNo').innerText = inv.invoice_number;
+        document.getElementById('cnSummaryCustomer').innerText = inv.customer_name;
+        document.getElementById('cnSummaryVehicle').innerText = inv.vehicle_number || 'Vehicle';
+
+        const cur = (typeof CURRENCY !== 'undefined') ? CURRENCY : '₹';
+        const total = parseFloat(inv.total) || 0;
+        const collected = parseFloat(inv.amount_collected) || 0;
+        const outstanding = parseFloat(inv.current_outstanding) || 0;
+        const maxCreditable = parseFloat(inv.max_creditable) || 0;
+
+        document.getElementById('cnSummaryTotal').innerText = `${cur}${total.toFixed(2)}`;
+        document.getElementById('cnSummaryCollected').innerText = `${cur}${collected.toFixed(2)}`;
+        document.getElementById('cnSummaryOutstanding').innerText = `${cur}${outstanding.toFixed(2)}`;
+        document.getElementById('cnSummaryMaxCreditable').innerText = `${cur}${maxCreditable.toFixed(2)}`;
+
+        // Default amount: outstanding if > 0, otherwise max creditable
+        const defaultAmt = outstanding > 0 ? outstanding : maxCreditable;
+        const amtInput = document.getElementById('cnAmountInput');
+        amtInput.value = defaultAmt.toFixed(2);
+        amtInput.max = maxCreditable;
+
+        document.getElementById('cnReasonSelect').value = '';
+        document.getElementById('cnRemarksInput').value = '';
+
+        // Items breakdown
+        const itemsList = document.getElementById('cnItemsListContainer');
+        itemsList.innerHTML = '';
+        const items = inv.items || [];
+        document.getElementById('cnItemsCount').innerText = items.length;
+
+        items.forEach(itm => {
+            const itemTotal = parseFloat(itm.total) || 0;
+            const row = document.createElement('div');
+            row.className = 'cn-item-row';
+            row.innerHTML = `
+                <div>
+                    <span style="font-weight:600; color:#1e293b;">${itm.service_name}</span>
+                    <span style="font-size:0.78rem; color:#64748b; margin-left:6px;">(x${itm.qty})</span>
+                </div>
+                <strong style="color:#0f172a;">${cur}${itemTotal.toFixed(2)}</strong>
+            `;
+            itemsList.appendChild(row);
+        });
+
+        cnOnAmountChange();
+    }
+
+    function cnSetAmount(type) {
+        if (!currentCnInvoiceData) return;
+        const inv = currentCnInvoiceData.invoice;
+        const amtInput = document.getElementById('cnAmountInput');
+        if (type === 'outstanding') {
+            amtInput.value = (parseFloat(inv.current_outstanding) || 0).toFixed(2);
+        } else if (type === 'max') {
+            amtInput.value = (parseFloat(inv.max_creditable) || 0).toFixed(2);
+        }
+        cnOnAmountChange();
+    }
+
+    function cnOnAmountChange() {
+        if (!currentCnInvoiceData) return;
+        const inv = currentCnInvoiceData.invoice;
+        const maxCreditable = parseFloat(inv.max_creditable) || 0;
+        const curOutstanding = parseFloat(inv.current_outstanding) || 0;
+        const cur = (typeof CURRENCY !== 'undefined') ? CURRENCY : '₹';
+
+        const entered = parseFloat(document.getElementById('cnAmountInput').value) || 0;
+        const warning = document.getElementById('cnAmountWarning');
+        const submitBtn = document.getElementById('btnSubmitCreditNote');
+
+        if (entered > maxCreditable) {
+            warning.style.display = 'block';
+            submitBtn.disabled = true;
+        } else if (entered <= 0) {
+            warning.style.display = 'none';
+            submitBtn.disabled = true;
+        } else {
+            warning.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+
+        const newOutstanding = Math.max(0, curOutstanding - entered);
+        document.getElementById('cnNewOutstandingPreview').innerText = `${cur}${newOutstanding.toFixed(2)}`;
+    }
+
+    function cnToggleItemsBreakdown() {
+        const box = document.getElementById('cnItemsListContainer');
+        const icon = document.getElementById('cnItemsToggleIcon');
+        if (box.style.display === 'none') {
+            box.style.display = 'block';
+            icon.className = 'ph ph-caret-up';
+        } else {
+            box.style.display = 'none';
+            icon.className = 'ph ph-caret-down';
+        }
+    }
+
+    function submitCreditNote(e) {
+        e.preventDefault();
+        const invoiceId = document.getElementById('cnFormInvoiceId').value;
+        const amount = parseFloat(document.getElementById('cnAmountInput').value) || 0;
+        const reason = document.getElementById('cnReasonSelect').value;
+        const remarks = document.getElementById('cnRemarksInput').value.trim();
+
+        if (amount <= 0) {
+            alert('Please enter a valid credit amount.');
+            return;
+        }
+        if (!reason) {
+            alert('Please select a credit reason.');
+            return;
+        }
+
+        const btn = document.getElementById('btnSubmitCreditNote');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Issuing...';
+
+        // Prepare items allocation
+        const itemsPayload = [];
+        if (currentCnInvoiceData && currentCnInvoiceData.invoice && currentCnInvoiceData.invoice.items) {
+            currentCnInvoiceData.invoice.items.forEach(itm => {
+                itemsPayload.push({
+                    invoice_item_id: itm.id,
+                    service_name: itm.service_name,
+                    qty: itm.qty,
+                    rate: itm.rate,
+                    tax_amount: itm.tax_amount,
+                    total: itm.total
+                });
+            });
+        }
+
+        const payload = {
+            invoice_id: invoiceId,
+            credit_amount: amount,
+            reason: reason,
+            remarks: remarks,
+            items: itemsPayload
+        };
+
+        const csrf = document.querySelector('#cnIssueForm [name=csrfmiddlewaretoken]')?.value 
+            || document.querySelector('[name=csrfmiddlewaretoken]')?.value 
+            || (document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1]) 
+            || '';
+
+        fetch('/api/credit-notes/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrf
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-check-circle"></i> Issue Credit Note';
+                if (data.success) {
+                    const cnId = data.credit_note_id;
+                    const cnNo = data.credit_note_number;
+                    const newOut = data.new_outstanding;
+                    const cur = (typeof CURRENCY !== 'undefined') ? CURRENCY : '₹';
+
+                    document.getElementById('cnModalContent').style.display = 'none';
+                    document.getElementById('cnSuccessNumber').innerText = cnNo;
+                    document.getElementById('cnSuccessOutstanding').innerText = `${cur}${parseFloat(newOut).toFixed(2)}`;
+
+                    document.getElementById('btnCnSuccessReceipt').href = `/credit-notes/${cnId}/receipt/`;
+                    document.getElementById('btnCnSuccessWhatsApp').href = `/credit-notes/${cnId}/whatsapp-share/`;
+
+                    document.getElementById('cnModalSuccess').style.display = 'block';
+                } else {
+                    alert(`Failed to issue Credit Note: ${data.message || 'Unknown error'}`);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-check-circle"></i> Issue Credit Note';
+                alert(`Error: ${err.message || 'Network error occurred'}`);
+            });
+    }
+</script>

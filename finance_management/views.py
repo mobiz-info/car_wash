@@ -645,12 +645,13 @@ def sales_report(request):
 def invoice_receipt(request, pk):
 
     invoice = get_object_or_404(
-        Invoice.objects.prefetch_related('items'),
+        Invoice.objects.prefetch_related('items', 'credit_notes'),
         pk=pk,
         is_deleted=False
     )
 
-    balance = invoice.total - invoice.amount_collected
+    credit_note_amount = invoice.credit_note_amount or Decimal('0.00')
+    balance = max(Decimal('0.00'), invoice.total - invoice.amount_collected - credit_note_amount)
 
     context = {
         'invoice': invoice,
@@ -2272,6 +2273,307 @@ def generate_invoice_pdf_file(invoice, base_url):
     if not base_url.endswith('/'):
         base_url += '/'
     return f"{base_url}media/invoices/{pdf_filename}"
+
+
+@login_required
+def invoice_whatsapp_share(request, pk):
+    from finance_management.models import Invoice
+    from booking_management.api_views import clean_whatsapp_number
+    import urllib.parse
+
+    invoice = get_object_or_404(
+        Invoice.objects.select_related('customer', 'vehicle', 'branch', 'branch__company', 'branch__company__country').prefetch_related('items'),
+        pk=pk,
+        is_deleted=False
+    )
+    customer = invoice.customer
+    phone = (customer.whatsapp_number or customer.phone or '').strip() if customer else ''
+    cleaned_phone = clean_whatsapp_number(phone) if phone else ''
+
+    base_url = request.build_absolute_uri('/')
+    if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+        base_url = 'http://68.183.94.11:78'
+
+    pdf_url = ''
+    try:
+        pdf_url = generate_invoice_pdf_file(invoice, base_url)
+    except Exception:
+        clean_no = str(invoice.invoice_number).replace('/', '_')
+        pdf_url = f"{base_url.rstrip('/')}/media/invoices/invoice-{clean_no}.pdf"
+
+    company_name = invoice.branch.company.company_name if (invoice.branch and invoice.branch.company) else "Wash Pilot"
+    currency = '₹'
+    if invoice.branch and invoice.branch.company and invoice.branch.company.country:
+        currency = getattr(invoice.branch.company.country, 'currency_symbol', '₹') or '₹'
+
+    branch_name = invoice.branch.name if invoice.branch else company_name
+
+    items_list = []
+    for itm in invoice.items.filter(is_operational=False):
+        qty_str = f" (x{int(itm.qty)})" if itm.qty and itm.qty > 1 else ""
+        item_amt = itm.net_taxable_amount if (itm.net_taxable_amount is not None and itm.net_taxable_amount > 0) else (float(itm.rate or 0) * float(itm.qty or 1))
+        items_list.append(f"• {itm.service_name}{qty_str}: {currency}{item_amt:.2f}")
+    services_text = "\n".join(items_list)
+
+    inv_type = "Tax Invoice" if invoice.tax_amount and invoice.tax_amount > 0 else "Invoice"
+    cust_name = customer.name if customer else "Customer"
+    veh_no = invoice.vehicle.vehicle_number if invoice.vehicle else "N/A"
+    inv_date = invoice.date.strftime('%d-%b-%Y') if invoice.date else ""
+
+    msg_lines = [
+        f"Dear *{cust_name}*,",
+        f"Thank you for choosing *{company_name}* ({branch_name})!",
+        f"Your {inv_type} *{invoice.invoice_number}* is ready.",
+        "",
+        f"🚗 *Vehicle:* {veh_no}",
+        f"📅 *Date:* {inv_date}",
+    ]
+    if services_text:
+        msg_lines.extend(["", "🛠 *Services:*", services_text])
+
+    subtotal_val = float(invoice.subtotal or 0)
+    discount_val = float(invoice.discount or 0)
+    tax_val = float(invoice.tax_amount or 0)
+    total_val = float(invoice.total or 0)
+    paid_val = float(invoice.amount_collected or 0)
+    balance_val = total_val - paid_val
+
+    msg_lines.append("")
+    if discount_val > 0:
+        msg_lines.append(f"🏷 *Discount:* -{currency}{discount_val:.2f}")
+    if tax_val > 0:
+        msg_lines.append(f"📊 *Tax:* {currency}{tax_val:.2f}")
+    msg_lines.append(f"💰 *Total Amount:* {currency}{total_val:.2f}")
+    msg_lines.append(f"✅ *Paid:* {currency}{paid_val:.2f}")
+    if balance_val > 0:
+        msg_lines.append(f"⏳ *Balance Due:* {currency}{balance_val:.2f}")
+
+    if pdf_url:
+        msg_lines.extend([
+            "",
+            "📄 *Download Invoice PDF:*",
+            pdf_url
+        ])
+
+    msg_lines.extend([
+        "",
+        f"Thank you for your visit to *{branch_name}*!",
+        "Have a smooth and safe drive! 🚗✨"
+    ])
+
+    message_text = "\n".join(msg_lines)
+    encoded_message = urllib.parse.quote(message_text)
+
+    whatsapp_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
+
+    # Trigger background official API message if client has active credentials
+    try:
+        from client_management.api_views import send_invoice_whatsapp_background
+        import threading
+        threading.Thread(
+            target=send_invoice_whatsapp_background,
+            args=(str(invoice.id), base_url),
+            daemon=True
+        ).start()
+    except Exception:
+        pass
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.GET.get('format') == 'json':
+        return JsonResponse({
+            'success': True,
+            'whatsapp_url': whatsapp_url,
+            'phone': cleaned_phone,
+            'customer_name': cust_name,
+            'invoice_number': invoice.invoice_number,
+            'message': message_text,
+            'pdf_url': pdf_url
+        })
+
+    return redirect(whatsapp_url)
+
+
+@login_required
+def invoice_pdf_view(request, pk):
+    from finance_management.models import Invoice
+    invoice = get_object_or_404(Invoice, pk=pk, is_deleted=False)
+    base_url = request.build_absolute_uri('/')
+    if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+        base_url = 'http://68.183.94.11:78'
+    pdf_url = generate_invoice_pdf_file(invoice, base_url)
+    return redirect(pdf_url)
+
+
+@login_required
+def credit_note_receipt(request, pk):
+    from finance_management.models import CreditNote
+    from decimal import Decimal
+    credit_note = get_object_or_404(
+        CreditNote.objects.select_related(
+            'invoice', 'invoice__vehicle', 'invoice__vehicle__vehicle_type_model', 'branch', 'branch__company', 'customer'
+        ).prefetch_related('items'),
+        pk=pk,
+        is_deleted=False
+    )
+
+    currency = '₹'
+    if credit_note.branch and credit_note.branch.company and credit_note.branch.company.country:
+        currency = getattr(credit_note.branch.company.country, 'currency_symbol', '₹') or '₹'
+
+    company_trn = ''
+    if credit_note.branch:
+        if credit_note.branch.gst_number:
+            company_trn = credit_note.branch.gst_number
+        elif credit_note.branch.company:
+            company_trn = credit_note.branch.company.gst_number or credit_note.branch.company.tin_pan_no or ''
+
+    credited_so_far = credit_note.invoice.credit_note_amount or Decimal('0.00')
+    remaining_balance = max(Decimal('0.00'), credit_note.invoice.total - credit_note.invoice.amount_collected - credited_so_far)
+
+    context = {
+        'credit_note': credit_note,
+        'currency': currency,
+        'company_trn': company_trn,
+        'remaining_balance': remaining_balance,
+    }
+    return render(request, 'credit_note/receipt.html', context)
+
+
+def generate_credit_note_pdf_file(credit_note, base_url):
+    import sys
+    import os
+    from django.template.loader import render_to_string
+    from django.conf import settings
+    from decimal import Decimal
+
+    if sys.platform == 'darwin':
+        os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
+    from weasyprint import HTML
+
+    currency = '₹'
+    if credit_note.branch and credit_note.branch.company and credit_note.branch.company.country:
+        currency = getattr(credit_note.branch.company.country, 'currency_symbol', '₹') or '₹'
+
+    company_trn = ''
+    if credit_note.branch:
+        if credit_note.branch.gst_number:
+            company_trn = credit_note.branch.gst_number
+        elif credit_note.branch.company:
+            company_trn = credit_note.branch.company.gst_number or credit_note.branch.company.tin_pan_no or ''
+
+    credited_so_far = credit_note.invoice.credit_note_amount or Decimal('0.00')
+    remaining_balance = max(Decimal('0.00'), credit_note.invoice.total - credit_note.invoice.amount_collected - credited_so_far)
+
+    context = {
+        'credit_note': credit_note,
+        'currency': currency,
+        'company_trn': company_trn,
+        'remaining_balance': remaining_balance,
+    }
+    html_string = render_to_string('credit_note/receipt.html', context)
+
+    media_dir = os.path.join(settings.BASE_DIR, 'media', 'credit_notes')
+    os.makedirs(media_dir, exist_ok=True)
+
+    clean_no = str(credit_note.credit_note_number).replace('/', '_')
+    pdf_filename = f"creditnote-{clean_no}.pdf"
+    pdf_path = os.path.join(media_dir, pdf_filename)
+
+    html = HTML(string=html_string, base_url=base_url)
+    html.write_pdf(target=pdf_path)
+
+    if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+        base_url = 'http://68.183.94.11:78'
+
+    if not base_url.endswith('/'):
+        base_url += '/'
+    return f"{base_url}media/credit_notes/{pdf_filename}"
+
+
+@login_required
+def credit_note_pdf_view(request, pk):
+    from finance_management.models import CreditNote
+    credit_note = get_object_or_404(CreditNote, pk=pk, is_deleted=False)
+    base_url = request.build_absolute_uri('/')
+    if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+        base_url = 'http://68.183.94.11:78'
+    pdf_url = generate_credit_note_pdf_file(credit_note, base_url)
+    return redirect(pdf_url)
+
+
+@login_required
+def credit_note_whatsapp_share(request, pk):
+    from finance_management.models import CreditNote
+    from booking_management.api_views import clean_whatsapp_number
+    import urllib.parse
+
+    credit_note = get_object_or_404(
+        CreditNote.objects.select_related('customer', 'branch', 'branch__company', 'invoice', 'invoice__vehicle'),
+        pk=pk,
+        is_deleted=False
+    )
+    customer = credit_note.customer
+    phone = (customer.whatsapp_number or customer.phone or '').strip() if customer else ''
+    cleaned_phone = clean_whatsapp_number(phone) if phone else ''
+
+    base_url = request.build_absolute_uri('/')
+    if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+        base_url = 'http://68.183.94.11:78'
+
+    pdf_url = ''
+    try:
+        pdf_url = generate_credit_note_pdf_file(credit_note, base_url)
+    except Exception:
+        clean_no = str(credit_note.credit_note_number).replace('/', '_')
+        pdf_url = f"{base_url.rstrip('/')}/media/credit_notes/creditnote-{clean_no}.pdf"
+
+    company_name = credit_note.branch.company.company_name if (credit_note.branch and credit_note.branch.company) else "Wash Pilot"
+    currency = '₹'
+    if credit_note.branch and credit_note.branch.company and credit_note.branch.company.country:
+        currency = getattr(credit_note.branch.company.country, 'currency_symbol', '₹') or '₹'
+
+    branch_name = credit_note.branch.name if credit_note.branch else company_name
+
+    msg_lines = [
+        f"Dear *{customer.name if customer else 'Customer'}*,",
+        f"A Credit Note has been issued for your reference at *{company_name}* ({branch_name}).",
+        "",
+        f"📝 *Credit Note No:* {credit_note.credit_note_number}",
+        f"📄 *Ref. Invoice:* {credit_note.invoice.invoice_number if credit_note.invoice else 'N/A'}",
+        f"📅 *Date:* {credit_note.date.strftime('%d-%b-%Y') if credit_note.date else ''}",
+        f"💰 *Credited Amount:* -{currency}{credit_note.total:.2f}",
+        f"📌 *Reason:* {credit_note.reason or 'Adjustment'}",
+    ]
+    if credit_note.remarks:
+        msg_lines.append(f"💬 *Remarks:* {credit_note.remarks}")
+
+    if pdf_url:
+        msg_lines.extend([
+            "",
+            "📄 *Download Credit Note PDF:*",
+            pdf_url
+        ])
+
+    msg_lines.extend([
+        "",
+        f"Thank you for choosing *{company_name}*!"
+    ])
+
+    message_text = "\n".join(msg_lines)
+    encoded_message = urllib.parse.quote(message_text)
+
+    whatsapp_url = f"https://api.whatsapp.com/send?phone={cleaned_phone}&text={encoded_message}"
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.GET.get('format') == 'json':
+        return JsonResponse({
+            'success': True,
+            'whatsapp_url': whatsapp_url,
+            'phone': cleaned_phone,
+            'credit_note_number': credit_note.credit_note_number,
+            'message': message_text,
+            'pdf_url': pdf_url
+        })
+
+    return redirect(whatsapp_url)
 
 
 def generate_quotation_pdf_file(quotation, base_url):

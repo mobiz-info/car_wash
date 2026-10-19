@@ -73,11 +73,14 @@
                         <span style="font-weight:700; color:#1e293b; font-family: monospace; font-size: 0.9rem;">
                             {{ invoice.invoice_number }}
                         </span>
-                        <div style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase; margin-top: 4px;">
+                        <div style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase; margin-top: 4px; display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
                             {% if invoice.invoice_type == 'cashinvoice' %}
                                 <span style="color: #15803d; background: #f0fdf4; padding: 2px 6px; border-radius: 4px;">Cash</span>
                             {% else %}
                                 <span style="color: #b91c1c; background: #fef2f2; padding: 2px 6px; border-radius: 4px;">Credit</span>
+                            {% endif %}
+                            {% if invoice.credit_note_amount > 0 %}
+                                <span style="color: #be185d; background: #fdf2f8; border:1px solid #fbcfe8; padding: 2px 6px; border-radius: 4px;" title="Credit Note: {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.credit_note_amount }}">CN: -{{ invoice.credit_note_amount }}</span>
                             {% endif %}
                         </div>
                     </td>
@@ -124,12 +127,35 @@
                         {% endif %}
                     </td>
                     <td style="text-align:center;">
-                        <button
-                            onclick="deleteInvoice('{{ invoice.id }}', '{{ invoice.invoice_number }}')"
-                            style="background:#fee2e2; color:#b91c1c; border:none; padding:7px 12px; border-radius:7px; cursor:pointer; font-size:0.85rem;"
-                            title="Delete Invoice">
-                            <i class="ph ph-trash"></i>
-                        </button>
+                        <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+                            <button type="button"
+                                onclick="openCreditNoteModal('{{ invoice.id }}')"
+                                style="background:#fdf2f8; color:#be185d; border:1px solid #fbcfe8; padding:7px 10px; border-radius:7px; cursor:pointer; font-size:0.95rem; display:inline-flex; align-items:center; justify-content:center;"
+                                title="Issue Credit Note">
+                                <i class="ph-bold ph-arrow-u-up-left"></i>
+                            </button>
+                            <a href="{% url 'invoice_whatsapp_share' invoice.id %}" target="_blank"
+                                style="background:#d1fae5; color:#065f46; text-decoration:none; padding:7px 10px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:1rem;"
+                                title="Share Invoice on WhatsApp">
+                                <i class="ph-bold ph-whatsapp-logo"></i>
+                            </a>
+                            <a href="{% url 'invoice_receipt' invoice.id %}"
+                                style="background:#eff6ff; color:#1d4ed8; text-decoration:none; padding:7px 10px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:0.95rem;"
+                                title="View Receipt">
+                                <i class="ph ph-receipt"></i>
+                            </a>
+                            <a href="{% url 'invoice_pdf_view' invoice.id %}" target="_blank"
+                                style="background:#f1f5f9; color:#475569; text-decoration:none; padding:7px 10px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:0.95rem;"
+                                title="Download PDF">
+                                <i class="ph ph-file-pdf"></i>
+                            </a>
+                            <button
+                                onclick="deleteInvoice('{{ invoice.id }}', '{{ invoice.invoice_number }}')"
+                                style="background:#fee2e2; color:#b91c1c; border:none; padding:7px 10px; border-radius:7px; cursor:pointer; font-size:0.95rem; display:inline-flex; align-items:center; justify-content:center;"
+                                title="Delete Invoice">
+                                <i class="ph ph-trash"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
@@ -216,5 +242,7 @@ function showToast(message, type) {
     setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 </script>
+
+{% include 'credit_note/credit_note_modal.html' %}
 {% endblock %}
 

@@ -453,10 +453,16 @@
                                                 {{ currency_symbol }} {{ item.outstanding|floatformat:2 }}
                                             </span>
                                         </td>
-                                        <td style="text-align:right;">
+                                        <td style="text-align:right; white-space:nowrap;">
                                             <button type="button" class="btn-collect"
                                                     onclick="openCollectModal('{{ item.invoice.id }}', '{{ item.invoice.invoice_number }}', '{{ item.outstanding }}', '{{ item.invoice.customer.name|escapejs }}', '{{ item.invoice.vehicle.vehicle_number }}', '{{ item.invoice.total }}', '{{ item.invoice.amount_collected }}')">
                                                 <i class="ph ph-currency-circle-dollar"></i> Collect
+                                            </button>
+                                            <button type="button" class="btn-collect"
+                                                    style="background: #fdf2f8; color: #be185d; border-color: #fbcfe8; margin-left: 6px;"
+                                                    onclick="openCreditNoteModal('{{ item.invoice.id }}')"
+                                                    title="Issue Credit Note">
+                                                <i class="ph-bold ph-arrow-u-up-left"></i> Credit Note
                                             </button>
                                         </td>
                                     </tr>
@@ -560,10 +566,16 @@
                             </span>
                         </td>
 
-                        <td style="text-align:right;">
+                        <td style="text-align:right; white-space:nowrap;">
                             <button type="button" class="btn-collect"
                                     onclick="openCollectModal('{{ item.invoice.id }}', '{{ item.invoice.invoice_number }}', '{{ item.outstanding }}', '{{ item.invoice.customer.name|escapejs }}', '{{ item.invoice.vehicle.vehicle_number }}', '{{ item.invoice.total }}', '{{ item.invoice.amount_collected }}')">
                                 <i class="ph ph-currency-circle-dollar"></i> Collect
+                            </button>
+                            <button type="button" class="btn-collect"
+                                    style="background: #fdf2f8; color: #be185d; border-color: #fbcfe8; margin-left: 6px;"
+                                    onclick="openCreditNoteModal('{{ item.invoice.id }}')"
+                                    title="Issue Credit Note">
+                                <i class="ph-bold ph-arrow-u-up-left"></i> Credit Note
                             </button>
                         </td>
                     </tr>
@@ -776,4 +788,6 @@
         if (e.target === this) closeCollectModal();
     });
 </script>
+
+{% include 'credit_note/credit_note_modal.html' %}
 {% endblock %}

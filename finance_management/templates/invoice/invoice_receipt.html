@@ -161,6 +161,81 @@
     margin-bottom:6px;
 }
 
+.action-btn-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.whatsapp-btn {
+    background: #10b981;
+    color: white;
+    text-decoration: none;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+    transition: all 0.2s;
+}
+
+.whatsapp-btn:hover {
+    background: #059669;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.pdf-btn {
+    background: #000080;
+    color: white;
+    text-decoration: none;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    transition: all 0.2s;
+}
+
+.pdf-btn:hover {
+    background: #1e3a8a;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.back-btn {
+    background: #f1f5f9;
+    color: #475569;
+    text-decoration: none;
+    border: 1px solid #cbd5e1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.92rem;
+    margin-right: auto;
+}
+
+.back-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
 .print-btn{
     background:#2563eb;
     color:white;
@@ -169,7 +244,16 @@
     border-radius:8px;
     cursor:pointer;
     font-weight:600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.92rem;
 }
+
+.print-btn:hover {
+    background: #1d4ed8;
+}
+
 @media print {
 
     body * {
@@ -188,7 +272,11 @@
         width: 100%;
     }
 
-    .print-btn {
+    .action-btn-group,
+    .print-btn,
+    .whatsapp-btn,
+    .pdf-btn,
+    .back-btn {
         display: none !important;
     }
 
@@ -203,9 +291,23 @@
 
 <div class="receipt-wrapper">
 
-    <div style="margin-bottom:18px; text-align:right;">
+    <div class="action-btn-group">
+        <a href="{% url 'invoice_list' %}" class="back-btn">
+            <i class="ph ph-arrow-left"></i> All Invoices
+        </a>
+        <a href="{% url 'invoice_whatsapp_share' invoice.id %}" target="_blank" class="whatsapp-btn">
+            <i class="ph-bold ph-whatsapp-logo" style="font-size: 1.25rem;"></i> Share on WhatsApp
+        </a>
+        <a href="{% url 'invoice_pdf_view' invoice.id %}" target="_blank" class="pdf-btn">
+            <i class="ph ph-file-pdf" style="font-size: 1.15rem;"></i> Download PDF
+        </a>
+        <button type="button" onclick="openCreditNoteModal('{{ invoice.id }}')"
+                style="background: #be185d; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; font-size: 0.92rem; box-shadow: 0 2px 6px rgba(190, 24, 93, 0.25);"
+                title="Issue Credit Note">
+            <i class="ph-bold ph-arrow-u-up-left"></i> Credit Note
+        </button>
         <button onclick="window.print()" class="print-btn">
-            Print Receipt
+            <i class="ph ph-printer"></i> Print Receipt
         </button>
     </div>
 
@@ -347,9 +449,45 @@
                         </span>
                     </div>
 
+                    {% if invoice.credit_note_amount > 0 %}
+                    <div class="info-row">
+                        <span class="info-label" style="color:#be185d; font-weight:600;">Credit Note</span>
+                        <span class="info-value" style="color:#be185d;">
+                            -{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.credit_note_amount }}
+                        </span>
+                    </div>
+                    {% endif %}
+
                 </div>
 
             </div>
+
+            {% if invoice.credit_notes.all %}
+            <div style="background:#fdf2f8; border:1px solid #fbcfe8; border-radius:10px; padding:16px 20px; margin-bottom:24px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-weight:700; color:#9d174d; display:flex; align-items:center; gap:8px; font-size:0.95rem;">
+                        <i class="ph-bold ph-arrow-u-up-left"></i> Linked Credit Notes
+                    </div>
+                    <span style="font-weight:700; color:#be185d; font-size:0.9rem;">Total Credited: -{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.credit_note_amount }}</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    {% for cn in invoice.credit_notes.all %}
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:10px 14px; border-radius:8px; border:1px solid #fce7f3; font-size:0.88rem;">
+                        <div>
+                            <span style="font-family:monospace; font-weight:700; color:#be185d;">{{ cn.credit_note_number }}</span>
+                            <span style="color:#64748b; margin-left:8px;">{{ cn.date|date:"d M Y" }}</span>
+                            {% if cn.reason %}<span style="color:#475569; margin-left:8px;">· {{ cn.reason }}</span>{% endif %}
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <strong style="color:#dc2626;">-{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ cn.total }}</strong>
+                            <a href="{% url 'credit_note_receipt' cn.id %}" target="_blank" style="color:#1d4ed8; text-decoration:none; font-weight:600; font-size:0.82rem; background:#eff6ff; padding:4px 8px; border-radius:4px;">Receipt</a>
+                            <a href="{% url 'credit_note_whatsapp_share' cn.id %}" target="_blank" style="color:#065f46; text-decoration:none; font-weight:600; font-size:0.82rem; background:#d1fae5; padding:4px 8px; border-radius:4px;"><i class="ph-bold ph-whatsapp-logo"></i> WhatsApp</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Services Table -->
 
@@ -424,6 +562,13 @@
                     <strong>{{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.total }}</strong>
                 </div>
 
+                {% if invoice.credit_note_amount > 0 %}
+                <div class="summary-row" style="color:#be185d;">
+                    <span>Credit Note</span>
+                    <strong>- {{ request.user.profile.company.country.currency_symbol|default:'₹' }}{{ invoice.credit_note_amount }}</strong>
+                </div>
+                {% endif %}
+
                 <div class="summary-row">
                     <span>Collected</span>
                     <strong style="color:#059669;">
@@ -474,4 +619,5 @@
 
 </div>
 
+{% include 'credit_note/credit_note_modal.html' %}
 {% endblock %}

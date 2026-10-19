@@ -1052,6 +1052,46 @@
     </div>
 </div>
 
+<!-- Invoice Success Modal with WhatsApp Share -->
+<div id="invoiceSuccessModal" class="modal-overlay" style="display: none; align-items: center; justify-content: center; z-index: 9999;">
+    <div class="modal-card" style="max-width: 480px; text-align: center; padding: 32px 28px; border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+        <div style="width: 68px; height: 68px; background: #d1fae5; color: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 16px;">
+            <i class="ph-bold ph-check"></i>
+        </div>
+        <h3 style="font-size: 1.45rem; color: #0f172a; margin: 0 0 6px; font-weight: 800;">Invoice Created Successfully!</h3>
+        <p style="color: #64748b; font-size: 0.95rem; margin-bottom: 24px;">Invoice Number: <strong style="color: var(--primary-navy);" id="success_inv_number"></strong></p>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <a id="btn_modal_whatsapp" href="#" target="_blank"
+                style="background: #10b981; color: white; text-decoration: none; padding: 13px 20px; border-radius: 10px; font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); transition: all 0.2s;">
+                <i class="ph-bold ph-whatsapp-logo" style="font-size: 1.45rem;"></i> Share Invoice on WhatsApp
+            </a>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
+                <a id="btn_modal_receipt" href="#"
+                    style="background: #000080; color: white; text-decoration: none; padding: 11px; border-radius: 9px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="ph ph-receipt"></i> View Receipt
+                </a>
+                <a id="btn_modal_pdf" href="#" target="_blank"
+                    style="background: #f1f5f9; color: #1e293b; text-decoration: none; padding: 11px; border-radius: 9px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #cbd5e1;">
+                    <i class="ph ph-file-pdf"></i> Download PDF
+                </a>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 10px; padding-top: 14px; border-top: 1px solid #f1f5f9;">
+                <button type="button" onclick="window.location.reload()"
+                    style="flex: 1; background: #fff; border: 1.5px solid #cbd5e1; color: #475569; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    + New Invoice
+                </button>
+                <a href="{% url 'invoice_list' %}"
+                    style="flex: 1; background: #fff; border: 1.5px solid #cbd5e1; color: #475569; padding: 10px; border-radius: 8px; font-weight: 600; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+                    All Invoices
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const CURRENCY = "{{ currency_symbol }}";
     let searchType = 'mobile';
@@ -2555,9 +2595,19 @@
                 btn.disabled = false;
                 btn.innerHTML = '<i class="ph ph-check-circle"></i> Create & Finalize Invoice';
                 if (data.success) {
-                    alert(`Invoice ${data.invoice_number || ''} created successfully!`);
-                    if (data.invoice_id) {
-                        window.location.href = `/invoice-receipt/${data.invoice_id}/`;
+                    const invId = data.invoice_id;
+                    const invNo = data.invoice_number || '';
+                    document.getElementById('success_inv_number').innerText = invNo;
+                    if (invId) {
+                        document.getElementById('btn_modal_whatsapp').href = `/invoices/${invId}/whatsapp-share/`;
+                        document.getElementById('btn_modal_receipt').href = `/invoice-receipt/${invId}/`;
+                        document.getElementById('btn_modal_pdf').href = `/invoices/${invId}/pdf/`;
+                    }
+                    const modal = document.getElementById('invoiceSuccessModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                    } else if (invId) {
+                        window.location.href = `/invoice-receipt/${invId}/`;
                     } else {
                         window.location.href = '/invoices/';
                     }

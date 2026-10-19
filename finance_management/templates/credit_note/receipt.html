@@ -1,0 +1,487 @@
+{% extends 'base.html' %}
+
+{% block title %}Credit Note {{ credit_note.credit_note_number }} - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}Credit Note Receipt{% endblock %}
+{% block breadcrumb_active %}Credit Note Receipt{% endblock %}
+
+{% block content %}
+
+<style>
+.receipt-wrapper {
+    max-width: 900px;
+    margin: auto;
+}
+
+.action-btn-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.whatsapp-btn {
+    background: #10b981;
+    color: white;
+    text-decoration: none;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+    transition: all 0.2s;
+}
+
+.whatsapp-btn:hover {
+    background: #059669;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.pdf-btn {
+    background: #4338ca;
+    color: white;
+    text-decoration: none;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    transition: all 0.2s;
+}
+
+.pdf-btn:hover {
+    background: #3730a3;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.back-btn {
+    background: #f1f5f9;
+    color: #475569;
+    text-decoration: none;
+    border: 1px solid #cbd5e1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.92rem;
+    margin-right: auto;
+}
+
+.back-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.print-btn {
+    background: #0f172a;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.92rem;
+}
+
+.print-btn:hover {
+    background: #1e293b;
+}
+
+.receipt-card {
+    background: #fff;
+    border: 1px solid #fecaca;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+}
+
+.receipt-header {
+    background: #fef2f2;
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #fee2e2;
+}
+
+.company-block h2 {
+    margin: 0;
+    color: #991b1b;
+    font-size: 1.6rem;
+    font-weight: 800;
+}
+
+.company-block p {
+    margin: 4px 0;
+    color: #475569;
+    font-size: 0.88rem;
+}
+
+.receipt-title {
+    text-align: right;
+}
+
+.receipt-title h1 {
+    margin: 0;
+    color: #b91c1c;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+.receipt-title p {
+    margin: 6px 0;
+    color: #475569;
+    font-size: 0.88rem;
+}
+
+.receipt-body {
+    padding: 24px;
+}
+
+.customer-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.info-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 18px;
+    background: #f8fafc;
+}
+
+.info-card h4 {
+    margin-top: 0;
+    margin-bottom: 14px;
+    color: #0f172a;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.info-row {
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.info-label {
+    color: #64748b;
+    font-size: 0.88rem;
+}
+
+.info-value {
+    font-weight: 600;
+    color: #1e293b;
+    text-align: right;
+}
+
+.receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.receipt-table thead {
+    background: #fef2f2;
+}
+
+.receipt-table th {
+    padding: 12px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.88rem;
+    color: #1e293b;
+    text-align: left;
+}
+
+.receipt-table td {
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.88rem;
+}
+
+.amount-summary {
+    margin-top: 24px;
+    margin-left: auto;
+    width: 360px;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px dashed #cbd5e1;
+    font-size: 0.9rem;
+}
+
+.summary-row.total {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #b91c1c;
+    border-top: 2px solid #b91c1c;
+    border-bottom: 2px solid #b91c1c;
+    margin-top: 6px;
+    padding: 12px 0;
+}
+
+.receipt-footer {
+    margin-top: 50px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.sign-box {
+    text-align: center;
+}
+
+.sign-line {
+    width: 180px;
+    border-top: 1px solid #000;
+    margin-bottom: 6px;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    .receipt-wrapper,
+    .receipt-wrapper * {
+        visibility: visible;
+    }
+
+    .receipt-wrapper {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    .action-btn-group,
+    .print-btn,
+    .whatsapp-btn,
+    .pdf-btn,
+    .back-btn {
+        display: none !important;
+    }
+
+    .receipt-card {
+        box-shadow: none;
+        border: none;
+    }
+}
+</style>
+
+<div class="receipt-wrapper">
+
+    <div class="action-btn-group">
+        <a href="{% url 'credit_note_report' %}" class="back-btn">
+            <i class="ph ph-arrow-left"></i> Credit Note Report
+        </a>
+        <a href="{% url 'credit_note_whatsapp_share' credit_note.id %}" target="_blank" class="whatsapp-btn">
+            <i class="ph-bold ph-whatsapp-logo" style="font-size: 1.25rem;"></i> Share on WhatsApp
+        </a>
+        <a href="{% url 'credit_note_pdf_view' credit_note.id %}" target="_blank" class="pdf-btn">
+            <i class="ph ph-file-pdf" style="font-size: 1.15rem;"></i> Download PDF
+        </a>
+        <button onclick="window.print()" class="print-btn">
+            <i class="ph ph-printer"></i> Print Credit Note
+        </button>
+    </div>
+
+    <div class="receipt-card">
+
+        <!-- Header -->
+        <div class="receipt-header">
+            <div class="company-block">
+                <h2>{{ credit_note.branch.company.company_name|default:"Mobiz Autocare Pro" }}</h2>
+                <p>{{ credit_note.branch.name|default:"Main Branch" }}</p>
+                {% if credit_note.branch.company.address %}
+                <p>{{ credit_note.branch.company.address }}</p>
+                {% endif %}
+                {% if credit_note.branch.company.phone %}
+                <p>Phone: {{ credit_note.branch.company.phone }}</p>
+                {% endif %}
+                {% if company_trn %}
+                <p><strong>TRN / GSTIN:</strong> {{ company_trn }}</p>
+                {% endif %}
+            </div>
+
+            <div class="receipt-title">
+                <h1>CREDIT NOTE</h1>
+                <p>
+                    <strong>Credit Note No:</strong>
+                    <span style="font-family: monospace; font-size: 1rem; color: #b91c1c; font-weight: 700;">{{ credit_note.credit_note_number }}</span>
+                </p>
+                <p>
+                    <strong>Date:</strong>
+                    {{ credit_note.date|date:"d M Y" }}
+                </p>
+                <p>
+                    <strong>Ref. Invoice:</strong>
+                    <a href="{% url 'invoice_receipt' credit_note.invoice.id %}" style="color: #2563eb; font-weight: 700; text-decoration: none;">
+                        {{ credit_note.invoice.invoice_number }}
+                    </a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="receipt-body">
+
+            <!-- Customer & Vehicle details -->
+            <div class="customer-section">
+                <div class="info-card">
+                    <h4>Customer Information</h4>
+                    <div class="info-row">
+                        <span class="info-label">Name:</span>
+                        <span class="info-value">{{ credit_note.customer.name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Phone:</span>
+                        <span class="info-value">{{ credit_note.customer.phone|default:"—" }}</span>
+                    </div>
+                    {% if credit_note.customer.address %}
+                    <div class="info-row">
+                        <span class="info-label">Address:</span>
+                        <span class="info-value">{{ credit_note.customer.address }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="info-card">
+                    <h4>Vehicle & Credit Reason</h4>
+                    <div class="info-row">
+                        <span class="info-label">Vehicle Plate:</span>
+                        <span class="info-value" style="font-family: monospace; font-size: 1rem; color: #1e3a8a;">
+                            {{ credit_note.invoice.vehicle.vehicle_number|default:"N/A" }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Model:</span>
+                        <span class="info-value">
+                            {{ credit_note.invoice.vehicle.brand_model.name|default:credit_note.invoice.vehicle.vehicle_type_model.name|default:"—" }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Reason:</span>
+                        <span class="info-value" style="color: #b91c1c;">
+                            {{ credit_note.reason|default:"General Credit Adjustment" }}
+                        </span>
+                    </div>
+                    {% if credit_note.remarks %}
+                    <div class="info-row">
+                        <span class="info-label">Remarks:</span>
+                        <span class="info-value" style="font-weight: normal; font-style: italic;">
+                            {{ credit_note.remarks }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Items table -->
+            <table class="receipt-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Service / Item Description</th>
+                        <th style="text-align: center; width: 80px;">Qty</th>
+                        <th style="text-align: right; width: 120px;">Rate</th>
+                        <th style="text-align: right; width: 130px;">Credit Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in credit_note.items.all %}
+                    <tr>
+                        <td style="color: #94a3b8;">{{ forloop.counter }}</td>
+                        <td style="font-weight: 600; color: #1e293b;">{{ item.service_name }}</td>
+                        <td style="text-align: center;">{{ item.qty }}</td>
+                        <td style="text-align: right;">{{ currency }}{{ item.rate|floatformat:2 }}</td>
+                        <td style="text-align: right; font-weight: 700; color: #b91c1c;">
+                            -{{ currency }}{{ item.total|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td style="color: #94a3b8;">1</td>
+                        <td style="font-weight: 600; color: #1e293b;">Credit Adjustment ({{ credit_note.reason|default:"General Adjustment" }})</td>
+                        <td style="text-align: center;">1</td>
+                        <td style="text-align: right;">{{ currency }}{{ credit_note.total|floatformat:2 }}</td>
+                        <td style="text-align: right; font-weight: 700; color: #b91c1c;">
+                            -{{ currency }}{{ credit_note.total|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Summary -->
+            <div class="amount-summary">
+                <div class="summary-row">
+                    <span>Original Invoice Total</span>
+                    <span>{{ currency }}{{ credit_note.invoice.total|floatformat:2 }}</span>
+                </div>
+                <div class="summary-row">
+                    <span>Amount Paid by Customer</span>
+                    <span style="color: #16a34a;">{{ currency }}{{ credit_note.invoice.amount_collected|floatformat:2 }}</span>
+                </div>
+                <div class="summary-row" style="color: #b91c1c; font-weight: 700;">
+                    <span>Credit Note Deduction</span>
+                    <span>-{{ currency }}{{ credit_note.total|floatformat:2 }}</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Net Credited Amount</span>
+                    <span>{{ currency }}{{ credit_note.total|floatformat:2 }}</span>
+                </div>
+                <div class="summary-row" style="font-weight: 600; color: #475569; border-top: 1px solid #e2e8f0; margin-top: 6px;">
+                    <span>Remaining Balance Due</span>
+                    <span>{{ currency }}{{ remaining_balance|floatformat:2 }}</span>
+                </div>
+            </div>
+
+            <!-- Footer Signatures -->
+            <div class="receipt-footer">
+                <div class="sign-box">
+                    <div class="sign-line"></div>
+                    <div style="font-size: 0.85rem; color: #64748b;">Customer Signature</div>
+                </div>
+
+                <div class="sign-box">
+                    <div class="sign-line"></div>
+                    <div style="font-size: 0.85rem; color: #64748b;">Authorised Signatory</div>
+                    <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 2px;">
+                        Issued by: {{ credit_note.creator.username|default:"Staff" }}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
