@@ -295,9 +295,10 @@
         <a href="{% url 'invoice_list' %}" class="back-btn">
             <i class="ph ph-arrow-left"></i> All Invoices
         </a>
-        <a href="{% url 'invoice_whatsapp_share' invoice.id %}" target="_blank" class="whatsapp-btn">
-            <i class="ph-bold ph-whatsapp-logo" style="font-size: 1.25rem;"></i> Share on WhatsApp
-        </a>
+        <button type="button" class="whatsapp-btn"
+            onclick="openWhatsAppShareModal('{{ invoice.id }}', '{{ invoice.invoice_number }}', '{{ invoice.customer.name|escapejs }}', '{{ invoice.customer.phone|default:invoice.customer.whatsapp_number }}')">
+            <i class="ph-bold ph-whatsapp-logo" style="font-size: 1.25rem;"></i> Share Invoice PDF
+        </button>
         <a href="{% url 'invoice_pdf_view' invoice.id %}" target="_blank" class="pdf-btn">
             <i class="ph ph-file-pdf" style="font-size: 1.15rem;"></i> Download PDF
         </a>
@@ -620,4 +621,5 @@
 </div>
 
 {% include 'credit_note/credit_note_modal.html' %}
+{% include 'invoice/whatsapp_share_modal.html' %}
 {% endblock %}

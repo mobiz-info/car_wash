@@ -2074,10 +2074,16 @@ def api_send_invoice_whatsapp(request):
 
         has_api = bool(setting and setting.username and setting.password)
 
+        clean_no = str(invoice.invoice_number).replace('/', '_')
+        base_url = request.build_absolute_uri('/')
+        if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+            base_url = 'http://68.183.94.11:78'
+        pdf_url = f"{base_url.rstrip('/')}/media/invoices/invoice-{clean_no}.pdf"
+        phone = (invoice.customer.whatsapp_number or invoice.customer.phone or '') if invoice.customer else ''
+
         if has_api:
             # Trigger background task
             import threading
-            base_url = request.build_absolute_uri('/')
             threading.Thread(
                 target=send_invoice_whatsapp_background,
                 args=(invoice.id, base_url),
@@ -2087,13 +2093,23 @@ def api_send_invoice_whatsapp(request):
             return JsonResponse({
                 'success': True,
                 'action': 'auto',
-                'message': 'Invoice sent successfully via WhatsApp API'
+                'has_api': True,
+                'message': f'Invoice PDF sent successfully via WhatsApp API to {phone}',
+                'pdf_url': pdf_url,
+                'phone': phone,
+                'customer_name': invoice.customer.name if invoice.customer else '',
+                'invoice_number': invoice.invoice_number
             })
         else:
             return JsonResponse({
                 'success': True,
                 'action': 'manual',
-                'message': 'WhatsApp API is not configured',
+                'has_api': False,
+                'message': 'WhatsApp API is not configured. Use manual PDF sharing.',
+                'pdf_url': pdf_url,
+                'phone': phone,
+                'customer_name': invoice.customer.name if invoice.customer else '',
+                'invoice_number': invoice.invoice_number
             })
 
     except Exception as e:

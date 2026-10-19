@@ -2599,7 +2599,14 @@
                     const invNo = data.invoice_number || '';
                     document.getElementById('success_inv_number').innerText = invNo;
                     if (invId) {
-                        document.getElementById('btn_modal_whatsapp').href = `/invoices/${invId}/whatsapp-share/`;
+                        const btnWa = document.getElementById('btn_modal_whatsapp');
+                        btnWa.href = `/invoices/${invId}/whatsapp-share/`;
+                        btnWa.onclick = function(e) {
+                            e.preventDefault();
+                            const custName = (typeof currentCustomer !== 'undefined' && currentCustomer) ? currentCustomer.name : '';
+                            const custPhone = (typeof currentCustomer !== 'undefined' && currentCustomer) ? (currentCustomer.phone || currentCustomer.whatsapp_number) : '';
+                            openWhatsAppShareModal(invId, invNo, custName, custPhone);
+                        };
                         document.getElementById('btn_modal_receipt').href = `/invoice-receipt/${invId}/`;
                         document.getElementById('btn_modal_pdf').href = `/invoices/${invId}/pdf/`;
                     }
@@ -2731,4 +2738,5 @@
         }
     }
 </style>
+{% include 'invoice/whatsapp_share_modal.html' %}
 {% endblock %}

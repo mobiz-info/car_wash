@@ -2321,43 +2321,24 @@ def invoice_whatsapp_share(request, pk):
     inv_date = invoice.date.strftime('%d-%b-%Y') if invoice.date else ""
 
     msg_lines = [
+        f"📄 *{inv_type} #{invoice.invoice_number}*",
         f"Dear *{cust_name}*,",
-        f"Thank you for choosing *{company_name}* ({branch_name})!",
-        f"Your {inv_type} *{invoice.invoice_number}* is ready.",
-        "",
-        f"🚗 *Vehicle:* {veh_no}",
-        f"📅 *Date:* {inv_date}",
+        f"Thank you for visiting *{company_name}* ({branch_name})!",
+        f"🚗 Vehicle: *{veh_no}* | 📅 Date: *{inv_date}*",
+        f"💰 Total Amount: *{currency}{total_val:.2f}* | ✅ Paid: *{currency}{paid_val:.2f}*",
     ]
-    if services_text:
-        msg_lines.extend(["", "🛠 *Services:*", services_text])
-
-    subtotal_val = float(invoice.subtotal or 0)
-    discount_val = float(invoice.discount or 0)
-    tax_val = float(invoice.tax_amount or 0)
-    total_val = float(invoice.total or 0)
-    paid_val = float(invoice.amount_collected or 0)
-    balance_val = total_val - paid_val
-
-    msg_lines.append("")
-    if discount_val > 0:
-        msg_lines.append(f"🏷 *Discount:* -{currency}{discount_val:.2f}")
-    if tax_val > 0:
-        msg_lines.append(f"📊 *Tax:* {currency}{tax_val:.2f}")
-    msg_lines.append(f"💰 *Total Amount:* {currency}{total_val:.2f}")
-    msg_lines.append(f"✅ *Paid:* {currency}{paid_val:.2f}")
     if balance_val > 0:
-        msg_lines.append(f"⏳ *Balance Due:* {currency}{balance_val:.2f}")
+        msg_lines.append(f"⏳ Balance Due: *{currency}{balance_val:.2f}*")
 
     if pdf_url:
         msg_lines.extend([
             "",
-            "📄 *Download Invoice PDF:*",
+            "📥 *Click to View & Download Invoice PDF:*",
             pdf_url
         ])
 
     msg_lines.extend([
         "",
-        f"Thank you for your visit to *{branch_name}*!",
         "Have a smooth and safe drive! 🚗✨"
     ])
 

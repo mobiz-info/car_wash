@@ -1,0 +1,415 @@
+<!-- Reusable WhatsApp PDF Share Modal -->
+<style>
+    .wa-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.65);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 10001;
+        padding: 16px;
+    }
+
+    .wa-modal-card {
+        background: #ffffff;
+        border-radius: 20px;
+        max-width: 520px;
+        width: 100%;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        border: 1px solid #e2e8f0;
+        animation: waModalFadeIn 0.2s ease-out;
+    }
+
+    @keyframes waModalFadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.96) translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .wa-modal-header {
+        padding: 20px 24px;
+        background: linear-gradient(135deg, #065f46, #059669, #10b981);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .wa-modal-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+
+    .wa-modal-close {
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        transition: 0.2s;
+    }
+
+    .wa-modal-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .wa-modal-body {
+        padding: 24px;
+    }
+
+    .wa-info-box {
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 20px;
+    }
+
+    .wa-btn-card {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        border-radius: 12px;
+        border: 1.5px solid #e2e8f0;
+        background: #ffffff;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: left;
+        margin-bottom: 12px;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .wa-btn-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    }
+
+    .wa-btn-card.primary {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        border-color: #059669;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .wa-btn-card.primary:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+    }
+
+    .wa-btn-card.secondary {
+        background: #f0fdf4;
+        border-color: #86efac;
+        color: #14532d;
+    }
+
+    .wa-btn-card.secondary:hover {
+        background: #dcfce7;
+    }
+
+    .wa-icon-box {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .wa-status-alert {
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 16px;
+        display: none;
+        align-items: center;
+        gap: 10px;
+    }
+</style>
+
+<div id="waShareModalOverlay" class="wa-modal-overlay">
+    <div class="wa-modal-card">
+        <!-- Header -->
+        <div class="wa-modal-header">
+            <div class="wa-modal-title">
+                <i class="ph-bold ph-whatsapp-logo" style="font-size: 1.5rem;"></i>
+                <span>Share Invoice PDF to WhatsApp</span>
+            </div>
+            <button type="button" class="wa-modal-close" onclick="closeWhatsAppShareModal()">&times;</button>
+        </div>
+
+        <!-- Body -->
+        <div class="wa-modal-body">
+            <!-- Details Box -->
+            <div class="wa-info-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 0.82rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Invoice</span>
+                    <span id="waModalInvNumber" style="font-family: monospace; font-weight: 800; font-size: 1rem; color: #000080;"></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span id="waModalCustomer" style="font-weight: 700; color: #1e293b; font-size: 0.95rem;"></span>
+                    <span id="waModalPhone" style="font-weight: 600; color: #059669; font-size: 0.9rem;"></span>
+                </div>
+            </div>
+
+            <!-- Status Alert -->
+            <div id="waModalStatusAlert" class="wa-status-alert"></div>
+
+            <!-- Action 1: Send PDF via WhatsApp API -->
+            <button type="button" id="btnWaSendApi" class="wa-btn-card primary" onclick="sendInvoicePdfViaApi()">
+                <div class="wa-icon-box" style="background: rgba(255,255,255,0.2);">
+                    <i class="ph-bold ph-paper-plane-tilt"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 700; font-size: 1rem;">Send PDF via WhatsApp API</div>
+                    <div style="font-size: 0.8rem; opacity: 0.9; margin-top: 2px;">
+                        Sends the official PDF document directly to customer's WhatsApp
+                    </div>
+                </div>
+            </button>
+
+            <!-- Action 2: Share PDF File (Native Web Share) -->
+            <button type="button" id="btnWaShareFile" class="wa-btn-card secondary" onclick="shareInvoicePdfFile()">
+                <div class="wa-icon-box" style="background: #bbf7d0; color: #15803d;">
+                    <i class="ph-bold ph-share-network"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 700; font-size: 0.95rem;">Share PDF Document File</div>
+                    <div style="font-size: 0.8rem; color: #166534; margin-top: 2px;">
+                        Attach & send .pdf file directly in WhatsApp (Device / Mobile / Mac)
+                    </div>
+                </div>
+            </button>
+
+            <!-- Action 3: Download PDF & Open WhatsApp Web -->
+            <button type="button" id="btnWaDownloadAndWeb" class="wa-btn-card" style="background: #f8fafc;" onclick="downloadPdfAndOpenWhatsAppWeb()">
+                <div class="wa-icon-box" style="background: #e2e8f0; color: #334155;">
+                    <i class="ph ph-file-arrow-down"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Download PDF & Open WhatsApp Web</div>
+                    <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">
+                        Downloads invoice.pdf so you can drop it into WhatsApp Web
+                    </div>
+                </div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentWaInvoiceId = null;
+    let currentWaInvoiceNumber = '';
+    let currentWaCustomerName = '';
+    let currentWaPhone = '';
+
+    function openWhatsAppShareModal(invoiceId, invoiceNumber, customerName, phone) {
+        currentWaInvoiceId = invoiceId;
+        currentWaInvoiceNumber = invoiceNumber || '';
+        currentWaCustomerName = customerName || 'Customer';
+        currentWaPhone = phone || '';
+
+        document.getElementById('waModalInvNumber').innerText = currentWaInvoiceNumber;
+        document.getElementById('waModalCustomer').innerText = currentWaCustomerName;
+        document.getElementById('waModalPhone').innerText = currentWaPhone ? `+${currentWaPhone.replace(/^\+/, '')}` : 'No phone';
+
+        const alertBox = document.getElementById('waModalStatusAlert');
+        alertBox.style.display = 'none';
+
+        const btnApi = document.getElementById('btnWaSendApi');
+        btnApi.disabled = false;
+        btnApi.innerHTML = `
+            <div class="wa-icon-box" style="background: rgba(255,255,255,0.2);">
+                <i class="ph-bold ph-paper-plane-tilt"></i>
+            </div>
+            <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 1rem;">Send PDF via WhatsApp API</div>
+                <div style="font-size: 0.8rem; opacity: 0.9; margin-top: 2px;">
+                    Sends the official PDF document directly to customer's WhatsApp
+                </div>
+            </div>
+        `;
+
+        document.getElementById('waShareModalOverlay').style.display = 'flex';
+    }
+
+    function closeWhatsAppShareModal() {
+        document.getElementById('waShareModalOverlay').style.display = 'none';
+    }
+
+    // Close on backdrop click
+    document.getElementById('waShareModalOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeWhatsAppShareModal();
+    });
+
+    // 1. Send PDF via WhatsApp Business API
+    function sendInvoicePdfViaApi() {
+        if (!currentWaInvoiceId) return;
+
+        const btn = document.getElementById('btnWaSendApi');
+        const alertBox = document.getElementById('waModalStatusAlert');
+
+        btn.disabled = true;
+        btn.innerHTML = `
+            <div class="wa-icon-box" style="background: rgba(255,255,255,0.2);">
+                <i class="ph ph-spinner-gap" style="animation: spin 1s linear infinite;"></i>
+            </div>
+            <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 1rem;">Sending PDF via WhatsApp API...</div>
+                <div style="font-size: 0.8rem; opacity: 0.9; margin-top: 2px;">Delivering document to ${currentWaPhone}...</div>
+            </div>
+        `;
+
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value 
+            || (document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1]) 
+            || '';
+
+        fetch('/api/invoice/send-whatsapp/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrf
+            },
+            body: JSON.stringify({ invoice_id: currentWaInvoiceId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            if (data.success && data.has_api !== false) {
+                btn.innerHTML = `
+                    <div class="wa-icon-box" style="background: rgba(255,255,255,0.2);">
+                        <i class="ph-bold ph-check"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 700; font-size: 1rem;">Sent Successfully!</div>
+                        <div style="font-size: 0.8rem; opacity: 0.9; margin-top: 2px;">PDF delivered to customer's WhatsApp</div>
+                    </div>
+                `;
+                alertBox.className = 'wa-status-alert';
+                alertBox.style.cssText = 'display:flex; background:#dcfce7; color:#14532d; border:1px solid #86efac;';
+                alertBox.innerHTML = `<i class="ph-bold ph-check-circle" style="font-size:1.3rem;"></i> <div><strong>Success!</strong> Invoice PDF has been sent to customer WhatsApp (${currentWaPhone}) via API.</div>`;
+            } else {
+                btn.innerHTML = `
+                    <div class="wa-icon-box" style="background: rgba(255,255,255,0.2);">
+                        <i class="ph-bold ph-paper-plane-tilt"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 700; font-size: 1rem;">Retry Send via API</div>
+                        <div style="font-size: 0.8rem; opacity: 0.9; margin-top: 2px;">${data.message || 'API not configured'}</div>
+                    </div>
+                `;
+                alertBox.style.cssText = 'display:flex; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;';
+                alertBox.innerHTML = `<i class="ph-bold ph-warning-circle" style="font-size:1.3rem;"></i> <div>${data.message || 'Failed to send via WhatsApp API. Try manual PDF sharing below.'}</div>`;
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = `
+                <div class="wa-icon-box" style="background: rgba(255,255,255,0.2);">
+                    <i class="ph-bold ph-arrow-clockwise"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 700; font-size: 1rem;">Retry API Send</div>
+                </div>
+            `;
+            alertBox.style.cssText = 'display:flex; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;';
+            alertBox.innerHTML = `<i class="ph-bold ph-warning-circle" style="font-size:1.3rem;"></i> <div>Network error. Please try again or share file manually.</div>`;
+        });
+    }
+
+    // 2. Share PDF Document File via Web Share API
+    async function shareInvoicePdfFile() {
+        if (!currentWaInvoiceId) return;
+
+        const alertBox = document.getElementById('waModalStatusAlert');
+        const pdfUrl = `/invoices/${currentWaInvoiceId}/pdf/`;
+
+        alertBox.style.cssText = 'display:flex; background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe;';
+        alertBox.innerHTML = `<i class="ph ph-spinner-gap" style="animation: spin 1s linear infinite; font-size:1.3rem;"></i> <div>Preparing PDF file for sharing...</div>`;
+
+        try {
+            const resp = await fetch(pdfUrl);
+            const blob = await resp.blob();
+            const fileName = `Invoice-${currentWaInvoiceNumber || 'INV'}.pdf`;
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: `Invoice ${currentWaInvoiceNumber}`,
+                    text: `Invoice #${currentWaInvoiceNumber} for ${currentWaCustomerName}`
+                });
+                alertBox.style.cssText = 'display:flex; background:#dcfce7; color:#14532d; border:1px solid #86efac;';
+                alertBox.innerHTML = `<i class="ph-bold ph-check-circle" style="font-size:1.3rem;"></i> <div>Shared PDF file successfully!</div>`;
+            } else {
+                // If browser does not support file sharing (e.g. desktop Chrome without native share), download file and open WhatsApp Web
+                downloadFileBlob(blob, fileName);
+                openWhatsAppWebChat();
+                alertBox.style.cssText = 'display:flex; background:#fef3c7; color:#92400e; border:1px solid #fde68a;';
+                alertBox.innerHTML = `<i class="ph-bold ph-info" style="font-size:1.3rem;"></i> <div>PDF downloaded! Drag & drop it into the opened WhatsApp chat.</div>`;
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                alertBox.style.cssText = 'display:flex; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;';
+                alertBox.innerHTML = `<i class="ph-bold ph-warning-circle" style="font-size:1.3rem;"></i> <div>Could not share file directly: ${err.message}. Use Download option below.</div>`;
+            }
+        }
+    }
+
+    // 3. Download PDF and Open WhatsApp Web
+    function downloadPdfAndOpenWhatsAppWeb() {
+        if (!currentWaInvoiceId) return;
+
+        const pdfUrl = `/invoices/${currentWaInvoiceId}/pdf/`;
+        const a = document.createElement('a');
+        a.href = pdfUrl;
+        a.download = `Invoice-${currentWaInvoiceNumber || 'INV'}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        openWhatsAppWebChat();
+
+        const alertBox = document.getElementById('waModalStatusAlert');
+        alertBox.style.cssText = 'display:flex; background:#dcfce7; color:#14532d; border:1px solid #86efac;';
+        alertBox.innerHTML = `<i class="ph-bold ph-check-circle" style="font-size:1.3rem;"></i> <div>Invoice PDF downloaded! Attach or drop it into WhatsApp Web.</div>`;
+    }
+
+    function openWhatsAppWebChat() {
+        const cleanPhone = (currentWaPhone || '').replace(/\D/g, '');
+        const waUrl = cleanPhone ? `https://web.whatsapp.com/send?phone=${cleanPhone}` : `https://web.whatsapp.com/`;
+        window.open(waUrl, '_blank');
+    }
+
+    function downloadFileBlob(blob, fileName) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+</script>

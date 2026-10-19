@@ -134,11 +134,12 @@
                                 title="Issue Credit Note">
                                 <i class="ph-bold ph-arrow-u-up-left"></i>
                             </button>
-                            <a href="{% url 'invoice_whatsapp_share' invoice.id %}" target="_blank"
-                                style="background:#d1fae5; color:#065f46; text-decoration:none; padding:7px 10px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:1rem;"
-                                title="Share Invoice on WhatsApp">
+                            <button type="button"
+                                onclick="openWhatsAppShareModal('{{ invoice.id }}', '{{ invoice.invoice_number }}', '{{ invoice.customer.name|escapejs }}', '{{ invoice.customer.phone|default:invoice.customer.whatsapp_number }}')"
+                                style="background:#d1fae5; color:#065f46; border:none; padding:7px 10px; border-radius:7px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:1rem;"
+                                title="Share Invoice PDF to WhatsApp">
                                 <i class="ph-bold ph-whatsapp-logo"></i>
-                            </a>
+                            </button>
                             <a href="{% url 'invoice_receipt' invoice.id %}"
                                 style="background:#eff6ff; color:#1d4ed8; text-decoration:none; padding:7px 10px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:0.95rem;"
                                 title="View Receipt">
@@ -244,5 +245,6 @@ function showToast(message, type) {
 </script>
 
 {% include 'credit_note/credit_note_modal.html' %}
+{% include 'invoice/whatsapp_share_modal.html' %}
 {% endblock %}
 
