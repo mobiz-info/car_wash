@@ -609,6 +609,15 @@ def api_customer_search(request):
             'free_visits': free_visits,
             'visits': visits_count,
             'is_eligible': is_eligible,
+            'chassis_number': getattr(v, 'chassis_number', None) or '',
+            'engine_number': getattr(v, 'engine_number', None) or '',
+            'model_year': getattr(v, 'model_year', None) or '',
+            'variant_trim': getattr(v, 'variant_trim', None) or '',
+            'segment': getattr(v, 'segment', None) or '',
+            'transmission_type': getattr(v, 'transmission_type', None) or '',
+            'make': v.make.name if (v and v.make) else '',
+            'model': (v.brand_model.name if (v and v.brand_model) else '') or (v.vehicle_type_model.name if (v and v.vehicle_type_model) else ''),
+            'color': v.color.name if (v and v.color) else '',
             'current_odometer_km': getattr(v, 'current_odometer_km', None) or 0
         })
         
@@ -622,6 +631,9 @@ def api_customer_search(request):
             'whatsapp': customer.whatsapp_number or '',
             'email': customer.email or '',
             'address': customer.address or '',
+            'city': getattr(customer, 'city', None) or '',
+            'state': getattr(customer, 'state', None) or '',
+            'country': getattr(customer, 'country', None) or '',
             'tax_number': customer.tax_number or '',
             'tin_number': customer.tin_number or '',
             'branch_id': str(customer.branch.id) if customer.branch else '',
@@ -2540,6 +2552,9 @@ def api_add_customer(request):
                 whatsapp_number=data.get('whatsapp_number', '').strip() or None,
                 email=data.get('email', '').strip() or None,
                 address=data.get('address', '').strip() or None,
+                city=data.get('city', '').strip() or None,
+                state=data.get('state', '').strip() or None,
+                country=data.get('country', '').strip() or None,
                 creator=user,
                 auto_id=get_auto_id(Customer),
             )
@@ -2600,6 +2615,12 @@ def api_add_customer(request):
                     emission_standard=emission_standard,
                     fuel_type=fuel_type,
                     wheel_type=wheel_type,
+                    chassis_number=v.get('chassis_number', '').strip() or None,
+                    engine_number=v.get('engine_number', '').strip() or None,
+                    model_year=v.get('model_year', '').strip() or None,
+                    variant_trim=v.get('variant_trim', '').strip() or None,
+                    segment=v.get('segment', '').strip() or None,
+                    transmission_type=v.get('transmission_type', '').strip() or None,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )

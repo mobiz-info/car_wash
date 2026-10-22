@@ -4356,3 +4356,811 @@ def api_send_oil_reminder(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# JOB CARD / JOB ORDER APIS – MOBIZ AUTO CARE PRO
+# ══════════════════════════════════════════════════════════════════════════════
+from .models import JobCard, JobCardServiceItem, JobCardPartItem, JobCardLabourItem, JobCardExtraItem
+from client_management.models import Customer, CustomerVehicle, Branch, Stock, CustomerType
+from master.models import VehicleMake, VehicleBrandModel, VehicleTypeModel, VehicleColor, EmissionStandard, VehicleType
+from service_management.models import Service, ServiceVehicleTypePrice, BranchService
+from tax_management.models import CompanyTax
+from core.functions import get_auto_id
+from django.db import transaction
+from decimal import Decimal
+
+
+@csrf_exempt
+def api_job_card_list(request):
+    """
+    Returns list of job cards with filtering by tab:
+    all, new, delayed, history, completed
+    and search by job_number, vehicle_number, customer name or phone.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    company = getattr(getattr(user, 'profile', None), 'company', None)
+    role = getattr(user.profile.role, 'name', None) if hasattr(user, 'profile') and user.profile and user.profile.role else None
+
+    qs = JobCard.objects.filter(is_deleted=False).select_related(
+        'customer', 'vehicle', 'vehicle__make', 'vehicle__brand_model', 
+        'vehicle__vehicle_type_model', 'vehicle__vehicle_type_model__vehicle_type',
+        'branch'
+    )
+
+    if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+        qs = qs.filter(branch=user.managed_branch)
+    elif role == 'COMPANY_ADMIN' and company:
+        qs = qs.filter(company=company)
+    elif company:
+        qs = qs.filter(company=company)
+
+    # Filter by tab
+    tab = request.GET.get('tab', 'all').lower().strip()
+    now = timezone.now()
+    if tab == 'new':
+        qs = qs.filter(status=JobCard.STATUS_NEW)
+    elif tab == 'delayed':
+        qs = qs.filter(
+            Q(status=JobCard.STATUS_DELAYED) | 
+            (Q(expected_delivery_date__lt=now) & ~Q(status__in=[JobCard.STATUS_COMPLETED, JobCard.STATUS_CANCELLED]))
+        )
+    elif tab == 'completed':
+        qs = qs.filter(status=JobCard.STATUS_COMPLETED)
+    elif tab == 'history':
+        qs = qs.filter(status__in=[JobCard.STATUS_COMPLETED, JobCard.STATUS_CANCELLED])
+
+    # Search filter
+    search = request.GET.get('search', '').strip()
+    if search:
+        qs = qs.filter(
+            Q(job_number__icontains=search) |
+            Q(vehicle__vehicle_number__icontains=search) |
+            Q(customer__name__icontains=search) |
+            Q(customer__phone__icontains=search)
+        )
+
+    job_cards_data = []
+    for jc in qs.order_by('-date_added'):
+        v = jc.vehicle
+        v_type = v.vehicle_type_model.vehicle_type.name if (v and v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else ''
+        v_make = v.make.name if (v and v.make) else ''
+        v_model = (v.brand_model.name if (v and v.brand_model) else '') or (v.vehicle_type_model.name if (v and v.vehicle_type_model) else '')
+        
+        effective_status = jc.status
+        if jc.status not in (JobCard.STATUS_COMPLETED, JobCard.STATUS_CANCELLED) and jc.expected_delivery_date and jc.expected_delivery_date < now:
+            effective_status = JobCard.STATUS_DELAYED
+
+        job_cards_data.append({
+            'id': str(jc.id),
+            'job_number': jc.job_number,
+            'job_date': jc.job_date.strftime('%Y-%m-%d') if jc.job_date else '',
+            'vehicle_id': str(v.id) if v else '',
+            'vehicle_number': v.vehicle_number if v else '',
+            'customer_id': str(jc.customer.id),
+            'customer_name': jc.customer.name,
+            'customer_phone': jc.customer.phone,
+            'customer_whatsapp': jc.customer.whatsapp_number or jc.customer.phone,
+            'delivery_date': jc.expected_delivery_date.strftime('%Y-%m-%d %I:%M %p') if jc.expected_delivery_date else '',
+            'delivery_lead_time': jc.delivery_lead_time or '',
+            'estimated_cost': float(jc.estimated_cost or 0),
+            'vehicle_type': v_type,
+            'vehicle_make': v_make,
+            'vehicle_model': v_model,
+            'vehicle_segment': v.segment if v else '',
+            'current_section': jc.current_section or 'General Inspection',
+            'current_service': jc.current_service or '',
+            'status': effective_status,
+            'status_display': dict(JobCard.STATUS_CHOICES).get(effective_status, effective_status.title()),
+        })
+
+    return JsonResponse({
+        'success': True,
+        'count': len(job_cards_data),
+        'job_cards': job_cards_data,
+    })
+
+
+@csrf_exempt
+def api_job_card_detail(request, job_card_id):
+    """Returns complete details of a specific job card."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        jc = JobCard.objects.select_related(
+            'customer', 'customer__customer_type', 'vehicle', 'vehicle__make',
+            'vehicle__brand_model', 'vehicle__vehicle_type_model',
+            'vehicle__vehicle_type_model__vehicle_type', 'vehicle__color',
+            'vehicle__emission_standard', 'branch', 'company'
+        ).get(id=job_card_id, is_deleted=False)
+    except JobCard.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Job Card not found'}, status=404)
+
+    c = jc.customer
+    v = jc.vehicle
+    now = timezone.now()
+    effective_status = jc.status
+    if jc.status not in (JobCard.STATUS_COMPLETED, JobCard.STATUS_CANCELLED) and jc.expected_delivery_date and jc.expected_delivery_date < now:
+        effective_status = JobCard.STATUS_DELAYED
+
+    services_list = []
+    for s in jc.service_items.filter(is_deleted=False):
+        services_list.append({
+            'id': str(s.id),
+            'service_id': str(s.service.id) if s.service else '',
+            'service_name': s.service_name,
+            'quantity': float(s.quantity or 1),
+            'unit': s.unit or 'Unit',
+            'rate': float(s.rate or 0),
+            'discount': float(s.discount or 0),
+            'vat_percentage': float(s.vat_percentage or 0),
+            'total_amount': float(s.total_amount or 0),
+            'warranty': s.warranty or '',
+            'warranty_period': s.warranty_period or '',
+            'remarks': s.remarks or '',
+        })
+
+    parts_list = []
+    for p in jc.part_items.filter(is_deleted=False):
+        parts_list.append({
+            'id': str(p.id),
+            'stock_item_id': str(p.stock_item.id) if p.stock_item else '',
+            'part_number': p.part_number or '',
+            'alternate_part_number': p.alternate_part_number or '',
+            'product_code': p.product_code or '',
+            'product_name': p.product_name,
+            'current_stock': float(p.current_stock or 0),
+            'unit': p.unit or 'Pcs',
+            'rate': float(p.rate or 0),
+            'rate_with_tax': float(p.rate_with_tax or 0),
+            'quantity': float(p.quantity or 1),
+            'discount': float(p.discount or 0),
+            'vat_percentage': float(p.vat_percentage or 0),
+            'total_amount': float(p.total_amount or 0),
+            'remarks': p.remarks or '',
+        })
+
+    labour_list = []
+    for l in jc.labour_items.filter(is_deleted=False):
+        labour_list.append({
+            'id': str(l.id),
+            'labour_particulars': l.labour_particulars,
+            'quantity': float(l.quantity or 1),
+            'rate': float(l.rate or 0),
+            'discount': float(l.discount or 0),
+            'vat_percentage': float(l.vat_percentage or 0),
+            'total_amount': float(l.total_amount or 0),
+            'remarks': l.remarks or '',
+        })
+
+    extras_list = []
+    for e in jc.extra_items.filter(is_deleted=False):
+        extras_list.append({
+            'id': str(e.id),
+            'extra_details': e.extra_details,
+            'quantity': float(e.quantity or 1),
+            'rate': float(e.rate or 0),
+            'vat_percentage': float(e.vat_percentage or 0),
+            'total_amount': float(e.total_amount or 0),
+            'remarks': e.remarks or '',
+        })
+
+    eff_es = v.emission_standard or (v.vehicle_type_model.emission_standard if (v and v.vehicle_type_model) else None)
+
+    return JsonResponse({
+        'success': True,
+        'job_card': {
+            'id': str(jc.id),
+            'job_number': jc.job_number,
+            'job_date': jc.job_date.strftime('%Y-%m-%d') if jc.job_date else '',
+            'expected_delivery_date': jc.expected_delivery_date.strftime('%Y-%m-%d %I:%M %p') if jc.expected_delivery_date else '',
+            'delivery_lead_time': jc.delivery_lead_time or '',
+            'estimated_cost': float(jc.estimated_cost or 0),
+            'current_section': jc.current_section or 'General Inspection',
+            'current_service': jc.current_service or '',
+            'status': effective_status,
+            'status_display': dict(JobCard.STATUS_CHOICES).get(effective_status, effective_status.title()),
+            'additional_remarks': jc.additional_remarks or '',
+            'appointment_details': jc.appointment_details or '',
+            'branch_name': jc.branch.name if jc.branch else '',
+            'customer': {
+                'id': str(c.id),
+                'name': c.name,
+                'phone': c.phone,
+                'whatsapp': c.whatsapp_number or '',
+                'email': c.email or '',
+                'address': c.address or '',
+                'city': c.city or '',
+                'state': c.state or '',
+                'country': c.country or '',
+                'customer_type': c.customer_type.name if c.customer_type else 'Individual',
+                'tax_number': c.tax_number or '',
+                'tin_number': c.tin_number or '',
+            },
+            'vehicle': {
+                'id': str(v.id) if v else '',
+                'vehicle_number': v.vehicle_number if v else '',
+                'chassis_number': v.chassis_number or '',
+                'engine_number': v.engine_number or '',
+                'make': v.make.name if (v and v.make) else '',
+                'make_id': str(v.make.id) if (v and v.make) else '',
+                'model': (v.brand_model.name if (v and v.brand_model) else '') or (v.vehicle_type_model.name if (v and v.vehicle_type_model) else ''),
+                'brand_model_id': str(v.brand_model.id) if (v and v.brand_model) else '',
+                'vehicle_type': v.vehicle_type_model.vehicle_type.name if (v and v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
+                'vehicle_type_id': str(v.vehicle_type_model.vehicle_type.id) if (v and v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
+                'model_year': v.model_year or '',
+                'variant_trim': v.variant_trim or '',
+                'color': v.color.name if (v and v.color) else '',
+                'color_id': str(v.color.id) if (v and v.color) else '',
+                'segment': v.segment or '',
+                'transmission_type': v.transmission_type or '',
+                'fuel_type': v.fuel_type or '',
+                'emission_standard': eff_es.name if eff_es else '',
+                'emission_standard_id': str(eff_es.id) if eff_es else '',
+            },
+            'services': services_list,
+            'parts': parts_list,
+            'labour': labour_list,
+            'extras': extras_list,
+        }
+    })
+
+
+@csrf_exempt
+def api_job_card_create(request):
+    """Creates a new job card with services, parts, labour, extras."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        vehicle_id = data.get('vehicle_id')
+
+        if not customer_id or not vehicle_id:
+            return JsonResponse({'success': False, 'message': 'Customer and Vehicle are required'}, status=400)
+
+        customer = Customer.objects.get(id=customer_id, is_deleted=False)
+        vehicle = CustomerVehicle.objects.get(id=vehicle_id, customer=customer, is_deleted=False)
+
+        company = user.profile.company if hasattr(user, 'profile') and user.profile and user.profile.company else customer.company
+        branch = None
+        role = getattr(user.profile.role, 'name', None) if hasattr(user, 'profile') and user.profile and user.profile.role else None
+        if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
+            branch = user.managed_branch
+        elif data.get('branch_id'):
+            branch = Branch.objects.filter(id=data.get('branch_id'), is_deleted=False).first()
+        if not branch:
+            branch = customer.branch
+
+        # Parse delivery date
+        expected_delivery = None
+        delivery_date_str = data.get('expected_delivery_date')
+        if delivery_date_str:
+            for fmt in ('%Y-%m-%d %H:%M', '%Y-%m-%d %I:%M %p', '%Y-%m-%d', '%d-%m-%Y %H:%M', '%d-%m-%Y'):
+                try:
+                    expected_delivery = datetime.strptime(delivery_date_str, fmt)
+                    if timezone.is_naive(expected_delivery):
+                        expected_delivery = timezone.make_aware(expected_delivery)
+                    break
+                except ValueError:
+                    pass
+
+        with transaction.atomic():
+            jc = JobCard.objects.create(
+                company=company,
+                branch=branch,
+                customer=customer,
+                vehicle=vehicle,
+                expected_delivery_date=expected_delivery,
+                delivery_lead_time=data.get('delivery_lead_time', '').strip() or None,
+                current_section=data.get('current_section', 'General Inspection').strip() or 'General Inspection',
+                current_service=data.get('current_service', '').strip() or None,
+                status=data.get('status', JobCard.STATUS_NEW),
+                additional_remarks=data.get('additional_remarks', '').strip() or None,
+                appointment_details=data.get('appointment_details', '').strip() or None,
+                creator=user,
+            )
+
+            # Services
+            for s in data.get('services', []):
+                svc_obj = None
+                if s.get('service_id'):
+                    svc_obj = Service.objects.filter(id=s.get('service_id')).first()
+                JobCardServiceItem.objects.create(
+                    job_card=jc,
+                    service=svc_obj,
+                    service_name=s.get('service_name', svc_obj.name if svc_obj else 'Service'),
+                    quantity=Decimal(str(s.get('quantity', 1) or 1)),
+                    unit=s.get('unit', 'Unit') or 'Unit',
+                    rate=Decimal(str(s.get('rate', 0) or 0)),
+                    discount=Decimal(str(s.get('discount', 0) or 0)),
+                    vat_percentage=Decimal(str(s.get('vat_percentage', 0) or 0)),
+                    total_amount=Decimal(str(s.get('total_amount', 0) or 0)),
+                    warranty=s.get('warranty', '').strip() or None,
+                    warranty_period=s.get('warranty_period', '').strip() or None,
+                    remarks=s.get('remarks', '').strip() or None,
+                    creator=user,
+                )
+
+            # Parts / Accessories
+            for p in data.get('parts', []):
+                stk_obj = None
+                if p.get('stock_item_id'):
+                    stk_obj = Stock.objects.filter(id=p.get('stock_item_id')).first()
+                JobCardPartItem.objects.create(
+                    job_card=jc,
+                    stock_item=stk_obj,
+                    part_number=p.get('part_number', stk_obj.part_number if stk_obj else '').strip() or None,
+                    alternate_part_number=p.get('alternate_part_number', stk_obj.alternate_part_number if stk_obj else '').strip() or None,
+                    product_code=p.get('product_code', stk_obj.barcode if stk_obj else '').strip() or None,
+                    product_name=p.get('product_name', stk_obj.item_name if stk_obj else 'Part'),
+                    current_stock=Decimal(str(p.get('current_stock', stk_obj.quantity if stk_obj else 0) or 0)),
+                    unit=p.get('unit', stk_obj.unit if stk_obj else 'Pcs') or 'Pcs',
+                    rate=Decimal(str(p.get('rate', 0) or 0)),
+                    rate_with_tax=Decimal(str(p.get('rate_with_tax', 0) or 0)),
+                    quantity=Decimal(str(p.get('quantity', 1) or 1)),
+                    discount=Decimal(str(p.get('discount', 0) or 0)),
+                    vat_percentage=Decimal(str(p.get('vat_percentage', 0) or 0)),
+                    total_amount=Decimal(str(p.get('total_amount', 0) or 0)),
+                    remarks=p.get('remarks', '').strip() or None,
+                    creator=user,
+                )
+
+            # Labour
+            for l in data.get('labour', []):
+                JobCardLabourItem.objects.create(
+                    job_card=jc,
+                    labour_particulars=l.get('labour_particulars', 'Labour Charge'),
+                    quantity=Decimal(str(l.get('quantity', 1) or 1)),
+                    rate=Decimal(str(l.get('rate', 0) or 0)),
+                    discount=Decimal(str(l.get('discount', 0) or 0)),
+                    vat_percentage=Decimal(str(l.get('vat_percentage', 0) or 0)),
+                    total_amount=Decimal(str(l.get('total_amount', 0) or 0)),
+                    remarks=l.get('remarks', '').strip() or None,
+                    creator=user,
+                )
+
+            # Extras
+            for e in data.get('extras', []):
+                JobCardExtraItem.objects.create(
+                    job_card=jc,
+                    extra_details=e.get('extra_details', 'Extra Item'),
+                    quantity=Decimal(str(e.get('quantity', 1) or 1)),
+                    rate=Decimal(str(e.get('rate', 0) or 0)),
+                    vat_percentage=Decimal(str(e.get('vat_percentage', 0) or 0)),
+                    total_amount=Decimal(str(e.get('total_amount', 0) or 0)),
+                    remarks=e.get('remarks', '').strip() or None,
+                    creator=user,
+                )
+
+            jc.calculate_estimated_cost()
+            jc.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Job Card created successfully',
+            'job_card_id': str(jc.id),
+            'job_number': jc.job_number,
+            'estimated_cost': float(jc.estimated_cost),
+        })
+
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=500)
+
+
+@csrf_exempt
+def api_job_card_update(request, job_card_id):
+    """Updates an existing job card and replaces its items."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        jc = JobCard.objects.get(id=job_card_id, is_deleted=False)
+        data = json.loads(request.body)
+
+        delivery_date_str = data.get('expected_delivery_date')
+        if delivery_date_str:
+            for fmt in ('%Y-%m-%d %H:%M', '%Y-%m-%d %I:%M %p', '%Y-%m-%d', '%d-%m-%Y %H:%M', '%d-%m-%Y'):
+                try:
+                    expected_delivery = datetime.strptime(delivery_date_str, fmt)
+                    if timezone.is_naive(expected_delivery):
+                        expected_delivery = timezone.make_aware(expected_delivery)
+                    jc.expected_delivery_date = expected_delivery
+                    break
+                except ValueError:
+                    pass
+
+        if 'delivery_lead_time' in data:
+            jc.delivery_lead_time = data['delivery_lead_time']
+        if 'current_section' in data:
+            jc.current_section = data['current_section']
+        if 'current_service' in data:
+            jc.current_service = data['current_service']
+        if 'status' in data:
+            jc.status = data['status']
+        if 'additional_remarks' in data:
+            jc.additional_remarks = data['additional_remarks']
+        if 'appointment_details' in data:
+            jc.appointment_details = data['appointment_details']
+
+        with transaction.atomic():
+            # If services array provided, update items
+            if 'services' in data:
+                jc.service_items.all().delete()
+                for s in data['services']:
+                    svc_obj = None
+                    if s.get('service_id'):
+                        svc_obj = Service.objects.filter(id=s.get('service_id')).first()
+                    JobCardServiceItem.objects.create(
+                        job_card=jc,
+                        service=svc_obj,
+                        service_name=s.get('service_name', svc_obj.name if svc_obj else 'Service'),
+                        quantity=Decimal(str(s.get('quantity', 1) or 1)),
+                        unit=s.get('unit', 'Unit') or 'Unit',
+                        rate=Decimal(str(s.get('rate', 0) or 0)),
+                        discount=Decimal(str(s.get('discount', 0) or 0)),
+                        vat_percentage=Decimal(str(s.get('vat_percentage', 0) or 0)),
+                        total_amount=Decimal(str(s.get('total_amount', 0) or 0)),
+                        warranty=s.get('warranty', '').strip() or None,
+                        warranty_period=s.get('warranty_period', '').strip() or None,
+                        remarks=s.get('remarks', '').strip() or None,
+                        creator=user,
+                    )
+
+            if 'parts' in data:
+                jc.part_items.all().delete()
+                for p in data['parts']:
+                    stk_obj = None
+                    if p.get('stock_item_id'):
+                        stk_obj = Stock.objects.filter(id=p.get('stock_item_id')).first()
+                    JobCardPartItem.objects.create(
+                        job_card=jc,
+                        stock_item=stk_obj,
+                        part_number=p.get('part_number', stk_obj.part_number if stk_obj else '').strip() or None,
+                        alternate_part_number=p.get('alternate_part_number', stk_obj.alternate_part_number if stk_obj else '').strip() or None,
+                        product_code=p.get('product_code', stk_obj.barcode if stk_obj else '').strip() or None,
+                        product_name=p.get('product_name', stk_obj.item_name if stk_obj else 'Part'),
+                        current_stock=Decimal(str(p.get('current_stock', stk_obj.quantity if stk_obj else 0) or 0)),
+                        unit=p.get('unit', stk_obj.unit if stk_obj else 'Pcs') or 'Pcs',
+                        rate=Decimal(str(p.get('rate', 0) or 0)),
+                        rate_with_tax=Decimal(str(p.get('rate_with_tax', 0) or 0)),
+                        quantity=Decimal(str(p.get('quantity', 1) or 1)),
+                        discount=Decimal(str(p.get('discount', 0) or 0)),
+                        vat_percentage=Decimal(str(p.get('vat_percentage', 0) or 0)),
+                        total_amount=Decimal(str(p.get('total_amount', 0) or 0)),
+                        remarks=p.get('remarks', '').strip() or None,
+                        creator=user,
+                    )
+
+            if 'labour' in data:
+                jc.labour_items.all().delete()
+                for l in data['labour']:
+                    JobCardLabourItem.objects.create(
+                        job_card=jc,
+                        labour_particulars=l.get('labour_particulars', 'Labour Charge'),
+                        quantity=Decimal(str(l.get('quantity', 1) or 1)),
+                        rate=Decimal(str(l.get('rate', 0) or 0)),
+                        discount=Decimal(str(l.get('discount', 0) or 0)),
+                        vat_percentage=Decimal(str(l.get('vat_percentage', 0) or 0)),
+                        total_amount=Decimal(str(l.get('total_amount', 0) or 0)),
+                        remarks=l.get('remarks', '').strip() or None,
+                        creator=user,
+                    )
+
+            if 'extras' in data:
+                jc.extra_items.all().delete()
+                for e in data['extras']:
+                    JobCardExtraItem.objects.create(
+                        job_card=jc,
+                        extra_details=e.get('extra_details', 'Extra Item'),
+                        quantity=Decimal(str(e.get('quantity', 1) or 1)),
+                        rate=Decimal(str(e.get('rate', 0) or 0)),
+                        vat_percentage=Decimal(str(e.get('vat_percentage', 0) or 0)),
+                        total_amount=Decimal(str(e.get('total_amount', 0) or 0)),
+                        remarks=e.get('remarks', '').strip() or None,
+                        creator=user,
+                    )
+
+            jc.calculate_estimated_cost()
+            jc.updater = user
+            jc.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Job Card updated successfully',
+            'job_card_id': str(jc.id),
+            'job_number': jc.job_number,
+            'estimated_cost': float(jc.estimated_cost),
+        })
+
+    except JobCard.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Job Card not found'}, status=404)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=500)
+
+
+@csrf_exempt
+def api_job_card_update_status(request, job_card_id):
+    """Quick update for status, current section, and current service."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        jc = JobCard.objects.get(id=job_card_id, is_deleted=False)
+        data = json.loads(request.body)
+
+        new_status = data.get('status')
+        if new_status:
+            valid_statuses = [c[0] for c in JobCard.STATUS_CHOICES]
+            if new_status not in valid_statuses:
+                return JsonResponse({'success': False, 'message': f'Invalid status. Valid: {valid_statuses}'}, status=400)
+            jc.status = new_status
+
+        if 'current_section' in data:
+            jc.current_section = data['current_section']
+        if 'current_service' in data:
+            jc.current_service = data['current_service']
+
+        jc.updater = user
+        jc.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Status updated successfully',
+            'status': jc.status,
+            'status_display': jc.get_status_display(),
+            'current_section': jc.current_section,
+            'current_service': jc.current_service,
+        })
+    except JobCard.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Job Card not found'}, status=404)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=500)
+
+
+@csrf_exempt
+def api_job_card_accessories_search(request):
+    """Search for accessories, spare parts, and products in Stock by part_number, barcode, or name."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    company = getattr(getattr(user, 'profile', None), 'company', None)
+    q = request.GET.get('q', '').strip()
+
+    stocks_qs = Stock.objects.filter(is_deleted=False)
+    if company:
+        stocks_qs = stocks_qs.filter(company=company)
+
+    if q:
+        stocks_qs = stocks_qs.filter(
+            Q(item_name__icontains=q) |
+            Q(brand__icontains=q) |
+            Q(barcode__icontains=q) |
+            Q(part_number__icontains=q) |
+            Q(alternate_part_number__icontains=q)
+        )
+
+    from master.models import PurchaseInvoiceItem
+    results = []
+    for s in stocks_qs.select_related('group', 'sub_group')[:50]:
+        last_purchase = PurchaseInvoiceItem.objects.filter(stock_item=s, is_deleted=False).order_by('-date_added').first()
+        purchase_price = float(last_purchase.rate) if last_purchase else 0.0
+        profit_margin = float(s.profit_margin_percent or 0.0)
+
+        if float(getattr(s, 'selling_price', 0) or 0) > 0:
+            rate = float(s.selling_price)
+        elif purchase_price > 0:
+            rate = round(purchase_price * (1 + profit_margin / 100.0), 2)
+        else:
+            rate = 0.0
+
+        tax_percent = float((s.cgst_percent or 0) + (s.sgst_percent or 0) + (s.igst_percent or 0))
+        rate_with_tax = round(rate * (1 + tax_percent / 100.0), 2)
+
+        results.append({
+            'id': str(s.id),
+            'part_number': s.part_number or '',
+            'alternate_part_number': s.alternate_part_number or '',
+            'product_code': s.barcode or '',
+            'product_name': s.item_name,
+            'brand': s.brand or '',
+            'current_stock': float(s.quantity or 0),
+            'unit': s.unit or 'Pcs',
+            'rate': rate,
+            'tax_percent': tax_percent,
+            'rate_with_tax': rate_with_tax,
+        })
+
+    return JsonResponse({'success': True, 'results': results})
+
+
+@csrf_exempt
+def api_job_card_metadata(request):
+    """Returns dropdown metadata for customer types, vehicles, makes, models, sections, etc."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    customer_types = list(CustomerType.objects.filter(is_deleted=False).values('id', 'name'))
+    for ct in customer_types:
+        ct['id'] = str(ct['id'])
+
+    makes = list(VehicleMake.objects.filter(is_deleted=False).order_by('name').values('id', 'name'))
+    for m in makes:
+        m['id'] = str(m['id'])
+
+    colors = list(VehicleColor.objects.filter(is_deleted=False).order_by('name').values('id', 'name'))
+    for c in colors:
+        c['id'] = str(c['id'])
+
+    emission_standards = list(EmissionStandard.objects.filter(is_deleted=False, is_active=True).values('id', 'name', 'fuel_type'))
+    for es in emission_standards:
+        es['id'] = str(es['id'])
+
+    vehicle_types = list(VehicleType.objects.filter(is_deleted=False).order_by('name').values('id', 'name'))
+    for vt in vehicle_types:
+        vt['id'] = str(vt['id'])
+
+    models = list(VehicleTypeModel.objects.filter(is_deleted=False).select_related('vehicle_type').order_by('name').values('id', 'name', 'vehicle_type__name', 'vehicle_type_id'))
+    for md in models:
+        md['id'] = str(md['id'])
+        md['vehicle_type_id'] = str(md['vehicle_type_id']) if md['vehicle_type_id'] else ''
+
+    # Pre-configured sections for job order progress
+    sections = [
+        'General Inspection',
+        'Washing & Cleaning',
+        'Detailing & Polishing',
+        'Mechanical & Service',
+        'Electrical & AC',
+        'Bodyshop & Denting',
+        'Painting',
+        'Quality Inspection',
+        'Ready for Delivery',
+    ]
+
+    fuel_types = ['Petrol', 'Diesel', 'CNG', 'LPG', 'Electric', 'Hybrid']
+    transmission_types = ['Automatic', 'Manual', 'CVT', 'DCT', 'AMT']
+    segments = ['Hatchback', 'Sedan', 'Compact SUV', 'SUV', 'MUV / MPV', 'Luxury', 'Pickup', 'Van', 'Motorcycle']
+
+    return JsonResponse({
+        'success': True,
+        'customer_types': customer_types,
+        'vehicle_makes': makes,
+        'vehicle_colors': colors,
+        'emission_standards': emission_standards,
+        'vehicle_types': vehicle_types,
+        'vehicle_models': models,
+        'sections': sections,
+        'fuel_types': fuel_types,
+        'transmission_types': transmission_types,
+        'segments': segments,
+    })
+
+
+@csrf_exempt
+def api_job_card_add_vehicle(request):
+    """Registers a new vehicle for an existing customer."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        plate_number = (data.get('plate_number') or data.get('vehicle_number', '')).strip().upper()
+
+        if not customer_id or not plate_number:
+            return JsonResponse({'success': False, 'message': 'Customer and Plate Number are required'}, status=400)
+
+        customer = Customer.objects.get(id=customer_id, is_deleted=False)
+
+        # Check if already exists for this customer
+        existing = CustomerVehicle.objects.filter(customer=customer, vehicle_number=plate_number, is_deleted=False).first()
+        if existing:
+            return JsonResponse({'success': False, 'message': f'Vehicle {plate_number} already registered for this customer'}, status=400)
+
+        make = None
+        if data.get('make_id'):
+            make = VehicleMake.objects.filter(id=data.get('make_id'), is_deleted=False).first()
+
+        brand_model = None
+        if data.get('brand_model_id'):
+            brand_model = VehicleBrandModel.objects.filter(id=data.get('brand_model_id'), is_deleted=False).first()
+
+        vm = None
+        if data.get('vehicle_type_model_id'):
+            vm = VehicleTypeModel.objects.filter(id=data.get('vehicle_type_model_id'), is_deleted=False).first()
+        elif brand_model and hasattr(brand_model, 'vehicle_type_model'):
+            vm = brand_model.vehicle_type_model
+        if not vm:
+            vm = VehicleTypeModel.objects.filter(is_deleted=False).first()
+
+        color = None
+        if data.get('color_id'):
+            color = VehicleColor.objects.filter(id=data.get('color_id'), is_deleted=False).first()
+
+        emission = None
+        if data.get('emission_standard_id'):
+            emission = EmissionStandard.objects.filter(id=data.get('emission_standard_id'), is_deleted=False).first()
+
+        vehicle = CustomerVehicle.objects.create(
+            customer=customer,
+            vehicle_number=plate_number,
+            vehicle_type_model=vm,
+            vehicle_type=vm.vehicle_type if vm else None,
+            make=make,
+            brand_model=brand_model,
+            color=color,
+            emission_standard=emission,
+            fuel_type=data.get('fuel_type'),
+            chassis_number=data.get('chassis_number', '').strip() or None,
+            engine_number=data.get('engine_number', '').strip() or None,
+            model_year=data.get('model_year', '').strip() or None,
+            variant_trim=data.get('variant_trim', '').strip() or None,
+            segment=data.get('segment', '').strip() or None,
+            transmission_type=data.get('transmission_type', '').strip() or None,
+            creator=user,
+            auto_id=get_auto_id(CustomerVehicle),
+        )
+
+        eff_es = vehicle.emission_standard or (vehicle.vehicle_type_model.emission_standard if (vehicle.vehicle_type_model) else None)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Vehicle registered successfully',
+            'vehicle': {
+                'id': str(vehicle.id),
+                'no': vehicle.vehicle_number,
+                'vehicle_number': vehicle.vehicle_number,
+                'type': vehicle.vehicle_type_model.name if vehicle.vehicle_type_model else '',
+                'vehicle_type': vehicle.vehicle_type_model.vehicle_type.name if (vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type) else '',
+                'make': vehicle.make.name if vehicle.make else '',
+                'model': (vehicle.brand_model.name if vehicle.brand_model else '') or (vehicle.vehicle_type_model.name if vehicle.vehicle_type_model else ''),
+                'segment': vehicle.segment or '',
+                'fuel_type': vehicle.fuel_type or '',
+                'chassis_number': vehicle.chassis_number or '',
+                'engine_number': vehicle.engine_number or '',
+                'emission_standard': eff_es.name if eff_es else '',
+            }
+        })
+
+    except Customer.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Customer not found'}, status=404)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=500)
+

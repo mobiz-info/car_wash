@@ -61,4 +61,14 @@ urlpatterns = [
     path('branch/smoke-test-reminders/', views.smoke_test_reminder_list, name='smoke_test_reminder_list'),
     path('branch/smoke-test-reminders/send/', views.send_smoke_test_reminder_ajax, name='send_smoke_test_reminder_ajax'),
     path('branch/reminder-planner/send/', views.send_reminder_ajax, name='send_reminder_ajax'),
+
+    # Job Card / Job Order APIs
+    path('api/job-cards/', api_views.api_job_card_list, name='api_job_card_list'),
+    path('api/job-cards/create/', api_views.api_job_card_create, name='api_job_card_create'),
+    path('api/job-cards/<uuid:job_card_id>/', api_views.api_job_card_detail, name='api_job_card_detail'),
+    path('api/job-cards/<uuid:job_card_id>/update/', api_views.api_job_card_update, name='api_job_card_update'),
+    path('api/job-cards/<uuid:job_card_id>/status/', api_views.api_job_card_update_status, name='api_job_card_update_status'),
+    path('api/job-cards/accessories-search/', api_views.api_job_card_accessories_search, name='api_job_card_accessories_search'),
+    path('api/job-cards/metadata/', api_views.api_job_card_metadata, name='api_job_card_metadata'),
+    path('api/job-cards/vehicle/add/', api_views.api_job_card_add_vehicle, name='api_job_card_add_vehicle'),
 ]

@@ -245,6 +245,9 @@ class Customer(BaseModel):
     pincode = models.CharField(max_length=20, blank=True, null=True)
     tax_number = models.CharField(max_length=100, blank=True, null=True, help_text="Tax / GST / TRN Number for Corporate customers")
     tin_number = models.CharField(max_length=100, blank=True, null=True, help_text="TIN Number (optional)")
+    city = models.CharField(max_length=100, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    country = models.CharField(max_length=100, blank=True, null=True)
 
     # Insurance-related categorisation
     customer_category = models.CharField(
@@ -296,6 +299,12 @@ class CustomerVehicle(BaseModel):
     emission_standard = models.ForeignKey('master.EmissionStandard', on_delete=models.SET_NULL, blank=True, null=True, related_name='customer_vehicles')
     fuel_type = models.CharField(max_length=20, choices=FUEL_TYPE_CHOICES, blank=True, null=True)
     wheel_type = models.CharField(max_length=20, choices=WHEEL_TYPE_CHOICES, default=WHEEL_TYPE_NORMAL)
+    chassis_number = models.CharField(max_length=100, blank=True, null=True, help_text="Chassis number")
+    engine_number = models.CharField(max_length=100, blank=True, null=True, help_text="Engine number")
+    model_year = models.CharField(max_length=10, blank=True, null=True, help_text="Model Year")
+    variant_trim = models.CharField(max_length=100, blank=True, null=True, help_text="Vehicle Variant / Trim")
+    segment = models.CharField(max_length=100, blank=True, null=True, help_text="Vehicle Segment (e.g. Hatchback, Sedan, SUV)")
+    transmission_type = models.CharField(max_length=50, blank=True, null=True, help_text="Transmission Type (e.g. Automatic, Manual)")
 
     # ── Service tracking (denormalized, updated when invoice saved) ───────────
     current_odometer_km = models.PositiveIntegerField(
@@ -476,6 +485,9 @@ class Stock(BaseModel):
     brand = models.CharField(max_length=150, blank=True, null=True)
     hsn_code = models.CharField(max_length=50, blank=True, null=True)
     barcode = models.CharField(max_length=100, blank=True, null=True)
+    part_number = models.CharField(max_length=100, blank=True, null=True, db_index=True, help_text="Part Number")
+    alternate_part_number = models.CharField(max_length=100, blank=True, null=True, db_index=True, help_text="Alternate Part Number")
+    selling_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Standard selling price")
     is_trading = models.BooleanField(default=True)
     is_operational = models.BooleanField(default=False)
     unit = models.CharField(max_length=50, choices=UNIT_CHOICES)

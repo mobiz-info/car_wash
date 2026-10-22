@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from core.models import BaseModel
 from client_management.models import Customer, CustomerVehicle, Branch
 
@@ -189,3 +190,149 @@ class ReminderPlan(BaseModel):
     def __str__(self):
         title = self.reminder.service.name if (self.reminder and self.reminder.service) else (self.template_name or 'Reminder')
         return f"{self.invoice.customer.name} - {title} - No.{self.reminder_no} on {self.scheduled_date}"
+
+
+class JobCard(BaseModel):
+    STATUS_NEW = 'new'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_DELAYED = 'delayed'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
+
+    STATUS_CHOICES = [
+        (STATUS_NEW, 'New'),
+        (STATUS_IN_PROGRESS, 'In Progress'),
+        (STATUS_DELAYED, 'Delayed'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    ]
+
+    company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, related_name='job_cards')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='job_cards')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='job_cards')
+    vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.CASCADE, related_name='job_cards')
+
+    job_number = models.CharField(max_length=50, unique=True, db_index=True)
+    job_date = models.DateField(default=timezone.now)
+    expected_delivery_date = models.DateTimeField(null=True, blank=True)
+    delivery_lead_time = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. 2 hours, 1 day")
+    estimated_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
+    current_section = models.CharField(max_length=100, default='General Inspection')
+    current_service = models.CharField(max_length=150, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NEW, db_index=True)
+
+    additional_remarks = models.TextField(blank=True, null=True)
+    appointment_details = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-date_added']
+
+    def save(self, *args, **kwargs):
+        if not self.auto_id:
+            from core.functions import get_auto_id
+            self.auto_id = get_auto_id(JobCard)
+        if not self.job_number:
+            self.job_number = f"JC-{self.auto_id:04d}"
+        super().save(*args, **kwargs)
+
+    def calculate_estimated_cost(self):
+        s_tot = sum((item.total_amount or 0) for item in self.service_items.filter(is_deleted=False))
+        p_tot = sum((item.total_amount or 0) for item in self.part_items.filter(is_deleted=False))
+        l_tot = sum((item.total_amount or 0) for item in self.labour_items.filter(is_deleted=False))
+        e_tot = sum((item.total_amount or 0) for item in self.extra_items.filter(is_deleted=False))
+        self.estimated_cost = s_tot + p_tot + l_tot + e_tot
+        return self.estimated_cost
+
+    def __str__(self):
+        return f"{self.job_number} - {self.vehicle.vehicle_number} ({self.customer.name})"
+
+
+class JobCardServiceItem(BaseModel):
+    job_card = models.ForeignKey(JobCard, on_delete=models.CASCADE, related_name='service_items')
+    service = models.ForeignKey('service_management.Service', on_delete=models.SET_NULL, null=True, blank=True)
+    service_name = models.CharField(max_length=200)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    unit = models.CharField(max_length=50, default='Unit')
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    discount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    vat_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    warranty = models.CharField(max_length=100, blank=True, null=True)
+    warranty_period = models.CharField(max_length=100, blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.auto_id:
+            from core.functions import get_auto_id
+            self.auto_id = get_auto_id(JobCardServiceItem)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.service_name} ({self.job_card.job_number})"
+
+
+class JobCardPartItem(BaseModel):
+    job_card = models.ForeignKey(JobCard, on_delete=models.CASCADE, related_name='part_items')
+    stock_item = models.ForeignKey('client_management.Stock', on_delete=models.SET_NULL, null=True, blank=True)
+    part_number = models.CharField(max_length=100, blank=True, null=True)
+    alternate_part_number = models.CharField(max_length=100, blank=True, null=True)
+    product_code = models.CharField(max_length=100, blank=True, null=True)
+    product_name = models.CharField(max_length=200)
+    current_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    unit = models.CharField(max_length=50, default='Pcs')
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    rate_with_tax = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    discount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    vat_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    remarks = models.TextField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.auto_id:
+            from core.functions import get_auto_id
+            self.auto_id = get_auto_id(JobCardPartItem)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.product_name} ({self.job_card.job_number})"
+
+
+class JobCardLabourItem(BaseModel):
+    job_card = models.ForeignKey(JobCard, on_delete=models.CASCADE, related_name='labour_items')
+    labour_particulars = models.CharField(max_length=200)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    discount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    vat_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    remarks = models.TextField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.auto_id:
+            from core.functions import get_auto_id
+            self.auto_id = get_auto_id(JobCardLabourItem)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.labour_particulars} ({self.job_card.job_number})"
+
+
+class JobCardExtraItem(BaseModel):
+    job_card = models.ForeignKey(JobCard, on_delete=models.CASCADE, related_name='extra_items')
+    extra_details = models.CharField(max_length=200)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    vat_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    remarks = models.TextField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.auto_id:
+            from core.functions import get_auto_id
+            self.auto_id = get_auto_id(JobCardExtraItem)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.extra_details} ({self.job_card.job_number})"
