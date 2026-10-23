@@ -5166,3 +5166,97 @@ def api_job_card_add_vehicle(request):
     except Exception as exc:
         return JsonResponse({'success': False, 'message': str(exc)}, status=500)
 
+
+def generate_job_card_pdf_file(job_card, base_url=None):
+    import sys
+    import os
+    from django.template.loader import render_to_string
+    from django.conf import settings
+
+    if sys.platform == 'darwin':
+        os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib:' + os.environ.get('DYLD_FALLBACK_LIBRARY_PATH', '')
+    from weasyprint import HTML
+
+    currency = '₹'
+    if job_card.branch and job_card.branch.company and job_card.branch.company.country:
+        currency = getattr(job_card.branch.company.country, 'currency_symbol', '₹') or '₹'
+
+    services = list(job_card.service_items.filter(is_deleted=False))
+    parts = list(job_card.part_items.filter(is_deleted=False))
+    labour = list(job_card.labour_items.filter(is_deleted=False))
+    extras = list(job_card.extra_items.filter(is_deleted=False))
+
+    services_subtotal = sum(float(s.total_amount or 0) for s in services)
+    parts_subtotal = sum(float(p.total_amount or 0) for p in parts)
+    labour_subtotal = sum(float(l.total_amount or 0) for l in labour)
+    extras_subtotal = sum(float(e.total_amount or 0) for e in extras)
+    grand_total = float(job_card.estimated_cost or (services_subtotal + parts_subtotal + labour_subtotal + extras_subtotal))
+
+    company = job_card.company or (job_card.branch.company if job_card.branch else None)
+    company_logo = None
+    if company and company.logo:
+        company_logo = company.logo.url
+
+    context = {
+        'job_card': job_card,
+        'company': company,
+        'company_logo': company_logo,
+        'currency': currency,
+        'services': services,
+        'parts': parts,
+        'labour': labour,
+        'extras': extras,
+        'services_subtotal': services_subtotal,
+        'parts_subtotal': parts_subtotal,
+        'labour_subtotal': labour_subtotal,
+        'extras_subtotal': extras_subtotal,
+        'grand_total': grand_total,
+    }
+
+    html_string = render_to_string('job_card/job_card_pdf.html', context)
+
+    media_dir = os.path.join(settings.BASE_DIR, 'media', 'job_cards')
+    os.makedirs(media_dir, exist_ok=True)
+
+    clean_no = str(job_card.job_number).replace('/', '_')
+    pdf_filename = f"job_card-{clean_no}.pdf"
+    pdf_path = os.path.join(media_dir, pdf_filename)
+
+    html = HTML(string=html_string, base_url=base_url)
+    html.write_pdf(target=pdf_path)
+
+    if not base_url or '127.0.0.1' in base_url or 'localhost' in base_url:
+        base_url = 'http://68.183.94.11:78'
+
+    if not base_url.endswith('/'):
+        base_url += '/'
+    return f"{base_url}media/job_cards/{pdf_filename}"
+
+
+def api_job_card_pdf(request, job_card_id):
+    """Generates and returns the Job Card PDF URL."""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        jc = JobCard.objects.select_related(
+            'customer', 'vehicle', 'branch', 'company', 'vehicle__make', 'vehicle__brand_model',
+            'vehicle__vehicle_type_model', 'vehicle__vehicle_type_model__vehicle_type', 'vehicle__color'
+        ).get(id=job_card_id, is_deleted=False)
+    except JobCard.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Job Card not found'}, status=404)
+
+    base_url = request.build_absolute_uri('/')
+    try:
+        pdf_url = generate_job_card_pdf_file(jc, base_url)
+        return JsonResponse({'success': True, 'pdf_url': pdf_url, 'job_number': jc.job_number})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': f'Failed to generate PDF: {str(e)}'}, status=500)
+
+

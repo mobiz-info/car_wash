@@ -70,5 +70,6 @@ urlpatterns = [
     path('api/job-cards/<uuid:job_card_id>/status/', api_views.api_job_card_update_status, name='api_job_card_update_status'),
     path('api/job-cards/accessories-search/', api_views.api_job_card_accessories_search, name='api_job_card_accessories_search'),
     path('api/job-cards/metadata/', api_views.api_job_card_metadata, name='api_job_card_metadata'),
+    path('api/job-cards/<uuid:job_card_id>/pdf/', api_views.api_job_card_pdf, name='api_job_card_pdf'),
     path('api/job-cards/vehicle/add/', api_views.api_job_card_add_vehicle, name='api_job_card_add_vehicle'),
 ]
