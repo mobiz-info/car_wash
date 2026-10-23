@@ -3243,6 +3243,25 @@ def api_edit_customer(request):
                 fuel_type = v.get('fuel_type')
                 if fuel_type:
                     cv.fuel_type = fuel_type
+                if 'chassis_number' in v:
+                    cv.chassis_number = (v.get('chassis_number') or '').strip()
+                if 'engine_number' in v:
+                    cv.engine_number = (v.get('engine_number') or '').strip()
+                if 'model_year' in v:
+                    cv.model_year = (v.get('model_year') or '').strip()
+                if 'variant_trim' in v:
+                    cv.variant_trim = (v.get('variant_trim') or '').strip()
+                if 'segment' in v and v.get('segment'):
+                    cv.segment = v.get('segment').strip()
+                elif vm:
+                    cv.segment = vm.name
+                if 'transmission_type' in v:
+                    cv.transmission_type = (v.get('transmission_type') or '').strip()
+                if 'current_odometer_km' in v:
+                    try:
+                        cv.current_odometer_km = int(v.get('current_odometer_km') or 0)
+                    except (ValueError, TypeError):
+                        pass
 
                 cv.save()
 
@@ -3256,6 +3275,16 @@ def api_edit_customer(request):
                 wheel_type = v.get('wheel_type', 'normal_wheel')
                 emission_standard_id = v.get('emission_standard_id')
                 fuel_type = v.get('fuel_type')
+                chassis_number = (v.get('chassis_number') or '').strip()
+                engine_number = (v.get('engine_number') or '').strip()
+                model_year = (v.get('model_year') or '').strip()
+                variant_trim = (v.get('variant_trim') or '').strip()
+                segment = (v.get('segment') or '').strip()
+                transmission_type = (v.get('transmission_type') or '').strip()
+                try:
+                    current_odometer_km = int(v.get('current_odometer_km') or 0)
+                except (ValueError, TypeError):
+                    current_odometer_km = 0
                 if wheel_type not in ['alloy_wheel', 'normal_wheel']:
                     wheel_type = 'normal_wheel'
 
@@ -3296,6 +3325,13 @@ def api_edit_customer(request):
                     wheel_type=wheel_type,
                     emission_standard=emission_standard,
                     fuel_type=fuel_type,
+                    chassis_number=chassis_number,
+                    engine_number=engine_number,
+                    model_year=model_year,
+                    variant_trim=variant_trim,
+                    segment=segment or (vm.name if vm else ''),
+                    transmission_type=transmission_type,
+                    current_odometer_km=current_odometer_km,
                     creator=user,
                     auto_id=get_auto_id(CustomerVehicle),
                 )
