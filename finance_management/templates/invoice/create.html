@@ -627,6 +627,13 @@
         <div class="form-group" style="margin-top: 14px;">
             <label id="search_label">Enter Owner Mobile Number *</label>
             <div class="search-input-wrapper">
+                <select id="lookup_phone_country" class="form-control" style="width:145px; flex:0 0 145px;" aria-label="Phone country code" onchange="onLookupInput()">
+                    {% for country in phone_countries %}
+                    <option value="{{ country.phone_dial_code }}" data-iso="{{ country.phone_iso_code }}" {% if country.phone_iso_code == phone_country_iso %}selected{% endif %}>
+                        {{ country.flag|default:'' }} {{ country.phone_dial_code }}
+                    </option>
+                    {% endfor %}
+                </select>
                 <div style="flex: 1; position: relative;">
                     <input type="text" id="lookup_input" class="form-control" placeholder="e.g. 9876543210"
                         autocomplete="off" oninput="onLookupInput()" onkeydown="onLookupKeyDown(event)">
@@ -1180,11 +1187,13 @@
             pillM.classList.remove('active');
             label.innerText = 'Enter Vehicle Number *';
             input.placeholder = 'e.g. KL 10 AZ 1234';
+            document.getElementById('lookup_phone_country').style.display = 'none';
         } else {
             pillM.classList.add('active');
             pillV.classList.remove('active');
             label.innerText = 'Enter Owner Mobile Number *';
             input.placeholder = 'e.g. 9876543210';
+            document.getElementById('lookup_phone_country').style.display = '';
         }
         input.value = '';
         hideAutocomplete();
@@ -1206,8 +1215,16 @@
         }
 
         debounceTimer = setTimeout(() => {
-            fetchSuggestions(query);
+            fetchSuggestions(searchType === 'mobile' ? getPhoneLookupValue(query) : query);
         }, 250);
+    }
+
+    function getPhoneLookupValue(value) {
+        const raw = (value || '').trim();
+        if (!raw) return '';
+        if (raw.startsWith('+')) return raw;
+        const dialCode = document.getElementById('lookup_phone_country').value;
+        return `${dialCode}${raw.replace(/^0+/, '')}`;
     }
 
     function onLookupKeyDown(e) {
@@ -1255,7 +1272,7 @@
             } else {
                 row.innerHTML = `<strong>${item.name}</strong> <span style="color:#64748b; font-size:0.8rem;">${item.phone}</span>`;
                 row.onclick = () => {
-                    document.getElementById('lookup_input').value = item.phone;
+                    setLookupPhone(item.phone);
                     hideAutocomplete();
                     executeLookup();
                 };
@@ -1269,6 +1286,19 @@
         document.getElementById('autocomplete_dropdown').style.display = 'none';
     }
 
+    function setLookupPhone(value) {
+        const countrySelect = document.getElementById('lookup_phone_country');
+        const input = document.getElementById('lookup_input');
+        let raw = (value || '').trim();
+        const options = Array.from(countrySelect.options).sort((a, b) => b.value.length - a.value.length);
+        const matched = options.find(option => raw.startsWith(option.value));
+        if (matched) {
+            countrySelect.value = matched.value;
+            raw = raw.slice(matched.value.length).trim();
+        }
+        input.value = raw.replace(/^\+/, '');
+    }
+
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.search-input-wrapper')) {
             hideAutocomplete();
@@ -1276,7 +1306,8 @@
     });
 
     function executeLookup() {
-        const query = document.getElementById('lookup_input').value.trim();
+        const enteredQuery = document.getElementById('lookup_input').value.trim();
+        const query = searchType === 'mobile' ? getPhoneLookupValue(enteredQuery) : enteredQuery;
         if (!query) return;
 
         const branchId = document.getElementById('branch_select').value;
@@ -2644,7 +2675,7 @@
         if (searchType === 'vehicle') {
             document.getElementById('qc_vehicle_no').value = query;
         } else {
-            setQuickCustomerPhone(query);
+            setQuickCustomerPhone(getPhoneLookupValue(query));
         }
         document.getElementById('addCustomerModal').style.display = 'flex';
     }
