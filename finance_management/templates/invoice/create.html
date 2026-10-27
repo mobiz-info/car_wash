@@ -920,8 +920,7 @@
 
                     <div class="form-group" style="margin-bottom: 8px;">
                         <label>Amount Collected ({{ currency_symbol }})</label>
-                        <input type="number" step="0.01" id="amount_collected_input" value="0" class="form-control"
-                            oninput="calculateTotals()">
+                        <input type="number" step="0.01" id="amount_collected_input" value="0" class="form-control" readonly>
                     </div>
                 </div>
 
@@ -1205,6 +1204,7 @@
         if (paramCust && paramVeh) {
             loadDirectCustomerAndVehicle(paramCust, paramVeh, paramBranch);
         }
+        calculateTotals();
     });
 
     function setSearchType(type) {
@@ -2428,7 +2428,10 @@
         }
 
         const grandTotal = netTaxable + totalTaxAmount;
-        const collected = parseFloat(document.getElementById('amount_collected_input').value) || 0;
+        const collectedInput = document.getElementById('amount_collected_input');
+        const isCashInvoice = document.getElementById('sales_type_select').value === 'cash';
+        collectedInput.value = isCashInvoice ? grandTotal.toFixed(2) : '0.00';
+        const collected = parseFloat(collectedInput.value) || 0;
         const balanceDue = Math.max(0, grandTotal - collected);
 
         // Update Summary Elements
