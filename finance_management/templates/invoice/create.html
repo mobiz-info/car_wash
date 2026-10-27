@@ -982,7 +982,16 @@
                 </div>
                 <div class="form-group" style="margin-bottom:12px;">
                     <label>Mobile Number *</label>
-                    <input type="text" id="qc_phone" class="form-control" required placeholder="e.g. 9876543210">
+                    <div style="display:flex; gap:8px;">
+                        <select id="qc_phone_country" class="form-control" style="width:145px; flex:0 0 145px;" aria-label="Phone country code">
+                            {% for country in phone_countries %}
+                            <option value="{{ country.phone_dial_code }}" data-iso="{{ country.phone_iso_code }}" {% if country.phone_iso_code == phone_country_iso %}selected{% endif %}>
+                                {{ country.flag|default:'' }} {{ country.phone_dial_code }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <input type="tel" id="qc_phone" class="form-control" required inputmode="tel" placeholder="Mobile number">
+                    </div>
                 </div>
                 <div class="form-group" style="margin-bottom:12px;">
                     <label>Customer Type *</label>
@@ -2635,9 +2644,22 @@
         if (searchType === 'vehicle') {
             document.getElementById('qc_vehicle_no').value = query;
         } else {
-            document.getElementById('qc_phone').value = query;
+            setQuickCustomerPhone(query);
         }
         document.getElementById('addCustomerModal').style.display = 'flex';
+    }
+
+    function setQuickCustomerPhone(value) {
+        const countrySelect = document.getElementById('qc_phone_country');
+        const phoneInput = document.getElementById('qc_phone');
+        let raw = (value || '').trim();
+        const options = Array.from(countrySelect.options).sort((a, b) => b.value.length - a.value.length);
+        const matched = options.find(option => raw.startsWith(option.value));
+        if (matched) {
+            countrySelect.value = matched.value;
+            raw = raw.slice(matched.value.length).trim();
+        }
+        phoneInput.value = raw.replace(/^\+/, '');
     }
 
     function openAddVehicleModal() {
@@ -2652,7 +2674,9 @@
         e.preventDefault();
         const branchId = document.getElementById('branch_select').value;
         const name = document.getElementById('qc_name').value.trim();
-        const phone = document.getElementById('qc_phone').value.trim();
+        const enteredPhone = document.getElementById('qc_phone').value.trim();
+        const dialCode = document.getElementById('qc_phone_country').value;
+        const phone = enteredPhone.startsWith('+') ? enteredPhone : `${dialCode}${enteredPhone.replace(/^0+/, '')}`;
         const typeId = document.getElementById('qc_type').value;
         const vNo = document.getElementById('qc_vehicle_no').value.trim().toUpperCase();
         const vModelId = document.getElementById('qc_vehicle_model').value;

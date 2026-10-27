@@ -2859,7 +2859,7 @@ def invoice_create(request):
     from client_management.models import Customer, Stock, Scheme, Extra, Branch, CustomerType, Staff
     from tax_management.models import CompanyTax
     from service_management.models import Service
-    from master.models import OilProduct, OilFilter, TyreBrand, Tyre, Battery, VehicleTypeModel
+    from master.models import Country, OilProduct, OilFilter, TyreBrand, Tyre, Battery, VehicleTypeModel
     from django.db.models import Q
 
     company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
@@ -2953,6 +2953,8 @@ def invoice_create(request):
         'customer_types': customer_types,
         'vehicle_models': vehicle_models,
         'company_taxes': company_taxes,
+        'phone_countries': Country.objects.filter(is_deleted=False).exclude(phone_dial_code__isnull=True).exclude(phone_dial_code='').order_by('name'),
+        'phone_country_iso': (company.country.phone_iso_code if company and company.country and company.country.phone_iso_code else 'IN'),
         'title': 'Create Invoice',
     }
 
