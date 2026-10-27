@@ -1895,6 +1895,98 @@ def customer_vehicle_create(request):
 
 
 @login_required
+def invoice_add_customer_vehicle(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST is allowed.'}, status=405)
+
+    try:
+        customer_id = request.POST.get('customer', '').strip()
+        vehicle_number = request.POST.get('vehicle_number', '').strip().upper()
+        vehicle_model_id = request.POST.get('vehicle_type_model', '').strip()
+        if not customer_id or not vehicle_number or not vehicle_model_id:
+            return JsonResponse({'success': False, 'message': 'Vehicle number and vehicle segment are required.'}, status=400)
+
+        from master.models import (
+            VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor, EmissionStandard,
+        )
+
+        profile = request.user.profile
+        role_name = profile.role.name if profile.role else ''
+        customers = Customer.objects.filter(is_deleted=False)
+        if role_name == 'BRANCH_ADMIN' and getattr(request.user, 'managed_branch', None):
+            customers = customers.filter(branch=request.user.managed_branch)
+        elif profile.company:
+            customers = customers.filter(company=profile.company)
+        elif getattr(request.user, 'staff_profile', None) and request.user.staff_profile.branch:
+            customers = customers.filter(branch=request.user.staff_profile.branch)
+        else:
+            return JsonResponse({'success': False, 'message': 'Your account is not assigned to a company or branch.'}, status=403)
+        customer = customers.filter(id=customer_id).first()
+        if not customer:
+            return JsonResponse({'success': False, 'message': 'Customer not found or access denied.'}, status=404)
+
+        vehicle_model = VehicleTypeModel.objects.filter(id=vehicle_model_id, is_active=True, is_deleted=False).select_related('vehicle_type').first()
+        vehicle_type_id = request.POST.get('vehicle_type', '').strip()
+        if not vehicle_model or (vehicle_type_id and str(vehicle_model.vehicle_type_id) != vehicle_type_id):
+            return JsonResponse({'success': False, 'message': 'Select a valid vehicle type and segment.'}, status=400)
+        if profile.company and vehicle_model.company_id not in (None, profile.company_id):
+            return JsonResponse({'success': False, 'message': 'This vehicle segment is not available to your company.'}, status=400)
+        if profile.company and vehicle_model.disabled_companies.filter(id=profile.company_id).exists():
+            return JsonResponse({'success': False, 'message': 'This vehicle segment is not available to your company.'}, status=400)
+        branch_vehicle_types = customer.branch.enabled_vehicle_types.all()
+        if branch_vehicle_types.exists() and not branch_vehicle_types.filter(id=vehicle_model.vehicle_type_id).exists():
+            return JsonResponse({'success': False, 'message': 'This vehicle type is not enabled for the customer branch.'}, status=400)
+
+        def optional_object(model, field_name):
+            value = request.POST.get(field_name, '').strip()
+            return model.objects.filter(id=value, is_deleted=False).first() if value else None
+
+        make_id = request.POST.get('make', '').strip()
+        make = VehicleMake.objects.filter(
+            id=make_id, models__vehicle_type_model=vehicle_model, is_active=True, is_deleted=False
+        ).distinct().first() if make_id else None
+        brand_model = optional_object(VehicleBrandModel, 'brand_model')
+        color = VehicleColor.objects.filter(id=request.POST.get('color', '').strip(), is_deleted=False).first() if request.POST.get('color') else None
+        emission = EmissionStandard.objects.filter(id=request.POST.get('emission_standard', '').strip(), is_deleted=False).first() if request.POST.get('emission_standard') else None
+        if make_id and not make:
+            return JsonResponse({'success': False, 'message': 'Select a valid make for this vehicle segment.'}, status=400)
+        if brand_model and (brand_model.vehicle_type_model_id != vehicle_model.id or (make and brand_model.make_id != make.id)):
+            return JsonResponse({'success': False, 'message': 'Selected make/model does not match the vehicle segment.'}, status=400)
+
+        wheel_type = request.POST.get('wheel_type', 'normal_wheel')
+        if wheel_type not in ('normal_wheel', 'alloy_wheel'):
+            wheel_type = 'normal_wheel'
+        odometer = request.POST.get('current_odometer_km', '').strip()
+        if odometer and (not odometer.isdigit() or int(odometer) > 2147483647):
+            return JsonResponse({'success': False, 'message': 'Enter a valid odometer reading.'}, status=400)
+
+        vehicle = CustomerVehicle.objects.create(
+            customer=customer,
+            vehicle_type=vehicle_model.vehicle_type,
+            vehicle_type_model=vehicle_model,
+            vehicle_number=vehicle_number,
+            make=make,
+            brand_model=brand_model,
+            color=color,
+            emission_standard=emission,
+            wheel_type=wheel_type,
+            fuel_type=(request.POST.get('fuel_type', '').strip().upper() or None),
+            chassis_number=request.POST.get('chassis_number', '').strip().upper(),
+            engine_number=request.POST.get('engine_number', '').strip().upper(),
+            model_year=request.POST.get('model_year', '').strip()[:10],
+            variant_trim=request.POST.get('variant_trim', '').strip()[:100],
+            segment=vehicle_model.name,
+            transmission_type=request.POST.get('transmission_type', '').strip()[:50],
+            current_odometer_km=int(odometer) if odometer else None,
+            creator=request.user,
+            auto_id=get_auto_id(CustomerVehicle),
+        )
+        return JsonResponse({'success': True, 'vehicle_id': str(vehicle.id), 'vehicle_number': vehicle.vehicle_number})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+
+@login_required
 def branch_vehicle_type_manage(request):
     """BRANCH_ADMIN / COMPANY_ADMIN enables/disables vehicle types for branch."""
     role = getattr(getattr(request.user, 'profile', None), 'role', None)

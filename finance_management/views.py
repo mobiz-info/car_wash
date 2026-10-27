@@ -2859,7 +2859,9 @@ def invoice_create(request):
     from client_management.models import Customer, Stock, Scheme, Extra, Branch, CustomerType, Staff
     from tax_management.models import CompanyTax
     from service_management.models import Service
-    from master.models import Country, OilProduct, OilFilter, TyreBrand, Tyre, Battery, VehicleTypeModel
+    from master.models import (Country, OilProduct, OilFilter, TyreBrand, Tyre, Battery,
+                               VehicleType, VehicleTypeModel, VehicleMake, VehicleBrandModel,
+                               VehicleColor, EmissionStandard)
     from django.db.models import Q
 
     company = getattr(user.profile, 'company', None) if hasattr(user, 'profile') else None
@@ -2893,6 +2895,15 @@ def invoice_create(request):
     staff_qs = Staff.objects.filter(is_deleted=False).order_by('name')
     customer_types = CustomerType.objects.filter(is_deleted=False).order_by('name')
     vehicle_models = VehicleTypeModel.objects.filter(is_deleted=False).select_related('vehicle_type').order_by('name')
+    invoice_vehicle_types = VehicleType.objects.filter(is_active=True, is_deleted=False)
+    invoice_vehicle_models = VehicleTypeModel.objects.filter(is_active=True, is_deleted=False).select_related('vehicle_type')
+    if company:
+        invoice_vehicle_types = invoice_vehicle_types.filter(Q(company=company) | Q(company__isnull=True))
+        invoice_vehicle_models = invoice_vehicle_models.filter(Q(company=company) | Q(company__isnull=True)).exclude(disabled_companies=company)
+    selected_branch = branches_qs.filter(id=selected_branch_id).first() if selected_branch_id else None
+    if selected_branch and selected_branch.enabled_vehicle_types.exists():
+        invoice_vehicle_types = invoice_vehicle_types.filter(id__in=selected_branch.enabled_vehicle_types.values('id'))
+        invoice_vehicle_models = invoice_vehicle_models.filter(vehicle_type_id__in=selected_branch.enabled_vehicle_types.values('id'))
 
     if role == 'COMPANY_ADMIN' and company:
         customer_qs = customer_qs.filter(company=company)
@@ -2952,6 +2963,12 @@ def invoice_create(request):
         'staff_members': staff_qs,
         'customer_types': customer_types,
         'vehicle_models': vehicle_models,
+        'invoice_vehicle_types': invoice_vehicle_types.order_by('name'),
+        'invoice_vehicle_models': invoice_vehicle_models.order_by('name'),
+        'invoice_vehicle_makes': VehicleMake.objects.filter(is_active=True, is_deleted=False).order_by('name'),
+        'invoice_vehicle_brands': VehicleBrandModel.objects.filter(is_active=True, is_deleted=False).select_related('make', 'vehicle_type_model').order_by('name'),
+        'invoice_vehicle_colors': VehicleColor.objects.filter(is_deleted=False).order_by('name'),
+        'invoice_emission_standards': EmissionStandard.objects.filter(is_deleted=False).order_by('name'),
         'company_taxes': company_taxes,
         'phone_countries': Country.objects.filter(is_deleted=False).exclude(phone_dial_code__isnull=True).exclude(phone_dial_code='').order_by('name'),
         'phone_country_iso': (company.country.phone_iso_code if company and company.country and company.country.phone_iso_code else 'IN'),

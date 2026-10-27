@@ -85,6 +85,7 @@ urlpatterns = [
     # Vehicle Management
     path('customer-vehicle/', views.customer_vehicle_list, name='customer_vehicle_list'),
     path('customer-vehicle/create/', views.customer_vehicle_create, name='customer_vehicle_create'),
+    path('customer-vehicle/invoice-add/', views.invoice_add_customer_vehicle, name='invoice_add_customer_vehicle'),
     path('customer-vehicle/edit/<uuid:pk>/', views.customer_vehicle_edit, name='customer_vehicle_edit'),
     path('customer-vehicle/delete/<uuid:pk>/', views.customer_vehicle_delete, name='customer_vehicle_delete'),
     path('branch/vehicle-types/', views.branch_vehicle_type_manage, name='branch_vehicle_type_manage'),

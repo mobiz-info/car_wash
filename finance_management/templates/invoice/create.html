@@ -1040,26 +1040,58 @@
         <div class="modal-body">
             <form id="quickVehicleForm" onsubmit="submitQuickVehicle(event)">
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label>Vehicle Plate Number *</label>
-                    <input type="text" id="qv_number" class="form-control" required placeholder="e.g. KL 10 AZ 1234"
-                        style="text-transform:uppercase;">
+                    <label>Vehicle Number *</label>
+                    <input type="text" id="qv_number" name="vehicle_number" class="form-control" required placeholder="e.g. KL09AA1111" style="text-transform:uppercase;">
                 </div>
                 <div class="form-group" style="margin-bottom:12px;">
-                    <label>Vehicle Model *</label>
-                    <select id="qv_model" class="form-control" required>
-                        <option value="">-- Select Model --</option>
-                        {% for vm in vehicle_models %}
-                        <option value="{{ vm.id }}">{{ vm.name }} ({{ vm.vehicle_type.name }})</option>
-                        {% endfor %}
+                    <label>Vehicle Type *</label>
+                    <select id="qv_type" name="vehicle_type" class="form-control" required onchange="filterInvoiceVehicleOptions('type')">
+                        <option value="">Select vehicle type</option>
+                        {% for vehicle_type in invoice_vehicle_types %}<option value="{{ vehicle_type.id }}">{{ vehicle_type.name }}</option>{% endfor %}
                     </select>
                 </div>
-                <div class="form-group" style="margin-bottom:16px;">
-                    <label>Wheel Type</label>
-                    <select id="qv_wheel" class="form-control">
-                        <option value="normal_wheel">Normal Wheel</option>
-                        <option value="alloy_wheel">Alloy Wheel</option>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>Vehicle Model (Segment) *</label>
+                    <select id="qv_model" name="vehicle_type_model" class="form-control" required onchange="filterInvoiceVehicleOptions('segment')">
+                        <option value="">Select vehicle segment</option>
+                        {% for vm in invoice_vehicle_models %}<option value="{{ vm.id }}" data-type="{{ vm.vehicle_type_id }}">{{ vm.name }}</option>{% endfor %}
                     </select>
                 </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>Make</label>
+                    <select id="qv_make" name="make" class="form-control" onchange="filterInvoiceVehicleOptions('make')">
+                        <option value="">Select make</option>
+                        {% for make in invoice_vehicle_makes %}<option value="{{ make.id }}" data-segments="{% for model in make.models.all %}{{ model.vehicle_type_model_id }}{% if not forloop.last %},{% endif %}{% endfor %}">{{ make.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>Brand / Model</label>
+                    <select id="qv_brand_model" name="brand_model" class="form-control">
+                        <option value="">Select brand / model</option>
+                        {% for model in invoice_vehicle_brands %}<option value="{{ model.id }}" data-segment="{{ model.vehicle_type_model_id }}" data-make="{{ model.make_id|default:'' }}">{{ model.name }}{% if model.make %} ({{ model.make.name }}){% endif %}</option>{% endfor %}
+                    </select>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div class="form-group" style="margin-bottom:12px;"><label>Color</label><select id="qv_color" name="color" class="form-control"><option value="">Select color</option>{% for color in invoice_vehicle_colors %}<option value="{{ color.id }}">{{ color.name }}</option>{% endfor %}</select></div>
+                    <div class="form-group" style="margin-bottom:12px;"><label>Emission Standard</label><select id="qv_emission" name="emission_standard" class="form-control"><option value="">Select standard</option>{% for emission in invoice_emission_standards %}<option value="{{ emission.id }}">{{ emission.name }}</option>{% endfor %}</select></div>
+                </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>Wheel Type *</label>
+                    <select id="qv_wheel" name="wheel_type" class="form-control" required><option value="normal_wheel">Normal Wheel</option><option value="alloy_wheel">Alloy Wheel</option></select>
+                </div>
+                <details style="margin:4px 0 16px;">
+                    <summary style="cursor:pointer; font-weight:600; color:#334155;">Technical & Registration Details</summary>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+                        <div class="form-group"><label>Chassis Number (VIN)</label><input id="qv_chassis" name="chassis_number" class="form-control" maxlength="100"></div>
+                        <div class="form-group"><label>Engine Number</label><input id="qv_engine" name="engine_number" class="form-control" maxlength="100"></div>
+                        <div class="form-group"><label>Model Year</label><input id="qv_year" name="model_year" class="form-control" maxlength="10" placeholder="e.g. 2022"></div>
+                        <div class="form-group"><label>Variant / Trim</label><input id="qv_trim" name="variant_trim" class="form-control" maxlength="100" placeholder="e.g. VXi"></div>
+                        <div class="form-group"><label>Transmission</label><select id="qv_transmission" name="transmission_type" class="form-control"><option value="">Select transmission</option><option>Automatic</option><option>Manual</option><option>CVT</option><option>DCT</option><option>AMT</option></select></div>
+                        <div class="form-group"><label>Fuel Type</label><select id="qv_fuel" name="fuel_type" class="form-control"><option value="">Select fuel</option><option value="PETROL">Petrol</option><option value="DIESEL">Diesel</option><option value="CNG">CNG</option><option value="LPG">LPG</option><option value="ELECTRIC">Electric</option><option value="HYBRID">Hybrid</option></select></div>
+                        <div class="form-group"><label>Current Odometer (KM)</label><input type="number" min="0" step="1" id="qv_odometer" name="current_odometer_km" class="form-control"></div>
+                    </div>
+                </details>
+                <div id="qv_error" style="display:none; color:#b91c1c; margin-bottom:12px;"></div>
                 <button type="submit" class="search-btn" style="width:100%; padding:12px; justify-content:center;">
                     Add Vehicle
                 </button>
@@ -2704,6 +2736,7 @@
     }
 
     function openAddVehicleModal() {
+        document.getElementById('qv_error').style.display = 'none';
         document.getElementById('addVehicleModal').style.display = 'flex';
     }
 
@@ -2760,34 +2793,69 @@
             .catch(err => alert(`Error: ${err.message}`));
     }
 
+    function filterInvoiceVehicleOptions(changed) {
+        const typeId = document.getElementById('qv_type').value;
+        const segmentSelect = document.getElementById('qv_model');
+        const segmentId = segmentSelect.value;
+        const makeSelect = document.getElementById('qv_make');
+        const brandSelect = document.getElementById('qv_brand_model');
+
+        if (changed === 'type') {
+            segmentSelect.value = '';
+            makeSelect.value = '';
+            brandSelect.value = '';
+        } else if (changed === 'segment') {
+            makeSelect.value = '';
+            brandSelect.value = '';
+        } else if (changed === 'make') {
+            brandSelect.value = '';
+        }
+
+        const selectedSegment = segmentSelect.value;
+        Array.from(segmentSelect.options).forEach(option => {
+            option.hidden = option.value !== '' && option.dataset.type !== typeId;
+        });
+        Array.from(makeSelect.options).forEach(option => {
+            const segments = (option.dataset.segments || '').split(',').filter(Boolean);
+            option.hidden = option.value !== '' && (!selectedSegment || !segments.includes(selectedSegment));
+        });
+        Array.from(brandSelect.options).forEach(option => {
+            const matchesSegment = option.value === '' || (selectedSegment && option.dataset.segment === selectedSegment);
+            const matchesMake = option.value === '' || !makeSelect.value || option.dataset.make === makeSelect.value;
+            option.hidden = !matchesSegment || !matchesMake;
+        });
+    }
+
     function submitQuickVehicle(e) {
         e.preventDefault();
         if (!currentCustomer) return;
-        const vNo = document.getElementById('qv_number').value.trim().toUpperCase();
-        const vModelId = document.getElementById('qv_model').value;
-        const wheel = document.getElementById('qv_wheel').value;
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        const formData = new FormData();
+        const formData = new FormData(document.getElementById('quickVehicleForm'));
         formData.append('customer', currentCustomer.id);
-        formData.append('vehicle_number', vNo);
-        formData.append('vehicle_type_model', vModelId);
-        formData.append('wheel_type', wheel);
         formData.append('csrfmiddlewaretoken', csrfToken);
+        const error = document.getElementById('qv_error');
+        error.style.display = 'none';
 
-        fetch('/customer-vehicle/create/', {
+        fetch('/customer-vehicle/invoice-add/', {
             method: 'POST',
             body: formData
         })
-            .then(() => {
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (!ok || !data.success) {
+                    error.textContent = data.message || 'Could not add vehicle.';
+                    error.style.display = 'block';
+                    return;
+                }
                 closeModal('addVehicleModal');
-                document.getElementById('lookup_input').value = currentCustomer.phone;
                 setSearchType('mobile');
+                setLookupPhone(currentCustomer.phone);
                 executeLookup();
             })
-            .catch(() => {
-                closeModal('addVehicleModal');
-                executeLookup();
+            .catch(err => {
+                error.textContent = err.message || 'Could not add vehicle.';
+                error.style.display = 'block';
             });
     }
 </script>
