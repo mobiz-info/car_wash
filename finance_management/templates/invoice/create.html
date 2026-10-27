@@ -2045,17 +2045,13 @@
                     <i class="ph ph-package" style="color:#475569; font-size:1.1rem;"></i>
                     <strong style="color:var(--text-dark); font-size:0.95rem;">Spare Item #${tradingRowCounter}</strong>
                 </div>
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div class="line-total-badge" id="${rowId}_line_total_badge">
-                        <span>Line Total:</span>
-                        <strong id="${rowId}_line_total">${CURRENCY}0.00</strong>
-                    </div>
+                <div style="display:flex; align-items:center;">
                     <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
                         <i class="ph ph-trash"></i>
                     </button>
                 </div>
             </div>
-            <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 1fr auto;">
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
                 <div class="form-group">
                     <label>Item Name *</label>
                     <select class="form-control trading-select" onchange="onTradingSelected('${rowId}')" required>${sOpts}</select>
@@ -2067,6 +2063,10 @@
                 <div class="form-group">
                     <label>Qty</label>
                     <input type="number" step="1" class="form-control trading-qty" value="1" min="1" oninput="calculateTradingLineTotal('${rowId}')">
+                </div>
+                <div class="form-group">
+                    <label>Total (${CURRENCY})</label>
+                    <input type="number" class="form-control trading-total" value="0.00" readonly aria-label="Spare item total">
                 </div>
                 <div class="form-group">
                     <label>Discount (${CURRENCY})</label>
@@ -2102,8 +2102,8 @@
         const discount = isOp ? 0 : (parseFloat(row.querySelector('.trading-discount')?.value) || 0);
 
         const lineTotal = Math.max(0, (rate * qty) - discount);
-        const ltEl = document.getElementById(`${rowId}_line_total`);
-        if (ltEl) ltEl.innerText = `${CURRENCY}${lineTotal.toFixed(2)}`;
+        const totalField = row.querySelector('.trading-total');
+        if (totalField) totalField.value = lineTotal.toFixed(2);
 
         calculateTotals();
     }
@@ -2145,18 +2145,14 @@
                     <i class="ph ph-tag" style="color:#475569; font-size:1.1rem;"></i>
                     <strong style="color:var(--text-dark); font-size:0.95rem;">Extra Charge #${extraRowCounter}</strong>
                 </div>
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div class="line-total-badge" id="${rowId}_line_total_badge">
-                        <span>Line Total:</span>
-                        <strong id="${rowId}_line_total">${CURRENCY}0.00</strong>
-                    </div>
+                <div style="display:flex; align-items:center;">
                     <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
                         <i class="ph ph-trash"></i>
                     </button>
                 </div>
             </div>
 
-            <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 2fr;">
+            <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
                 <div class="form-group">
                     <label>Extra Name *</label>
                     <select class="form-control extra-select" onchange="onExtraSelected('${rowId}')" required>${eOpts}</select>
@@ -2168,6 +2164,10 @@
                 <div class="form-group">
                     <label>Qty</label>
                     <input type="number" step="1" class="form-control extra-qty" value="1" min="1" oninput="calculateExtraLineTotal('${rowId}')">
+                </div>
+                <div class="form-group">
+                    <label>Total (${CURRENCY})</label>
+                    <input type="number" class="form-control extra-total" value="0.00" readonly aria-label="Extra total">
                 </div>
                 <div class="form-group">
                     <label>Remarks / Notes</label>
@@ -2195,8 +2195,8 @@
         const qty = parseFloat(row.querySelector('.extra-qty')?.value) || 1;
 
         const lineTotal = rate * qty;
-        const ltEl = document.getElementById(`${rowId}_line_total`);
-        if (ltEl) ltEl.innerText = `${CURRENCY}${lineTotal.toFixed(2)}`;
+        const totalField = row.querySelector('.extra-total');
+        if (totalField) totalField.value = lineTotal.toFixed(2);
 
         calculateTotals();
     }
