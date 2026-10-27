@@ -4440,14 +4440,14 @@ def api_job_card_list(request):
         job_cards_data.append({
             'id': str(jc.id),
             'job_number': jc.job_number,
-            'job_date': jc.job_date.strftime('%Y-%m-%d') if jc.job_date else '',
+            'job_date': jc.job_date.strftime('%d-%m-%Y') if jc.job_date else '',
             'vehicle_id': str(v.id) if v else '',
             'vehicle_number': v.vehicle_number if v else '',
             'customer_id': str(jc.customer.id),
             'customer_name': jc.customer.name,
             'customer_phone': jc.customer.phone,
             'customer_whatsapp': jc.customer.whatsapp_number or jc.customer.phone,
-            'delivery_date': jc.expected_delivery_date.strftime('%Y-%m-%d %I:%M %p') if jc.expected_delivery_date else '',
+            'delivery_date': jc.expected_delivery_date.strftime('%d-%m-%Y %I:%M %p') if jc.expected_delivery_date else '',
             'delivery_lead_time': jc.delivery_lead_time or '',
             'estimated_cost': float(jc.estimated_cost or 0),
             'vehicle_type': v_type,
@@ -4558,13 +4558,29 @@ def api_job_card_detail(request, job_card_id):
 
     eff_es = v.emission_standard or (v.vehicle_type_model.emission_standard if (v and v.vehicle_type_model) else None)
 
+    company = jc.company or (jc.branch.company if jc.branch else None)
+    company_name = getattr(company, 'company_name', None) or getattr(company, 'name', '')
+    company_logo_url = ''
+    if company:
+        logo_f = getattr(company, 'logo_color', None) or getattr(company, 'logo_bw', None) or getattr(company, 'logo', None)
+        if logo_f:
+            try:
+                company_logo_url = request.build_absolute_uri(logo_f.url)
+            except Exception:
+                company_logo_url = logo_f.url if hasattr(logo_f, 'url') else ''
+    if not company_logo_url and jc.branch and getattr(jc.branch, 'logo', None):
+        try:
+            company_logo_url = request.build_absolute_uri(jc.branch.logo.url)
+        except Exception:
+            company_logo_url = jc.branch.logo.url if hasattr(jc.branch.logo, 'url') else ''
+
     return JsonResponse({
         'success': True,
         'job_card': {
             'id': str(jc.id),
             'job_number': jc.job_number,
-            'job_date': jc.job_date.strftime('%Y-%m-%d') if jc.job_date else '',
-            'expected_delivery_date': jc.expected_delivery_date.strftime('%Y-%m-%d %I:%M %p') if jc.expected_delivery_date else '',
+            'job_date': jc.job_date.strftime('%d-%m-%Y') if jc.job_date else '',
+            'expected_delivery_date': jc.expected_delivery_date.strftime('%d-%m-%Y %I:%M %p') if jc.expected_delivery_date else '',
             'delivery_lead_time': jc.delivery_lead_time or '',
             'estimated_cost': float(jc.estimated_cost or 0),
             'current_section': jc.current_section or 'General Inspection',
@@ -4574,6 +4590,8 @@ def api_job_card_detail(request, job_card_id):
             'additional_remarks': jc.additional_remarks or '',
             'appointment_details': jc.appointment_details or '',
             'branch_name': jc.branch.name if jc.branch else '',
+            'company_name': company_name,
+            'company_logo': company_logo_url,
             'customer': {
                 'id': str(c.id),
                 'name': c.name,

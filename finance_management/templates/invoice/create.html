@@ -1215,7 +1215,7 @@
         }
 
         debounceTimer = setTimeout(() => {
-            fetchSuggestions(searchType === 'mobile' ? getPhoneLookupValue(query) : query);
+            fetchSuggestions(query);
         }, 250);
     }
 
@@ -1224,6 +1224,8 @@
         if (!raw) return '';
         if (raw.startsWith('+')) return raw;
         const dialCode = document.getElementById('lookup_phone_country').value;
+        const dialDigits = dialCode.replace(/\D/g, '');
+        if (raw.startsWith(dialDigits) && raw.length > 10) return `+${raw}`;
         return `${dialCode}${raw.replace(/^0+/, '')}`;
     }
 
@@ -1291,10 +1293,14 @@
         const input = document.getElementById('lookup_input');
         let raw = (value || '').trim();
         const options = Array.from(countrySelect.options).sort((a, b) => b.value.length - a.value.length);
-        const matched = options.find(option => raw.startsWith(option.value));
+        const matched = options.find(option => {
+            const code = option.value.replace(/\D/g, '');
+            return raw.startsWith(option.value) || (raw.startsWith(code) && raw.length > 10);
+        });
         if (matched) {
             countrySelect.value = matched.value;
-            raw = raw.slice(matched.value.length).trim();
+            const codeLength = matched.value.replace(/\D/g, '').length;
+            raw = raw.replace(/^\+/, '').slice(codeLength).trim();
         }
         input.value = raw.replace(/^\+/, '');
     }
@@ -2685,10 +2691,14 @@
         const phoneInput = document.getElementById('qc_phone');
         let raw = (value || '').trim();
         const options = Array.from(countrySelect.options).sort((a, b) => b.value.length - a.value.length);
-        const matched = options.find(option => raw.startsWith(option.value));
+        const matched = options.find(option => {
+            const code = option.value.replace(/\D/g, '');
+            return raw.startsWith(option.value) || (raw.startsWith(code) && raw.length > 10);
+        });
         if (matched) {
             countrySelect.value = matched.value;
-            raw = raw.slice(matched.value.length).trim();
+            const codeLength = matched.value.replace(/\D/g, '').length;
+            raw = raw.replace(/^\+/, '').slice(codeLength).trim();
         }
         phoneInput.value = raw.replace(/^\+/, '');
     }
