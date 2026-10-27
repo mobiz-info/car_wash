@@ -5212,8 +5212,24 @@ def generate_job_card_pdf_file(job_card, base_url=None):
 
     company = job_card.company or (job_card.branch.company if job_card.branch else None)
     company_logo = None
-    if company and company.logo:
-        company_logo = company.logo.url
+    if company:
+        logo_field = getattr(company, 'logo_color', None) or getattr(company, 'logo_bw', None) or getattr(company, 'logo', None)
+        if logo_field:
+            try:
+                if hasattr(logo_field, 'path') and os.path.exists(logo_field.path):
+                    company_logo = 'file://' + os.path.abspath(logo_field.path)
+                elif hasattr(logo_field, 'url'):
+                    company_logo = logo_field.url
+            except Exception:
+                company_logo = getattr(logo_field, 'url', None)
+    if not company_logo and job_card.branch and getattr(job_card.branch, 'logo', None):
+        try:
+            if hasattr(job_card.branch.logo, 'path') and os.path.exists(job_card.branch.logo.path):
+                company_logo = 'file://' + os.path.abspath(job_card.branch.logo.path)
+            elif hasattr(job_card.branch.logo, 'url'):
+                company_logo = job_card.branch.logo.url
+        except Exception:
+            company_logo = getattr(job_card.branch.logo, 'url', None)
 
     context = {
         'job_card': job_card,

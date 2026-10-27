@@ -245,9 +245,9 @@
         <tr>
             <td style="width: 55%;">
                 {% if company_logo %}
-                    <img src="{{ company_logo }}" style="max-height: 45px; margin-bottom: 4px;" alt="Logo"><br>
+                    <img src="{{ company_logo }}" style="max-height: 55px; max-width: 175px; object-fit: contain; margin-bottom: 6px;" alt="Logo"><br>
                 {% else %}
-                    <h2 class="company-title">{{ company.name|default:"MOBIZ AUTOCARE PRO" }}</h2>
+                    <h2 class="company-title">{{ company.company_name|default:company.name|default:"MOBIZ AUTOCARE PRO" }}</h2>
                 {% endif %}
                 <p class="company-sub"><strong>{{ job_card.branch.name|default:"Main Branch" }}</strong></p>
                 {% if job_card.branch.address %}<p class="company-sub">{{ job_card.branch.address }}</p>{% endif %}
@@ -257,7 +257,7 @@
                 <div class="jc-badge">JOB CARD / WORK ORDER</div>
                 <table class="meta-table">
                     <tr><td class="meta-label">Job Number:</td><td class="meta-val">{{ job_card.job_number }}</td></tr>
-                    <tr><td class="meta-label">Job Date:</td><td class="meta-val">{{ job_card.job_date|date:"d M Y" }}</td></tr>
+                    <tr><td class="meta-label">Job Date:</td><td class="meta-val">{{ job_card.job_date|date:"d-m-Y" }}</td></tr>
                     <tr><td class="meta-label">Status:</td><td><span class="status-badge">{{ job_card.get_status_display|default:job_card.status }}</span></td></tr>
                 </table>
             </td>
@@ -327,7 +327,7 @@
     <div class="tracking-bar">
         <table class="tracking-table">
             <tr>
-                <td><strong>Delivery:</strong> {{ job_card.expected_delivery_date|date:"d M Y, h:i A"|default:"-" }}</td>
+                <td><strong>Delivery:</strong> {{ job_card.expected_delivery_date|date:"d-m-Y"|default:"-" }}{% if job_card.expected_delivery_date %} ({{ job_card.expected_delivery_date|date:"h:i A" }}){% endif %}</td>
                 <td><strong>Lead Time:</strong> {{ job_card.delivery_lead_time|default:"-" }}</td>
                 <td><strong>Section:</strong> <span style="color: #6b21a8; font-weight: 700;">{{ job_card.current_section|default:"General Inspection" }}</span></td>
                 {% if job_card.current_service %}
