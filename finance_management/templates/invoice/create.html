@@ -733,9 +733,14 @@
                 </div>
             </div>
         </div>
-        <button type="button" class="search-btn" style="background:#475569;" onclick="goToStep(1)">
-            <i class="ph ph-arrow-left"></i> Change Customer / Vehicle
-        </button>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button type="button" style="display:inline-flex; align-items:center; gap:6px; padding:10px 14px; font-weight:700; border-radius:10px; border:1.5px solid #2563eb; color:#2563eb; background:#eff6ff; font-size:0.92rem; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" onclick="openVehicleHistoryModal(document.getElementById('selected_vehicle_id').value, document.getElementById('active_vehicle_label').innerText)">
+                <i class="ph-bold ph-clock-counter-clockwise" style="font-size:1.15rem;"></i> <span>History</span>
+            </button>
+            <button type="button" class="search-btn" style="background:#475569; margin-top:0;" onclick="goToStep(1)">
+                <i class="ph ph-arrow-left"></i> Change Customer / Vehicle
+            </button>
+        </div>
     </div>
 
     <form id="invoiceForm" onsubmit="submitInvoice(event)">
@@ -1409,9 +1414,14 @@
                             <div><strong>Wheel:</strong> ${v.wheel_type === 'alloy_wheel' ? 'Alloy Wheel' : 'Normal Wheel'}</div>
                         </div>
                     </div>
-                    <button type="button" class="search-btn" style="justify-content:center; padding:12px; font-size:0.95rem; font-weight:700;" onclick="selectVehicleAndProceed('${v.id}')">
-                        <span>Select & Create Invoice</span> <i class="ph ph-arrow-right"></i>
-                    </button>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <button type="button" class="btn-vehicle-history" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:11px 12px; font-weight:700; border-radius:10px; border:1.5px solid #2563eb; color:#2563eb; background:#eff6ff; font-size:0.92rem; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'" onclick="openVehicleHistoryModal('${v.id}', '${v.no}')">
+                            <i class="ph-bold ph-clock-counter-clockwise" style="font-size:1.15rem;"></i> <span>History</span>
+                        </button>
+                        <button type="button" class="search-btn" style="flex:1.8; justify-content:center; padding:11px 12px; font-size:0.92rem; font-weight:700; border-radius:10px; margin-top:0;" onclick="selectVehicleAndProceed('${v.id}')">
+                            <span>Select & Create</span> <i class="ph ph-arrow-right"></i>
+                        </button>
+                    </div>
                 `;
                 grid.appendChild(card);
             });
@@ -2875,4 +2885,5 @@
     }
 </style>
 {% include 'invoice/whatsapp_share_modal.html' %}
+{% include 'invoice/vehicle_service_history_modal.html' %}
 {% endblock %}

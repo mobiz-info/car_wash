@@ -1,0 +1,1289 @@
+<!-- ================= VEHICLE SERVICE HISTORY MODAL ================= -->
+<div id="vehicleHistoryModal" class="vsh-overlay" style="display:none;">
+    <div class="vsh-container">
+        <!-- Header -->
+        <div class="vsh-header">
+            <div class="vsh-header-left">
+                <div class="vsh-icon-circle">
+                    <i class="ph-bold ph-clock-counter-clockwise"></i>
+                </div>
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <h3 class="vsh-title">Vehicle Service History</h3>
+                        <span id="vsh_vehicle_plate" class="vsh-plate-badge">-</span>
+                        <span id="vsh_visits_badge" class="vsh-pill-badge" style="background:#e0f2fe; color:#0369a1;">0 Visits</span>
+                    </div>
+                    <div id="vsh_vehicle_subtext" class="vsh-subtext">Loading vehicle details...</div>
+                </div>
+            </div>
+            <button type="button" class="vsh-close-btn" onclick="closeVehicleHistoryModal()" title="Close">
+                <i class="ph-bold ph-x"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="vsh-body">
+            <!-- Loading Spinner -->
+            <div id="vsh_loading" class="vsh-loading-box">
+                <div class="vsh-spinner"></div>
+                <div style="color:#64748b; font-weight:600; font-size:0.95rem;">Fetching service records...</div>
+            </div>
+
+            <!-- Error State -->
+            <div id="vsh_error" class="vsh-error-box" style="display:none;">
+                <i class="ph-bold ph-warning-circle" style="font-size:1.8rem; color:#dc2626;"></i>
+                <div id="vsh_error_msg" style="color:#991b1b; font-weight:600;">Failed to load history</div>
+                <button type="button" class="vsh-btn-sm" onclick="reloadCurrentVehicleHistory()">Try Again</button>
+            </div>
+
+            <!-- Content Container -->
+            <div id="vsh_content" style="display:none;">
+                <!-- Next Service / Predictive Maintenance Bar -->
+                <div class="vsh-section-title">
+                    <i class="ph-bold ph-bell-ringing" style="color:#2563eb;"></i>
+                    <span>Predictive Maintenance & Next Service</span>
+                </div>
+                <div class="vsh-alerts-grid">
+                    <!-- Current Odometer -->
+                    <div class="vsh-alert-card">
+                        <div class="vsh-alert-icon" style="background:#f1f5f9; color:#475569;">
+                            <i class="ph-bold ph-gauge"></i>
+                        </div>
+                        <div class="vsh-alert-info">
+                            <div class="vsh-alert-label">Current Odometer</div>
+                            <div class="vsh-alert-val" id="vsh_curr_odometer">-</div>
+                            <div class="vsh-alert-sub" id="vsh_last_updated">Recorded at last visit</div>
+                        </div>
+                    </div>
+
+                    <!-- Oil Change -->
+                    <div class="vsh-alert-card">
+                        <div class="vsh-alert-icon" style="background:#fef3c7; color:#d97706;">
+                            <i class="ph-bold ph-drop"></i>
+                        </div>
+                        <div class="vsh-alert-info">
+                            <div class="vsh-alert-label">Next Oil Change</div>
+                            <div class="vsh-alert-val" id="vsh_next_oil_km" style="color:#b45309;">-</div>
+                            <div class="vsh-alert-sub" id="vsh_last_oil_date">Last: -</div>
+                        </div>
+                    </div>
+
+                    <!-- Tyre Change -->
+                    <div class="vsh-alert-card">
+                        <div class="vsh-alert-icon" style="background:#e0e7ff; color:#4338ca;">
+                            <i class="ph-bold ph-circle"></i>
+                        </div>
+                        <div class="vsh-alert-info">
+                            <div class="vsh-alert-label">Next Tyre Change</div>
+                            <div class="vsh-alert-val" id="vsh_next_tyre_km" style="color:#4338ca;">-</div>
+                            <div class="vsh-alert-sub" id="vsh_last_tyre_date">Last: -</div>
+                        </div>
+                    </div>
+
+                    <!-- Smoke Test -->
+                    <div class="vsh-alert-card">
+                        <div class="vsh-alert-icon" style="background:#dcfce7; color:#15803d;">
+                            <i class="ph-bold ph-shield-check"></i>
+                        </div>
+                        <div class="vsh-alert-info">
+                            <div class="vsh-alert-label">Smoke / Pollution Test</div>
+                            <div class="vsh-alert-val" id="vsh_next_smoke_date" style="color:#15803d;">-</div>
+                            <div class="vsh-alert-sub" id="vsh_smoke_status">Renewal Due</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters & Controls -->
+                <div class="vsh-filter-card">
+                    <div class="vsh-filter-row">
+                        <!-- Category Filter Tabs -->
+                        <div class="vsh-category-pills" id="vsh_category_tabs">
+                            <button type="button" class="vsh-cat-tab active" data-category="all" onclick="selectVshCategory('all')">
+                                <i class="ph ph-squares-four"></i> All Services
+                            </button>
+                            <button type="button" class="vsh-cat-tab" data-category="washing" onclick="selectVshCategory('washing')">
+                                <i class="ph ph-sparkle"></i> Washing
+                            </button>
+                            <button type="button" class="vsh-cat-tab" data-category="oil_change" onclick="selectVshCategory('oil_change')">
+                                <i class="ph ph-drop"></i> Oil Change
+                            </button>
+                            <button type="button" class="vsh-cat-tab" data-category="tyre_change" onclick="selectVshCategory('tyre_change')">
+                                <i class="ph ph-circle"></i> Tyre Change
+                            </button>
+                            <button type="button" class="vsh-cat-tab" data-category="wheel_alignment" onclick="selectVshCategory('wheel_alignment')">
+                                <i class="ph ph-arrows-out-line-horizontal"></i> Alignment
+                            </button>
+                            <button type="button" class="vsh-cat-tab" data-category="smoke_test" onclick="selectVshCategory('smoke_test')">
+                                <i class="ph ph-shield-check"></i> Smoke Test
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Date & Search Row -->
+                    <div class="vsh-search-row">
+                        <div class="vsh-date-inputs">
+                            <div class="vsh-input-group">
+                                <label>From</label>
+                                <input type="date" id="vsh_from_date" class="vsh-input-date">
+                            </div>
+                            <div class="vsh-input-group">
+                                <label>To</label>
+                                <input type="date" id="vsh_to_date" class="vsh-input-date">
+                            </div>
+                            <button type="button" class="vsh-btn-filter" onclick="applyVshDateFilter()">
+                                <i class="ph ph-funnel"></i> Apply
+                            </button>
+                            <button type="button" class="vsh-btn-reset" onclick="resetVshFilters()">
+                                <i class="ph ph-arrow-counter-clockwise"></i> Reset
+                            </button>
+                        </div>
+
+                        <!-- Live Text Search -->
+                        <div class="vsh-search-box">
+                            <i class="ph ph-magnifying-glass vsh-search-icon"></i>
+                            <input type="text" id="vsh_quick_search" class="vsh-input-search" placeholder="Search service, part, invoice #..." oninput="filterVshHistoryList()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Timeline List -->
+                <div class="vsh-timeline-header">
+                    <span id="vsh_result_counter" style="font-weight:700; color:#334155; font-size:0.95rem;">Service Records</span>
+                </div>
+
+                <div id="vsh_history_list" class="vsh-history-container">
+                    <!-- Rendered dynamically -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="vsh_empty_state" class="vsh-empty-box" style="display:none;">
+                    <div style="width:64px; height:64px; border-radius:50%; background:#f1f5f9; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; color:#94a3b8; font-size:2rem;">
+                        <i class="ph ph-clock-counter-clockwise"></i>
+                    </div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#334155;">No Service History Found</div>
+                    <div style="font-size:0.9rem; color:#64748b; margin-top:4px;">No visits match the selected filter or date range.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="vsh-footer">
+            <div id="vsh_footer_text" style="font-size:0.88rem; color:#64748b; font-weight:500;">
+                Showing complete service logs from all branches
+            </div>
+            <button type="button" class="vsh-btn-close" onclick="closeVehicleHistoryModal()">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Vehicle Service History Modal Scoped Styles */
+.vsh-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: vshFadeIn 0.2s ease-out;
+}
+@keyframes vshFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.vsh-container {
+    background: #ffffff;
+    width: 100%;
+    max-width: 980px;
+    max-height: 92vh;
+    border-radius: 18px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.28);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: vshSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes vshSlideUp {
+    from { opacity: 0; transform: translateY(18px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.vsh-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+.vsh-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.vsh-icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+.vsh-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+}
+.vsh-plate-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    font-family: monospace;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: #fef08a;
+    color: #1e293b;
+    border: 1.5px solid #0f172a;
+    border-radius: 6px;
+}
+.vsh-pill-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+.vsh-subtext {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+.vsh-close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.15s;
+}
+.vsh-close-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+
+.vsh-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    background: #f8fafc;
+}
+
+.vsh-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 12px;
+}
+
+/* Predictive Alerts */
+.vsh-alerts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.vsh-alert-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.vsh-alert-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+}
+.vsh-alert-info {
+    overflow: hidden;
+}
+.vsh-alert-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+}
+.vsh-alert-val {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.vsh-alert-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+/* Filters Card */
+.vsh-filter-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.vsh-category-pills {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+.vsh-category-pills::-webkit-scrollbar {
+    height: 4px;
+}
+.vsh-category-pills::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.vsh-cat-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1.5px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+.vsh-cat-tab:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+.vsh-cat-tab.active {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+.vsh-search-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+}
+.vsh-date-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.vsh-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.vsh-input-group label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+}
+.vsh-input-date {
+    padding: 6px 10px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    color: #1e293b;
+    outline: none;
+    background: #fff;
+}
+.vsh-input-date:focus {
+    border-color: #2563eb;
+}
+.vsh-btn-filter {
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.15s;
+}
+.vsh-btn-filter:hover {
+    background: #1d4ed8;
+}
+.vsh-btn-reset {
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.vsh-btn-reset:hover {
+    background: #e2e8f0;
+}
+
+.vsh-search-box {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+}
+.vsh-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 1rem;
+}
+.vsh-input-search {
+    width: 100%;
+    padding: 7px 12px 7px 32px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    outline: none;
+    background: #fff;
+}
+.vsh-input-search:focus {
+    border-color: #2563eb;
+}
+
+/* History Cards */
+.vsh-timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.vsh-history-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.vsh-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.vsh-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.vsh-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: #f8fafc;
+    border-bottom: 1px solid #f1f5f9;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.vsh-card-date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 0.95rem;
+}
+.vsh-card-inv-badge {
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: #e2e8f0;
+    color: #334155;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.vsh-card-inv-badge:hover {
+    background: #2563eb;
+    color: #fff;
+}
+.vsh-card-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.vsh-card-branch {
+    font-size: 0.82rem;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.vsh-card-total {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #10b981;
+}
+
+.vsh-card-body {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Category Badges on card */
+.vsh-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.vsh-badge-service {
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* Technical Details Highlights (Oil, Tyre, Alignment, Smoke) */
+.vsh-highlight-box {
+    background: #f8fafc;
+    border-left: 4px solid #2563eb;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: #334155;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+/* Table of items */
+.vsh-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 6px;
+}
+.vsh-items-table th {
+    background: #f1f5f9;
+    color: #475569;
+    text-align: left;
+    padding: 7px 10px;
+    font-weight: 600;
+    border-bottom: 1px solid #e2e8f0;
+}
+.vsh-items-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+}
+.vsh-item-tag {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+/* Card Footer with Staff and Actions */
+.vsh-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 18px;
+    background: #ffffff;
+    border-top: 1px solid #f1f5f9;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 0.83rem;
+}
+.vsh-staff-list {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+    flex-wrap: wrap;
+}
+.vsh-staff-badge {
+    background: #f1f5f9;
+    color: #334155;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.78rem;
+}
+.vsh-actions-list {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.vsh-action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    background: #fff;
+    transition: all 0.15s;
+}
+.vsh-action-link:hover {
+    background: #f8fafc;
+    color: #2563eb;
+    border-color: #93c5fd;
+}
+.vsh-action-link.primary {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+.vsh-action-link.primary:hover {
+    background: #dbeafe;
+}
+
+/* Loading & Empty Boxes */
+.vsh-loading-box, .vsh-error-box, .vsh-empty-box {
+    text-align: center;
+    padding: 40px 20px;
+}
+.vsh-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: vshSpin 0.7s linear infinite;
+    margin: 0 auto 14px;
+}
+@keyframes vshSpin {
+    to { transform: rotate(360deg); }
+}
+
+.vsh-btn-sm {
+    margin-top: 10px;
+    padding: 6px 14px;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.vsh-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+}
+.vsh-btn-close {
+    padding: 9px 20px;
+    background: #475569;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.vsh-btn-close:hover {
+    background: #334155;
+}
+</style>
+
+<script>
+// ================= VEHICLE SERVICE HISTORY JS CONTROLLER =================
+let vshCurrentVehicleId = null;
+let vshCurrentVehicleNo = '';
+let vshLoadedData = null;
+let vshSelectedCategory = 'all';
+
+function openVehicleHistoryModal(vehicleId, vehicleNo) {
+    if (!vehicleId) return;
+    vshCurrentVehicleId = vehicleId;
+    vshCurrentVehicleNo = vehicleNo || '';
+    vshSelectedCategory = 'all';
+
+    // Show modal
+    const modal = document.getElementById('vehicleHistoryModal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Set plate badge early
+    document.getElementById('vsh_vehicle_plate').innerText = vehicleNo || 'Vehicle';
+    document.getElementById('vsh_vehicle_subtext').innerText = 'Loading vehicle details...';
+    document.getElementById('vsh_visits_badge').innerText = '...';
+
+    // Reset filters
+    document.getElementById('vsh_from_date').value = '';
+    document.getElementById('vsh_to_date').value = '';
+    document.getElementById('vsh_quick_search').value = '';
+
+    // Reset tabs
+    document.querySelectorAll('#vsh_category_tabs .vsh-cat-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.getAttribute('data-category') === 'all');
+    });
+
+    // Fetch history
+    fetchVehicleServiceHistory(vehicleId);
+}
+
+function closeVehicleHistoryModal() {
+    const modal = document.getElementById('vehicleHistoryModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+// Close when clicking overlay backdrop
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('vehicleHistoryModal');
+    if (modal && e.target === modal) {
+        closeVehicleHistoryModal();
+    }
+});
+
+// ESC key to close
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('vehicleHistoryModal');
+        if (modal && modal.style.display === 'flex') {
+            closeVehicleHistoryModal();
+        }
+    }
+});
+
+function reloadCurrentVehicleHistory() {
+    if (vshCurrentVehicleId) {
+        fetchVehicleServiceHistory(vshCurrentVehicleId);
+    }
+}
+
+function formatVshDate(dateStr) {
+    if (!dateStr) return '-';
+    try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            // YYYY-MM-DD -> DD-MM-YYYY
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+    } catch (e) {}
+    return dateStr;
+}
+
+function formatVshKm(kmVal) {
+    if (kmVal === null || kmVal === undefined || kmVal === '') return '-';
+    return Number(kmVal).toLocaleString() + ' KM';
+}
+
+function fetchVehicleServiceHistory(vehicleId, fromDate, toDate) {
+    document.getElementById('vsh_loading').style.display = 'block';
+    document.getElementById('vsh_error').style.display = 'none';
+    document.getElementById('vsh_content').style.display = 'none';
+
+    let url = `/api/vehicle-service-history/${vehicleId}/`;
+    const params = [];
+    if (fromDate) params.push(`from_date=${encodeURIComponent(fromDate)}`);
+    if (toDate) params.push(`to_date=${encodeURIComponent(toDate)}`);
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+
+    fetch(url)
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}: Vehicle history fetch failed`);
+            return res.json();
+        })
+        .then(data => {
+            document.getElementById('vsh_loading').style.display = 'none';
+            if (data.success) {
+                vshLoadedData = data;
+                populateVshHeaderAndPredictive(data);
+                renderVshHistoryList();
+                document.getElementById('vsh_content').style.display = 'block';
+            } else {
+                showVshError(data.message || 'Unable to load vehicle history');
+            }
+        })
+        .catch(err => {
+            document.getElementById('vsh_loading').style.display = 'none';
+            showVshError(err.message || 'Error communicating with server');
+        });
+}
+
+function showVshError(msg) {
+    document.getElementById('vsh_error').style.display = 'block';
+    document.getElementById('vsh_error_msg').innerText = msg;
+    document.getElementById('vsh_content').style.display = 'none';
+}
+
+function populateVshHeaderAndPredictive(data) {
+    const v = data.vehicle || {};
+    const next = data.next_service || {};
+
+    // Header Meta
+    document.getElementById('vsh_vehicle_plate').innerText = v.vehicle_number || vshCurrentVehicleNo;
+    
+    const metaParts = [];
+    if (v.make || v.model) metaParts.push(`${v.make || ''} ${v.model || ''}`.trim());
+    if (v.variant_trim) metaParts.push(v.variant_trim);
+    if (v.type) metaParts.push(v.type);
+    if (v.segment) metaParts.push(v.segment);
+    if (v.model_year) metaParts.push(v.model_year);
+    if (v.color) metaParts.push(v.color);
+    if (v.customer_name) metaParts.push(`Customer: ${v.customer_name}${v.customer_phone ? ' (' + v.customer_phone + ')' : ''}`);
+
+    document.getElementById('vsh_vehicle_subtext').innerText = metaParts.join(' • ') || 'Registered Vehicle';
+    document.getElementById('vsh_visits_badge').innerText = `${v.visits_count || 0} Visits Completed`;
+
+    // Predictive Maintenance
+    const currOdo = next.current_odometer_km || v.odometer;
+    document.getElementById('vsh_curr_odometer').innerText = currOdo ? formatVshKm(currOdo) : 'Not recorded';
+
+    // Oil Change
+    document.getElementById('vsh_next_oil_km').innerText = next.next_oil_change_km ? formatVshKm(next.next_oil_change_km) : 'Not scheduled';
+    document.getElementById('vsh_last_oil_date').innerText = next.last_oil_change_date ? `Last: ${formatVshDate(next.last_oil_change_date)}` : 'Last: Never';
+
+    // Tyre Change
+    document.getElementById('vsh_next_tyre_km').innerText = next.next_tyre_change_km ? formatVshKm(next.next_tyre_change_km) : 'Not scheduled';
+    document.getElementById('vsh_last_tyre_date').innerText = next.last_tyre_change_date ? `Last: ${formatVshDate(next.last_tyre_change_date)}` : 'Last: Never';
+
+    // Smoke Test
+    if (next.next_smoke_test_date) {
+        document.getElementById('vsh_next_smoke_date').innerText = formatVshDate(next.next_smoke_test_date);
+        
+        // Check if overdue
+        const dueDate = new Date(next.next_smoke_test_date);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        if (dueDate < today) {
+            document.getElementById('vsh_smoke_status').innerHTML = '<span style="color:#dc2626; font-weight:700;">Overdue</span>';
+        } else {
+            const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+            document.getElementById('vsh_smoke_status').innerText = `Due in ${diffDays} day${diffDays === 1 ? '' : 's'}`;
+        }
+    } else {
+        document.getElementById('vsh_next_smoke_date').innerText = 'Not scheduled';
+        document.getElementById('vsh_smoke_status').innerText = 'Renewal Due';
+    }
+}
+
+function selectVshCategory(category) {
+    vshSelectedCategory = category;
+    document.querySelectorAll('#vsh_category_tabs .vsh-cat-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.getAttribute('data-category') === category);
+    });
+    renderVshHistoryList();
+}
+
+function applyVshDateFilter() {
+    const fromDate = document.getElementById('vsh_from_date').value;
+    const toDate = document.getElementById('vsh_to_date').value;
+    if (vshCurrentVehicleId) {
+        fetchVehicleServiceHistory(vshCurrentVehicleId, fromDate, toDate);
+    }
+}
+
+function resetVshFilters() {
+    document.getElementById('vsh_from_date').value = '';
+    document.getElementById('vsh_to_date').value = '';
+    document.getElementById('vsh_quick_search').value = '';
+    vshSelectedCategory = 'all';
+    document.querySelectorAll('#vsh_category_tabs .vsh-cat-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.getAttribute('data-category') === 'all');
+    });
+    if (vshCurrentVehicleId) {
+        fetchVehicleServiceHistory(vshCurrentVehicleId);
+    }
+}
+
+function filterVshHistoryList() {
+    renderVshHistoryList();
+}
+
+function groupHistoryByInvoice(rawHistory) {
+    if (!rawHistory || !Array.isArray(rawHistory)) return [];
+    
+    const invoiceMap = new Map();
+    rawHistory.forEach(entry => {
+        const invId = entry.invoice_id;
+        if (!invoiceMap.has(invId)) {
+            invoiceMap.set(invId, {
+                invoice_id: entry.invoice_id,
+                invoice_number: entry.invoice_number,
+                date: entry.date,
+                created_at: entry.created_at,
+                branch_name: entry.branch_name,
+                customer_name: entry.customer_name,
+                customer_phone: entry.customer_phone,
+                assigned_staffs: entry.assigned_staffs || [],
+                subtotal: entry.invoice_subtotal || 0,
+                discount: entry.invoice_discount || 0,
+                tax: entry.invoice_tax || 0,
+                total: entry.invoice_total || 0,
+                amount_collected: entry.amount_collected || 0,
+                invoice_remarks: entry.invoice_remarks || '',
+                reminders: entry.reminders || [],
+                // Category aggregations & items
+                categories: new Set(),
+                services: entry.services || [],
+                stock_items: entry.stock_items || [],
+                extras: entry.extras || [],
+                all_items: entry.all_items || [],
+                oil_detail: null,
+                tyre_detail: null,
+                alignment_detail: null,
+                smoke_detail: null,
+                odometer: entry.odometer || null,
+            });
+        }
+
+        const invObj = invoiceMap.get(invId);
+        if (entry.category) invObj.categories.add(entry.category);
+
+        // Technical details capture
+        if (entry.category === 'oil_change' || entry.oil_product) {
+            invObj.oil_detail = {
+                product: entry.oil_product || '',
+                litres: entry.oil_litres || 0,
+                filter_changed: entry.oil_filter_changed,
+                filter_name: entry.oil_filter_name || '',
+                filter_price: entry.oil_filter_price || 0,
+                odometer: entry.odometer,
+                next_km: entry.next_oil_change_km,
+                next_date: entry.next_oil_change_date,
+            };
+            invObj.categories.add('oil_change');
+        }
+
+        if (entry.category === 'tyre_change' || entry.tyre_brand) {
+            invObj.tyre_detail = {
+                brand: entry.tyre_brand || '',
+                size: entry.tyre_size || '',
+                count: entry.tyres_count || 0,
+                odometer: entry.odometer,
+                next_km: entry.next_tyre_change_km,
+                next_date: entry.next_tyre_change_date,
+            };
+            invObj.categories.add('tyre_change');
+        }
+
+        if (entry.category === 'wheel_alignment' || entry.alignment_done) {
+            invObj.alignment_detail = {
+                alignment_done: entry.alignment_done,
+                balancing_done: entry.balancing_done,
+                notes: entry.alignment_notes || '',
+                odometer: entry.odometer,
+                next_km: entry.next_alignment_km,
+            };
+            invObj.categories.add('wheel_alignment');
+        }
+
+        if (entry.category === 'smoke_test' || entry.next_smoke_test_date) {
+            invObj.smoke_detail = {
+                next_smoke_test_date: entry.next_smoke_test_date,
+            };
+            invObj.categories.add('smoke_test');
+        }
+    });
+
+    return Array.from(invoiceMap.values());
+}
+
+function renderVshHistoryList() {
+    if (!vshLoadedData || !vshLoadedData.history) return;
+
+    const query = (document.getElementById('vsh_quick_search').value || '').trim().toLowerCase();
+    const invoices = groupHistoryByInvoice(vshLoadedData.history);
+    const container = document.getElementById('vsh_history_list');
+    const emptyState = document.getElementById('vsh_empty_state');
+    const counter = document.getElementById('vsh_result_counter');
+
+    container.innerHTML = '';
+
+    // Filter by category & query
+    const filtered = invoices.filter(inv => {
+        // Category filter
+        if (vshSelectedCategory !== 'all') {
+            if (!inv.categories.has(vshSelectedCategory)) return false;
+        }
+
+        // Query filter
+        if (query) {
+            const inInvNo = (inv.invoice_number || '').toLowerCase().includes(query);
+            const inBranch = (inv.branch_name || '').toLowerCase().includes(query);
+            const inStaff = (inv.assigned_staffs || []).some(s => s.toLowerCase().includes(query));
+            const inItems = (inv.all_items || []).some(it => (it.name || '').toLowerCase().includes(query) || (it.remarks || '').toLowerCase().includes(query));
+            const inOil = inv.oil_detail && (inv.oil_detail.product || '').toLowerCase().includes(query);
+            const inTyre = inv.tyre_detail && (inv.tyre_detail.brand || '').toLowerCase().includes(query);
+            if (!inInvNo && !inBranch && !inStaff && !inItems && !inOil && !inTyre) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    counter.innerText = `${filtered.length} Service Visit${filtered.length === 1 ? '' : 's'} Recorded`;
+
+    if (filtered.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+    container.style.display = 'flex';
+
+    filtered.forEach(inv => {
+        const card = document.createElement('div');
+        card.className = 'vsh-card';
+
+        // Badges for categories
+        let categoryBadgesHtml = '';
+        if (inv.categories.has('washing') || inv.services.length > 0) {
+            categoryBadgesHtml += `<span class="vsh-badge-service" style="background:#e0f2fe; color:#0369a1;"><i class="ph ph-sparkle"></i> Washing</span> `;
+        }
+        if (inv.categories.has('oil_change') || inv.oil_detail) {
+            categoryBadgesHtml += `<span class="vsh-badge-service" style="background:#fef3c7; color:#92400e;"><i class="ph ph-drop"></i> Oil Change</span> `;
+        }
+        if (inv.categories.has('tyre_change') || inv.tyre_detail) {
+            categoryBadgesHtml += `<span class="vsh-badge-service" style="background:#ede9fe; color:#6b21a8;"><i class="ph ph-circle"></i> Tyre Change</span> `;
+        }
+        if (inv.categories.has('wheel_alignment') || inv.alignment_detail) {
+            categoryBadgesHtml += `<span class="vsh-badge-service" style="background:#fce7f3; color:#9d174d;"><i class="ph ph-arrows-out-line-horizontal"></i> Alignment</span> `;
+        }
+        if (inv.categories.has('smoke_test') || inv.smoke_detail) {
+            categoryBadgesHtml += `<span class="vsh-badge-service" style="background:#dcfce7; color:#166534;"><i class="ph ph-shield-check"></i> Smoke Test</span> `;
+        }
+        if (inv.stock_items.length > 0) {
+            categoryBadgesHtml += `<span class="vsh-badge-service" style="background:#f1f5f9; color:#475569;"><i class="ph ph-wrench"></i> ${inv.stock_items.length} Spare Part${inv.stock_items.length === 1 ? '' : 's'}</span> `;
+        }
+
+        // Technical Highlights Box (if oil, tyre, alignment, or smoke present)
+        let highlightsHtml = '';
+        const highlightSnippets = [];
+
+        if (inv.oil_detail) {
+            highlightSnippets.push(`
+                <div>
+                    <strong style="color:#d97706;"><i class="ph-bold ph-drop"></i> Oil:</strong> ${inv.oil_detail.product || 'Standard Engine Oil'} (${inv.oil_detail.litres || 0} L)
+                    ${inv.oil_detail.filter_changed ? '<br><span style="color:#059669; font-weight:600;">✓ Filter Replaced</span>' : ''}
+                    ${inv.oil_detail.next_km ? `<br><small style="color:#64748b;">Next: ${formatVshKm(inv.oil_detail.next_km)}</small>` : ''}
+                </div>
+            `);
+        }
+
+        if (inv.tyre_detail) {
+            highlightSnippets.push(`
+                <div>
+                    <strong style="color:#7c3aed;"><i class="ph-bold ph-circle"></i> Tyres:</strong> ${inv.tyre_detail.brand || ''} ${inv.tyre_detail.size || ''} (${inv.tyre_detail.count || 0} replaced)
+                    ${inv.tyre_detail.next_km ? `<br><small style="color:#64748b;">Next: ${formatVshKm(inv.tyre_detail.next_km)}</small>` : ''}
+                </div>
+            `);
+        }
+
+        if (inv.alignment_detail) {
+            highlightSnippets.push(`
+                <div>
+                    <strong style="color:#db2777;"><i class="ph-bold ph-arrows-out-line-horizontal"></i> Alignment:</strong> 
+                    ${inv.alignment_detail.alignment_done ? '<span style="color:#059669; font-weight:600;">Done</span>' : 'N/A'}
+                    ${inv.alignment_detail.balancing_done ? ' • <span style="color:#059669; font-weight:600;">Balancing Done</span>' : ''}
+                    ${inv.alignment_detail.notes ? `<br><small style="color:#64748b;">${inv.alignment_detail.notes}</small>` : ''}
+                </div>
+            `);
+        }
+
+        if (inv.smoke_detail && inv.smoke_detail.next_smoke_test_date) {
+            highlightSnippets.push(`
+                <div>
+                    <strong style="color:#15803d;"><i class="ph-bold ph-shield-check"></i> Next Smoke Test:</strong> ${formatVshDate(inv.smoke_detail.next_smoke_test_date)}
+                </div>
+            `);
+        }
+
+        if (inv.odometer) {
+            highlightSnippets.push(`
+                <div>
+                    <strong style="color:#334155;"><i class="ph-bold ph-gauge"></i> Odometer:</strong> ${formatVshKm(inv.odometer)}
+                </div>
+            `);
+        }
+
+        if (highlightSnippets.length > 0) {
+            highlightsHtml = `<div class="vsh-highlight-box">${highlightSnippets.join('')}</div>`;
+        }
+
+        // Items Table
+        let itemsRowsHtml = '';
+        const allItems = inv.all_items.length > 0 ? inv.all_items : (inv.services || []);
+        allItems.forEach(item => {
+            let itemTypeBadge = '';
+            if (item.item_type === 'stock_item') {
+                itemTypeBadge = '<span class="vsh-item-tag" style="background:#e2e8f0; color:#334155;">Part</span>';
+            } else if (item.item_type === 'extra') {
+                itemTypeBadge = '<span class="vsh-item-tag" style="background:#fef3c7; color:#92400e;">Extra</span>';
+            } else {
+                itemTypeBadge = '<span class="vsh-item-tag" style="background:#e0f2fe; color:#0369a1;">Service</span>';
+            }
+
+            itemsRowsHtml += `
+                <tr>
+                    <td style="font-weight:600;">
+                        ${itemTypeBadge} <span style="margin-left:4px;">${item.name || item.stock_item_name || item.extra_name || 'Service'}</span>
+                        ${item.remarks ? `<br><small style="color:#64748b; font-weight:400;">${item.remarks}</small>` : ''}
+                    </td>
+                    <td style="text-align:center;">${item.qty || 1}</td>
+                    <td style="text-align:right;">${Number(item.rate || 0).toFixed(2)}</td>
+                    <td style="text-align:right; font-weight:700;">${Number(item.total || 0).toFixed(2)}</td>
+                </tr>
+            `;
+        });
+
+        // Staff badges
+        let staffBadgesHtml = '';
+        if (inv.assigned_staffs && inv.assigned_staffs.length > 0) {
+            staffBadgesHtml = `
+                <div class="vsh-staff-list">
+                    <span style="font-weight:600;"><i class="ph ph-user"></i> Staff:</span>
+                    ${inv.assigned_staffs.map(s => `<span class="vsh-staff-badge">${s}</span>`).join('')}
+                </div>
+            `;
+        } else {
+            staffBadgesHtml = `
+                <div class="vsh-staff-list">
+                    <span><i class="ph ph-user"></i> Unassigned</span>
+                </div>
+            `;
+        }
+
+        // WhatsApp share button
+        const whatsappShareUrl = `/finance/invoices/${inv.invoice_id}/whatsapp-share/`;
+        const receiptUrl = `/finance/invoice-receipt/${inv.invoice_id}/`;
+        const pdfUrl = `/finance/invoices/${inv.invoice_id}/pdf/`;
+
+        card.innerHTML = `
+            <div class="vsh-card-header">
+                <div class="vsh-card-date">
+                    <i class="ph-bold ph-calendar-blank" style="color:#2563eb;"></i>
+                    <span>${formatVshDate(inv.date)}</span>
+                    <a href="${receiptUrl}" target="_blank" class="vsh-card-inv-badge" title="Open Receipt">
+                        <i class="ph ph-receipt"></i> #${inv.invoice_number}
+                    </a>
+                </div>
+                <div class="vsh-card-header-right">
+                    ${inv.branch_name ? `<span class="vsh-card-branch"><i class="ph ph-buildings"></i> ${inv.branch_name}</span>` : ''}
+                    <span class="vsh-card-total">${Number(inv.total).toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div class="vsh-card-body">
+                <div class="vsh-badge-row">
+                    ${categoryBadgesHtml}
+                </div>
+
+                ${highlightsHtml}
+
+                <!-- Items Breakdown -->
+                <table class="vsh-items-table">
+                    <thead>
+                        <tr>
+                            <th>Item Description</th>
+                            <th style="width:60px; text-align:center;">Qty</th>
+                            <th style="width:80px; text-align:right;">Rate</th>
+                            <th style="width:90px; text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsRowsHtml}
+                    </tbody>
+                </table>
+
+                ${inv.invoice_remarks ? `<div style="font-size:0.83rem; color:#64748b; background:#f8fafc; padding:8px 12px; border-radius:6px;"><strong>Remarks:</strong> ${inv.invoice_remarks}</div>` : ''}
+            </div>
+
+            <div class="vsh-card-footer">
+                ${staffBadgesHtml}
+                <div class="vsh-actions-list">
+                    <a href="${receiptUrl}" target="_blank" class="vsh-action-link primary">
+                        <i class="ph ph-receipt"></i> View Receipt
+                    </a>
+                    <a href="${pdfUrl}" target="_blank" class="vsh-action-link">
+                        <i class="ph ph-file-pdf"></i> PDF
+                    </a>
+                    <a href="${whatsappShareUrl}" target="_blank" class="vsh-action-link" style="color:#059669; border-color:#a7f3d0; background:#f0fdf4;">
+                        <i class="ph-bold ph-whatsapp-logo"></i> WhatsApp
+                    </a>
+                </div>
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+</script>

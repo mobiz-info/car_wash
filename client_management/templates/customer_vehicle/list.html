@@ -93,14 +93,21 @@
                     <td style="text-align:center;">
                         <div style="display:flex; justify-content:center; gap:10px;">
 
+                            <button type="button" 
+                               onclick="openVehicleHistoryModal('{{ obj.id }}', '{{ obj.vehicle_number }}')" 
+                               title="Service History"
+                               style="background:none; border:none; color:#0284c7; cursor:pointer; font-size:1.15rem; display:inline-flex; align-items:center; padding:0;">
+                                <i class="ph-bold ph-clock-counter-clockwise"></i>
+                            </button>
+
                             <a href="{% url 'customer_vehicle_edit' obj.id %}" 
-                               style="color:#2563eb;">
+                               style="color:#2563eb;" title="Edit Vehicle">
                                 <i class="ph ph-pencil"></i>
                             </a>
 
                             <a href="{% url 'customer_vehicle_delete' obj.id %}" 
                                onclick="deleteVehicle({{ obj.id }})"
-                               style="color:#dc2626;">
+                               style="color:#dc2626;" title="Delete Vehicle">
                                 <i class="ph ph-trash"></i>
                             </a>
 
@@ -144,6 +151,5 @@
 
 </div>
 
-
-
+{% include 'invoice/vehicle_service_history_modal.html' %}
 {% endblock %}

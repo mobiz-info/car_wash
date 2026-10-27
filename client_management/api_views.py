@@ -7498,11 +7498,36 @@ def api_vehicle_service_history(request, vehicle_id):
             'current_odometer_km': vehicle.current_odometer_km,
             'next_oil_change_km': vehicle.next_oil_change_km,
             'next_tyre_change_km': vehicle.next_tyre_change_km,
+            'next_alignment_km': getattr(vehicle, 'next_alignment_km', None),
             'last_oil_change_date': str(vehicle.last_oil_change_date) if vehicle.last_oil_change_date else None,
             'last_tyre_change_date': str(vehicle.last_tyre_change_date) if vehicle.last_tyre_change_date else None,
+            'last_alignment_date': str(vehicle.last_alignment_date) if getattr(vehicle, 'last_alignment_date', None) else None,
+            'last_smoke_test_date': str(vehicle.last_smoke_test_date) if getattr(vehicle, 'last_smoke_test_date', None) else None,
+            'next_smoke_test_date': str(vehicle.next_smoke_test_date) if getattr(vehicle, 'next_smoke_test_date', None) else None,
         }
 
-        return JsonResponse({'success': True, 'history': history, 'next_service': next_service})
+        vehicle_details = {
+            'id': str(vehicle.id),
+            'vehicle_number': vehicle.vehicle_number,
+            'make': vehicle.make.name if (hasattr(vehicle, 'make') and vehicle.make) else '',
+            'model': vehicle_model_name,
+            'variant_trim': getattr(vehicle, 'variant_trim', '') or '',
+            'model_year': getattr(vehicle, 'model_year', '') or '',
+            'type': vehicle.vehicle_type_model.vehicle_type.name if (vehicle.vehicle_type_model and vehicle.vehicle_type_model.vehicle_type) else '',
+            'segment': vehicle.segment or '',
+            'color': vehicle.color.name if (hasattr(vehicle, 'color') and vehicle.color) else '',
+            'fuel_type': vehicle.get_fuel_type_display() if hasattr(vehicle, 'get_fuel_type_display') else (vehicle.fuel_type or ''),
+            'transmission': vehicle.transmission_type or '',
+            'odometer': vehicle.current_odometer_km or 0,
+            'chassis_number': vehicle.chassis_number or '',
+            'engine_number': vehicle.engine_number or '',
+            'customer_name': vehicle.customer.name if vehicle.customer else '',
+            'customer_phone': vehicle.customer.phone if vehicle.customer else '',
+            'customer_whatsapp': getattr(vehicle.customer, 'whatsapp_number', '') or '',
+            'visits_count': invoices.count(),
+        }
+
+        return JsonResponse({'success': True, 'history': history, 'next_service': next_service, 'vehicle': vehicle_details})
     except CustomerVehicle.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Vehicle not found'}, status=404)
     except Exception as e:
