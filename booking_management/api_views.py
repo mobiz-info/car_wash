@@ -4391,7 +4391,7 @@ def api_job_card_list(request):
     qs = JobCard.objects.filter(is_deleted=False).select_related(
         'customer', 'vehicle', 'vehicle__make', 'vehicle__brand_model', 
         'vehicle__vehicle_type_model', 'vehicle__vehicle_type_model__vehicle_type',
-        'branch'
+        'branch', 'quotation'
     )
 
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
@@ -4450,6 +4450,8 @@ def api_job_card_list(request):
             'delivery_date': jc.expected_delivery_date.strftime('%d-%m-%Y %I:%M %p') if jc.expected_delivery_date else '',
             'delivery_lead_time': jc.delivery_lead_time or '',
             'estimated_cost': float(jc.estimated_cost or 0),
+            'quotation_id': str(jc.quotation_id) if jc.quotation_id else '',
+            'quotation_number': jc.quotation.quotation_number if jc.quotation_id else '',
             'vehicle_type': v_type,
             'vehicle_make': v_make,
             'vehicle_model': v_model,
@@ -4551,6 +4553,9 @@ def api_job_card_detail(request, job_card_id):
             'extra_details': e.extra_details,
             'quantity': float(e.quantity or 1),
             'rate': float(e.rate or 0),
+            'discount': float(e.discount or 0),
+            'discount_type': e.discount_type or 'amount',
+            'discount_percentage': float(e.discount_percentage or 0),
             'vat_percentage': float(e.vat_percentage or 0),
             'total_amount': float(e.total_amount or 0),
             'remarks': e.remarks or '',
@@ -4633,6 +4638,8 @@ def api_job_card_detail(request, job_card_id):
             'parts': parts_list,
             'labour': labour_list,
             'extras': extras_list,
+            'quotation_id': str(jc.quotation_id) if jc.quotation_id else '',
+            'quotation_number': jc.quotation.quotation_number if jc.quotation_id else '',
         }
     })
 
@@ -4763,6 +4770,9 @@ def api_job_card_create(request):
                     extra_details=e.get('extra_details', 'Extra Item'),
                     quantity=Decimal(str(e.get('quantity', 1) or 1)),
                     rate=Decimal(str(e.get('rate', 0) or 0)),
+                    discount=Decimal(str(e.get('discount', 0) or 0)),
+                    discount_type=e.get('discount_type', 'amount') or 'amount',
+                    discount_percentage=Decimal(str(e.get('discount_percentage', 0) or 0)),
                     vat_percentage=Decimal(str(e.get('vat_percentage', 0) or 0)),
                     total_amount=Decimal(str(e.get('total_amount', 0) or 0)),
                     remarks=e.get('remarks', '').strip() or None,
@@ -4780,6 +4790,130 @@ def api_job_card_create(request):
             'estimated_cost': float(jc.estimated_cost),
         })
 
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=500)
+
+
+@csrf_exempt
+def api_job_card_from_quotation(request, quotation_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+
+    try:
+        from client_management.models import Quotation
+
+        with transaction.atomic():
+            quotation = Quotation.objects.select_for_update().select_related(
+                'customer', 'vehicle', 'branch'
+            ).filter(id=quotation_id, is_deleted=False).first()
+            if not quotation:
+                return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
+
+            company = getattr(getattr(user, 'profile', None), 'company', None)
+            branch_admin = getattr(user, 'managed_branch', None)
+            if not company and branch_admin:
+                company = branch_admin.company
+            if not company:
+                company = getattr(getattr(user, 'staff_profile', None), 'company', None)
+            quote_company = (quotation.branch.company if quotation.branch else None) or quotation.customer.company
+            if not company or str(company.id) != str(quote_company.id):
+                return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+            if branch_admin and quotation.branch_id and str(branch_admin.id) != str(quotation.branch_id):
+                return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+            if not quotation.is_accepted:
+                return JsonResponse({'success': False, 'message': 'Accept the quotation before conversion'}, status=409)
+
+            # The one-to-one relation remains occupied even if a job card is soft-deleted.
+            existing = JobCard.objects.filter(quotation=quotation).first()
+            if existing:
+                return JsonResponse({
+                    'success': True,
+                    'already_converted': True,
+                    'job_card_id': str(existing.id),
+                    'job_number': existing.job_number,
+                    'estimated_cost': float(existing.estimated_cost or 0),
+                })
+
+            branch = quotation.branch or quotation.customer.branch
+            if not branch:
+                return JsonResponse({'success': False, 'message': 'Quotation has no branch'}, status=400)
+
+            quotation_items = list(quotation.items.filter(is_deleted=False).select_related('service', 'stock_item'))
+            jc = JobCard.objects.create(
+                company=quote_company,
+                branch=branch,
+                customer=quotation.customer,
+                vehicle=quotation.vehicle,
+                quotation=quotation,
+                current_section='General Inspection',
+                current_service=quotation_items[0].service_name if quotation_items else '',
+                additional_remarks=quotation.additional_services or None,
+                creator=user,
+            )
+
+            for item in quotation_items:
+                quantity = item.quantity or Decimal('1')
+                line_total = item.rate * quantity
+                if item.stock_item_id:
+                    stock = item.stock_item
+                    JobCardPartItem.objects.create(
+                        job_card=jc,
+                        stock_item=stock,
+                        part_number=stock.part_number if stock else None,
+                        alternate_part_number=stock.alternate_part_number if stock else None,
+                        product_code=stock.barcode if stock else None,
+                        product_name=item.stock_item_name or (stock.item_name if stock else 'Part'),
+                        current_stock=stock.quantity if stock else 0,
+                        unit=stock.unit if stock else 'Pcs',
+                        rate=item.rate,
+                        rate_with_tax=item.rate,
+                        quantity=quantity,
+                        total_amount=line_total,
+                        creator=user,
+                    )
+                else:
+                    free_topup = (item.free_topup or '').strip()
+                    JobCardServiceItem.objects.create(
+                        job_card=jc,
+                        service=item.service,
+                        service_name=item.service_name or (item.service.name if item.service else 'Service'),
+                        quantity=quantity,
+                        unit='Unit',
+                        rate=item.rate,
+                        total_amount=line_total,
+                        warranty=str(item.warranty_years or ''),
+                        warranty_period='years' if item.warranty_years else '',
+                        remarks=f'Free top-up: {free_topup}' if free_topup else '',
+                        creator=user,
+                    )
+
+            for extra in quotation.extras.filter(is_deleted=False):
+                JobCardExtraItem.objects.create(
+                    job_card=jc,
+                    extra_details=extra.name,
+                    quantity=extra.quantity or Decimal('1'),
+                    rate=extra.price,
+                    discount=extra.discount,
+                    discount_type=extra.discount_type or 'amount',
+                    discount_percentage=extra.discount_percentage,
+                    total_amount=extra.total,
+                    remarks=extra.remarks or '',
+                    creator=user,
+                )
+
+            jc.estimated_cost = quotation.grand_total
+            jc.save(update_fields=['estimated_cost', 'date_updated'])
+
+        return JsonResponse({
+            'success': True,
+            'already_converted': False,
+            'job_card_id': str(jc.id),
+            'job_number': jc.job_number,
+            'estimated_cost': float(jc.estimated_cost or 0),
+        })
     except Exception as exc:
         return JsonResponse({'success': False, 'message': str(exc)}, status=500)
 
@@ -4895,6 +5029,9 @@ def api_job_card_update(request, job_card_id):
                         extra_details=e.get('extra_details', 'Extra Item'),
                         quantity=Decimal(str(e.get('quantity', 1) or 1)),
                         rate=Decimal(str(e.get('rate', 0) or 0)),
+                        discount=Decimal(str(e.get('discount', 0) or 0)),
+                        discount_type=e.get('discount_type', 'amount') or 'amount',
+                        discount_percentage=Decimal(str(e.get('discount_percentage', 0) or 0)),
                         vat_percentage=Decimal(str(e.get('vat_percentage', 0) or 0)),
                         total_amount=Decimal(str(e.get('total_amount', 0) or 0)),
                         remarks=e.get('remarks', '').strip() or None,

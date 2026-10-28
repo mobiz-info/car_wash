@@ -274,6 +274,8 @@ urlpatterns = [
     path('api/leads/delete/<uuid:lead_id>/', api_views.api_leads_delete, name='api_leads_delete'),
     path('api/leads/delete/', api_views.api_leads_delete, name='api_leads_delete_body'),
     path('api/leads/reminders/', api_views.api_leads_reminders, name='api_leads_reminders'),
+    path('api/leads/<uuid:lead_id>/follow-ups/', api_views.api_lead_follow_up_create, name='api_lead_follow_up_create'),
+    path('api/quotation/<uuid:quotation_id>/accept/', api_views.api_accept_quotation, name='api_accept_quotation'),
 
     # Insurance Module APIs
     path('api/insurance/customer-search/', api_views.api_insurance_customer_search, name='api_insurance_customer_search'),

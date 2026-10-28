@@ -1,7 +1,7 @@
 import json
 from decimal import Decimal
 from django.shortcuts import get_object_or_404
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -7891,6 +7891,8 @@ def api_create_quotation(request):
         data = json.loads(request.body)
         customer_id = data.get('customer_id')
         vehicle_id = data.get('vehicle_id')
+        lead_id = data.get('lead_id')
+        revised_from_id = data.get('revision_of_id')
         items = data.get('items', [])
         extras = data.get('extras', [])
 
@@ -7904,8 +7906,25 @@ def api_create_quotation(request):
         vehicle = _get_obj_by_uuid(CustomerVehicle, vehicle_id)
         if not vehicle:
             return JsonResponse({'success': False, 'message': 'Vehicle not found'}, status=404)
+        if str(vehicle.customer_id) != str(customer.id):
+            return JsonResponse({'success': False, 'message': 'Vehicle does not belong to the selected customer'}, status=400)
 
         branch = getattr(user, 'managed_branch', None) or customer.branch
+        revised_from = None
+        if revised_from_id:
+            revised_from = _get_obj_by_uuid(Quotation, revised_from_id)
+            if (not revised_from or revised_from.is_deleted or
+                    str(revised_from.customer_id) != str(customer.id) or
+                    str(revised_from.vehicle_id) != str(vehicle.id)):
+                return JsonResponse({'success': False, 'message': 'Original quotation does not match this customer and vehicle'}, status=400)
+            lead_id = lead_id or revised_from.lead_id
+        lead = None
+        if lead_id:
+            from client_management.models import Lead
+            lead = _get_obj_by_uuid(Lead, lead_id)
+            if not lead or lead.is_deleted or lead.company_id != customer.company_id:
+                return JsonResponse({'success': False, 'message': 'Lead not found for this customer company'}, status=404)
+            branch = lead.branch or branch
 
         count = Quotation.objects.count() + 1
         quotation_number = f"QT-{count:04d}"
@@ -7915,6 +7934,8 @@ def api_create_quotation(request):
             customer=customer,
             vehicle=vehicle,
             branch=branch,
+            lead=lead,
+            revised_from=revised_from,
             additional_services=data.get('additional_services', ''),
             additional_days_needed=int(data.get('additional_days_needed', 0) or 0),
             subtotal=Decimal(str(data.get('subtotal', 0))),
@@ -7981,6 +8002,18 @@ def api_create_quotation(request):
                 creator=user
             )
 
+        if lead:
+            from client_management.models import LeadFollowUp
+            lead.status = Lead.STATUS_QUOTED
+            lead.save(update_fields=['status', 'date_updated'])
+            LeadFollowUp.objects.create(
+                lead=lead,
+                remarks=f'Quotation {quotation.quotation_number} created',
+                status=Lead.STATUS_QUOTED,
+                auto_id=get_auto_id(LeadFollowUp),
+                creator=user,
+            )
+
         # Trigger WhatsApp sending for quotation in background thread
         import threading
         base_url = 'http://68.183.94.11:78'
@@ -8012,7 +8045,7 @@ def api_get_quotation_list(request):
 
     try:
         from .models import Quotation
-        quotations = Quotation.objects.filter(is_deleted=False).select_related('customer', 'vehicle', 'branch').order_by('-date_added')
+        quotations = Quotation.objects.filter(is_deleted=False).select_related('customer', 'vehicle', 'branch', 'lead').order_by('-date_added')
 
         prof = getattr(user, 'profile', None)
         role = getattr(prof, 'role', None) if prof else None
@@ -8041,6 +8074,7 @@ def api_get_quotation_list(request):
             created_at = q.date_added.strftime('%Y-%m-%d %H:%M') if q.date_added else ''
             date_str = q.date_added.strftime('%Y-%m-%d') if q.date_added else ''
 
+            converted_job = getattr(q, 'job_card', None)
             result.append({
                 'id': str(q.id),
                 'quotation_number': q.quotation_number or '',
@@ -8049,6 +8083,12 @@ def api_get_quotation_list(request):
                 'vehicle_number': vehicle_number,
                 'branch_name': branch_name,
                 'grand_total': grand_total,
+                'lead_id': str(q.lead_id) if q.lead_id else '',
+                'lead_status': q.lead.status if q.lead_id else '',
+                'is_accepted': q.is_accepted,
+                'revision_of_id': str(q.revised_from_id) if q.revised_from_id else '',
+                'revision_count': q.revisions.filter(is_deleted=False).count(),
+                'job_card_id': str(converted_job.id) if converted_job else '',
                 'created_at': created_at,
                 'date': date_str,
             })
@@ -8074,7 +8114,6 @@ def api_get_quotation_detail(request, quotation_id=None):
         quotation = _get_obj_by_uuid(Quotation, q_id)
         if not quotation or quotation.is_deleted:
             return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
-
         branch = quotation.branch
         company = (branch.company if branch else None) or (quotation.customer.company if quotation.customer else None) or getattr(getattr(user, 'profile', None), 'company', None)
 
@@ -8143,6 +8182,12 @@ def api_get_quotation_detail(request, quotation_id=None):
             'quotation': {
                 'id': str(quotation.id),
                 'quotation_number': quotation.quotation_number or '',
+                'lead_id': str(quotation.lead_id) if quotation.lead_id else '',
+                'is_accepted': quotation.is_accepted,
+                'revision_of_id': str(quotation.revised_from_id) if quotation.revised_from_id else '',
+                'revision_count': quotation.revisions.filter(is_deleted=False).count(),
+                'accepted_at': quotation.accepted_at.strftime('%Y-%m-%d %H:%M') if quotation.accepted_at else '',
+                'job_card_id': str(quotation.job_card.id) if hasattr(quotation, 'job_card') else '',
                 'customer_id': str(quotation.customer.id) if quotation.customer else '',
                 'customer_name': customer_name,
                 'customer_phone': customer_phone,
@@ -8193,6 +8238,8 @@ def api_update_quotation(request, quotation_id=None):
         quotation = _get_obj_by_uuid(Quotation, q_id)
         if not quotation or quotation.is_deleted:
             return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
+        if quotation.is_accepted:
+            return JsonResponse({'success': False, 'message': 'Accepted quotations cannot be edited. Create a revised quotation instead.'}, status=409)
 
         items = data.get('items', [])
         extras = data.get('extras', [])
@@ -8275,6 +8322,56 @@ def api_update_quotation(request, quotation_id=None):
     except Exception as e:
         import traceback
         return JsonResponse({'success': False, 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
+@csrf_exempt
+def api_accept_quotation(request, quotation_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method is allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        from .models import Quotation, Lead, LeadFollowUp
+        quotation = Quotation.objects.select_related('customer', 'branch', 'lead').filter(
+            id=quotation_id, is_deleted=False
+        ).first()
+        if not quotation:
+            return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
+
+        company, branch = _resolve_lead_user(user)
+        quote_company = (quotation.branch.company if quotation.branch else None) or quotation.customer.company
+        quote_company_id = getattr(quote_company, 'id', None)
+        if company and quote_company_id:
+            if str(company.id) != str(quote_company_id):
+                return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+        else:
+            return JsonResponse({'success': False, 'message': 'Company not found'}, status=403)
+        if quotation.branch_id and getattr(user, 'managed_branch_id', None) and str(quotation.branch_id) != str(user.managed_branch_id):
+            return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+
+        with transaction.atomic():
+            if not quotation.is_accepted:
+                quotation.is_accepted = True
+                quotation.accepted_at = timezone.now()
+                quotation.accepted_by = user
+                quotation.save(update_fields=['is_accepted', 'accepted_at', 'accepted_by', 'date_updated'])
+                if quotation.lead_id:
+                    lead = quotation.lead
+                    lead.status = Lead.STATUS_SUCCESS
+                    lead.success_chance = Decimal('100')
+                    lead.save(update_fields=['status', 'success_chance', 'date_updated'])
+                    LeadFollowUp.objects.create(
+                        lead=lead,
+                        remarks=f'Quotation {quotation.quotation_number} accepted',
+                        status=Lead.STATUS_SUCCESS,
+                        success_chance=Decimal('100'),
+                        auto_id=get_auto_id(LeadFollowUp),
+                        creator=user,
+                    )
+        return JsonResponse({'success': True, 'is_accepted': True, 'message': 'Quotation accepted'})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=500)
 
 
 @csrf_exempt
@@ -9555,6 +9652,16 @@ def api_tally_expenses(request):
 # Leads Management API
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _parse_optional_date(value):
+    if not value:
+        return None
+    from datetime import date
+    try:
+        return date.fromisoformat(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
 def _lead_to_dict(lead):
     """Serialise a Lead instance to a dict for API responses."""
     return {
@@ -9562,6 +9669,27 @@ def _lead_to_dict(lead):
         'customer_name': lead.customer_name,
         'phone_number': lead.phone_number,
         'whatsapp_number': lead.whatsapp_number or '',
+        'lead_generation_mode': lead.lead_generation_mode or '',
+        'reference': lead.reference or '',
+        'expected_value': float(lead.expected_value or 0),
+        'status': lead.status,
+        'success_chance': float(lead.success_chance) if lead.success_chance is not None else None,
+        'lost_reason': lead.lost_reason or '',
+        'next_follow_up_date': lead.next_follow_up_date.strftime('%Y-%m-%d') if lead.next_follow_up_date else '',
+        'service_id': str(lead.service_id) if lead.service_id else '',
+        'service_name': lead.service.name if lead.service else (lead.service_name or ''),
+        'staff_id': str(lead.staff_id) if lead.staff_id else '',
+        'staff_name': lead.staff.name if lead.staff else (lead.staff_name or ''),
+        'quotation_count': lead.quotations.filter(is_deleted=False).count(),
+        'follow_ups': [{
+            'id': str(item.id),
+            'remarks': item.remarks,
+            'next_follow_up_date': item.next_follow_up_date.strftime('%Y-%m-%d') if item.next_follow_up_date else '',
+            'status': item.status,
+            'success_chance': float(item.success_chance) if item.success_chance is not None else None,
+            'lost_reason': item.lost_reason or '',
+            'date_added': item.date_added.strftime('%Y-%m-%d %H:%M') if item.date_added else '',
+        } for item in lead.follow_ups.filter(is_deleted=False)],
         # Vehicle structured fields
         'vehicle_number': lead.vehicle_number or '',
         'vehicle_type_id': str(lead.vehicle_type_id) if lead.vehicle_type_id else '',
@@ -9618,15 +9746,23 @@ def api_leads_list(request):
         user = token_obj.user
 
         from .models import Lead
-        company, _ = _resolve_lead_user(user)
+        company, branch = _resolve_lead_user(user)
         if company is None:
             return JsonResponse({'status': 'error', 'message': 'Company not found.'}, status=400)
 
         search = request.GET.get('search', '').strip()
         qs = Lead.objects.select_related(
             'vehicle_type', 'vehicle_type_model', 'vehicle_make',
-            'vehicle_brand_model', 'vehicle_color'
-        ).filter(company=company)
+            'vehicle_brand_model', 'vehicle_color', 'service', 'staff'
+        ).filter(company=company, is_deleted=False)
+        role_name = getattr(getattr(getattr(user, 'profile', None), 'role', None), 'name', '')
+        if role_name == 'BRANCH_ADMIN' or getattr(getattr(user, 'staff_profile', None), 'branch_id', None):
+            if branch:
+                qs = qs.filter(branch=branch)
+
+        status = request.GET.get('status', '').strip()
+        if status in dict(Lead.STATUS_CHOICES):
+            qs = qs.filter(status=status)
 
         if search:
             qs = qs.filter(
@@ -10218,9 +10354,10 @@ def api_leads_create(request):
         token_obj = APIToken.objects.select_related('user').get(token=token_str)
         user = token_obj.user
 
-        from .models import Lead
+        from .models import Lead, Staff
+        from service_management.models import Service
         from master.models import VehicleType, VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor
-        company, branch = _resolve_lead_user(user)
+        company, _ = _resolve_lead_user(user)
         if company is None:
             return JsonResponse({'status': 'error', 'message': 'Company not found.'}, status=400)
 
@@ -10230,6 +10367,9 @@ def api_leads_create(request):
 
         if not customer_name or not phone_number:
             return JsonResponse({'status': 'error', 'message': 'Customer name and phone number are required.'}, status=400)
+        requested_status = data.get('status')
+        if requested_status == Lead.STATUS_LOST and not (data.get('lost_reason') or '').strip():
+            return JsonResponse({'status': 'error', 'message': 'A lost reason is required.'}, status=400)
 
         renewal_date = None
         renewal_date_str = (data.get('renewal_date') or '').strip()
@@ -10260,6 +10400,17 @@ def api_leads_create(request):
             customer_name=customer_name,
             phone_number=phone_number,
             whatsapp_number=whatsapp_num,
+            lead_generation_mode=(data.get('lead_generation_mode') or '').strip() or None,
+            reference=(data.get('reference') or '').strip() or None,
+            expected_value=Decimal(str(data.get('expected_value', 0) or 0)),
+            status=data.get('status') if data.get('status') in dict(Lead.STATUS_CHOICES) else Lead.STATUS_FOLLOW_UP,
+            success_chance=Decimal(str(data['success_chance'])) if data.get('success_chance') not in (None, '') else None,
+            lost_reason=(data.get('lost_reason') or '').strip() or None,
+            next_follow_up_date=_parse_optional_date(data.get('next_follow_up_date')),
+            service=get_fk(Service, data.get('service_id')),
+            staff=get_fk(Staff, data.get('staff_id')),
+            service_name=(data.get('service_name') or '').strip() or None,
+            staff_name=(data.get('staff_name') or '').strip() or None,
             vehicle_number=vehicle_num,
             vehicle_type=get_fk(VehicleType, data.get('vehicle_type_id')),
             vehicle_type_model=get_fk(VehicleTypeModel, data.get('vehicle_type_model_id')),
@@ -10289,13 +10440,19 @@ def api_leads_edit(request, lead_id=None):
         token_str = (request.headers.get('Authorization') or '').replace('Bearer ', '').strip()
         APIToken.objects.get(token=token_str)
 
-        from .models import Lead
+        from .models import Lead, Staff
+        from service_management.models import Service
         from master.models import VehicleType, VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor
         data = json.loads(request.body)
         if lead_id is None:
             lead_id = data.get('lead_id', '')
 
-        lead = Lead.objects.get(id=lead_id)
+        company, _ = _resolve_lead_user(APIToken.objects.select_related('user').get(token=token_str).user)
+        lead = Lead.objects.filter(id=lead_id, company=company, is_deleted=False).first()
+        if not lead:
+            return JsonResponse({'status': 'error', 'message': 'Lead not found.'}, status=404)
+        if data.get('status') == Lead.STATUS_LOST and not (data.get('lost_reason') or '').strip():
+            return JsonResponse({'status': 'error', 'message': 'A lost reason is required.'}, status=400)
 
         def get_fk(model, id_str):
             if not id_str:
@@ -10311,6 +10468,28 @@ def api_leads_edit(request, lead_id=None):
             lead.phone_number = str(data['phone_number']).strip()
         if 'whatsapp_number' in data:
             lead.whatsapp_number = (str(data['whatsapp_number']) if data['whatsapp_number'] else '').strip() or None
+        if 'lead_generation_mode' in data:
+            lead.lead_generation_mode = (data.get('lead_generation_mode') or '').strip() or None
+        if 'reference' in data:
+            lead.reference = (data.get('reference') or '').strip() or None
+        if 'expected_value' in data:
+            lead.expected_value = Decimal(str(data.get('expected_value') or 0))
+        if 'status' in data and data['status'] in dict(Lead.STATUS_CHOICES):
+            lead.status = data['status']
+        if 'success_chance' in data:
+            lead.success_chance = Decimal(str(data['success_chance'])) if data['success_chance'] not in (None, '') else None
+        if 'lost_reason' in data:
+            lead.lost_reason = (data.get('lost_reason') or '').strip() or None
+        if 'next_follow_up_date' in data:
+            lead.next_follow_up_date = _parse_optional_date(data.get('next_follow_up_date'))
+        if 'service_id' in data:
+            lead.service = get_fk(Service, data.get('service_id'))
+        if 'staff_id' in data:
+            lead.staff = get_fk(Staff, data.get('staff_id'))
+        if 'service_name' in data:
+            lead.service_name = (data.get('service_name') or '').strip() or None
+        if 'staff_name' in data:
+            lead.staff_name = (data.get('staff_name') or '').strip() or None
         if 'vehicle_number' in data:
             lead.vehicle_number = (str(data['vehicle_number']) if data['vehicle_number'] else '').strip() or None
         if 'vehicle_type_id' in data:
@@ -10347,6 +10526,58 @@ def api_leads_edit(request, lead_id=None):
         import traceback
         traceback.print_exc()
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_lead_follow_up_create(request, lead_id):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed.'}, status=405)
+    try:
+        token = (request.headers.get('Authorization') or '').replace('Bearer ', '').strip()
+        user = APIToken.objects.select_related('user').get(token=token).user
+        from .models import Lead, LeadFollowUp
+
+        company, branch = _resolve_lead_user(user)
+        lead = Lead.objects.filter(id=lead_id, company=company, is_deleted=False).first()
+        if not lead:
+            return JsonResponse({'status': 'error', 'message': 'Lead not found.'}, status=404)
+
+        data = json.loads(request.body or '{}')
+        remarks = (data.get('remarks') or '').strip()
+        status = data.get('status', lead.status)
+        lost_reason = (data.get('lost_reason') or '').strip()
+        if not remarks:
+            return JsonResponse({'status': 'error', 'message': 'Follow-up remarks are required.'}, status=400)
+        if status not in dict(Lead.STATUS_CHOICES):
+            return JsonResponse({'status': 'error', 'message': 'Invalid lead status.'}, status=400)
+        if status == Lead.STATUS_LOST and not lost_reason:
+            return JsonResponse({'status': 'error', 'message': 'A lost reason is required.'}, status=400)
+
+        next_date = _parse_optional_date(data.get('next_follow_up_date'))
+        success_chance = data.get('success_chance')
+        success_chance = Decimal(str(success_chance)) if success_chance not in (None, '') else None
+        with transaction.atomic():
+            LeadFollowUp.objects.create(
+                lead=lead,
+                remarks=remarks,
+                next_follow_up_date=next_date,
+                status=status,
+                success_chance=success_chance,
+                lost_reason=lost_reason or None,
+                auto_id=get_auto_id(LeadFollowUp),
+                creator=user,
+            )
+            lead.status = status
+            lead.next_follow_up_date = next_date
+            lead.success_chance = success_chance
+            lead.lost_reason = lost_reason or None
+            lead.save(update_fields=['status', 'next_follow_up_date', 'success_chance', 'lost_reason', 'date_updated'])
+
+        return JsonResponse({'status': 'success', 'lead': _lead_to_dict(lead)})
+    except APIToken.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=401)
+    except Exception as exc:
+        return JsonResponse({'status': 'error', 'message': str(exc)}, status=500)
 
 
 @csrf_exempt

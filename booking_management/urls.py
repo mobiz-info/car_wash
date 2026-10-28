@@ -65,6 +65,7 @@ urlpatterns = [
     # Job Card / Job Order APIs
     path('api/job-cards/', api_views.api_job_card_list, name='api_job_card_list'),
     path('api/job-cards/create/', api_views.api_job_card_create, name='api_job_card_create'),
+    path('api/job-cards/from-quotation/<uuid:quotation_id>/', api_views.api_job_card_from_quotation, name='api_job_card_from_quotation'),
     path('api/job-cards/<uuid:job_card_id>/', api_views.api_job_card_detail, name='api_job_card_detail'),
     path('api/job-cards/<uuid:job_card_id>/update/', api_views.api_job_card_update, name='api_job_card_update'),
     path('api/job-cards/<uuid:job_card_id>/status/', api_views.api_job_card_update_status, name='api_job_card_update_status'),

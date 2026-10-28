@@ -211,6 +211,13 @@ class JobCard(BaseModel):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='job_cards')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='job_cards')
     vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.CASCADE, related_name='job_cards')
+    quotation = models.OneToOneField(
+        'client_management.Quotation',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='job_card',
+    )
 
     job_number = models.CharField(max_length=50, unique=True, db_index=True)
     job_date = models.DateField(default=timezone.now)
@@ -324,6 +331,9 @@ class JobCardExtraItem(BaseModel):
     extra_details = models.CharField(max_length=200)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1.00)
     rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    discount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    discount_type = models.CharField(max_length=20, default='amount')
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     vat_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     remarks = models.TextField(blank=True, null=True)

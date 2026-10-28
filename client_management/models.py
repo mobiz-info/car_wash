@@ -626,6 +626,11 @@ class Quotation(BaseModel):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='quotations')
     vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.CASCADE, related_name='quotations')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='quotations', null=True, blank=True)
+    lead = models.ForeignKey('Lead', on_delete=models.SET_NULL, null=True, blank=True, related_name='quotations')
+    revised_from = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='revisions')
+    is_accepted = models.BooleanField(default=False)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='accepted_quotations')
     additional_services = models.TextField(blank=True, null=True)
     additional_days_needed = models.PositiveIntegerField(default=0)
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -671,11 +676,33 @@ class QuotationExtra(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class Lead(BaseModel):
+    STATUS_FOLLOW_UP = 'follow_up'
+    STATUS_QUOTED = 'quoted'
+    STATUS_SUCCESS = 'success'
+    STATUS_LOST = 'lost'
+    STATUS_CHOICES = (
+        (STATUS_FOLLOW_UP, 'Follow-up'),
+        (STATUS_QUOTED, 'Quoted'),
+        (STATUS_SUCCESS, 'Success'),
+        (STATUS_LOST, 'Lost'),
+    )
+
     company = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='leads')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='leads', null=True, blank=True)
     customer_name = models.CharField(max_length=200)
     phone_number = models.CharField(max_length=50)
     whatsapp_number = models.CharField(max_length=50, blank=True, null=True)
+    lead_generation_mode = models.CharField(max_length=100, blank=True, null=True)
+    reference = models.CharField(max_length=200, blank=True, null=True)
+    expected_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_FOLLOW_UP, db_index=True)
+    success_chance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    lost_reason = models.CharField(max_length=200, blank=True, null=True)
+    next_follow_up_date = models.DateField(null=True, blank=True)
+    service = models.ForeignKey('service_management.Service', on_delete=models.SET_NULL, null=True, blank=True, related_name='leads')
+    staff = models.ForeignKey('Staff', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_leads')
+    service_name = models.CharField(max_length=200, blank=True, null=True)
+    staff_name = models.CharField(max_length=200, blank=True, null=True)
 
     # Structured vehicle fields (mirrors CustomerVehicle)
     vehicle_number = models.CharField(max_length=100, blank=True, null=True)
@@ -709,6 +736,18 @@ class Lead(BaseModel):
         if self.vehicle_number:
             parts.append(self.vehicle_number)
         return ' | '.join(parts) if parts else ''
+
+    class Meta:
+        ordering = ['-date_added']
+
+
+class LeadFollowUp(BaseModel):
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='follow_ups')
+    remarks = models.TextField()
+    next_follow_up_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Lead.STATUS_CHOICES, default=Lead.STATUS_FOLLOW_UP)
+    success_chance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    lost_reason = models.CharField(max_length=200, blank=True, null=True)
 
     class Meta:
         ordering = ['-date_added']
