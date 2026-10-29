@@ -5447,23 +5447,30 @@ def _job_pipeline_scope(user):
 def _job_lead_data(lead):
     return {
         'id': str(lead.id), 'customer_name': lead.customer_name, 'phone_number': lead.phone_number,
+        'lead_number': f'JL-{lead.auto_id}', 'lead_date': lead.lead_date.isoformat() if lead.lead_date else (lead.date_added.date().isoformat() if lead.date_added else ''),
         'whatsapp_number': lead.whatsapp_number or '', 'lead_generation_mode': lead.lead_generation_mode or '',
-        'reference': lead.reference or '', 'expected_value': float(lead.expected_value or 0),
+        'reference': lead.reference or '', 'city': lead.city or '', 'email': lead.email or '', 'expected_value': float(lead.expected_value or 0),
         'status': lead.status, 'success_chance': float(lead.success_chance) if lead.success_chance is not None else None,
         'lost_reason': lead.lost_reason or '', 'next_follow_up_date': lead.next_follow_up_date.isoformat() if lead.next_follow_up_date else '',
-        'service_name': lead.service_name or '', 'staff_name': lead.staff_name or '',
+        'service_name': lead.service_name or '', 'staff_name': lead.staff.name if lead.staff_id else (lead.staff_name or ''), 'staff_id': str(lead.staff_id or ''),
+        'customer_type_id': str(lead.customer_type_id or ''), 'customer_type_name': lead.customer_type.name if lead.customer_type_id else '',
         'vehicle_number': lead.vehicle_number or '', 'vehicle_make': lead.vehicle_make or '',
+        'vehicle_type_id': str(lead.vehicle_type_id or ''), 'vehicle_segment_id': str(lead.vehicle_segment_id or ''),
+        'vehicle_make_id': str(lead.vehicle_make_master_id or ''), 'vehicle_model_id': str(lead.vehicle_model_master_id or ''),
+        'vehicle_color_id': str(lead.vehicle_color_id or ''), 'vehicle_emission_standard_id': str(lead.vehicle_emission_standard_id or ''),
+        'vehicle_fuel_type': lead.vehicle_fuel_type or '', 'vehicle_wheel_type': lead.vehicle_wheel_type or '',
         'vehicle_model': lead.vehicle_model or '', 'customer_id': str(lead.customer_id) if lead.customer_id else '',
         'vehicle_details': ' '.join(filter(None, [lead.vehicle_number, lead.vehicle_make, lead.vehicle_model])),
         'vehicle_id': str(lead.vehicle_id) if lead.vehicle_id else '',
         'quotation_count': lead.quotations.filter(is_deleted=False).count(),
+        'service_interests': [{'id': str(item.id), 'service_id': str(item.service_id or ''), 'category_name': item.category_name or '', 'service_name': item.service_name, 'expected_value': float(item.expected_value or 0)} for item in lead.service_interests.filter(is_deleted=False)],
         'follow_ups': [{'id': str(f.id), 'remarks': f.remarks, 'next_follow_up_date': f.next_follow_up_date.isoformat() if f.next_follow_up_date else '', 'status': f.status, 'success_chance': float(f.success_chance) if f.success_chance is not None else None, 'lost_reason': f.lost_reason or '', 'date_added': f.date_added.isoformat() if f.date_added else ''} for f in lead.follow_ups.filter(is_deleted=False)],
     }
 
 
 @csrf_exempt
 def api_job_leads(request):
-    from .models import JobLead
+    from .models import JobLead, JobLeadGenerationMode, JobLeadServiceInterest
     user = get_user_from_token(request)
     if not user:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
@@ -5488,16 +5495,52 @@ def api_job_leads(request):
         data = json.loads(request.body or '{}')
         name = (data.get('customer_name') or '').strip()
         phone = (data.get('phone_number') or '').strip()
-        if not name or not phone or not (data.get('service_name') or '').strip() or not (data.get('staff_name') or '').strip():
-            return JsonResponse({'status': 'error', 'message': 'Customer name, mobile number, service and staff are required'}, status=400)
-        lead = JobLead.objects.create(
+        from datetime import date
+        from decimal import Decimal, InvalidOperation
+        from django.db import transaction
+        from client_management.models import Staff, CustomerType
+        from service_management.models import Service
+        interests = data.get('service_interests') or []
+        if not name or not phone or not interests or not data.get('staff_id') or not data.get('customer_type_id') or not data.get('lead_date') or not data.get('next_follow_up_date') or not (data.get('lead_generation_mode') or '').strip():
+            return JsonResponse({'status': 'error', 'message': 'Lead date, staff, lead mode, customer type, mobile, customer name, at least one service and next follow-up date are required'}, status=400)
+        try:
+            lead_date = date.fromisoformat(data['lead_date'])
+            next_date = date.fromisoformat(data['next_follow_up_date'])
+            staff = Staff.objects.get(id=data['staff_id'], company=company, is_deleted=False, branch=branch) if branch else Staff.objects.get(id=data['staff_id'], company=company, is_deleted=False)
+            customer_type = CustomerType.objects.get(id=data['customer_type_id'], is_deleted=False)
+            expected = Decimal('0')
+            parsed_items = []
+            for item in interests:
+                service = Service.objects.get(id=item.get('service_id'), is_active=True, is_deleted=False)
+                if branch and not service.service_branches.filter(branch=branch, is_enabled=True, is_deleted=False).exists():
+                    raise ValueError('Selected service is not enabled for your branch')
+                amount = Decimal(str(item.get('expected_value', 0)))
+                if amount < 0:
+                    raise ValueError('Expected value cannot be negative')
+                expected += amount
+                parsed_items.append((service, amount))
+        except (ValueError, InvalidOperation, Staff.DoesNotExist, CustomerType.DoesNotExist, Service.DoesNotExist) as exc:
+            return JsonResponse({'status': 'error', 'message': f'Invalid lead details: {exc}'}, status=400)
+        with transaction.atomic():
+            mode = (data.get('lead_generation_mode') or '').strip()
+            JobLeadGenerationMode.objects.get_or_create(company=company, name__iexact=mode, defaults={'name': mode, 'auto_id': get_auto_id(JobLeadGenerationMode), 'creator': user})
+            lead = JobLead.objects.create(
             company=company, branch=branch, customer_name=name, phone_number=phone,
-            whatsapp_number=data.get('whatsapp_number') or '', lead_generation_mode=data.get('lead_generation_mode') or '',
-            reference=data.get('reference') or '', expected_value=data.get('expected_value') or 0,
-            service_name=data.get('service_name') or '', staff_name=data.get('staff_name') or '',
+            lead_date=lead_date, staff=staff, staff_name=staff.name, customer_type=customer_type,
+            whatsapp_number=data.get('whatsapp_number') or '', lead_generation_mode=mode,
+            reference=data.get('reference') or '', city=data.get('city') or '', email=data.get('email') or '', expected_value=expected,
+            next_follow_up_date=next_date,
+            service_name=', '.join(service.name for service, _ in parsed_items),
             vehicle_number=data.get('vehicle_number') or '', vehicle_make=data.get('vehicle_make') or '',
-            vehicle_model=data.get('vehicle_model') or '', auto_id=get_auto_id(JobLead), creator=user,
-        )
+            vehicle_model=data.get('vehicle_model') or '', vehicle_type_id=data.get('vehicle_type_id') or None,
+            vehicle_segment_id=data.get('vehicle_segment_id') or None, vehicle_make_master_id=data.get('vehicle_make_id') or None,
+            vehicle_model_master_id=data.get('vehicle_model_id') or None, vehicle_color_id=data.get('vehicle_color_id') or None,
+            vehicle_emission_standard_id=data.get('vehicle_emission_standard_id') or None,
+            vehicle_fuel_type=data.get('vehicle_fuel_type') or '', vehicle_wheel_type=data.get('vehicle_wheel_type') or '',
+            auto_id=get_auto_id(JobLead), creator=user,
+            )
+            for service, amount in parsed_items:
+                JobLeadServiceInterest.objects.create(lead=lead, service=service, category_name=service.service_type.name, service_name=service.name, expected_value=amount, auto_id=get_auto_id(JobLeadServiceInterest), creator=user)
         return JsonResponse({'status': 'success', 'lead': _job_lead_data(lead)})
     except Exception as exc:
         return JsonResponse({'status': 'error', 'message': str(exc)}, status=400)
@@ -5581,6 +5624,70 @@ def api_job_lead_follow_up(request, lead_id):
         return JsonResponse({'success': False, 'message': 'Lead not found'}, status=404)
     except Exception as exc:
         return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+
+@csrf_exempt
+def api_job_lead_form_data(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company, branch = _job_pipeline_scope(user)
+    if not company:
+        return JsonResponse({'success': False, 'message': 'Company not found'}, status=400)
+    from client_management.models import Branch, CustomerType, Staff
+    from master.models import VehicleType, VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor, EmissionStandard
+    from service_management.models import Service, BranchService, CompanyService, BranchServiceCategory
+    from .models import JobLeadGenerationMode
+    if not branch:
+        branch_id = request.GET.get('branch_id')
+        branch = Branch.objects.filter(id=branch_id, company=company, is_deleted=False).first() if branch_id else Branch.objects.filter(company=company, is_deleted=False).order_by('name').first()
+    staff = Staff.objects.filter(company=company, is_deleted=False)
+    if branch:
+        staff = staff.filter(branch=branch)
+    enabled_ids = CompanyService.objects.filter(company=company, is_enabled=True).values_list('service_id', flat=True)
+    enabled_ids = BranchService.objects.filter(branch=branch, is_enabled=True, is_deleted=False, service_id__in=enabled_ids).values_list('service_id', flat=True) if branch else []
+    services = Service.objects.filter(id__in=enabled_ids, is_active=True, is_deleted=False)
+    disabled_categories = BranchServiceCategory.objects.filter(branch=branch, is_enabled=False, is_deleted=False).values_list('service_type_id', flat=True) if branch else []
+    services = services.exclude(service_type_id__in=disabled_categories).distinct()
+    return JsonResponse({'success': True,
+        'staff': [{'id': str(s.id), 'name': s.name} for s in staff.order_by('name')],
+        'customer_types': [{'id': str(c.id), 'name': c.name} for c in CustomerType.objects.filter(is_deleted=False).exclude(name__icontains='Workshop').order_by('name')],
+        'lead_modes': list(JobLeadGenerationMode.objects.filter(company=company, is_deleted=False).values_list('name', flat=True)),
+        'service_categories': [{'id': str(c['service_type_id']), 'name': c['service_type__name'], 'slug': c['service_type__slug'] or ''} for c in services.values('service_type_id', 'service_type__name', 'service_type__slug').distinct().order_by('service_type__name')],
+        'services': [{'id': str(s.id), 'name': s.name, 'category_id': str(s.service_type_id), 'category_name': s.service_type.name} for s in services.select_related('service_type').order_by('service_type__name', 'name')],
+        'vehicle_types': [{'id': str(v.id), 'name': v.name} for v in VehicleType.objects.filter(is_active=True, is_deleted=False).order_by('name')],
+        'vehicle_segments': [{'id': str(v.id), 'name': v.name, 'vehicle_type_id': str(v.vehicle_type_id)} for v in VehicleTypeModel.objects.filter(is_active=True, is_deleted=False).filter(Q(company=company)|Q(company__isnull=True)).exclude(disabled_companies=company).order_by('name')],
+        'makes': [{'id': str(v.id), 'name': v.name} for v in VehicleMake.objects.filter(is_active=True, is_deleted=False).order_by('name')],
+        'vehicle_models': [{'id': str(v.id), 'name': v.name, 'make_id': str(v.make_id), 'segment_id': str(v.vehicle_type_model_id), 'vehicle_type_model_id': str(v.vehicle_type_model_id)} for v in VehicleBrandModel.objects.filter(is_active=True, is_deleted=False).order_by('name')],
+        'colors': [{'id': str(v.id), 'name': v.name} for v in VehicleColor.objects.filter(is_deleted=False).order_by('name')],
+        'emission_standards': [{'id': str(v.id), 'name': v.name} for v in EmissionStandard.objects.filter(is_deleted=False).order_by('name')],
+        'fuel_types': [{'id': value, 'name': label} for value, label in CustomerVehicle.FUEL_TYPE_CHOICES],
+        'wheel_types': [{'id': value, 'name': label} for value, label in CustomerVehicle.WHEEL_TYPE_CHOICES],
+    })
+
+
+@csrf_exempt
+def api_job_lead_history(request, lead_id):
+    from .models import JobLead, JobQuotation
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company, branch = _job_pipeline_scope(user)
+    lead = JobLead.objects.filter(id=lead_id, company=company, is_deleted=False).first()
+    if not lead or (branch and lead.branch_id != branch.id):
+        return JsonResponse({'success': False, 'message': 'Lead not found'}, status=404)
+    events = [{'type': 'lead_created', 'title': 'Lead created', 'date': lead.date_added.isoformat(), 'description': f"{lead.customer_name} · {lead.lead_generation_mode or ''}"}]
+    for f in lead.follow_ups.filter(is_deleted=False):
+        events.append({'type': 'follow_up', 'title': 'Follow-up', 'date': f.date_added.isoformat(), 'description': f.remarks, 'status': f.status, 'next_follow_up_date': f.next_follow_up_date.isoformat() if f.next_follow_up_date else ''})
+    for q in lead.quotations.filter(is_deleted=False):
+        title = 'Quotation revised' if q.revised_from_id else 'Quotation created'
+        events.append({'type': 'quotation_created', 'title': title, 'date': q.date_added.isoformat(), 'description': f'{q.quotation_number} · {q.grand_total}'})
+        if q.is_accepted and q.accepted_at:
+            events.append({'type': 'quotation_accepted', 'title': 'Quotation accepted', 'date': q.accepted_at.isoformat(), 'description': q.quotation_number})
+    events.sort(key=lambda event: event['date'])
+    return JsonResponse({'success': True, 'events': events})
 
 
 @csrf_exempt

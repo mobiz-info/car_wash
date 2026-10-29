@@ -369,6 +369,9 @@ class JobLead(BaseModel):
 
     company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, related_name='job_leads')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='job_leads', null=True, blank=True)
+    lead_date = models.DateField(null=True, blank=True)
+    staff = models.ForeignKey('client_management.Staff', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
+    customer_type = models.ForeignKey('client_management.CustomerType', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
     vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
     customer_name = models.CharField(max_length=200)
@@ -376,6 +379,8 @@ class JobLead(BaseModel):
     whatsapp_number = models.CharField(max_length=50, blank=True, null=True)
     lead_generation_mode = models.CharField(max_length=100, blank=True, null=True)
     reference = models.CharField(max_length=200, blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
     expected_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_FOLLOW_UP, db_index=True)
     success_chance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -386,9 +391,34 @@ class JobLead(BaseModel):
     vehicle_number = models.CharField(max_length=100, blank=True, null=True)
     vehicle_make = models.CharField(max_length=150, blank=True, null=True)
     vehicle_model = models.CharField(max_length=150, blank=True, null=True)
+    vehicle_type = models.ForeignKey('master.VehicleType', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
+    vehicle_segment = models.ForeignKey('master.VehicleTypeModel', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
+    vehicle_color = models.ForeignKey('master.VehicleColor', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
+    vehicle_emission_standard = models.ForeignKey('master.EmissionStandard', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
+    vehicle_fuel_type = models.CharField(max_length=20, blank=True, null=True)
+    vehicle_wheel_type = models.CharField(max_length=20, blank=True, null=True)
+    vehicle_make_master = models.ForeignKey('master.VehicleMake', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
+    vehicle_model_master = models.ForeignKey('master.VehicleBrandModel', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
 
     class Meta:
         ordering = ['-date_added']
+
+
+class JobLeadGenerationMode(BaseModel):
+    company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, related_name='job_lead_generation_modes')
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ['name']
+        unique_together = ('company', 'name')
+
+
+class JobLeadServiceInterest(BaseModel):
+    lead = models.ForeignKey(JobLead, on_delete=models.CASCADE, related_name='service_interests')
+    service = models.ForeignKey('service_management.Service', on_delete=models.SET_NULL, null=True, blank=True, related_name='job_lead_interests')
+    category_name = models.CharField(max_length=150, blank=True, null=True)
+    service_name = models.CharField(max_length=200)
+    expected_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
 
 class JobLeadFollowUp(BaseModel):
