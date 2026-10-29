@@ -4391,7 +4391,7 @@ def api_job_card_list(request):
     qs = JobCard.objects.filter(is_deleted=False).select_related(
         'customer', 'vehicle', 'vehicle__make', 'vehicle__brand_model', 
         'vehicle__vehicle_type_model', 'vehicle__vehicle_type_model__vehicle_type',
-        'branch', 'quotation'
+        'branch', 'quotation', 'job_quotation'
     )
 
     if role == 'BRANCH_ADMIN' and hasattr(user, 'managed_branch') and user.managed_branch:
@@ -4450,8 +4450,9 @@ def api_job_card_list(request):
             'delivery_date': jc.expected_delivery_date.strftime('%d-%m-%Y %I:%M %p') if jc.expected_delivery_date else '',
             'delivery_lead_time': jc.delivery_lead_time or '',
             'estimated_cost': float(jc.estimated_cost or 0),
-            'quotation_id': str(jc.quotation_id) if jc.quotation_id else '',
-            'quotation_number': jc.quotation.quotation_number if jc.quotation_id else '',
+            'quotation_id': str(jc.quotation_id or jc.job_quotation_id or ''),
+            'quotation_number': jc.quotation.quotation_number if jc.quotation_id else (jc.job_quotation.quotation_number if jc.job_quotation_id else ''),
+            'job_quotation_id': str(jc.job_quotation_id or ''),
             'vehicle_type': v_type,
             'vehicle_make': v_make,
             'vehicle_model': v_model,
@@ -4484,7 +4485,7 @@ def api_job_card_detail(request, job_card_id):
             'customer', 'customer__customer_type', 'vehicle', 'vehicle__make',
             'vehicle__brand_model', 'vehicle__vehicle_type_model',
             'vehicle__vehicle_type_model__vehicle_type', 'vehicle__color',
-            'vehicle__emission_standard', 'branch', 'company'
+            'vehicle__emission_standard', 'branch', 'company', 'quotation', 'job_quotation'
         ).get(id=job_card_id, is_deleted=False)
     except JobCard.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Job Card not found'}, status=404)
@@ -4638,8 +4639,9 @@ def api_job_card_detail(request, job_card_id):
             'parts': parts_list,
             'labour': labour_list,
             'extras': extras_list,
-            'quotation_id': str(jc.quotation_id) if jc.quotation_id else '',
-            'quotation_number': jc.quotation.quotation_number if jc.quotation_id else '',
+            'quotation_id': str(jc.quotation_id or jc.job_quotation_id or ''),
+            'quotation_number': jc.quotation.quotation_number if jc.quotation_id else (jc.job_quotation.quotation_number if jc.job_quotation_id else ''),
+            'job_quotation_id': str(jc.job_quotation_id or ''),
         }
     })
 
@@ -5429,5 +5431,427 @@ def api_job_card_pdf(request, job_card_id):
         import traceback
         traceback.print_exc()
         return JsonResponse({'success': False, 'message': f'Failed to generate PDF: {str(e)}'}, status=500)
+
+
+def _job_pipeline_scope(user):
+    profile = getattr(user, 'profile', None)
+    branch = getattr(user, 'managed_branch', None)
+    if not branch:
+        branch = getattr(getattr(user, 'staff_profile', None), 'branch', None)
+    company = getattr(profile, 'company', None) or getattr(branch, 'company', None)
+    if not company:
+        company = getattr(getattr(user, 'staff_profile', None), 'company', None)
+    return company, branch
+
+
+def _job_lead_data(lead):
+    return {
+        'id': str(lead.id), 'customer_name': lead.customer_name, 'phone_number': lead.phone_number,
+        'whatsapp_number': lead.whatsapp_number or '', 'lead_generation_mode': lead.lead_generation_mode or '',
+        'reference': lead.reference or '', 'expected_value': float(lead.expected_value or 0),
+        'status': lead.status, 'success_chance': float(lead.success_chance) if lead.success_chance is not None else None,
+        'lost_reason': lead.lost_reason or '', 'next_follow_up_date': lead.next_follow_up_date.isoformat() if lead.next_follow_up_date else '',
+        'service_name': lead.service_name or '', 'staff_name': lead.staff_name or '',
+        'vehicle_number': lead.vehicle_number or '', 'vehicle_make': lead.vehicle_make or '',
+        'vehicle_model': lead.vehicle_model or '', 'customer_id': str(lead.customer_id) if lead.customer_id else '',
+        'vehicle_details': ' '.join(filter(None, [lead.vehicle_number, lead.vehicle_make, lead.vehicle_model])),
+        'vehicle_id': str(lead.vehicle_id) if lead.vehicle_id else '',
+        'quotation_count': lead.quotations.filter(is_deleted=False).count(),
+        'follow_ups': [{'id': str(f.id), 'remarks': f.remarks, 'next_follow_up_date': f.next_follow_up_date.isoformat() if f.next_follow_up_date else '', 'status': f.status, 'success_chance': float(f.success_chance) if f.success_chance is not None else None, 'lost_reason': f.lost_reason or '', 'date_added': f.date_added.isoformat() if f.date_added else ''} for f in lead.follow_ups.filter(is_deleted=False)],
+    }
+
+
+@csrf_exempt
+def api_job_leads(request):
+    from .models import JobLead
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    company, branch = _job_pipeline_scope(user)
+    if not company:
+        return JsonResponse({'status': 'error', 'message': 'Company not found'}, status=400)
+    if request.method == 'GET':
+        qs = JobLead.objects.filter(company=company, is_deleted=False)
+        if branch:
+            qs = qs.filter(branch=branch)
+        status = request.GET.get('status', '')
+        if status in dict(JobLead.STATUS_CHOICES):
+            qs = qs.filter(status=status)
+        search = request.GET.get('search', '').strip()
+        if search:
+            qs = qs.filter(Q(customer_name__icontains=search) | Q(phone_number__icontains=search) | Q(vehicle_number__icontains=search) | Q(vehicle_make__icontains=search) | Q(vehicle_model__icontains=search))
+        return JsonResponse({'status': 'success', 'leads': [_job_lead_data(lead) for lead in qs]})
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+    try:
+        from core.functions import get_auto_id
+        data = json.loads(request.body or '{}')
+        name = (data.get('customer_name') or '').strip()
+        phone = (data.get('phone_number') or '').strip()
+        if not name or not phone or not (data.get('service_name') or '').strip() or not (data.get('staff_name') or '').strip():
+            return JsonResponse({'status': 'error', 'message': 'Customer name, mobile number, service and staff are required'}, status=400)
+        lead = JobLead.objects.create(
+            company=company, branch=branch, customer_name=name, phone_number=phone,
+            whatsapp_number=data.get('whatsapp_number') or '', lead_generation_mode=data.get('lead_generation_mode') or '',
+            reference=data.get('reference') or '', expected_value=data.get('expected_value') or 0,
+            service_name=data.get('service_name') or '', staff_name=data.get('staff_name') or '',
+            vehicle_number=data.get('vehicle_number') or '', vehicle_make=data.get('vehicle_make') or '',
+            vehicle_model=data.get('vehicle_model') or '', auto_id=get_auto_id(JobLead), creator=user,
+        )
+        return JsonResponse({'status': 'success', 'lead': _job_lead_data(lead)})
+    except Exception as exc:
+        return JsonResponse({'status': 'error', 'message': str(exc)}, status=400)
+
+
+@csrf_exempt
+def api_job_lead_update(request, lead_id):
+    from .models import JobLead
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
+    try:
+        company, branch = _job_pipeline_scope(user)
+        lead = JobLead.objects.get(id=lead_id, company=company, is_deleted=False)
+        if branch and lead.branch_id != branch.id:
+            return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
+        data = json.loads(request.body or '{}')
+        for field in ('customer_name', 'phone_number', 'whatsapp_number', 'lead_generation_mode', 'reference', 'service_name', 'staff_name', 'vehicle_number', 'vehicle_make', 'vehicle_model', 'lost_reason'):
+            if field in data:
+                setattr(lead, field, data[field] or '')
+        if 'expected_value' in data:
+            lead.expected_value = data['expected_value'] or 0
+        lead.save()
+        return JsonResponse({'status': 'success', 'lead': _job_lead_data(lead)})
+    except JobLead.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Lead not found'}, status=404)
+    except Exception as exc:
+        return JsonResponse({'status': 'error', 'message': str(exc)}, status=400)
+
+
+@csrf_exempt
+def api_job_lead_delete(request, lead_id):
+    from .models import JobLead
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company, branch = _job_pipeline_scope(user)
+    lead = JobLead.objects.filter(id=lead_id, company=company, is_deleted=False).first()
+    if not lead or (branch and lead.branch_id != branch.id):
+        return JsonResponse({'success': False, 'message': 'Lead not found'}, status=404)
+    lead.is_deleted = True
+    lead.save(update_fields=['is_deleted', 'date_updated'])
+    return JsonResponse({'success': True})
+
+
+@csrf_exempt
+def api_job_lead_follow_up(request, lead_id):
+    from datetime import date
+    from decimal import Decimal
+    from core.functions import get_auto_id
+    from .models import JobLead, JobLeadFollowUp
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        company, branch = _job_pipeline_scope(user)
+        lead = JobLead.objects.get(id=lead_id, company=company, is_deleted=False)
+        if branch and lead.branch_id != branch.id:
+            return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+        data = json.loads(request.body or '{}')
+        remarks = (data.get('remarks') or '').strip()
+        status = data.get('status', JobLead.STATUS_FOLLOW_UP)
+        lost_reason = (data.get('lost_reason') or '').strip()
+        if not remarks or status not in dict(JobLead.STATUS_CHOICES):
+            return JsonResponse({'success': False, 'message': 'Remarks and a valid status are required'}, status=400)
+        if status == JobLead.STATUS_LOST and not lost_reason:
+            return JsonResponse({'success': False, 'message': 'A reason is required for lost leads'}, status=400)
+        followup_date = data.get('next_follow_up_date') or None
+        if followup_date:
+            date.fromisoformat(followup_date)
+        chance = data.get('success_chance')
+        followup = JobLeadFollowUp.objects.create(
+            lead=lead, remarks=remarks, next_follow_up_date=followup_date, status=status,
+            success_chance=Decimal(str(chance)) if chance not in (None, '') else None,
+            lost_reason=lost_reason, auto_id=get_auto_id(JobLeadFollowUp), creator=user,
+        )
+        lead.status, lead.next_follow_up_date, lead.success_chance, lead.lost_reason = status, followup_date, followup.success_chance, lost_reason
+        lead.save(update_fields=['status', 'next_follow_up_date', 'success_chance', 'lost_reason', 'date_updated'])
+        return JsonResponse({'success': True, 'follow_up_id': str(followup.id)})
+    except JobLead.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Lead not found'}, status=404)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+
+@csrf_exempt
+def api_job_quotation_create(request):
+    from decimal import Decimal
+    from django.db import transaction
+    from core.functions import get_auto_id
+    from client_management.models import Customer, CustomerVehicle, Stock
+    from service_management.models import Service
+    from .models import JobLead, JobLeadFollowUp, JobQuotation, JobQuotationItem, JobQuotationExtra
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        data = json.loads(request.body or '{}')
+        company, branch = _job_pipeline_scope(user)
+        customer = Customer.objects.get(id=data.get('customer_id'), company=company, is_deleted=False)
+        vehicle = CustomerVehicle.objects.get(id=data.get('vehicle_id'), customer=customer, is_deleted=False)
+        if branch and customer.branch_id != branch.id:
+            return JsonResponse({'success': False, 'message': 'Customer is outside your branch'}, status=403)
+        lead = None
+        if data.get('lead_id'):
+            lead = JobLead.objects.get(id=data['lead_id'], company=company, is_deleted=False)
+            if branch and lead.branch_id != branch.id:
+                return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+        revised_from = None
+        if data.get('revision_of_id'):
+            revised_from = JobQuotation.objects.get(id=data['revision_of_id'], customer__company=company, is_deleted=False)
+            if revised_from.customer_id != customer.id or revised_from.vehicle_id != vehicle.id:
+                return JsonResponse({'success': False, 'message': 'Revision customer/vehicle mismatch'}, status=400)
+            if branch and revised_from.branch_id != branch.id:
+                return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+            lead = lead or revised_from.lead
+        with transaction.atomic():
+            quotation = JobQuotation.objects.create(
+                quotation_number=f'JQT-{get_auto_id(JobQuotation):04d}', lead=lead, revised_from=revised_from,
+                customer=customer, vehicle=vehicle, branch=branch or customer.branch,
+                additional_services=data.get('additional_services') or '', additional_days_needed=int(data.get('additional_days_needed') or 0),
+                subtotal=Decimal(str(data.get('subtotal') or 0)), tax_percentage=Decimal(str(data.get('tax_percentage') or 0)),
+                tax_amount=Decimal(str(data.get('tax_amount') or 0)), discount=Decimal(str(data.get('discount') or 0)),
+                discount_type=data.get('discount_type') or 'amount', discount_percentage=Decimal(str(data.get('discount_percentage') or 0)),
+                grand_total=Decimal(str(data.get('grand_total') or 0)), is_grand_total=bool(data.get('is_grand_total', True)),
+                auto_id=get_auto_id(JobQuotation), creator=user,
+            )
+            for row in data.get('items', []):
+                service = Service.objects.filter(id=row.get('service_id')).first() if row.get('service_id') else None
+                stock = Stock.objects.filter(id=row.get('stock_item_id')).first() if row.get('stock_item_id') else None
+                JobQuotationItem.objects.create(
+                    quotation=quotation, service=service, service_name=row.get('service_name') or (service.name if service else ''),
+                    stock_item=stock, stock_item_name=row.get('stock_item_name') or (stock.item_name if stock else ''),
+                    warranty_years=Decimal(str(row.get('warranty_years') or 0)), rate=Decimal(str(row.get('rate') or 0)),
+                    free_topup=row.get('free_topup') or '', quantity=Decimal(str(row.get('quantity', row.get('qty', 1)) or 1)),
+                    auto_id=get_auto_id(JobQuotationItem), creator=user,
+                )
+            for row in data.get('extras', []):
+                price, quantity = Decimal(str(row.get('price') or 0)), Decimal(str(row.get('quantity', row.get('qty', 1)) or 1))
+                discount = Decimal(str(row.get('discount') or 0))
+                if row.get('discount_type') == 'percentage':
+                    discount = price * quantity * Decimal(str(row.get('discount_percentage') or 0)) / Decimal('100')
+                total = Decimal(str(row['total'])) if row.get('total') is not None else max(Decimal('0'), price * quantity - discount)
+                JobQuotationExtra.objects.create(
+                    quotation=quotation, name=row.get('name') or '', price=price, quantity=quantity, discount=discount,
+                    discount_type=row.get('discount_type') or 'amount', discount_percentage=Decimal(str(row.get('discount_percentage') or 0)),
+                    total=total, remarks=row.get('remarks') or '', auto_id=get_auto_id(JobQuotationExtra), creator=user,
+                )
+            if lead:
+                lead.status = JobLead.STATUS_QUOTED
+                lead.save(update_fields=['status', 'date_updated'])
+                JobLeadFollowUp.objects.create(lead=lead, remarks=f'Quotation {quotation.quotation_number} created', status=JobLead.STATUS_QUOTED, auto_id=get_auto_id(JobLeadFollowUp), creator=user)
+        return JsonResponse({'success': True, 'quotation_id': str(quotation.id), 'quotation_number': quotation.quotation_number})
+    except (Customer.DoesNotExist, CustomerVehicle.DoesNotExist):
+        return JsonResponse({'success': False, 'message': 'Customer or vehicle not found'}, status=404)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+
+def _job_quotation_data(quotation, include_lines=False):
+    try:
+        linked_job = quotation.job_card
+        linked_job_id = str(linked_job.id)
+    except Exception:
+        linked_job_id = ''
+    data = {
+        'id': str(quotation.id), 'quotation_number': quotation.quotation_number,
+        'customer_name': quotation.customer.name, 'customer_phone': quotation.customer.phone or '',
+        'vehicle_number': quotation.vehicle.vehicle_number, 'branch_name': quotation.branch.name if quotation.branch else '',
+        'grand_total': float(quotation.grand_total or 0), 'lead_id': str(quotation.lead_id) if quotation.lead_id else '',
+        'is_accepted': quotation.is_accepted, 'revision_of_id': str(quotation.revised_from_id) if quotation.revised_from_id else '',
+        'revision_count': quotation.revisions.filter(is_deleted=False).count(),
+        'job_card_id': linked_job_id,
+        'created_at': quotation.date_added.isoformat() if quotation.date_added else '',
+        'date': quotation.date_added.date().isoformat() if quotation.date_added else '',
+    }
+    if include_lines:
+        data.update({
+            'customer_id': str(quotation.customer_id), 'vehicle_id': str(quotation.vehicle_id),
+            'additional_services': quotation.additional_services or '', 'additional_days_needed': quotation.additional_days_needed,
+            'subtotal': float(quotation.subtotal), 'tax_percentage': float(quotation.tax_percentage), 'tax_amount': float(quotation.tax_amount),
+            'discount': float(quotation.discount), 'discount_type': quotation.discount_type,
+            'discount_percentage': float(quotation.discount_percentage), 'is_grand_total': quotation.is_grand_total,
+            'items': [{'service_id': str(i.service_id) if i.service_id else '', 'service_name': i.service_name, 'stock_item_id': str(i.stock_item_id) if i.stock_item_id else '', 'stock_item_name': i.stock_item_name or '', 'warranty_years': float(i.warranty_years), 'rate': float(i.rate), 'quantity': float(i.quantity), 'free_topup': i.free_topup or ''} for i in quotation.items.filter(is_deleted=False)],
+            'extras': [{'name': e.name, 'price': float(e.price), 'quantity': float(e.quantity), 'discount': float(e.discount), 'discount_type': e.discount_type, 'discount_percentage': float(e.discount_percentage), 'total': float(e.total), 'remarks': e.remarks or ''} for e in quotation.extras.filter(is_deleted=False)],
+        })
+    return data
+
+
+@csrf_exempt
+def api_job_quotations(request):
+    from .models import JobQuotation
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company, branch = _job_pipeline_scope(user)
+    qs = JobQuotation.objects.filter(is_deleted=False, customer__company=company).select_related('customer', 'vehicle', 'branch', 'lead').order_by('-date_added')
+    if branch:
+        qs = qs.filter(branch=branch)
+    return JsonResponse({'success': True, 'quotations': [_job_quotation_data(q) for q in qs]})
+
+
+@csrf_exempt
+def api_job_quotation_detail(request, quotation_id):
+    from .models import JobQuotation
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company, branch = _job_pipeline_scope(user)
+    quotation = JobQuotation.objects.filter(id=quotation_id, customer__company=company, is_deleted=False).select_related('customer', 'vehicle', 'branch', 'lead').first()
+    if not quotation or (branch and quotation.branch_id != branch.id):
+        return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
+    return JsonResponse({'success': True, 'quotation': _job_quotation_data(quotation, True)})
+
+
+@csrf_exempt
+def api_job_quotation_update(request, quotation_id):
+    from decimal import Decimal
+    from django.db import transaction
+    from client_management.models import Stock
+    from service_management.models import Service
+    from core.functions import get_auto_id
+    from .models import JobQuotation, JobQuotationItem, JobQuotationExtra
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company, branch = _job_pipeline_scope(user)
+    quotation = JobQuotation.objects.filter(id=quotation_id, customer__company=company, is_deleted=False).first()
+    if not quotation or (branch and quotation.branch_id != branch.id):
+        return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
+    if quotation.is_accepted:
+        return JsonResponse({'success': False, 'message': 'Accepted quotations cannot be edited; create a revision'}, status=409)
+    try:
+        data = json.loads(request.body or '{}')
+        with transaction.atomic():
+            for field in ('additional_services', 'additional_days_needed', 'subtotal', 'tax_percentage', 'tax_amount', 'discount', 'discount_type', 'discount_percentage', 'grand_total', 'is_grand_total'):
+                if field in data:
+                    setattr(quotation, field, data[field])
+            quotation.save()
+            quotation.items.all().delete()
+            quotation.extras.all().delete()
+            for row in data.get('items', []):
+                service = Service.objects.filter(id=row.get('service_id')).first() if row.get('service_id') else None
+                stock = Stock.objects.filter(id=row.get('stock_item_id')).first() if row.get('stock_item_id') else None
+                JobQuotationItem.objects.create(quotation=quotation, service=service,
+                    service_name=row.get('service_name') or (service.name if service else ''), stock_item=stock,
+                    stock_item_name=row.get('stock_item_name') or (stock.item_name if stock else ''),
+                    warranty_years=Decimal(str(row.get('warranty_years') or 0)), rate=Decimal(str(row.get('rate') or 0)),
+                    free_topup=row.get('free_topup') or '', quantity=Decimal(str(row.get('quantity', row.get('qty', 1)) or 1)),
+                    auto_id=get_auto_id(JobQuotationItem), creator=user)
+            for row in data.get('extras', []):
+                price, quantity = Decimal(str(row.get('price') or 0)), Decimal(str(row.get('quantity', row.get('qty', 1)) or 1))
+                discount = Decimal(str(row.get('discount') or 0))
+                if row.get('discount_type') == 'percentage':
+                    discount = price * quantity * Decimal(str(row.get('discount_percentage') or 0)) / Decimal('100')
+                total = Decimal(str(row['total'])) if row.get('total') is not None else max(Decimal('0'), price * quantity - discount)
+                JobQuotationExtra.objects.create(quotation=quotation, name=row.get('name') or '', price=price,
+                    quantity=quantity, discount=discount, discount_type=row.get('discount_type') or 'amount',
+                    discount_percentage=Decimal(str(row.get('discount_percentage') or 0)), total=total,
+                    remarks=row.get('remarks') or '', auto_id=get_auto_id(JobQuotationExtra), creator=user)
+        return JsonResponse({'success': True, 'quotation_id': str(quotation.id)})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+
+@csrf_exempt
+def api_accept_job_quotation(request, quotation_id):
+    from django.utils import timezone
+    from .models import JobQuotation, JobLead, JobLeadFollowUp
+    from core.functions import get_auto_id
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company, branch = _job_pipeline_scope(user)
+    quotation = JobQuotation.objects.filter(id=quotation_id, customer__company=company, is_deleted=False).select_related('lead').first()
+    if not quotation or (branch and quotation.branch_id != branch.id):
+        return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
+    if not quotation.is_accepted:
+        quotation.is_accepted, quotation.accepted_at, quotation.accepted_by = True, timezone.now(), user
+        quotation.save(update_fields=['is_accepted', 'accepted_at', 'accepted_by', 'date_updated'])
+        if quotation.lead:
+            lead = quotation.lead
+            lead.status, lead.success_chance = JobLead.STATUS_SUCCESS, 100
+            lead.save(update_fields=['status', 'success_chance', 'date_updated'])
+            JobLeadFollowUp.objects.create(lead=lead, remarks=f'Quotation {quotation.quotation_number} accepted', status=JobLead.STATUS_SUCCESS, success_chance=100, auto_id=get_auto_id(JobLeadFollowUp), creator=user)
+    return JsonResponse({'success': True, 'is_accepted': True})
+
+
+@csrf_exempt
+def api_job_card_from_job_quotation(request, quotation_id):
+    from decimal import Decimal
+    from django.db import transaction
+    from .models import JobQuotation, JobCard, JobCardServiceItem, JobCardPartItem, JobCardExtraItem
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    try:
+        company, branch_admin = _job_pipeline_scope(user)
+        with transaction.atomic():
+            quote = JobQuotation.objects.select_for_update().select_related('customer', 'vehicle', 'branch').filter(
+                id=quotation_id, is_deleted=False, customer__company=company
+            ).first()
+            if not quote:
+                return JsonResponse({'success': False, 'message': 'Job quotation not found'}, status=404)
+            if branch_admin and quote.branch_id != branch_admin.id:
+                return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+            if not quote.is_accepted:
+                return JsonResponse({'success': False, 'message': 'Accept the quotation before conversion'}, status=409)
+            existing = JobCard.objects.filter(job_quotation=quote).first()
+            if existing:
+                return JsonResponse({'success': True, 'already_converted': True, 'job_card_id': str(existing.id), 'job_number': existing.job_number})
+            branch = quote.branch or quote.customer.branch
+            if not branch:
+                return JsonResponse({'success': False, 'message': 'Quotation has no branch'}, status=400)
+            items = list(quote.items.filter(is_deleted=False).select_related('service', 'stock_item'))
+            job = JobCard.objects.create(
+                company=company, branch=branch, customer=quote.customer, vehicle=quote.vehicle,
+                job_quotation=quote, current_section='General Inspection',
+                current_service=items[0].service_name if items else '',
+                additional_remarks=quote.additional_services or None, creator=user,
+            )
+            for item in items:
+                qty = item.quantity or Decimal('1')
+                total = item.rate * qty
+                if item.stock_item_id:
+                    stock = item.stock_item
+                    JobCardPartItem.objects.create(
+                        job_card=job, stock_item=stock,
+                        part_number=stock.part_number if stock else None,
+                        alternate_part_number=stock.alternate_part_number if stock else None,
+                        product_code=stock.barcode if stock else None,
+                        product_name=item.stock_item_name or (stock.item_name if stock else 'Part'),
+                        current_stock=stock.quantity if stock else 0, unit=stock.unit if stock else 'Pcs',
+                        rate=item.rate, rate_with_tax=item.rate, quantity=qty, total_amount=total, creator=user,
+                    )
+                else:
+                    JobCardServiceItem.objects.create(
+                        job_card=job, service=item.service,
+                        service_name=item.service_name or (item.service.name if item.service else 'Service'),
+                        quantity=qty, unit='Unit', rate=item.rate, total_amount=total,
+                        warranty=str(item.warranty_years or ''), warranty_period='years' if item.warranty_years else '',
+                        remarks=f'Free top-up: {item.free_topup}' if item.free_topup else '', creator=user,
+                    )
+            for extra in quote.extras.filter(is_deleted=False):
+                JobCardExtraItem.objects.create(
+                    job_card=job, extra_details=extra.name, quantity=extra.quantity or Decimal('1'), rate=extra.price,
+                    discount=extra.discount, discount_type=extra.discount_type,
+                    discount_percentage=extra.discount_percentage, total_amount=extra.total,
+                    remarks=extra.remarks or '', creator=user,
+                )
+            job.estimated_cost = quote.grand_total
+            job.save(update_fields=['estimated_cost', 'date_updated'])
+        return JsonResponse({'success': True, 'already_converted': False, 'job_card_id': str(job.id), 'job_number': job.job_number})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=500)
 
 

@@ -218,6 +218,13 @@ class JobCard(BaseModel):
         blank=True,
         related_name='job_card',
     )
+    job_quotation = models.OneToOneField(
+        'booking_management.JobQuotation',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='job_card',
+    )
 
     job_number = models.CharField(max_length=50, unique=True, db_index=True)
     job_date = models.DateField(default=timezone.now)
@@ -346,3 +353,97 @@ class JobCardExtraItem(BaseModel):
 
     def __str__(self):
         return f"{self.extra_details} ({self.job_card.job_number})"
+
+
+class JobLead(BaseModel):
+    STATUS_FOLLOW_UP = 'follow_up'
+    STATUS_QUOTED = 'quoted'
+    STATUS_SUCCESS = 'success'
+    STATUS_LOST = 'lost'
+    STATUS_CHOICES = (
+        (STATUS_FOLLOW_UP, 'Follow-up'),
+        (STATUS_QUOTED, 'Quoted'),
+        (STATUS_SUCCESS, 'Success'),
+        (STATUS_LOST, 'Lost'),
+    )
+
+    company = models.ForeignKey('client_management.Client', on_delete=models.CASCADE, related_name='job_leads')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='job_leads', null=True, blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
+    vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.SET_NULL, null=True, blank=True, related_name='job_leads')
+    customer_name = models.CharField(max_length=200)
+    phone_number = models.CharField(max_length=50)
+    whatsapp_number = models.CharField(max_length=50, blank=True, null=True)
+    lead_generation_mode = models.CharField(max_length=100, blank=True, null=True)
+    reference = models.CharField(max_length=200, blank=True, null=True)
+    expected_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_FOLLOW_UP, db_index=True)
+    success_chance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    lost_reason = models.CharField(max_length=200, blank=True, null=True)
+    next_follow_up_date = models.DateField(null=True, blank=True)
+    service_name = models.CharField(max_length=200, blank=True, null=True)
+    staff_name = models.CharField(max_length=200, blank=True, null=True)
+    vehicle_number = models.CharField(max_length=100, blank=True, null=True)
+    vehicle_make = models.CharField(max_length=150, blank=True, null=True)
+    vehicle_model = models.CharField(max_length=150, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-date_added']
+
+
+class JobLeadFollowUp(BaseModel):
+    lead = models.ForeignKey(JobLead, on_delete=models.CASCADE, related_name='follow_ups')
+    remarks = models.TextField()
+    next_follow_up_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=JobLead.STATUS_CHOICES, default=JobLead.STATUS_FOLLOW_UP)
+    success_chance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    lost_reason = models.CharField(max_length=200, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-date_added']
+
+
+class JobQuotation(BaseModel):
+    quotation_number = models.CharField(max_length=50, unique=True)
+    lead = models.ForeignKey(JobLead, on_delete=models.SET_NULL, null=True, blank=True, related_name='quotations')
+    revised_from = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='revisions')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='job_quotations')
+    vehicle = models.ForeignKey(CustomerVehicle, on_delete=models.CASCADE, related_name='job_quotations')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='job_quotations', null=True, blank=True)
+    is_accepted = models.BooleanField(default=False)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='accepted_job_quotations')
+    additional_services = models.TextField(blank=True, null=True)
+    additional_days_needed = models.PositiveIntegerField(default=0)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_type = models.CharField(max_length=20, default='amount')
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    is_grand_total = models.BooleanField(default=True)
+
+
+class JobQuotationItem(BaseModel):
+    quotation = models.ForeignKey(JobQuotation, on_delete=models.CASCADE, related_name='items')
+    service = models.ForeignKey('service_management.Service', on_delete=models.SET_NULL, null=True, blank=True)
+    service_name = models.CharField(max_length=200)
+    stock_item = models.ForeignKey('client_management.Stock', on_delete=models.SET_NULL, null=True, blank=True)
+    stock_item_name = models.CharField(max_length=200, blank=True, null=True)
+    warranty_years = models.DecimalField(max_digits=4, decimal_places=1, default=0)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    free_topup = models.CharField(max_length=100, blank=True, null=True)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+
+
+class JobQuotationExtra(BaseModel):
+    quotation = models.ForeignKey(JobQuotation, on_delete=models.CASCADE, related_name='extras')
+    name = models.CharField(max_length=200)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount_type = models.CharField(max_length=20, default='amount')
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    remarks = models.TextField(blank=True, null=True)
