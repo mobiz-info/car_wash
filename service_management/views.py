@@ -1,19 +1,120 @@
+import json
+
 from django.views.generic import TemplateView
 from django.shortcuts import render, get_object_or_404, redirect, reverse
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from decimal import Decimal
 from django.db.models import Q
 
-from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice, CompanyService, SmokeTestPrice
+from .models import ServiceType, Service, BranchService, BranchVehiclePrice, ServiceVehicleTypePrice, CompanyService, SmokeTestPrice, JobCardCategory, JobCardService, JobCardIssue
 from master.models import VehicleType, VehicleTypeModel, EmissionStandard
 from client_management.models import Branch
-from .forms import ServiceTypeForm, ServiceForm
+from .forms import ServiceTypeForm, ServiceForm, JobCardCategoryForm, JobCardServiceForm, JobCardIssueForm
 from core.functions import get_auto_id
+
+JOB_CARD_MASTERS = {
+    'categories': {
+        'model': JobCardCategory, 'form': JobCardCategoryForm,
+        'title': 'Job Card Service Categories', 'singular': 'Category',
+        'new_label': 'Add Category', 'primary': lambda item: item.name,
+        'secondary': lambda item: '', 'dependencies': lambda item: item.services.filter(is_deleted=False).exists(),
+    },
+    'services': {
+        'model': JobCardService, 'form': JobCardServiceForm,
+        'title': 'Job Card Services', 'singular': 'Service',
+        'new_label': 'Add Service', 'primary': lambda item: item.name,
+        'secondary': lambda item: item.category.name,
+        'dependencies': lambda item: item.issues.filter(is_deleted=False).exists(),
+    },
+    'issues': {
+        'model': JobCardIssue, 'form': JobCardIssueForm,
+        'title': 'Job Card Issues', 'singular': 'Issue',
+        'new_label': 'Add Issue', 'primary': lambda item: item.name,
+        'secondary': lambda item: f'{item.category.name} / {item.service.name}',
+        'dependencies': lambda item: False,
+    },
+}
+
+
+def _superadmin_required(view):
+    return user_passes_test(lambda user: user.is_authenticated and user.is_superuser)(view)
+
+
+@login_required
+@_superadmin_required
+def jobcard_master_list(request, master):
+    config = JOB_CARD_MASTERS.get(master)
+    if not config:
+        return redirect('dashboard')
+    search = request.GET.get('search', '').strip()
+    queryset = config['model'].objects.filter(is_deleted=False)
+    if master == 'services':
+        queryset = queryset.select_related('category')
+    elif master == 'issues':
+        queryset = queryset.select_related('category', 'service')
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    page_obj = Paginator(queryset.order_by('name'), 15).get_page(request.GET.get('page'))
+    rows = [{
+        'id': item.id,
+        'primary': config['primary'](item),
+        'secondary': config['secondary'](item),
+        'date_added': item.date_added,
+    } for item in page_obj]
+    return render(request, 'jobcard_master/list.html', {
+        'master': master, 'title': config['title'], 'singular': config['singular'],
+        'new_label': config['new_label'], 'rows': rows, 'page_obj': page_obj,
+        'search': search,
+    })
+
+
+@login_required
+@_superadmin_required
+def jobcard_master_form(request, master, id=None):
+    config = JOB_CARD_MASTERS.get(master)
+    if not config:
+        return redirect('dashboard')
+    instance = get_object_or_404(config['model'], id=id, is_deleted=False) if id else None
+    form = config['form'](request.POST or None, instance=instance)
+    if request.method == 'POST' and form.is_valid():
+        item = form.save(commit=False)
+        if instance:
+            item.updater = request.user
+        else:
+            item.auto_id = get_auto_id(config['model'])
+            item.creator = request.user
+        item.save()
+        messages.success(request, f'Job Card {config["singular"].lower()} saved successfully.')
+        return redirect('jobcard_master_list', master=master)
+    service_categories = {str(service.id): str(service.category_id) for service in JobCardService.objects.filter(is_deleted=False)}
+    return render(request, 'jobcard_master/form.html', {
+        'master': master, 'title': f'{"Edit" if instance else "Create"} Job Card {config["singular"]}',
+        'list_title': config['title'], 'form': form,
+        'service_categories': json.dumps(service_categories),
+    })
+
+
+@login_required
+@_superadmin_required
+def jobcard_master_delete(request, master, id):
+    config = JOB_CARD_MASTERS.get(master)
+    if not config:
+        return redirect('dashboard')
+    item = get_object_or_404(config['model'], id=id, is_deleted=False)
+    if request.method == 'POST':
+        if config['dependencies'](item):
+            messages.error(request, f'This {config["singular"].lower()} is in use and cannot be deleted.')
+        else:
+            item.is_deleted = True
+            item.updater = request.user
+            item.save(update_fields=['is_deleted', 'updater', 'date_updated'])
+            messages.success(request, f'Job Card {config["singular"].lower()} deleted.')
+    return redirect('jobcard_master_list', master=master)
 # ==========================================
 # SERVICE MANAGEMENT
 # ==========================================

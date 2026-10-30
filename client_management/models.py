@@ -245,6 +245,7 @@ class Customer(BaseModel):
     pincode = models.CharField(max_length=20, blank=True, null=True)
     tax_number = models.CharField(max_length=100, blank=True, null=True, help_text="Tax / GST / TRN Number for Corporate customers")
     tin_number = models.CharField(max_length=100, blank=True, null=True, help_text="TIN Number (optional)")
+    pan_number = models.CharField(max_length=100, blank=True, null=True, help_text="PAN number for corporate customers")
     city = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)
     country = models.CharField(max_length=100, blank=True, null=True)

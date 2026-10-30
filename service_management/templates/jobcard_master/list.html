@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+    .jc-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    .jc-head{padding:18px 22px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+    .jc-search{display:flex;gap:8px;align-items:center}
+    .jc-search input{min-width:240px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px}
+    .jc-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border-radius:7px;text-decoration:none;border:0;cursor:pointer;font-weight:600}
+    .jc-primary{background:#000080;color:white}.jc-light{background:#f1f5f9;color:#334155}
+    .jc-table{width:100%;border-collapse:collapse}.jc-table th,.jc-table td{text-align:left;padding:13px 22px;border-bottom:1px solid #f1f5f9}
+    .jc-table th{background:#f8fafc;color:#64748b;font-size:12px;text-transform:uppercase}.jc-table td{color:#334155}
+    .jc-actions{display:flex;gap:8px;align-items:center}.jc-actions form{margin:0}.jc-danger{color:#b91c1c;background:#fef2f2}
+    .jc-empty{text-align:center;padding:42px;color:#64748b}.jc-pagination{padding:14px 20px;display:flex;justify-content:center;gap:12px;color:#64748b}
+    @media(max-width:600px){.jc-search,.jc-search input{width:100%;min-width:0}.jc-table th,.jc-table td{padding:11px 12px}}
+</style>
+<div class="jc-wrap">
+    <div class="jc-head">
+        <form class="jc-search" method="get">
+            <input name="search" value="{{ search }}" placeholder="Search {{ singular|lower }}...">
+            <button class="jc-btn jc-light" type="submit"><i class="ph ph-magnifying-glass"></i> Search</button>
+        </form>
+        <a class="jc-btn jc-primary" href="{% url 'jobcard_master_create' master=master %}"><i class="ph ph-plus"></i>{{ new_label }}</a>
+    </div>
+    <table class="jc-table">
+        <thead><tr><th>{{ singular }}</th>{% if master != 'categories' %}<th>{% if master == 'services' %}Category{% else %}Category / Service{% endif %}</th>{% endif %}<th>Actions</th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+            <tr>
+                <td>{{ row.primary }}</td>
+                {% if master != 'categories' %}<td>{{ row.secondary }}</td>{% endif %}
+                <td><div class="jc-actions">
+                    <a class="jc-btn jc-light" href="{% url 'jobcard_master_edit' master=master id=row.id %}" aria-label="Edit"><i class="ph ph-pencil-simple"></i> Edit</a>
+                    <form method="post" action="{% url 'jobcard_master_delete' master=master id=row.id %}" onsubmit="return confirm('Delete this {{ singular|lower }}?')">{% csrf_token %}<button class="jc-btn jc-danger" type="submit"><i class="ph ph-trash"></i> Delete</button></form>
+                </div></td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="3" class="jc-empty">No {{ singular|lower }} records found.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="jc-pagination">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&search={{ search|urlencode }}">Previous</a>{% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&search={{ search|urlencode }}">Next</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

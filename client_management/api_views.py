@@ -596,6 +596,11 @@ def api_customer_search(request):
         vehicles_data.append({
             'id': str(v.id),
             'no': v.vehicle_number,
+            'vehicle_type_model_id': str(v.vehicle_type_model_id) if v.vehicle_type_model_id else '',
+            'vehicle_type_id': str(v.vehicle_type_model.vehicle_type_id) if v.vehicle_type_model_id and v.vehicle_type_model.vehicle_type_id else '',
+            'make_id': str(v.make_id or ''),
+            'brand_model_id': str(v.brand_model_id or ''),
+            'color_id': str(v.color_id or ''),
             'type': v.vehicle_type_model.name if v.vehicle_type_model else 'Unknown',
             'vehicle_type': v.vehicle_type_model.vehicle_type.name if (v.vehicle_type_model and v.vehicle_type_model.vehicle_type) else '',
             'wheel_type': v.wheel_type or 'normal_wheel',
@@ -636,6 +641,7 @@ def api_customer_search(request):
             'country': getattr(customer, 'country', None) or '',
             'tax_number': customer.tax_number or '',
             'tin_number': customer.tin_number or '',
+            'pan_number': customer.pan_number or '',
             'branch_id': str(customer.branch.id) if customer.branch else '',
             'branch_name': customer.branch.name if customer.branch else '',
             'vehicles': vehicles_data
@@ -2264,6 +2270,7 @@ def api_vehicle_search(request):
             'type': customer.customer_type.name if customer.customer_type else 'Regular',
             'tax_number': customer.tax_number or '',
             'tin_number': customer.tin_number or '',
+            'pan_number': customer.pan_number or '',
             'branch': customer.branch.name if customer.branch else '',
         },
         'visits': {
@@ -2419,7 +2426,7 @@ def api_get_form_data(request):
         if not any(t['name'] == dt for t in whatsapp_templates):
             whatsapp_templates.append({'id': dt, 'name': dt})
 
-    from master.models import EmissionStandard
+    from master.models import EmissionStandard, State
     emission_standards_qs = EmissionStandard.objects.filter(is_active=True, is_deleted=False).order_by('validity_months', 'name')
     emission_standards_data = [
         {
@@ -2449,6 +2456,7 @@ def api_get_form_data(request):
         ],
         'colors': [{'id': str(c.id), 'name': c.name} for c in colors_qs],
         'emission_standards': emission_standards_data,
+        'states': [{'id': str(s.id), 'name': s.name} for s in State.objects.filter(country_id=company.country_id, is_deleted=False).order_by('name')] if company and company.country_id else [{'id': str(s.id), 'name': s.name} for s in State.objects.filter(is_deleted=False).order_by('name')],
         'fuel_types': [{'id': code, 'name': label} for code, label in CustomerVehicle.FUEL_TYPE_CHOICES],
         # Legacy field (still used by other screens)
         'vehicle_models': legacy_vehicle_models,
@@ -2521,6 +2529,7 @@ def api_add_customer(request):
 
         tax_number = data.get('tax_number', '').strip() or None
         tin_number = data.get('tin_number', '').strip() or None
+        pan_number = data.get('pan_number', '').strip() or None
 
         if customer_type and 'corporate' in customer_type.name.lower():
             if not tax_number:
@@ -2549,6 +2558,7 @@ def api_add_customer(request):
                 date_of_birth=parsed_dob,
                 tax_number=tax_number,
                 tin_number=tin_number,
+                pan_number=pan_number,
                 whatsapp_number=data.get('whatsapp_number', '').strip() or None,
                 email=data.get('email', '').strip() or None,
                 address=data.get('address', '').strip() or None,
@@ -2710,6 +2720,7 @@ def api_add_customer(request):
                 'address': customer.address or '',
                 'tax_number': customer.tax_number or '',
                 'tin_number': customer.tin_number or '',
+                'pan_number': customer.pan_number or '',
                 'aadhaar_number': customer.aadhaar_number or '',
                 'date_of_birth': customer.date_of_birth.strftime('%Y-%m-%d') if customer.date_of_birth else '',
                 'vehicles': vehicles_data,
@@ -3106,6 +3117,7 @@ def api_get_customer(request):
                 'customer_type_name': customer.customer_type.name if customer.customer_type else '',
                 'tax_number': customer.tax_number or '',
                 'tin_number': customer.tin_number or '',
+                'pan_number': customer.pan_number or '',
                 'customer_category': customer.customer_category or 'motor',
                 'aadhaar_number': customer.aadhaar_number or '',
                 'date_of_birth': customer.date_of_birth.strftime('%Y-%m-%d') if customer.date_of_birth else '',
@@ -3154,6 +3166,7 @@ def api_edit_customer(request):
 
         tax_number = data.get('tax_number', '').strip() or None
         tin_number = data.get('tin_number', '').strip() or None
+        pan_number = data.get('pan_number', '').strip() or None
 
         if customer_type and 'corporate' in customer_type.name.lower():
             if not tax_number and not getattr(customer, 'tax_number', None):
@@ -3171,6 +3184,8 @@ def api_edit_customer(request):
                 customer.tax_number = tax_number
             if 'tin_number' in data:
                 customer.tin_number = tin_number
+            if 'pan_number' in data:
+                customer.pan_number = pan_number
             customer.whatsapp_number = data.get('whatsapp_number', '').strip() or None
             customer.email = data.get('email', '').strip() or None
             customer.address = data.get('address', '').strip() or None

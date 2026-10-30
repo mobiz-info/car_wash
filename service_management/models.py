@@ -6,6 +6,39 @@ from client_management.models import Branch
 
 from django.utils.text import slugify
 
+
+class JobCardCategory(BaseModel):
+    name = models.CharField(max_length=150)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class JobCardService(BaseModel):
+    category = models.ForeignKey(JobCardCategory, on_delete=models.PROTECT, related_name='services')
+    name = models.CharField(max_length=150)
+
+    class Meta:
+        ordering = ['category__name', 'name']
+
+    def __str__(self):
+        return f'{self.category.name} - {self.name}'
+
+
+class JobCardIssue(BaseModel):
+    category = models.ForeignKey(JobCardCategory, on_delete=models.PROTECT, related_name='issues')
+    service = models.ForeignKey(JobCardService, on_delete=models.PROTECT, related_name='issues')
+    name = models.CharField(max_length=200)
+
+    class Meta:
+        ordering = ['category__name', 'service__name', 'name']
+
+    def __str__(self):
+        return f'{self.service.name} - {self.name}'
+
 class ServiceType(BaseModel):
     SLUG_WASHING = 'washing'
     SLUG_OIL_CHANGE = 'oil_change'

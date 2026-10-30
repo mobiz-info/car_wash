@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Mobiz Autocare Pro{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block breadcrumb_active %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+    .jc-form{max-width:680px;margin:0 auto;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:24px}
+    .jc-field{margin-bottom:18px}.jc-field label{display:block;margin-bottom:7px;color:#475569;font-size:13px;font-weight:600}
+    .jc-field input,.jc-field select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:7px;background:white}
+    .jc-field input:focus,.jc-field select:focus{outline:2px solid #dbeafe;border-color:#2563eb}
+    .jc-error{color:#b91c1c;font-size:13px;margin-top:5px}.jc-actions{display:flex;justify-content:flex-end;gap:10px;padding-top:14px;border-top:1px solid #e2e8f0}
+    .jc-btn{padding:10px 15px;border-radius:7px;text-decoration:none;font-weight:600;border:0;cursor:pointer}.jc-primary{background:#000080;color:white}.jc-light{background:#f1f5f9;color:#334155}
+</style>
+<form class="jc-form" method="post">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="jc-field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<div class="jc-error">{{ error }}</div>{% endfor %}
+    </div>
+    {% endfor %}
+    {% for error in form.non_field_errors %}<div class="jc-error">{{ error }}</div>{% endfor %}
+    <div class="jc-actions">
+        <a class="jc-btn jc-light" href="{% url 'jobcard_master_list' master=master %}">Cancel</a>
+        <button class="jc-btn jc-primary" type="submit">Save</button>
+    </div>
+</form>
+{% if master == 'issues' %}
+{{ service_categories|json_script:'jobcard-service-categories' }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const category = document.getElementById('id_category');
+    const service = document.getElementById('id_service');
+    const mapping = JSON.parse(document.getElementById('jobcard-service-categories').textContent);
+    const original = Array.from(service.options).map(option => ({value: option.value, text: option.text}));
+    function filterServices() {
+        const selected = service.value;
+        service.replaceChildren();
+        original.forEach(option => {
+            if (!option.value || mapping[option.value] === category.value) {
+                const node = new Option(option.text, option.value);
+                service.add(node);
+            }
+        });
+        if (Array.from(service.options).some(option => option.value === selected)) service.value = selected;
+    }
+    category.addEventListener('change', filterServices);
+    filterServices();
+});
+</script>
+{% endif %}
+{% endblock %}

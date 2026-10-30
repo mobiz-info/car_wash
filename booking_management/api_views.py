@@ -6,6 +6,7 @@ from django.utils import timezone
 from datetime import datetime, timedelta, date
 from .utils import validate_booking
 from django.db.models import Q
+from django.db import transaction
 from client_management.api_views import get_user_from_token
 from client_management.models import Customer, CustomerVehicle, Scheme, WhatsAppSetting, WhatsAppMessage
 from finance_management.models import Invoice
@@ -5447,9 +5448,10 @@ def _job_pipeline_scope(user):
 def _job_lead_data(lead):
     return {
         'id': str(lead.id), 'customer_name': lead.customer_name, 'phone_number': lead.phone_number,
+        'branch_id': str(lead.branch_id or ''),
         'lead_number': f'JL-{lead.auto_id}', 'lead_date': lead.lead_date.isoformat() if lead.lead_date else (lead.date_added.date().isoformat() if lead.date_added else ''),
         'whatsapp_number': lead.whatsapp_number or '', 'lead_generation_mode': lead.lead_generation_mode or '',
-        'reference': lead.reference or '', 'city': lead.city or '', 'email': lead.email or '', 'expected_value': float(lead.expected_value or 0),
+        'reference': lead.reference or '', 'state': lead.state or '', 'city': lead.city or '', 'email': lead.email or '', 'expected_value': float(lead.expected_value or 0),
         'status': lead.status, 'success_chance': float(lead.success_chance) if lead.success_chance is not None else None,
         'lost_reason': lead.lost_reason or '', 'next_follow_up_date': lead.next_follow_up_date.isoformat() if lead.next_follow_up_date else '',
         'service_name': lead.service_name or '', 'staff_name': lead.staff.name if lead.staff_id else (lead.staff_name or ''), 'staff_id': str(lead.staff_id or ''),
@@ -5528,7 +5530,7 @@ def api_job_leads(request):
             company=company, branch=branch, customer_name=name, phone_number=phone,
             lead_date=lead_date, staff=staff, staff_name=staff.name, customer_type=customer_type,
             whatsapp_number=data.get('whatsapp_number') or '', lead_generation_mode=mode,
-            reference=data.get('reference') or '', city=data.get('city') or '', email=data.get('email') or '', expected_value=expected,
+            reference=data.get('reference') or '', state=data.get('state') or '', city=data.get('city') or '', email=data.get('email') or '', expected_value=expected,
             next_follow_up_date=next_date,
             service_name=', '.join(service.name for service, _ in parsed_items),
             vehicle_number=data.get('vehicle_number') or '', vehicle_make=data.get('vehicle_make') or '',
@@ -5558,7 +5560,7 @@ def api_job_lead_update(request, lead_id):
         if branch and lead.branch_id != branch.id:
             return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
         data = json.loads(request.body or '{}')
-        for field in ('customer_name', 'phone_number', 'whatsapp_number', 'lead_generation_mode', 'reference', 'service_name', 'staff_name', 'vehicle_number', 'vehicle_make', 'vehicle_model', 'lost_reason'):
+        for field in ('customer_name', 'phone_number', 'whatsapp_number', 'lead_generation_mode', 'reference', 'state', 'city', 'email', 'service_name', 'staff_name', 'vehicle_number', 'vehicle_make', 'vehicle_model', 'lost_reason'):
             if field in data:
                 setattr(lead, field, data[field] or '')
         if 'expected_value' in data:
@@ -5637,7 +5639,7 @@ def api_job_lead_form_data(request):
     if not company:
         return JsonResponse({'success': False, 'message': 'Company not found'}, status=400)
     from client_management.models import Branch, CustomerType, Staff
-    from master.models import VehicleType, VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor, EmissionStandard
+    from master.models import State, VehicleType, VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor, EmissionStandard
     from service_management.models import Service, BranchService, CompanyService, BranchServiceCategory
     from .models import JobLeadGenerationMode
     if not branch:
@@ -5651,7 +5653,12 @@ def api_job_lead_form_data(request):
     services = Service.objects.filter(id__in=enabled_ids, is_active=True, is_deleted=False)
     disabled_categories = BranchServiceCategory.objects.filter(branch=branch, is_enabled=False, is_deleted=False).values_list('service_type_id', flat=True) if branch else []
     services = services.exclude(service_type_id__in=disabled_categories).distinct()
+    states = State.objects.filter(is_deleted=False)
+    country = getattr(company, 'country', None)
+    if country:
+        states = states.filter(country=country)
     return JsonResponse({'success': True,
+        'states': [{'id': str(s.id), 'name': s.name} for s in states.order_by('name')],
         'staff': [{'id': str(s.id), 'name': s.name} for s in staff.order_by('name')],
         'customer_types': [{'id': str(c.id), 'name': c.name} for c in CustomerType.objects.filter(is_deleted=False).exclude(name__icontains='Workshop').order_by('name')],
         'lead_modes': list(JobLeadGenerationMode.objects.filter(company=company, is_deleted=False).values_list('name', flat=True)),
@@ -5691,11 +5698,13 @@ def api_job_lead_history(request, lead_id):
 
 
 @csrf_exempt
+@transaction.atomic
 def api_job_quotation_create(request):
     from decimal import Decimal
     from django.db import transaction
     from core.functions import get_auto_id
-    from client_management.models import Customer, CustomerVehicle, Stock
+    from client_management.models import Customer, CustomerVehicle, CustomerType, Branch, Stock
+    from master.models import VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor, EmissionStandard
     from service_management.models import Service
     from .models import JobLead, JobLeadFollowUp, JobQuotation, JobQuotationItem, JobQuotationExtra
     user = get_user_from_token(request)
@@ -5704,27 +5713,114 @@ def api_job_quotation_create(request):
     try:
         data = json.loads(request.body or '{}')
         company, branch = _job_pipeline_scope(user)
-        customer = Customer.objects.get(id=data.get('customer_id'), company=company, is_deleted=False)
-        vehicle = CustomerVehicle.objects.get(id=data.get('vehicle_id'), customer=customer, is_deleted=False)
-        if branch and customer.branch_id != branch.id:
-            return JsonResponse({'success': False, 'message': 'Customer is outside your branch'}, status=403)
         lead = None
         if data.get('lead_id'):
             lead = JobLead.objects.get(id=data['lead_id'], company=company, is_deleted=False)
             if branch and lead.branch_id != branch.id:
                 return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
+        if not branch:
+            requested_branch_id = data.get('branch_id') or (lead.branch_id if lead else None)
+            branch = Branch.objects.filter(id=requested_branch_id, company=company, is_deleted=False).first() if requested_branch_id else Branch.objects.filter(company=company, is_deleted=False).order_by('name').first()
+        if not branch:
+            return JsonResponse({'success': False, 'message': 'A branch is required to create a Job Card quotation'}, status=400)
+
+        customer_profile = data.get('customer_profile')
+        vehicle_details = data.get('vehicle_details')
+        if customer_profile is not None and vehicle_details is not None:
+            profile = customer_profile
+            vehicle_data = vehicle_details
+            name = (profile.get('name') or '').strip()
+            phone = (profile.get('phone') or '').strip()
+            customer_type = CustomerType.objects.filter(id=profile.get('customer_type_id'), is_deleted=False).first()
+            state = (profile.get('state') or '').strip()
+            city = (profile.get('city') or '').strip()
+            tax_number = (profile.get('tax_number') or '').strip()
+            tin_number = (profile.get('tin_number') or '').strip()
+            pan_number = (profile.get('pan_number') or '').strip()
+            if not name or not phone or not customer_type or not state or not city:
+                return JsonResponse({'success': False, 'message': 'Name, customer type, mobile, Emirate/State and city are required'}, status=400)
+            if 'corporate' in customer_type.name.lower() and not (tax_number and tin_number and pan_number):
+                return JsonResponse({'success': False, 'message': 'Tax Registration No, TIN and PAN are required for corporate customers'}, status=400)
+            plate = (vehicle_data.get('vehicle_number') or '').strip().upper()
+            segment = VehicleTypeModel.objects.filter(id=vehicle_data.get('segment_id'), is_active=True, is_deleted=False).first()
+            make = VehicleMake.objects.filter(id=vehicle_data.get('make_id'), is_active=True, is_deleted=False).first()
+            brand_model = VehicleBrandModel.objects.filter(id=vehicle_data.get('brand_model_id'), is_active=True, is_deleted=False).first()
+            if not plate or not segment or not make or not brand_model:
+                return JsonResponse({'success': False, 'message': 'Vehicle number, make, model and segment are required'}, status=400)
+            if brand_model.make_id != make.id or brand_model.vehicle_type_model_id != segment.id:
+                return JsonResponse({'success': False, 'message': 'Selected vehicle make, model and segment do not match'}, status=400)
+
+            def normalized(value):
+                return ''.join(ch for ch in (value or '').upper() if ch.isalnum())
+
+            with transaction.atomic():
+                customer = None
+                phone_key = normalized(phone)
+                for candidate in Customer.objects.filter(company=company, branch=branch, is_deleted=False).only('id', 'phone'):
+                    if normalized(candidate.phone) == phone_key:
+                        customer = Customer.objects.select_for_update().get(id=candidate.id)
+                        break
+                if customer is None:
+                    customer = Customer.objects.create(
+                        company=company, branch=branch, name=name, phone=phone, customer_type=customer_type,
+                        customer_category='motor', creator=user, auto_id=get_auto_id(Customer),
+                    )
+                profile_fields = {
+                    'name': name, 'phone': phone, 'customer_type': customer_type,
+                    'whatsapp_number': (profile.get('whatsapp') or '').strip(),
+                    'email': (profile.get('email') or '').strip(), 'state': state, 'city': city,
+                    'tax_number': tax_number, 'tin_number': tin_number, 'pan_number': pan_number,
+                    'country': branch.company.country.name if branch.company.country_id else '',
+                }
+                for field, value in profile_fields.items():
+                    if not getattr(customer, field) and value:
+                        setattr(customer, field, value)
+                customer.save()
+
+                vehicle = None
+                plate_key = normalized(plate)
+                for candidate in CustomerVehicle.objects.filter(customer=customer, is_deleted=False).only('id', 'vehicle_number'):
+                    if normalized(candidate.vehicle_number) == plate_key:
+                        vehicle = CustomerVehicle.objects.select_for_update().get(id=candidate.id)
+                        break
+                color = VehicleColor.objects.filter(id=vehicle_data.get('color_id'), is_deleted=False).first() if vehicle_data.get('color_id') else None
+                emission = EmissionStandard.objects.filter(id=vehicle_data.get('emission_standard_id'), is_deleted=False).first() if vehicle_data.get('emission_standard_id') else None
+                fuel = vehicle_data.get('fuel_type') or ''
+                wheel = vehicle_data.get('wheel_type') or CustomerVehicle.WHEEL_TYPE_NORMAL
+                if wheel not in dict(CustomerVehicle.WHEEL_TYPE_CHOICES):
+                    wheel = CustomerVehicle.WHEEL_TYPE_NORMAL
+                if vehicle is None:
+                    vehicle = CustomerVehicle.objects.create(
+                        customer=customer, vehicle_number=plate, vehicle_type=segment.vehicle_type,
+                        vehicle_type_model=segment, make=make, brand_model=brand_model,
+                        color=color, emission_standard=emission, fuel_type=fuel, wheel_type=wheel,
+                        creator=user, auto_id=get_auto_id(CustomerVehicle),
+                    )
+                else:
+                    for field, value in {'vehicle_type': segment.vehicle_type, 'vehicle_type_model': segment, 'make': make, 'brand_model': brand_model, 'color': color, 'emission_standard': emission, 'fuel_type': fuel, 'wheel_type': wheel}.items():
+                        if not getattr(vehicle, f'{field}_id', None) and value:
+                            setattr(vehicle, field, value)
+                    vehicle.save()
+        else:
+            customer = Customer.objects.get(id=data.get('customer_id'), company=company, is_deleted=False)
+            vehicle = CustomerVehicle.objects.get(id=data.get('vehicle_id'), customer=customer, is_deleted=False)
+            if customer.branch_id != branch.id:
+                return JsonResponse({'success': False, 'message': 'Customer is outside your branch'}, status=403)
         revised_from = None
         if data.get('revision_of_id'):
             revised_from = JobQuotation.objects.get(id=data['revision_of_id'], customer__company=company, is_deleted=False)
             if revised_from.customer_id != customer.id or revised_from.vehicle_id != vehicle.id:
+                transaction.set_rollback(True)
                 return JsonResponse({'success': False, 'message': 'Revision customer/vehicle mismatch'}, status=400)
             if branch and revised_from.branch_id != branch.id:
+                transaction.set_rollback(True)
                 return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
             lead = lead or revised_from.lead
         with transaction.atomic():
             quotation = JobQuotation.objects.create(
                 quotation_number=f'JQT-{get_auto_id(JobQuotation):04d}', lead=lead, revised_from=revised_from,
                 customer=customer, vehicle=vehicle, branch=branch or customer.branch,
+                customer_comments=data.get('customer_comments') or '',
                 additional_services=data.get('additional_services') or '', additional_days_needed=int(data.get('additional_days_needed') or 0),
                 subtotal=Decimal(str(data.get('subtotal') or 0)), tax_percentage=Decimal(str(data.get('tax_percentage') or 0)),
                 tax_amount=Decimal(str(data.get('tax_amount') or 0)), discount=Decimal(str(data.get('discount') or 0)),
@@ -5761,6 +5857,7 @@ def api_job_quotation_create(request):
     except (Customer.DoesNotExist, CustomerVehicle.DoesNotExist):
         return JsonResponse({'success': False, 'message': 'Customer or vehicle not found'}, status=404)
     except Exception as exc:
+        transaction.set_rollback(True)
         return JsonResponse({'success': False, 'message': str(exc)}, status=400)
 
 
@@ -5780,10 +5877,12 @@ def _job_quotation_data(quotation, include_lines=False):
         'job_card_id': linked_job_id,
         'created_at': quotation.date_added.isoformat() if quotation.date_added else '',
         'date': quotation.date_added.date().isoformat() if quotation.date_added else '',
+        'customer_comments': quotation.customer_comments or '',
     }
     if include_lines:
         data.update({
             'customer_id': str(quotation.customer_id), 'vehicle_id': str(quotation.vehicle_id),
+            'customer_pan_number': quotation.customer.pan_number or '',
             'additional_services': quotation.additional_services or '', 'additional_days_needed': quotation.additional_days_needed,
             'subtotal': float(quotation.subtotal), 'tax_percentage': float(quotation.tax_percentage), 'tax_amount': float(quotation.tax_amount),
             'discount': float(quotation.discount), 'discount_type': quotation.discount_type,
@@ -5882,6 +5981,9 @@ def api_accept_job_quotation(request, quotation_id):
     quotation = JobQuotation.objects.filter(id=quotation_id, customer__company=company, is_deleted=False).select_related('lead').first()
     if not quotation or (branch and quotation.branch_id != branch.id):
         return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
+    has_priced_items = quotation.items.filter(is_deleted=False, rate__gt=0).exists() or quotation.extras.filter(is_deleted=False, total__gt=0).exists()
+    if not has_priced_items:
+        return JsonResponse({'success': False, 'message': 'A quotation needs at least one priced item before acceptance'}, status=409)
     if not quotation.is_accepted:
         quotation.is_accepted, quotation.accepted_at, quotation.accepted_by = True, timezone.now(), user
         quotation.save(update_fields=['is_accepted', 'accepted_at', 'accepted_by', 'date_updated'])
@@ -5913,6 +6015,9 @@ def api_job_card_from_job_quotation(request, quotation_id):
                 return JsonResponse({'success': False, 'message': 'Forbidden'}, status=403)
             if not quote.is_accepted:
                 return JsonResponse({'success': False, 'message': 'Accept the quotation before conversion'}, status=409)
+            has_priced_items = quote.items.filter(is_deleted=False, rate__gt=0).exists() or quote.extras.filter(is_deleted=False, total__gt=0).exists()
+            if not has_priced_items:
+                return JsonResponse({'success': False, 'message': 'A quotation needs at least one priced item before conversion'}, status=409)
             existing = JobCard.objects.filter(job_quotation=quote).first()
             if existing:
                 return JsonResponse({'success': True, 'already_converted': True, 'job_card_id': str(existing.id), 'job_number': existing.job_number})

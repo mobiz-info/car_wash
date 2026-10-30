@@ -1073,6 +1073,19 @@
                 <a href="#" class="nav-item submenu-item">Add-ons</a> -->
             </div>
 
+            <div class="nav-item dropdown-toggle">
+                <div class="nav-item-left">
+                    <i class="ph ph-clipboard-text"></i>
+                    Job Card
+                </div>
+                <i class="ph-bold ph-caret-right nav-right-icon"></i>
+            </div>
+            <div class="nav-submenu">
+                <a href="{% url 'jobcard_master_list' master='categories' %}" class="nav-item submenu-item">Service Categories</a>
+                <a href="{% url 'jobcard_master_list' master='services' %}" class="nav-item submenu-item">Services</a>
+                <a href="{% url 'jobcard_master_list' master='issues' %}" class="nav-item submenu-item">Issues</a>
+            </div>
+
             <!-- Expense Management -->
             <div class="nav-item dropdown-toggle">
                 <div class="nav-item-left">
