@@ -5,49 +5,66 @@
 {% block breadcrumb_active %}{{ title }}{% endblock %}
 
 {% block content %}
-<style>
-    .jc-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
-    .jc-head{padding:18px 22px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-    .jc-search{display:flex;gap:8px;align-items:center}
-    .jc-search input{min-width:240px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px}
-    .jc-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border-radius:7px;text-decoration:none;border:0;cursor:pointer;font-weight:600}
-    .jc-primary{background:#000080;color:white}.jc-light{background:#f1f5f9;color:#334155}
-    .jc-table{width:100%;border-collapse:collapse}.jc-table th,.jc-table td{text-align:left;padding:13px 22px;border-bottom:1px solid #f1f5f9}
-    .jc-table th{background:#f8fafc;color:#64748b;font-size:12px;text-transform:uppercase}.jc-table td{color:#334155}
-    .jc-actions{display:flex;gap:8px;align-items:center}.jc-actions form{margin:0}.jc-danger{color:#b91c1c;background:#fef2f2}
-    .jc-empty{text-align:center;padding:42px;color:#64748b}.jc-pagination{padding:14px 20px;display:flex;justify-content:center;gap:12px;color:#64748b}
-    @media(max-width:600px){.jc-search,.jc-search input{width:100%;min-width:0}.jc-table th,.jc-table td{padding:11px 12px}}
-</style>
-<div class="jc-wrap">
-    <div class="jc-head">
-        <form class="jc-search" method="get">
-            <input name="search" value="{{ search }}" placeholder="Search {{ singular|lower }}...">
-            <button class="jc-btn jc-light" type="submit"><i class="ph ph-magnifying-glass"></i> Search</button>
+<div class="list-container">
+    <div class="list-header">
+        <form method="GET" class="search-wrapper">
+            <i class="ph ph-magnifying-glass search-icon"></i>
+            <input type="text" name="search" value="{{ search }}" placeholder="Search {{ singular|lower }}..." class="search-input">
+            <button type="submit" style="display:none"></button>
         </form>
-        <a class="jc-btn jc-primary" href="{% url 'jobcard_master_create' master=master %}"><i class="ph ph-plus"></i>{{ new_label }}</a>
+        <a href="{% url 'jobcard_master_create' master=master %}" class="btn-create">
+            <i class="ph-bold ph-plus"></i> {{ new_label }}
+        </a>
     </div>
-    <table class="jc-table">
-        <thead><tr><th>{{ singular }}</th>{% if master != 'categories' %}<th>{% if master == 'services' %}Category{% else %}Category / Service{% endif %}</th>{% endif %}<th>Actions</th></tr></thead>
-        <tbody>
-        {% for row in rows %}
-            <tr>
-                <td>{{ row.primary }}</td>
-                {% if master != 'categories' %}<td>{{ row.secondary }}</td>{% endif %}
-                <td><div class="jc-actions">
-                    <a class="jc-btn jc-light" href="{% url 'jobcard_master_edit' master=master id=row.id %}" aria-label="Edit"><i class="ph ph-pencil-simple"></i> Edit</a>
-                    <form method="post" action="{% url 'jobcard_master_delete' master=master id=row.id %}" onsubmit="return confirm('Delete this {{ singular|lower }}?')">{% csrf_token %}<button class="jc-btn jc-danger" type="submit"><i class="ph ph-trash"></i> Delete</button></form>
-                </div></td>
-            </tr>
-        {% empty %}
-            <tr><td colspan="3" class="jc-empty">No {{ singular|lower }} records found.</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
+
+    <div style="overflow-x:auto">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th style="width:80px">#</th>
+                    <th>{{ singular }} Name</th>
+                    {% if master != 'categories' %}<th>{% if master == 'services' %}Service Category{% else %}Service Category / Service{% endif %}</th>{% endif %}
+                    <th style="width:120px;text-align:right">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td style="font-weight:500;color:#94a3b8">{{ forloop.counter }}</td>
+                    <td style="font-weight:600;color:#1e293b">
+                        <div style="display:flex;align-items:center;gap:12px">
+                            <div style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#64748b">
+                                {% if master == 'categories' %}<i class="ph-fill ph-folders"></i>{% elif master == 'services' %}<i class="ph-fill ph-wrench"></i>{% else %}<i class="ph-fill ph-warning-circle"></i>{% endif %}
+                            </div>
+                            {{ row.primary }}
+                        </div>
+                    </td>
+                    {% if master != 'categories' %}<td style="font-weight:500;color:#475569">{{ row.secondary }}</td>{% endif %}
+                    <td style="text-align:right">
+                        <div style="display:flex;gap:8px;justify-content:flex-end">
+                            <a href="{% url 'jobcard_master_edit' master=master id=row.id %}" class="action-btn edit" title="Edit"><i class="ph ph-pencil-simple" style="font-size:1.2rem"></i></a>
+                            <form method="post" action="{% url 'jobcard_master_delete' master=master id=row.id %}" onsubmit="return confirm('Delete this {{ singular|lower }}?')" style="margin:0">
+                                {% csrf_token %}
+                                <button type="submit" class="action-btn delete" title="Delete" style="border:0;background:transparent;cursor:pointer"><i class="ph ph-trash" style="font-size:1.2rem"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="text-align:center;padding:40px;color:#94a3b8">
+                    <i class="ph ph-folder-open" style="font-size:3rem;margin-bottom:12px;color:#cbd5e1;display:block"></i>
+                    No Job Card {{ singular|lower }} records found.
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
     {% if page_obj.paginator.num_pages > 1 %}
-    <div class="jc-pagination">
-        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&search={{ search|urlencode }}">Previous</a>{% endif %}
-        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&search={{ search|urlencode }}">Next</a>{% endif %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}" class="page-link">Previous</a>{% endif %}
+        <span style="font-weight:500">Page <span style="color:#1e293b">{{ page_obj.number }}</span> of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search|urlencode }}{% endif %}" class="page-link">Next</a>{% endif %}
     </div>
     {% endif %}
 </div>

@@ -94,7 +94,7 @@ def jobcard_master_form(request, master, id=None):
     service_categories = {str(service.id): str(service.category_id) for service in JobCardService.objects.filter(is_deleted=False)}
     return render(request, 'jobcard_master/form.html', {
         'master': master, 'title': f'{"Edit" if instance else "Create"} Job Card {config["singular"]}',
-        'list_title': config['title'], 'form': form,
+        'list_title': config['title'], 'singular': config['singular'], 'form': form,
         'service_categories': json.dumps(service_categories),
     })
 

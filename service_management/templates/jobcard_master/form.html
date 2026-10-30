@@ -5,29 +5,29 @@
 {% block breadcrumb_active %}{{ title }}{% endblock %}
 
 {% block content %}
-<style>
-    .jc-form{max-width:680px;margin:0 auto;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:24px}
-    .jc-field{margin-bottom:18px}.jc-field label{display:block;margin-bottom:7px;color:#475569;font-size:13px;font-weight:600}
-    .jc-field input,.jc-field select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:7px;background:white}
-    .jc-field input:focus,.jc-field select:focus{outline:2px solid #dbeafe;border-color:#2563eb}
-    .jc-error{color:#b91c1c;font-size:13px;margin-top:5px}.jc-actions{display:flex;justify-content:flex-end;gap:10px;padding-top:14px;border-top:1px solid #e2e8f0}
-    .jc-btn{padding:10px 15px;border-radius:7px;text-decoration:none;font-weight:600;border:0;cursor:pointer}.jc-primary{background:#000080;color:white}.jc-light{background:#f1f5f9;color:#334155}
-</style>
-<form class="jc-form" method="post">
-    {% csrf_token %}
-    {% for field in form %}
-    <div class="jc-field">
-        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% for error in field.errors %}<div class="jc-error">{{ error }}</div>{% endfor %}
+<div class="premium-form-container">
+    <div class="premium-form-title">
+        <i class="ph ph-clipboard-text" style="color:#3b82f6;font-size:1.5rem"></i>
+        {{ title }}
     </div>
-    {% endfor %}
-    {% for error in form.non_field_errors %}<div class="jc-error">{{ error }}</div>{% endfor %}
-    <div class="jc-actions">
-        <a class="jc-btn jc-light" href="{% url 'jobcard_master_list' master=master %}">Cancel</a>
-        <button class="jc-btn jc-primary" type="submit">Save</button>
-    </div>
-</form>
+    <form method="POST">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span style="color:red">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+            {% for error in field.errors %}<div class="error-text">{{ error }}</div>{% endfor %}
+        </div>
+        {% endfor %}
+        {% for error in form.non_field_errors %}<div class="error-text">{{ error }}</div>{% endfor %}
+        <div class="form-actions">
+            <a href="{% url 'jobcard_master_list' master=master %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary"><i class="ph ph-check-circle"></i> Save {{ singular }}</button>
+        </div>
+    </form>
+</div>
+
 {% if master == 'issues' %}
 {{ service_categories|json_script:'jobcard-service-categories' }}
 <script>
@@ -41,8 +41,7 @@ document.addEventListener('DOMContentLoaded', function () {
         service.replaceChildren();
         original.forEach(option => {
             if (!option.value || mapping[option.value] === category.value) {
-                const node = new Option(option.text, option.value);
-                service.add(node);
+                service.add(new Option(option.text, option.value));
             }
         });
         if (Array.from(service.options).some(option => option.value === selected)) service.value = selected;
