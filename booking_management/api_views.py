@@ -6012,6 +6012,7 @@ def _job_quotation_data(quotation, include_lines=False, request=None):
                 'service_id': str(item.service_id), 'service_name': item.service.name,
                 'issue_id': str(item.issue_id or ''), 'issue_text': item.issue_text,
                 'photos': [request.build_absolute_uri(photo.image.url) if request else photo.image.url for photo in item.photos.filter(is_deleted=False).order_by('sort_order')],
+                'photo_records': [{'id': str(photo.id), 'url': request.build_absolute_uri(photo.image.url) if request else photo.image.url} for photo in item.photos.filter(is_deleted=False).order_by('sort_order')],
             } for item in quotation.reported_issues.filter(is_deleted=False).select_related('category', 'service', 'issue').prefetch_related('photos')],
         })
     return data
@@ -6052,7 +6053,8 @@ def api_job_quotation_update(request, quotation_id):
     from client_management.models import CustomerType
     from master.models import VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor, EmissionStandard
     from core.functions import get_auto_id
-    from .models import JobQuotation, JobQuotationItem, JobQuotationExtra
+    from .models import JobQuotation, JobQuotationItem, JobQuotationExtra, JobQuotationIssue, JobQuotationIssuePhoto
+    from service_management.models import JobCardCategory, JobCardService, JobCardIssue
     user = get_user_from_token(request)
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
@@ -6063,7 +6065,12 @@ def api_job_quotation_update(request, quotation_id):
     if quotation.is_accepted:
         return JsonResponse({'success': False, 'message': 'Accepted quotations cannot be edited; create a revision'}, status=409)
     try:
-        data = json.loads(request.body or '{}')
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        if request.content_type and request.content_type.startswith('multipart/form-data'):
+            data = json.loads(request.POST.get('payload') or '{}')
+        else:
+            data = json.loads(request.body or '{}')
         with transaction.atomic():
             profile = data.get('customer_profile')
             vehicle_data = data.get('vehicle_details')
@@ -6141,6 +6148,71 @@ def api_job_quotation_update(request, quotation_id):
                         quantity=quantity, discount=discount, discount_type=row.get('discount_type') or 'amount',
                         discount_percentage=Decimal(str(row.get('discount_percentage') or 0)), total=total,
                         remarks=row.get('remarks') or '', auto_id=get_auto_id(JobQuotationExtra), creator=user)
+            if 'reported_issues' in data:
+                retained_reports = []
+                for index, row in enumerate(data.get('reported_issues') or []):
+                    category = JobCardCategory.objects.filter(id=row.get('category_id'), is_deleted=False).first()
+                    service = JobCardService.objects.filter(id=row.get('service_id'), category=category, is_deleted=False).first() if category else None
+                    issue = JobCardIssue.objects.filter(id=row.get('issue_id'), category=category, service=service, is_deleted=False).first() if row.get('issue_id') and category and service else None
+                    issue_text = (row.get('issue_text') or (issue.name if issue else '')).strip()
+                    if not category or not service or not issue_text:
+                        transaction.set_rollback(True)
+                        return JsonResponse({'success': False, 'message': f'Issue row {index + 1} has invalid category, service, or issue'}, status=400)
+                    report = JobQuotationIssue.objects.filter(
+                        id=row.get('report_id'), quotation=quotation, is_deleted=False
+                    ).first() if row.get('report_id') else None
+                    if row.get('report_id') and report is None:
+                        transaction.set_rollback(True)
+                        return JsonResponse({'success': False, 'message': f'Issue row {index + 1} was not found'}, status=404)
+                    if report is None:
+                        report = JobQuotationIssue(
+                            quotation=quotation, sort_order=index,
+                            auto_id=get_auto_id(JobQuotationIssue), creator=user,
+                        )
+                    report.category = category
+                    report.service = service
+                    report.issue = issue
+                    report.issue_text = issue_text
+                    report.sort_order = index
+                    report.updater = user if report.pk else None
+                    report.save()
+                    retained_reports.append(report.id)
+
+                    keep_photo_ids = [str(photo_id) for photo_id in row.get('keep_photo_ids', [])]
+                    active_photos = report.photos.filter(is_deleted=False)
+                    allowed_photo_ids = set(str(photo_id) for photo_id in active_photos.values_list('id', flat=True))
+                    if not set(keep_photo_ids).issubset(allowed_photo_ids):
+                        transaction.set_rollback(True)
+                        return JsonResponse({'success': False, 'message': f'Issue row {index + 1} contains an invalid photo'}, status=400)
+                    active_photos.exclude(id__in=keep_photo_ids).update(is_deleted=True, updater=user)
+                    uploads = request.FILES.getlist(f'issue_{index}_photos') if request.FILES else []
+                    if len(keep_photo_ids) + len(uploads) > 3:
+                        transaction.set_rollback(True)
+                        return JsonResponse({'success': False, 'message': f'Issue row {index + 1} can have at most 3 photos'}, status=400)
+                    for photo_index, photo in enumerate(uploads):
+                        if photo.size > 10 * 1024 * 1024:
+                            transaction.set_rollback(True)
+                            return JsonResponse({'success': False, 'message': 'Each issue photo must be 10 MB or smaller'}, status=400)
+                        try:
+                            from PIL import Image
+                            photo.seek(0)
+                            image = Image.open(photo)
+                            image.verify()
+                            photo.seek(0)
+                        except Exception:
+                            transaction.set_rollback(True)
+                            return JsonResponse({'success': False, 'message': 'Uploaded issue photo is not a valid image'}, status=400)
+                        photo_record = JobQuotationIssuePhoto(
+                            reported_issue=report,
+                            sort_order=len(keep_photo_ids) + photo_index,
+                            auto_id=get_auto_id(JobQuotationIssuePhoto), creator=user,
+                        )
+                        photo_record.image.save(photo.name, photo, save=False)
+                        photo_record.save()
+                removed_reports = quotation.reported_issues.filter(is_deleted=False).exclude(id__in=retained_reports)
+                removed_report_ids = list(removed_reports.values_list('id', flat=True))
+                JobQuotationIssuePhoto.objects.filter(reported_issue_id__in=removed_report_ids, is_deleted=False).update(is_deleted=True, updater=user)
+                removed_reports.update(is_deleted=True, updater=user)
         return JsonResponse({'success': True, 'quotation_id': str(quotation.id)})
     except Exception as exc:
         return JsonResponse({'success': False, 'message': str(exc)}, status=400)
