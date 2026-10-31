@@ -5978,6 +5978,11 @@ def _job_quotation_data(quotation, include_lines=False, request=None):
         'created_at': quotation.date_added.isoformat() if quotation.date_added else '',
         'date': quotation.date_added.date().isoformat() if quotation.date_added else '',
         'customer_comments': quotation.customer_comments or '',
+        'reported_issues': [{
+            'category_name': item.category.name,
+            'service_name': item.service.name,
+            'issue_text': item.issue_text,
+        } for item in quotation.reported_issues.filter(is_deleted=False).select_related('category', 'service').order_by('sort_order', 'date_added')],
     }
     if include_lines:
         data.update({
