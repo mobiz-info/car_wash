@@ -5970,7 +5970,20 @@ def _job_quotation_data(quotation, include_lines=False, request=None):
     data = {
         'id': str(quotation.id), 'quotation_number': quotation.quotation_number,
         'customer_name': quotation.customer.name, 'customer_phone': quotation.customer.phone or '',
+        'customer_type_id': str(quotation.customer.customer_type_id or ''),
+        'customer_type_name': quotation.customer.customer_type.name if quotation.customer.customer_type_id else '',
+        'whatsapp_number': quotation.customer.whatsapp_number or '', 'email': quotation.customer.email or '',
+        'state': quotation.customer.state or '', 'city': quotation.customer.city or '',
+        'tax_number': quotation.customer.tax_number or '', 'tin_number': quotation.customer.tin_number or '',
+        'pan_number': quotation.customer.pan_number or '',
         'vehicle_number': quotation.vehicle.vehicle_number, 'branch_name': quotation.branch.name if quotation.branch else '',
+        'vehicle_type_id': str(quotation.vehicle.vehicle_type_id or ''),
+        'segment_id': str(quotation.vehicle.vehicle_type_model_id or ''),
+        'make_id': str(quotation.vehicle.make_id or ''), 'brand_model_id': str(quotation.vehicle.brand_model_id or ''),
+        'color_id': str(quotation.vehicle.color_id or ''),
+        'emission_standard_id': str(quotation.vehicle.emission_standard_id or ''),
+        'fuel_type': quotation.vehicle.fuel_type or '', 'wheel_type': quotation.vehicle.wheel_type or 'normal_wheel',
+        'branch_id': str(quotation.branch_id or ''),
         'grand_total': float(quotation.grand_total or 0), 'lead_id': str(quotation.lead_id) if quotation.lead_id else '',
         'is_accepted': quotation.is_accepted, 'revision_of_id': str(quotation.revised_from_id) if quotation.revised_from_id else '',
         'revision_count': quotation.revisions.filter(is_deleted=False).count(),
@@ -6036,6 +6049,8 @@ def api_job_quotation_update(request, quotation_id):
     from django.db import transaction
     from client_management.models import Stock
     from service_management.models import Service
+    from client_management.models import CustomerType
+    from master.models import VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor, EmissionStandard
     from core.functions import get_auto_id
     from .models import JobQuotation, JobQuotationItem, JobQuotationExtra
     user = get_user_from_token(request)
@@ -6050,31 +6065,82 @@ def api_job_quotation_update(request, quotation_id):
     try:
         data = json.loads(request.body or '{}')
         with transaction.atomic():
+            profile = data.get('customer_profile')
+            vehicle_data = data.get('vehicle_details')
+            if profile is not None:
+                customer_type = CustomerType.objects.filter(id=profile.get('customer_type_id'), is_deleted=False).first()
+                name = (profile.get('name') or '').strip()
+                phone = (profile.get('phone') or '').strip()
+                state = (profile.get('state') or '').strip()
+                city = (profile.get('city') or '').strip()
+                if not name or not phone or not customer_type or not state or not city:
+                    return JsonResponse({'success': False, 'message': 'Name, customer type, mobile, Emirate/State and city are required'}, status=400)
+                tax_number = (profile.get('tax_number') or '').strip()
+                tin_number = (profile.get('tin_number') or '').strip()
+                pan_number = (profile.get('pan_number') or '').strip()
+                if 'corporate' in customer_type.name.lower() and not (tax_number and tin_number and pan_number):
+                    return JsonResponse({'success': False, 'message': 'Tax Registration No, TIN and PAN are required for corporate customers'}, status=400)
+                customer_updates = {
+                    'name': name, 'phone': phone, 'customer_type': customer_type,
+                    'whatsapp_number': (profile.get('whatsapp') or '').strip(),
+                    'email': (profile.get('email') or '').strip(), 'state': state, 'city': city,
+                    'tax_number': tax_number, 'tin_number': tin_number, 'pan_number': pan_number,
+                }
+            else:
+                customer_updates = None
+            if vehicle_data is not None:
+                plate = (vehicle_data.get('vehicle_number') or '').strip().upper()
+                segment = VehicleTypeModel.objects.filter(id=vehicle_data.get('segment_id'), is_active=True, is_deleted=False).first()
+                make = VehicleMake.objects.filter(id=vehicle_data.get('make_id'), is_active=True, is_deleted=False).first()
+                brand_model = VehicleBrandModel.objects.filter(id=vehicle_data.get('brand_model_id'), is_active=True, is_deleted=False).first()
+                if not plate or not segment or not make or not brand_model:
+                    return JsonResponse({'success': False, 'message': 'Vehicle number, make, model and segment are required'}, status=400)
+                if brand_model.make_id != make.id or brand_model.vehicle_type_model_id != segment.id:
+                    return JsonResponse({'success': False, 'message': 'Selected vehicle make, model and segment do not match'}, status=400)
+                vehicle = quotation.vehicle
+                vehicle.vehicle_number = plate
+                vehicle.vehicle_type = segment.vehicle_type
+                vehicle.vehicle_type_model = segment
+                vehicle.make = make
+                vehicle.brand_model = brand_model
+                vehicle.color = VehicleColor.objects.filter(id=vehicle_data.get('color_id'), is_deleted=False).first() if vehicle_data.get('color_id') else None
+                vehicle.emission_standard = EmissionStandard.objects.filter(id=vehicle_data.get('emission_standard_id'), is_deleted=False).first() if vehicle_data.get('emission_standard_id') else None
+                vehicle.fuel_type = vehicle_data.get('fuel_type') or ''
+                vehicle.wheel_type = vehicle_data.get('wheel_type') or 'normal_wheel'
+                vehicle.save()
+            if customer_updates is not None:
+                for field, value in customer_updates.items():
+                    setattr(quotation.customer, field, value)
+                quotation.customer.save()
+            if 'customer_comments' in data:
+                quotation.customer_comments = data.get('customer_comments') or ''
             for field in ('additional_services', 'additional_days_needed', 'subtotal', 'tax_percentage', 'tax_amount', 'discount', 'discount_type', 'discount_percentage', 'grand_total', 'is_grand_total'):
                 if field in data:
                     setattr(quotation, field, data[field])
             quotation.save()
-            quotation.items.all().delete()
-            quotation.extras.all().delete()
-            for row in data.get('items', []):
-                service = Service.objects.filter(id=row.get('service_id')).first() if row.get('service_id') else None
-                stock = Stock.objects.filter(id=row.get('stock_item_id')).first() if row.get('stock_item_id') else None
-                JobQuotationItem.objects.create(quotation=quotation, service=service,
-                    service_name=row.get('service_name') or (service.name if service else ''), stock_item=stock,
-                    stock_item_name=row.get('stock_item_name') or (stock.item_name if stock else ''),
-                    warranty_years=Decimal(str(row.get('warranty_years') or 0)), rate=Decimal(str(row.get('rate') or 0)),
-                    free_topup=row.get('free_topup') or '', quantity=Decimal(str(row.get('quantity', row.get('qty', 1)) or 1)),
-                    auto_id=get_auto_id(JobQuotationItem), creator=user)
-            for row in data.get('extras', []):
-                price, quantity = Decimal(str(row.get('price') or 0)), Decimal(str(row.get('quantity', row.get('qty', 1)) or 1))
-                discount = Decimal(str(row.get('discount') or 0))
-                if row.get('discount_type') == 'percentage':
-                    discount = price * quantity * Decimal(str(row.get('discount_percentage') or 0)) / Decimal('100')
-                total = Decimal(str(row['total'])) if row.get('total') is not None else max(Decimal('0'), price * quantity - discount)
-                JobQuotationExtra.objects.create(quotation=quotation, name=row.get('name') or '', price=price,
-                    quantity=quantity, discount=discount, discount_type=row.get('discount_type') or 'amount',
-                    discount_percentage=Decimal(str(row.get('discount_percentage') or 0)), total=total,
-                    remarks=row.get('remarks') or '', auto_id=get_auto_id(JobQuotationExtra), creator=user)
+            if 'items' in data:
+                quotation.items.all().delete()
+                for row in data.get('items', []):
+                    service = Service.objects.filter(id=row.get('service_id')).first() if row.get('service_id') else None
+                    stock = Stock.objects.filter(id=row.get('stock_item_id')).first() if row.get('stock_item_id') else None
+                    JobQuotationItem.objects.create(quotation=quotation, service=service,
+                        service_name=row.get('service_name') or (service.name if service else ''), stock_item=stock,
+                        stock_item_name=row.get('stock_item_name') or (stock.item_name if stock else ''),
+                        warranty_years=Decimal(str(row.get('warranty_years') or 0)), rate=Decimal(str(row.get('rate') or 0)),
+                        free_topup=row.get('free_topup') or '', quantity=Decimal(str(row.get('quantity', row.get('qty', 1)) or 1)),
+                        auto_id=get_auto_id(JobQuotationItem), creator=user)
+            if 'extras' in data:
+                quotation.extras.all().delete()
+                for row in data.get('extras', []):
+                    price, quantity = Decimal(str(row.get('price') or 0)), Decimal(str(row.get('quantity', row.get('qty', 1)) or 1))
+                    discount = Decimal(str(row.get('discount') or 0))
+                    if row.get('discount_type') == 'percentage':
+                        discount = price * quantity * Decimal(str(row.get('discount_percentage') or 0)) / Decimal('100')
+                    total = Decimal(str(row['total'])) if row.get('total') is not None else max(Decimal('0'), price * quantity - discount)
+                    JobQuotationExtra.objects.create(quotation=quotation, name=row.get('name') or '', price=price,
+                        quantity=quantity, discount=discount, discount_type=row.get('discount_type') or 'amount',
+                        discount_percentage=Decimal(str(row.get('discount_percentage') or 0)), total=total,
+                        remarks=row.get('remarks') or '', auto_id=get_auto_id(JobQuotationExtra), creator=user)
         return JsonResponse({'success': True, 'quotation_id': str(quotation.id)})
     except Exception as exc:
         return JsonResponse({'success': False, 'message': str(exc)}, status=400)
