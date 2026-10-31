@@ -479,3 +479,21 @@ class JobQuotationExtra(BaseModel):
     discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     remarks = models.TextField(blank=True, null=True)
+
+
+class JobQuotationIssue(BaseModel):
+    quotation = models.ForeignKey(JobQuotation, on_delete=models.CASCADE, related_name='reported_issues')
+    category = models.ForeignKey('service_management.JobCardCategory', on_delete=models.PROTECT, related_name='quotation_reports')
+    service = models.ForeignKey('service_management.JobCardService', on_delete=models.PROTECT, related_name='quotation_reports')
+    issue = models.ForeignKey('service_management.JobCardIssue', on_delete=models.SET_NULL, null=True, blank=True, related_name='quotation_reports')
+    issue_text = models.CharField(max_length=200)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'date_added']
+
+
+class JobQuotationIssuePhoto(BaseModel):
+    reported_issue = models.ForeignKey(JobQuotationIssue, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='job_quotation_issues/%Y/%m/')
+    sort_order = models.PositiveSmallIntegerField(default=0)

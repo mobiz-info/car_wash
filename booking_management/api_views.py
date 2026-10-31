@@ -5698,6 +5698,58 @@ def api_job_lead_history(request, lead_id):
 
 
 @csrf_exempt
+def api_job_card_issue_options(request):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'message': 'Only GET allowed'}, status=405)
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    company, _branch = _job_pipeline_scope(user)
+    if not company:
+        return JsonResponse({'success': False, 'message': 'Company not found'}, status=400)
+    from service_management.models import JobCardCategory, JobCardService, JobCardIssue
+    categories = JobCardCategory.objects.filter(is_deleted=False).order_by('name')
+    services = JobCardService.objects.filter(is_deleted=False, category__in=categories).select_related('category').order_by('category__name', 'name')
+    issues = JobCardIssue.objects.filter(is_deleted=False, service__in=services).select_related('category', 'service').order_by('name')
+    return JsonResponse({
+        'success': True,
+        'categories': [{'id': str(item.id), 'name': item.name} for item in categories],
+        'services': [{'id': str(item.id), 'name': item.name, 'category_id': str(item.category_id)} for item in services],
+        'issues': [{'id': str(item.id), 'name': item.name, 'category_id': str(item.category_id), 'service_id': str(item.service_id)} for item in issues],
+    })
+
+
+@csrf_exempt
+def api_job_card_issue_create(request):
+    from core.functions import get_auto_id
+    from service_management.models import JobCardCategory, JobCardService, JobCardIssue
+    user = get_user_from_token(request)
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+    company, _branch = _job_pipeline_scope(user)
+    if not company:
+        return JsonResponse({'success': False, 'message': 'Company not found'}, status=400)
+    try:
+        data = json.loads(request.body or '{}')
+        category = JobCardCategory.objects.get(id=data.get('category_id'), is_deleted=False)
+        service = JobCardService.objects.get(id=data.get('service_id'), category=category, is_deleted=False)
+        name = (data.get('name') or '').strip()
+        if not name or len(name) > 200:
+            return JsonResponse({'success': False, 'message': 'Issue name is required and must be at most 200 characters'}, status=400)
+        issue = JobCardIssue.objects.filter(category=category, service=service, name__iexact=name, is_deleted=False).first()
+        created = issue is None
+        if created:
+            issue = JobCardIssue.objects.create(category=category, service=service, name=name, auto_id=get_auto_id(JobCardIssue), creator=user)
+        return JsonResponse({'success': True, 'created': created, 'issue': {'id': str(issue.id), 'name': issue.name, 'category_id': str(issue.category_id), 'service_id': str(issue.service_id)}})
+    except (JobCardCategory.DoesNotExist, JobCardService.DoesNotExist):
+        return JsonResponse({'success': False, 'message': 'Selected category or service is invalid'}, status=400)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+
+@csrf_exempt
 @transaction.atomic
 def api_job_quotation_create(request):
     from decimal import Decimal
@@ -5706,12 +5758,44 @@ def api_job_quotation_create(request):
     from client_management.models import Customer, CustomerVehicle, CustomerType, Branch, Stock
     from master.models import VehicleTypeModel, VehicleMake, VehicleBrandModel, VehicleColor, EmissionStandard
     from service_management.models import Service
-    from .models import JobLead, JobLeadFollowUp, JobQuotation, JobQuotationItem, JobQuotationExtra
+    from .models import JobLead, JobLeadFollowUp, JobQuotation, JobQuotationItem, JobQuotationExtra, JobQuotationIssue, JobQuotationIssuePhoto
     user = get_user_from_token(request)
     if not user:
         return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    stored_image_names = []
     try:
-        data = json.loads(request.body or '{}')
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'message': 'Only POST allowed'}, status=405)
+        if request.content_type and request.content_type.startswith('multipart/form-data'):
+            data = json.loads(request.POST.get('payload') or '{}')
+        else:
+            data = json.loads(request.body or '{}')
+        from service_management.models import JobCardCategory, JobCardService, JobCardIssue
+        prepared_issues = []
+        for index, row in enumerate(data.get('reported_issues') or []):
+            category = JobCardCategory.objects.filter(id=row.get('category_id'), is_deleted=False).first()
+            service = JobCardService.objects.filter(id=row.get('service_id'), category=category, is_deleted=False).first() if category else None
+            issue = JobCardIssue.objects.filter(id=row.get('issue_id'), category=category, service=service, is_deleted=False).first() if row.get('issue_id') and category and service else None
+            issue_text = (row.get('issue_text') or (issue.name if issue else '')).strip()
+            photos = request.FILES.getlist(f'issue_{index}_photos') if request.FILES else []
+            if not category or not service or not issue or not issue_text:
+                return JsonResponse({'success': False, 'message': f'Issue row {index + 1} has invalid category, service, or issue'}, status=400)
+            if len(photos) > 3:
+                return JsonResponse({'success': False, 'message': f'Issue row {index + 1} can have at most 3 photos'}, status=400)
+            for photo in photos:
+                if photo.size > 10 * 1024 * 1024:
+                    return JsonResponse({'success': False, 'message': 'Each issue photo must be 10 MB or smaller'}, status=400)
+                try:
+                    from PIL import Image
+                    photo.seek(0)
+                    image = Image.open(photo)
+                    image.verify()
+                    if image.format not in ('JPEG', 'PNG', 'WEBP'):
+                        raise ValueError('Only JPEG, PNG, and WebP photos are supported')
+                    photo.seek(0)
+                except Exception:
+                    return JsonResponse({'success': False, 'message': 'An uploaded issue photo is not a valid JPEG, PNG, or WebP image'}, status=400)
+            prepared_issues.append((category, service, issue, issue_text, photos))
         company, branch = _job_pipeline_scope(user)
         lead = None
         if data.get('lead_id'):
@@ -5849,6 +5933,19 @@ def api_job_quotation_create(request):
                     discount_type=row.get('discount_type') or 'amount', discount_percentage=Decimal(str(row.get('discount_percentage') or 0)),
                     total=total, remarks=row.get('remarks') or '', auto_id=get_auto_id(JobQuotationExtra), creator=user,
                 )
+            for index, (category, issue_service, issue, issue_text, photos) in enumerate(prepared_issues):
+                reported_issue = JobQuotationIssue.objects.create(
+                    quotation=quotation, category=category, service=issue_service, issue=issue,
+                    issue_text=issue_text, sort_order=index, auto_id=get_auto_id(JobQuotationIssue), creator=user,
+                )
+                for photo_index, photo in enumerate(photos):
+                    photo_record = JobQuotationIssuePhoto(
+                        reported_issue=reported_issue, sort_order=photo_index,
+                        auto_id=get_auto_id(JobQuotationIssuePhoto), creator=user,
+                    )
+                    photo_record.image.save(photo.name, photo, save=False)
+                    stored_image_names.append(photo_record.image.name)
+                    photo_record.save()
             if lead:
                 lead.status = JobLead.STATUS_QUOTED
                 lead.save(update_fields=['status', 'date_updated'])
@@ -5858,10 +5955,13 @@ def api_job_quotation_create(request):
         return JsonResponse({'success': False, 'message': 'Customer or vehicle not found'}, status=404)
     except Exception as exc:
         transaction.set_rollback(True)
+        from django.core.files.storage import default_storage
+        for image_name in stored_image_names:
+            default_storage.delete(image_name)
         return JsonResponse({'success': False, 'message': str(exc)}, status=400)
 
 
-def _job_quotation_data(quotation, include_lines=False):
+def _job_quotation_data(quotation, include_lines=False, request=None):
     try:
         linked_job = quotation.job_card
         linked_job_id = str(linked_job.id)
@@ -5889,6 +5989,12 @@ def _job_quotation_data(quotation, include_lines=False):
             'discount_percentage': float(quotation.discount_percentage), 'is_grand_total': quotation.is_grand_total,
             'items': [{'service_id': str(i.service_id) if i.service_id else '', 'service_name': i.service_name, 'stock_item_id': str(i.stock_item_id) if i.stock_item_id else '', 'stock_item_name': i.stock_item_name or '', 'warranty_years': float(i.warranty_years), 'rate': float(i.rate), 'quantity': float(i.quantity), 'free_topup': i.free_topup or ''} for i in quotation.items.filter(is_deleted=False)],
             'extras': [{'name': e.name, 'price': float(e.price), 'quantity': float(e.quantity), 'discount': float(e.discount), 'discount_type': e.discount_type, 'discount_percentage': float(e.discount_percentage), 'total': float(e.total), 'remarks': e.remarks or ''} for e in quotation.extras.filter(is_deleted=False)],
+            'reported_issues': [{
+                'id': str(item.id), 'category_id': str(item.category_id), 'category_name': item.category.name,
+                'service_id': str(item.service_id), 'service_name': item.service.name,
+                'issue_id': str(item.issue_id or ''), 'issue_text': item.issue_text,
+                'photos': [request.build_absolute_uri(photo.image.url) if request else photo.image.url for photo in item.photos.filter(is_deleted=False).order_by('sort_order')],
+            } for item in quotation.reported_issues.filter(is_deleted=False).select_related('category', 'service', 'issue').prefetch_related('photos')],
         })
     return data
 
@@ -5916,7 +6022,7 @@ def api_job_quotation_detail(request, quotation_id):
     quotation = JobQuotation.objects.filter(id=quotation_id, customer__company=company, is_deleted=False).select_related('customer', 'vehicle', 'branch', 'lead').first()
     if not quotation or (branch and quotation.branch_id != branch.id):
         return JsonResponse({'success': False, 'message': 'Quotation not found'}, status=404)
-    return JsonResponse({'success': True, 'quotation': _job_quotation_data(quotation, True)})
+    return JsonResponse({'success': True, 'quotation': _job_quotation_data(quotation, True, request)})
 
 
 @csrf_exempt
