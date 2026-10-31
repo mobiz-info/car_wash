@@ -6,6 +6,7 @@ urlpatterns = [
     path('jobcard/<str:master>/create/', views.jobcard_master_form, name='jobcard_master_create'),
     path('jobcard/<str:master>/edit/<uuid:id>/', views.jobcard_master_form, name='jobcard_master_edit'),
     path('jobcard/<str:master>/delete/<uuid:id>/', views.jobcard_master_delete, name='jobcard_master_delete'),
+    path('jobcard/services/by-category/<uuid:category_id>/', views.jobcard_services_by_category, name='jobcard_services_by_category'),
     path('service-types/', views.service_type_list, name='service_type_list'),
     path('service-types/create/', views.service_type_create, name='service_type_create'),
     path('service-types/edit/<uuid:id>/', views.service_type_edit, name='service_type_edit'),

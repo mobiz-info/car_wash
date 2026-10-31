@@ -1,5 +1,3 @@
-import json
-
 from django.views.generic import TemplateView
 from django.shortcuts import render, get_object_or_404, redirect, reverse
 from django.contrib import messages
@@ -8,6 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
+from django.http import JsonResponse
 from decimal import Decimal
 from django.db.models import Q
 
@@ -91,11 +90,22 @@ def jobcard_master_form(request, master, id=None):
         item.save()
         messages.success(request, f'Job Card {config["singular"].lower()} saved successfully.')
         return redirect('jobcard_master_list', master=master)
-    service_categories = {str(service.id): str(service.category_id) for service in JobCardService.objects.filter(is_deleted=False)}
     return render(request, 'jobcard_master/form.html', {
         'master': master, 'title': f'{"Edit" if instance else "Create"} Job Card {config["singular"]}',
         'list_title': config['title'], 'singular': config['singular'], 'form': form,
-        'service_categories': json.dumps(service_categories),
+    })
+
+
+@login_required
+@_superadmin_required
+def jobcard_services_by_category(request, category_id):
+    services = JobCardService.objects.filter(
+        category_id=category_id,
+        category__is_deleted=False,
+        is_deleted=False,
+    ).order_by('name')
+    return JsonResponse({
+        'services': [{'id': str(service.id), 'name': service.name} for service in services],
     })
 
 

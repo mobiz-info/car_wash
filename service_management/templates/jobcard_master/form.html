@@ -29,25 +29,42 @@
 </div>
 
 {% if master == 'issues' %}
-{{ service_categories|json_script:'jobcard-service-categories' }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const category = document.getElementById('id_category');
     const service = document.getElementById('id_service');
-    const mapping = JSON.parse(document.getElementById('jobcard-service-categories').textContent);
-    const original = Array.from(service.options).map(option => ({value: option.value, text: option.text}));
-    function filterServices() {
-        const selected = service.value;
-        service.replaceChildren();
-        original.forEach(option => {
-            if (!option.value || mapping[option.value] === category.value) {
-                service.add(new Option(option.text, option.value));
+    const endpoint = '{% url "jobcard_services_by_category" "00000000-0000-0000-0000-000000000000" %}';
+    let requestId = 0;
+
+    async function loadServices(preserveSelection) {
+        const selectedService = preserveSelection ? service.value : '';
+        const currentRequest = ++requestId;
+        service.replaceChildren(new Option('-- Select service --', ''));
+        service.disabled = true;
+        if (!category.value) {
+            service.disabled = false;
+            return;
+        }
+
+        try {
+            const url = endpoint.replace('00000000-0000-0000-0000-000000000000', category.value);
+            const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+            if (!response.ok) throw new Error('Unable to load services');
+            const data = await response.json();
+            if (currentRequest !== requestId) return;
+            data.services.forEach(item => service.add(new Option(item.name, item.id)));
+            if (data.services.some(item => item.id === selectedService)) service.value = selectedService;
+        } catch (error) {
+            if (currentRequest === requestId) {
+                service.replaceChildren(new Option('Unable to load services', ''));
             }
-        });
-        if (Array.from(service.options).some(option => option.value === selected)) service.value = selected;
+        } finally {
+            if (currentRequest === requestId) service.disabled = false;
+        }
     }
-    category.addEventListener('change', filterServices);
-    filterServices();
+
+    category.addEventListener('change', () => loadServices(false));
+    loadServices(true);
 });
 </script>
 {% endif %}
